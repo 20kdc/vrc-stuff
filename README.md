@@ -1,34 +1,21 @@
-# vrc-sigmar
+# vrc-stuff
 
-An implementation of Sigmar's Garden (from [Zachtronics's Opus Magnum](https://store.steampowered.com/app/558990/Opus_Magnum/)) as an asset for VRChat worlds.
+Monorepo for 20kdc VRChat projects.
 
-(A proper demo world for this asset is pending a lot of work that may not happen.)
+Includes:
 
-...Ok, so, this project wasn't intended to take as long as it did and be as complicated as it is. This was intended to be a silly weekend project. Then, it wasn't.
-
-Among other things, it accidentally dug up a field of Unity and VRChat SDK bugs and summoned a spaghetti graph code monster.
-
-As it is, I think I've managed to create a reasonably self-contained game asset you can just drop into a world. Sync appears to work though there's probably some way to break it. Good enough. Don't do that.
-
-I will say, as a postmortem on this project: This made me feel like I am simultaneously fighting a bloated, buggy, memory-hog of an engine, a messy and painful sandboxing system on top of it, and _on top of that,_ three languages broken in different but equally crippling ways (broken constants, 'actually Unity's fault because domain reloading crash', broken compiler and literally can't write `|` in strings without breaking things)
-
-The only reason I touch this engine is because it's the only way to make stuff for one of the unfortunately few platforms that care _slightly more_ about reasonable hardware.
+* `kip32`: Compiling C (via RISC-V) to Udon (and beyond?)
+* `kvtools`: Utilities for 20kdc worlds and development.
+* `vrc-sigmar`: An implementation of Sigmar's Garden (from [Zachtronics's Opus Magnum](https://store.steampowered.com/app/558990/Opus_Magnum/)) as an asset for VRChat worlds.
+	* (A proper demo world for this asset is pending a lot of work that may not happen.)
 
 ## Licensing etc.
 
-Firstly, there is obviously the matter of the rules being implemented.
+Each individual sub-project may have further relevant licensing considerations in its README.
 
-However, copyrighting the _mechanics_ of a game isn't _exactly_ a thing, except when it's a video game _and_ patents are involved. I do not believe this is the case here.
+To the best of my understanding, the COPYING file applies to the full current contents of this repository, but in the event my conclusions are incorrect, it is still important to review these details.
 
-Secondly, there's the board database, sourced by having <https://bits.ondrovo.com/sigmar/> generate 2048 different boards. (It's all client-side, don't worry.)
-
-I'm assuming that there are no issues with this due to it being kind of in the realm of 'particular random numbers'.
-
-Thirdly, there's the original work in this repository.
-
-All visual assets for this implementation were either custom-designed/rendered or are derived from fonts (falling under the classification of 'documents').
-
-Where possible, the contents of this repository are released as so:
+That in mind, where possible, the contents of this repository are released as so:
 
 ```
 This is free and unencumbered software released into the public domain.
@@ -56,8 +43,3 @@ OTHER DEALINGS IN THE SOFTWARE.
 
 For more information, please refer to <http://unlicense.org>
 ```
-
-Regardless of this notice, it is likely for the best that copies of this repository continue to acknowledge that:
-
-1. None of Zachtronics, MightyPork, or VRChat have endorsed this implementation
-2. The board database was generated using MightyPork's work at <https://bits.ondrovo.com/sigmar/>
