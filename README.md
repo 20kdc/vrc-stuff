@@ -8,6 +8,7 @@ Includes:
 * `kvtools`: Utilities for 20kdc worlds and development.
 * `vrc-sigmar`: An implementation of Sigmar's Garden (from [Zachtronics's Opus Magnum](https://store.steampowered.com/app/558990/Opus_Magnum/)) as an asset for VRChat worlds.
 	* (A proper demo world for this asset is pending a lot of work that may not happen.)
+* `vrc-textslidesystem`: A system to, i.e. let people on a stage broadcast their prewritten announcements on a text display. (Text can also be input live.)
 
 ## Licensing etc.
 
