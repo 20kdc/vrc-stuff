@@ -8,6 +8,7 @@ using VRC.Udon.Graph;
 using VRC.Udon.Common.Interfaces;
 using VRC.Udon.Editor;
 using VRC.Udon.EditorBindings;
+using VRC.SDK3.Network;
 using UdonSharp.Compiler.Udon;
 
 namespace KDCVRCTools {
@@ -91,6 +92,14 @@ namespace KDCVRCTools {
 			total.Add("SystemSingleArray");
 			total.Add("onAudioFilterReadChannels");
 			total.Add("SystemInt32");
+			for (int i = 0; i < 256; i++) {
+				System.Type res = VRCUdonSyncTypeConverter.UdonTypeToType((VRCUdonSyncType) i);
+				if (res != null) {
+					total.Add("SYNCTYPEID");
+					total.Add(i.ToString());
+					total.Add(GetUdonTypeName(getUdonTypeName, res));
+				}
+			}
 			// done!
 			total.Add("END");
 			System.IO.File.WriteAllText(Application.dataPath + "/datamine.txt", string.Join("\n", total));

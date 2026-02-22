@@ -7,9 +7,11 @@ data = {}
 data_externs = {}
 data_types = {}
 data_events = {}
+data_synctype = []
 data["externs"] = data_externs
 data["types"] = data_types
 data["events"] = data_events
+data["sync_types"] = data_synctype
 
 while True:
 	decltype = dfile.readline().strip()
@@ -83,7 +85,24 @@ while True:
 		eval_name = dfile.readline().strip()
 		eval_value = int(dfile.readline().strip())
 		data_types[eval_type]["enumValues"][eval_name] = eval_value
+	elif decltype == "SYNCTYPEID":
+		st_id = int(dfile.readline().strip())
+		st_ty = dfile.readline().strip()
+		while len(data_synctype) <= st_id:
+			data_synctype.append(None)
+		data_synctype[st_id] = {
+			"sync_type": st_id,
+			"name": st_ty
+		}
 	else:
 		raise Exception("Unknown decltype " + decltype)
 
 json.dump(data, open("api.json", "w"), indent="\t")
+
+sync_type_table = open("synctypes.md", "w")
+sync_type_table.write("| Type Index | Udon Type |\n")
+sync_type_table.write("| ---------- | --------- |\n")
+for st in data_synctype:
+	if st != None:
+		sync_type_table.write("| " + str(st["sync_type"]) + " | `" + st["name"] + "` |\n")
+sync_type_table.close()

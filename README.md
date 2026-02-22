@@ -6,7 +6,8 @@ Includes:
 
 * `docs`: Consider this an arcane codex ;3
 * `kip32`: Compiling C (via RISC-V) to Udon (and beyond?)
-* `kvtools`: Utilities for 20kdc worlds and development.
+* `kvassets`: Assets for 20kdc worlds.
+* `kvtools`: Non-asset universal utilities.
 * `vrc-sigmar`: An implementation of Sigmar's Garden (from [Zachtronics's Opus Magnum](https://store.steampowered.com/app/558990/Opus_Magnum/)) as an asset for VRChat worlds.
 	* (A proper demo world for this asset is pending a lot of work that may not happen.)
 * `vrc-textslidesystem`: A system to, i.e. let people on a stage broadcast their prewritten announcements on a text display. (Text can also be input live.)

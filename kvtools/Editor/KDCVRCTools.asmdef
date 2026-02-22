@@ -3,6 +3,7 @@
     "rootNamespace": "",
     "references": [
         "VRC.Udon",
+        "VRC.Udon.Serialization.OdinSerializer",
         "VRC.Udon.Editor",
         "UdonSharp.Editor"
     ],
