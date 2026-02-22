@@ -58,6 +58,12 @@ When reading an entry, `PeekEntry` is used to read the header, and then the appr
 
 Node IDs are particularly important -- when present, they establish internal references that may be called upon later. For this reason, even 'skipped' entries (i.e. for missing fields) are fully deserialized whenever possible.
 
+Implied in the whole arrangement is a key rule: **A 'value' is either a single entry in size, or uses a `StartOf`/`EndOf` arrangement.**
+
+Preventing this rule from being broken is both the need to ensure names are always propagated correctly, and the distinction between a 'serializer' and a 'formatter'. A serializer is chosen using the _field's type_ (and has to worry about propagating the field name) while a formatter is chosen using the _object's type_ (and doesn't).
+
+Reference/struct formatters wrap their values in the appropriate start/end entries. (Note, however, it can theoretically be a complete free-for-all on named/unnamed fields _inside_ the node.)
+
 ### Binary Format
 
 The OdinSerializer binary format is little-endian.
