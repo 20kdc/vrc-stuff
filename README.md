@@ -4,6 +4,7 @@ Monorepo for 20kdc VRChat projects.
 
 Includes:
 
+* `docs`: Consider this an arcane codex ;3
 * `kip32`: Compiling C (via RISC-V) to Udon (and beyond?)
 * `kvtools`: Utilities for 20kdc worlds and development.
 * `vrc-sigmar`: An implementation of Sigmar's Garden (from [Zachtronics's Opus Magnum](https://store.steampowered.com/app/558990/Opus_Magnum/)) as an asset for VRChat worlds.
