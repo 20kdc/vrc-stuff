@@ -62,7 +62,7 @@ Implied in the whole arrangement is a key rule: **A 'value' is either a single e
 
 Preventing this rule from being broken is both the need to ensure names are always propagated correctly, and the distinction between a 'serializer' and a 'formatter'. A serializer is chosen using the _field's type_ (and has to worry about propagating the field name) while a formatter is chosen using the _object's type_ (and doesn't).
 
-Reference/struct formatters wrap their values in the appropriate start/end entries. (Note, however, it can theoretically be a complete free-for-all on named/unnamed fields _inside_ the node.)
+Reference/struct serializers wrap the formatters with the appropriate start/end entries. (Note, however, it can theoretically be a complete free-for-all on named/unnamed fields _inside_ the node.)
 
 ### Binary Format
 
