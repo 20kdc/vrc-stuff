@@ -30,7 +30,7 @@ namespace KDCVRCTools {
 						IUdonProgram program = asset.RetrieveProgram();
 						try {
 							string unityJsonFile = Path.Combine(uresdb, fn + ".unity.json");
-							File.WriteAllText(unityJsonFile, JsonUtility.ToJson(asset));
+							File.WriteAllText(unityJsonFile, EditorJsonUtility.ToJson(asset));
 						} catch (Exception ex) {
 							Debug.Log(" at " + fn + " - ujson");
 							Debug.LogError(ex);

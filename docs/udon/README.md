@@ -26,6 +26,8 @@ Because of a whole load of complications (see `EDITOR.md`), the `kvtools` set us
 
 This is given as `.unity.json` in the example files and in the dataminer (mainly so that we don't get a recursively importy mess).
 
+When writing out from within Unity, `EditorJsonUtility.ToJson` specifically _must_ be used, as otherwise file references are lost.
+
 ## Odin Serializer
 
 The Udon program's bytes (after base64, or gzip, or etc.) are encoded using a vendored OdinSerializer.

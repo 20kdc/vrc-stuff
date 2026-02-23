@@ -1,0 +1,5 @@
+#!/bin/sh
+cp "$1/SerializedUdonPrograms/$2.asset" docExample.asset
+cp "$1/KDCVRCDumpUdonJSON/$2.asset.odin.json" docExample.odin.json
+cp "$1/KDCVRCDumpUdonJSON/$2.asset.odin.bin" docExample.odin.bin
+cp "$1/KDCVRCDumpUdonJSON/$2.asset.unity.json" docExample.unity.json

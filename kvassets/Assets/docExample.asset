@@ -15,14 +15,16 @@ MonoBehaviour:
   serializedUdonProgramAsset: {fileID: 11400000, guid: 83b3d2d5d5da7a2fe958ea8caeb03c96,
     type: 2}
   udonAssembly: ".data_start\n\n    .export floatSmooth\n    .export floatLinear\n   
-    .sync floatSmooth, smooth\n    .sync floatLinear, linear\n    \n    __message_0:
-    %SystemObject, null\n    __EventName_0: %SystemString, null\n    __MaxEventsPerSecond_0:
-    %SystemInt32, null\n    __Parameter1_type_0: %SystemType, null\n    NetworkEventTest_Parameter1:
-    %SystemString, null\n    __message_1: %SystemObject, null\n    __instance_0:
-    %UnityEngineGameObject, this\n    __GameObject_0: %UnityEngineGameObject, this\n   
-    floatSmooth: %SystemSingle, null\n    floatLinear: %SystemSingle, null\n\n.data_end\n\n.code_start\n\n   
-    .export NetworkEventTest\n    \n    NetworkEventTest:\n    \n        PUSH, NetworkEventTest_Parameter1\n       
-    PUSH, __message_0\n        COPY\n        PUSH, __message_0\n        EXTERN, \"UnityEngineDebug.__Log__SystemObject__SystemVoid\"\n       
+    .export ofAllTheThingsToWork\n    .sync floatSmooth, smooth\n    .sync floatLinear,
+    linear\n    \n    __message_0: %SystemObject, null\n    __EventName_0: %SystemString,
+    null\n    __MaxEventsPerSecond_0: %SystemInt32, null\n    __Parameter1_type_0:
+    %SystemType, null\n    NetworkEventTest_Parameter1: %SystemString, null\n   
+    __message_1: %SystemObject, null\n    __instance_0: %UnityEngineGameObject, this\n   
+    __GameObject_0: %UnityEngineGameObject, this\n    floatSmooth: %SystemSingle,
+    null\n    floatLinear: %SystemSingle, null\n    ofAllTheThingsToWork: %UnityEngineObject,
+    null\n\n.data_end\n\n.code_start\n\n    .export NetworkEventTest\n    \n    NetworkEventTest:\n   
+    \n        PUSH, NetworkEventTest_Parameter1\n        PUSH, __message_0\n       
+    COPY\n        PUSH, __message_0\n        EXTERN, \"UnityEngineDebug.__Log__SystemObject__SystemVoid\"\n       
     JUMP, 0xFFFFFFFC\n    \n    .export _interact\n    \n    _interact:\n    \n       
     PUSH, __GameObject_0\n        PUSH, __instance_0\n        COPY\n        PUSH,
     __instance_0\n        PUSH, __message_1\n        EXTERN, \"UnityEngineGameObject.__get_name__SystemString\"\n       
@@ -139,6 +141,31 @@ MonoBehaviour:
       nodeValues:
       - unityObjectValue: {fileID: 0}
         stringValue: 
+    - fullName: Variable_UnityEngineObject
+      uid: 36cf1ce7-f191-4ecb-ba2e-8fa1f937e2f7
+      position: {x: 0, y: 0}
+      nodeUIDs:
+      - 
+      - 
+      - 
+      - 
+      - 
+      flowUIDs: []
+      nodeValues:
+      - unityObjectValue: {fileID: 2100000, guid: e10ab24bd1c8f7abca1605dfcddbc499,
+          type: 2}
+        stringValue: UnityEngine.Material, UnityEngine.CoreModule, Version=0.0.0.0,
+          Culture=neutral, PublicKeyToken=null|
+      - unityObjectValue: {fileID: 0}
+        stringValue: System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089|ofAllTheThingsToWork
+      - unityObjectValue: {fileID: 0}
+        stringValue: System.Boolean, mscorlib, Version=4.0.0.0, Culture=neutral,
+          PublicKeyToken=b77a5c561934e089|True
+      - unityObjectValue: {fileID: 0}
+        stringValue: System.Boolean, mscorlib, Version=4.0.0.0, Culture=neutral,
+          PublicKeyToken=b77a5c561934e089|False
+      - unityObjectValue: {fileID: 0}
+        stringValue: System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089|none
     updateOrder: 0
   graphElementData: []
   version: 1.0.0
