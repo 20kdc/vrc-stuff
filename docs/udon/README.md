@@ -60,9 +60,33 @@ Node IDs are particularly important -- when present, they establish internal ref
 
 Implied in the whole arrangement is a key rule: **A 'value' is either a single entry in size, or uses a `StartOf`/`EndOf` arrangement.**
 
-Preventing this rule from being broken is both the need to ensure names are always propagated correctly, and the distinction between a 'serializer' and a 'formatter'. A serializer is chosen using the _field's type_ (and has to worry about propagating the field name) while a formatter is chosen using the _object's type_ (and doesn't).
+Preventing this rule from being broken is both the need to ensure names are always propagated correctly, and the distinction between a 'serializer' and a 'formatter'.
+
+To summarize how this fits together, observe the following tree:
+
+* Serializer: Operates at entry level. Specialized formatters are used for anything encoded _in a single entry._ Has access to field information.
+	* All base integer types are serializers.
+	* ComplexTypeSerializer: Encodes null directly, or wraps in start-of-reference-node or start-of-struct-node as appropriate.
+		* Assuming there is something to encode, finds the appropriate formatter and passes control to the formatter layer.
+		* **ComplexTypeSerializer is used for all reference types except String.**
+* Formatter: Operates _within_ a reference or struct node. Implements encoding/decoding the contents.
+
+A serializer is chosen using the _field's type_ (and has to worry about propagating the field name) while a formatter is chosen using the _object's type_ (and doesn't).
 
 Reference/struct serializers wrap the formatters with the appropriate start/end entries. (Note, however, it can theoretically be a complete free-for-all on named/unnamed fields _inside_ the node.)
+
+Another problem to keep in mind is that there's no distinction between a named and unnamed array. **This is because arrays are reference types -- all reference types except `String` are wrapped appropriately.**
+
+The following example trace shows how an array field is encoded:
+
+```
+Value(Some("ExportedSymbols"), StartRefNode(TypeID(13), 22)),
+StartOfArray(2),
+Value(None, Primitive(String("message"))),
+Value(None, Primitive(String("syncMe"))),
+EndOfArray,
+EndOfNode,
+```
 
 ### Binary Format
 
@@ -105,9 +129,10 @@ To follow along with the structures, please use `helloWorld.odin.json`. The corr
 
 The "JSON" file is written using "OdinSerializer JSON", which is not really JSON. But it makes a good, _reliable_ (unlike Udon Assembly), easy to access reference, so that's what'll be used here.
 
-Programs are a `VRC.Udon.Common.UdonProgram` instance, consisting of:
+Programs are a `VRC.Udon.Common.UdonProgram` instance, consisting of, **in this order**:
 
-* `InstructionSetIdentifier` (`UDON`) and `InstructionSetVersion` (1).
+* `InstructionSetIdentifier` (`UDON`)
+* `InstructionSetVersion` (1)
 * `ByteCode`: A byte array of little-endian uint32 values. These are addressed by their indexes multiplied by 4, even though the accesses can't be offset at all.
 * `Heap`: Also known as `VRC.Udon.Common.UdonHeap`. Constant and dynamic values through the life of the program. This is an array of values; a "heap index" is an index into this array.
 * `EntryPoints`: This is a `VRC.Udon.Common.UdonSymbolTable` mapping names to code addresses, with a second list of "exported" symbols. (Event handlers are exported.)
@@ -117,6 +142,7 @@ Programs are a `VRC.Udon.Common.UdonProgram` instance, consisting of:
 
 Some key notes:
 
+* There is a custom `UdonProgramFormatter` at play. It is not particularly flexible - _fields must be in their exact order. Names may as well be ignored._
 * The code must purely consist of _a_ valid instruction sequence, though misinterpretation of parameters as code is allowed and may bypass the intent of this rule.
 * Non-exported symbols are still important to execution, such as `onStringLoadSuccessIVRCStringDownload`: This variable is not exported, but the `_onStringLoadSuccess` event handler presumably uses it to store the parameter.
 
