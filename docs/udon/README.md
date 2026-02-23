@@ -20,6 +20,12 @@ This is a pretty standard Unity asset, with a few key fields:
 * `networkCallingEntrypointMetadata`: Array of `NetworkCallingEntrypointMetadata`. Used for 'validated RPC'; ClientSim in particular checks this. This is described at the end of the document.
 * `programUnityEngineObjects`: This is a list, used to encode references to i.e. Unity resources from within the program binary blob.
 
+_**A key scary note:**_
+
+Because of a whole load of complications (see `EDITOR.md`), the `kvtools` set uses Unity JSON files with the extension `.udonjson` to represent `SerializedUdonProgramAsset`s.
+
+This is given as `.unity.json` in the example files and in the dataminer (mainly so that we don't get a recursively importy mess).
+
 ## Odin Serializer
 
 The Udon program's bytes (after base64, or gzip, or etc.) are encoded using a vendored OdinSerializer.
@@ -147,7 +153,7 @@ With all of this in mind, the functions to pay attention to in [`BinaryDataReade
 
 ## Program Format
 
-To follow along with the structures, please use `helloWorld.odin.json`. The corresponding Udon Assembly is `helloWorld.uasm`.
+To follow along with the structures, please use `docExample.odin.json`. The corresponding Udon Graph is kept in `kvassets`.
 
 The "JSON" file is written using "OdinSerializer JSON", which is not really JSON. But it makes a good, _reliable_ (unlike Udon Assembly), easy to access reference, so that's what'll be used here.
 

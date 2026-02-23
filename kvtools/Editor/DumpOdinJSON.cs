@@ -29,6 +29,13 @@ namespace KDCVRCTools {
 					if (asset != null) {
 						IUdonProgram program = asset.RetrieveProgram();
 						try {
+							string unityJsonFile = Path.Combine(uresdb, fn + ".unity.json");
+							File.WriteAllText(unityJsonFile, JsonUtility.ToJson(asset));
+						} catch (Exception ex) {
+							Debug.Log(" at " + fn + " - ujson");
+							Debug.LogError(ex);
+						}
+						try {
 							string odinBinFile = Path.Combine(uresdb, fn + ".odin.bin");
 							byte[] serializedBin = VRC.Udon.Serialization.OdinSerializer.SerializationUtility.SerializeValue(program, DataFormat.Binary, out List<UnityEngine.Object> serializedUEOBin);
 							File.WriteAllBytes(odinBinFile, serializedBin);
