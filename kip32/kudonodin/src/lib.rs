@@ -24,6 +24,9 @@ use std::io::{Read, Write};
 #[cfg(test)]
 mod tests;
 
+mod ast;
+pub use ast::*;
+
 // Our main strategy here is to, above all else, **NOT** follow OdinSerializer's API style, since that would make the code a 1:1 translation.
 // We handle the same format, and we're similar where obviously necessary, but we're implementing the OdinSerializer _format_ in our own way.
 
@@ -31,7 +34,7 @@ mod tests;
 pub type OdinGuid = [u8; 8];
 pub type OdinDecimal = [u8; 8];
 
-/// Primitive value, suitable for using in both AST and entry forms.
+/// 'Primitive' value; suitable for using in both AST and entry forms.
 /// Note that we consider GUID and String external references 'primitive', but not indexed.
 /// This is an intentional design choice; while it isn't used this way, it's clear the design intends Unity GUIDs to fit here.
 #[derive(Clone, Debug, PartialOrd, PartialEq, Serialize, Deserialize)]
@@ -55,6 +58,7 @@ pub enum OdinPrimitive {
     ExternalRefGuid(OdinGuid),
     ExternalRefString(String),
     // }
+    ExternalRefIdx(i32),
     Null,
 }
 
@@ -71,8 +75,28 @@ pub enum OdinEntryValue {
     StartRefNode(OdinTypeEntry, i32),
     StartStructNode(OdinTypeEntry),
     InternalRef(i32),
-    ExternalRefIdx(i32),
     Primitive(OdinPrimitive),
+}
+
+/// While OdinSerializer's format supports specifying arrays with arbitrary element sizes, only these can actually ever be written:
+#[derive(Clone, Debug, PartialOrd, Ord, PartialEq, Eq, Serialize, Deserialize)]
+pub enum OdinPrimitiveArray {
+    U8(Vec<u8>),
+    U16(Vec<u16>),
+    U32(Vec<u32>),
+    /// Note that this includes Decimal and Guid, which will need to be inverted from the native encoding used here. (Or assume the system is little-endian and ignore this.)
+    U64(Vec<u64>),
+}
+
+impl OdinPrimitiveArray {
+    pub fn len(&self) -> usize {
+        match self {
+            Self::U8(vec) => vec.len(),
+            Self::U16(vec) => vec.len(),
+            Self::U32(vec) => vec.len(),
+            Self::U64(vec) => vec.len(),
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialOrd, PartialEq, Serialize, Deserialize)]
@@ -81,8 +105,7 @@ pub enum OdinEntry {
     EndOfNode,
     StartOfArray(i64),
     EndOfArray,
-    /// length in elements, bytes per element, data
-    PrimitiveArray(i32, i32, Vec<u8>),
+    PrimitiveArray(OdinPrimitiveArray),
     EndOfStream,
 }
 
@@ -231,18 +254,40 @@ impl OdinEntry {
             Self::EndOfArray => {
                 target.write_all(&[0x07])?;
             }
-            Self::PrimitiveArray(len, es, arr) => {
+            Self::PrimitiveArray(arr) => {
                 target.write_all(&[0x08])?;
-                target.write_all(&len.to_le_bytes())?;
-                target.write_all(&es.to_le_bytes())?;
-                target.write_all(arr)?;
+                target.write_all(&(arr.len() as u32).to_le_bytes())?;
+                match arr {
+                    OdinPrimitiveArray::U8(vec) => {
+                        target.write_all(&(1i32).to_le_bytes())?;
+                        target.write_all(vec)?;
+                    }
+                    OdinPrimitiveArray::U16(vec) => {
+                        target.write_all(&(2i32).to_le_bytes())?;
+                        for v in vec {
+                            target.write_all(&v.to_le_bytes())?;
+                        }
+                    }
+                    OdinPrimitiveArray::U32(vec) => {
+                        target.write_all(&(4i32).to_le_bytes())?;
+                        for v in vec {
+                            target.write_all(&v.to_le_bytes())?;
+                        }
+                    }
+                    OdinPrimitiveArray::U64(vec) => {
+                        target.write_all(&(8i32).to_le_bytes())?;
+                        for v in vec {
+                            target.write_all(&v.to_le_bytes())?;
+                        }
+                    }
+                }
             }
             // --
             Self::Value(name, OdinEntryValue::InternalRef(id)) => {
                 odin_write_name_opt(target, name, 0x09)?;
                 target.write_all(&id.to_le_bytes())?;
             }
-            Self::Value(name, OdinEntryValue::ExternalRefIdx(id)) => {
+            Self::Value(name, OdinEntryValue::Primitive(OdinPrimitive::ExternalRefIdx(id))) => {
                 odin_write_name_opt(target, name, 0x0B)?;
                 target.write_all(&id.to_le_bytes())?;
             }
@@ -354,25 +399,51 @@ impl OdinEntry {
             0x06 => Ok(OdinEntry::StartOfArray(read_int!(src, i64))),
             0x07 => Ok(OdinEntry::EndOfArray),
             0x08 => {
-                let a = read_int!(src, i32);
-                let b = read_int!(src, i32);
-                if a < 0 || b < 0 {
+                let len = read_int!(src, i32);
+                let es = read_int!(src, i32);
+                if len < 0 {
                     return Err(std::io::Error::new(
                         std::io::ErrorKind::InvalidData,
                         "prim array size < 0",
                     ));
                 }
-                Ok(OdinEntry::PrimitiveArray(
-                    a,
-                    b,
-                    read_vec(src, (a as usize) * (b as usize))?,
-                ))
+                let len = len as usize;
+                match es {
+                    1 => Ok(OdinEntry::PrimitiveArray(OdinPrimitiveArray::U8(read_vec(
+                        src, len,
+                    )?))),
+                    2 => {
+                        let mut vec = Vec::with_capacity(len);
+                        for _ in 0..len {
+                            vec.push(read_int!(src, u16));
+                        }
+                        Ok(OdinEntry::PrimitiveArray(OdinPrimitiveArray::U16(vec)))
+                    }
+                    4 => {
+                        let mut vec = Vec::with_capacity(len);
+                        for _ in 0..len {
+                            vec.push(read_int!(src, u32));
+                        }
+                        Ok(OdinEntry::PrimitiveArray(OdinPrimitiveArray::U32(vec)))
+                    }
+                    8 => {
+                        let mut vec = Vec::with_capacity(len);
+                        for _ in 0..len {
+                            vec.push(read_int!(src, u64));
+                        }
+                        Ok(OdinEntry::PrimitiveArray(OdinPrimitiveArray::U64(vec)))
+                    }
+                    _ => Err(std::io::Error::new(
+                        std::io::ErrorKind::InvalidData,
+                        "prim array element size bad",
+                    )),
+                }
             }
             // --
             0x09 => des_nval!(src, OdinEntryValue::InternalRef(read_int!(src, i32))),
             0x0A => des_uval!(OdinEntryValue::InternalRef(read_int!(src, i32))),
-            0x0B => des_nval!(src, OdinEntryValue::ExternalRefIdx(read_int!(src, i32))),
-            0x0C => des_uval!(OdinEntryValue::ExternalRefIdx(read_int!(src, i32))),
+            0x0B => des_nprim!(src, OdinPrimitive::ExternalRefIdx(read_int!(src, i32))),
+            0x0C => des_uprim!(OdinPrimitive::ExternalRefIdx(read_int!(src, i32))),
             // --
             0x0D => des_nprim!(src, OdinPrimitive::ExternalRefGuid(read_fixed(src)?)),
             0x0E => des_uprim!(OdinPrimitive::ExternalRefGuid(read_fixed(src)?)),
@@ -430,9 +501,7 @@ impl OdinEntry {
     pub fn read_all_from_slice(mut resread: &[u8]) -> std::io::Result<Vec<OdinEntry>> {
         let mut entries = Vec::new();
         while resread.len() > 0 {
-            entries.push(
-                OdinEntry::read(&mut resread).expect("all entries should read properly"),
-            );
+            entries.push(OdinEntry::read(&mut resread).expect("all entries should read properly"));
         }
         Ok(entries)
     }
@@ -440,7 +509,9 @@ impl OdinEntry {
     pub fn write_all_to_bytes(src: &[Self]) -> Vec<u8> {
         let mut data = Vec::new();
         for entry in src {
-            entry.write(&mut data).expect("should have no errors writing to vec");
+            entry
+                .write(&mut data)
+                .expect("should have no errors writing to vec");
         }
         data
     }

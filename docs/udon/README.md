@@ -44,23 +44,28 @@ Therefore, what follows is a summary of the OdinSerializer core format, based on
 
 Conceptually, OdinSerializer data is stored as a stream of _entries,_ with a final 'end of stream' entry delimiting serialization.
 
-Each entry has an (optional) name.
+There are three different kinds of entries:
 
-The data reader/writer implementation has a lot of flexibility in how it _arrives_ at these entries and metadata (though names, where expected, are a pretty important part of the data format!), and there is a notion of a tree structure built within the 'flat' entry list.
+* Entries that encode values or the beginning of compound values. (I call these 'Values'.)
+	* These entries are evidenced by having Named and Unnamed variants.
+	* The compound values encodable this way are References (objects) and Structs (value types).
+		* The `StartOfReferenceNode` values have Node IDs, which are are particularly important; these match up to the `InternalReference` values.
+		* On the C# side, the contents of these compounds are encoded using Formatters; this is the Serializer/Formatter barrier.
+* Entries solely used inside other compounds that don't properly decode to values alone.
+	* `PrimitiveArray` and `StartOfArray` are good examples of this. They don't have the named/unnamed tagging, and they're reference types anyway, so they need to live in a reference node.
+* Entries that end compound nodes (`EndOfNode` and `EndOfArray`).
 
-Still, it's possible to read/write entries without knowing the higher-level types they're used to construct, and the entry types are arranged such that it's similarly possible to read/write the entry _tree_ without that knowledge, using the various 'end of' entries.
+The data reader/writer implementation has a lot of flexibility in how it _arrives_ at these entries, and there is a notion of a tree structure built within the 'flat' entry list using the `StartOf` and `EndOf` entries.
+
+Still, it's possible to read/write entries without knowing the higher-level types they're used to construct, and the entry types are arranged such that it's similarly possible to read/write the entry _tree_ without that knowledge.
+
+**However, a 'sensible' interpretation of things like i.e. array length will lead to failure.** See SerializationFormatter notes below.
 
 The reading of an entry is divided into the _header_ (reads name, type) and the _content_ (anything specific to that entry type).
 
 When reading an entry, `PeekEntry` is used to read the header, and then the appropriate read function is used to read the content.
 
 `SkipEntry` in [`BaseDataReader`](https://github.com/TeamSirenix/odin-serializer/blob/8d9fc0bca118d9c6f927ee2fb23330138a99cbf2/OdinSerializer/Core/DataReaderWriters/BaseDataReader.cs#L397), meanwhile, skips over the overall tree structure.
-
-Node IDs are particularly important -- when present, they establish internal references that may be called upon later. For this reason, even 'skipped' entries (i.e. for missing fields) are fully deserialized whenever possible.
-
-Implied in the whole arrangement is a key rule: **A 'value' is either a single entry in size, or uses a `StartOf`/`EndOf` arrangement.**
-
-Preventing this rule from being broken is both the need to ensure names are always propagated correctly, and the distinction between a 'serializer' and a 'formatter'.
 
 To summarize how this fits together, observe the following tree:
 
@@ -75,7 +80,7 @@ A serializer is chosen using the _field's type_ (and has to worry about propagat
 
 Reference/struct serializers wrap the formatters with the appropriate start/end entries. (Note, however, it can theoretically be a complete free-for-all on named/unnamed fields _inside_ the node.)
 
-Another problem to keep in mind is that there's no distinction between a named and unnamed array. **This is because arrays are reference types -- all reference types except `String` are wrapped appropriately.**
+Another problem to keep in mind is that there's no distinction between a named and unnamed array. This is because arrays are reference types -- **all reference types except `String` are wrapped appropriately.** (OdinSerializer treats String as a value type for encoding purposes.)
 
 The following example trace shows how an array field is encoded:
 
@@ -87,6 +92,23 @@ Value(None, Primitive(String("syncMe"))),
 EndOfArray,
 EndOfNode,
 ```
+
+#### `SerializableFormatter`
+
+For some reason, it's common to see types use the following arrangement:
+
+```
+Value(None, StartRefNode(TypeName(18, "VRC.Udon.Common.UdonSyncProperty, VRC.Udon.Common"), 27)),
+StartOfArray(2),
+Value(Some("type"), Primitive(String("System.String, mscorlib"))),
+Value(Some("Name"), Primitive(String("this"))),
+Value(Some("type"), Primitive(String("VRC.Udon.Common.Interfaces.UdonSyncInterpolationMethod, VRC.Udon.Common"))),
+Value(Some("InterpolationAlgorithm"), Primitive(ULong(1))),
+EndOfArray,
+EndOfNode,
+```
+
+This is the fault of `SerializableFormatter`, which, as a format goes, looks like a chip in an otherwise very pretty glass vase.
 
 ### Binary Format
 
