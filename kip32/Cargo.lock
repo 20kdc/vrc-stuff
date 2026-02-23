@@ -78,16 +78,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "kudonast"
+version = "0.1.0"
+
+[[package]]
 name = "kudonodin"
 version = "0.1.0"
 dependencies = [
  "ron",
  "serde",
 ]
-
-[[package]]
-name = "kudonwriter"
-version = "0.1.0"
 
 [[package]]
 name = "lexopt"

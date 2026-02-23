@@ -12,6 +12,7 @@ pub enum OdinASTValue {
     /// Internal reference.
     /// The first encounter of this will be replaced with the appropriate OdinASTObject.
     InternalRef(i32),
+    ExternalRefIdx(i32),
     Primitive(OdinPrimitive),
     Struct(OdinASTStruct),
 }
@@ -154,6 +155,10 @@ impl OdinASTFromEntries {
                         }
                         self
                     }
+                    OdinEntryValue::ExternalRefIdx(i) => {
+                        self.add_ast(OdinASTEntry::Value(name, OdinASTValue::ExternalRefIdx(i)));
+                        self
+                    }
                     OdinEntryValue::Primitive(prim) => {
                         self.add_ast(OdinASTEntry::Value(name, OdinASTValue::Primitive(prim)));
                         self
@@ -266,6 +271,9 @@ impl OdinASTEntry {
                             dst.push(OdinEntry::Value(name, OdinEntryValue::InternalRef(iref)));
                         }
                     }
+                    OdinASTValue::ExternalRefIdx(eref) => {
+                        dst.push(OdinEntry::Value(name, OdinEntryValue::ExternalRefIdx(eref)));
+                    }
                     OdinASTValue::Struct(mut st) => {
                         dst.push(OdinEntry::Value(
                             name,
@@ -293,7 +301,8 @@ impl OdinASTEntry {
 
     /// Remaps all internal references.
     /// If an unexpected internal reference appears, the source ID is returned. (The structure will be left half-transformed.)
-    pub fn remap_irefs(&mut self, map: &HashMap<i32, i32>) -> Result<(), i32> {
+    /// Also bumps external indexed references.
+    pub fn remap_refs(&mut self, map: &HashMap<i32, i32>, extbump: i32) -> Result<(), i32> {
         match self {
             Self::Value(_, content) => match content {
                 OdinASTValue::InternalRef(v) => {
@@ -304,18 +313,22 @@ impl OdinASTEntry {
                         Err(*v)
                     }
                 }
-                OdinASTValue::Primitive(_) => Ok(()),
+                OdinASTValue::ExternalRefIdx(idx) => {
+                    *idx += extbump;
+                    Ok(())
+                }
                 OdinASTValue::Struct(content) => {
                     for v in &mut content.1 {
-                        v.remap_irefs(map)?;
+                        v.remap_refs(map, extbump)?;
                     }
                     Ok(())
                 }
+                OdinASTValue::Primitive(_) => Ok(()),
             },
             Self::PrimitiveArray(_) => Ok(()),
             Self::Array(_, content) => {
                 for v in content {
-                    v.remap_irefs(map)?;
+                    v.remap_refs(map, extbump)?;
                 }
                 Ok(())
             }
@@ -383,6 +396,7 @@ pub struct OdinASTBuilder {
     /// This folds System.RuntimeType references together.
     pub runtime_type_map: HashMap<String, i32>,
     pub next_refid: i32,
+    pub next_extid: i32,
 }
 
 impl OdinASTBuilder {
@@ -390,6 +404,13 @@ impl OdinASTBuilder {
     pub fn alloc_refid(&mut self) -> i32 {
         let id = self.next_refid;
         self.next_refid += 1;
+        id
+    }
+
+    /// Allocates an external object ID.
+    pub fn alloc_extid(&mut self) -> i32 {
+        let id = self.next_extid;
+        self.next_extid += 1;
         id
     }
 
@@ -420,6 +441,9 @@ impl OdinASTBuilder {
     /// This can be used to, for instance, allow specifying arbitrary Odin-serialized objects via RON.
     /// It's also generally useful if moving data between [OdinASTBuilder] objects.
     /// If an internal reference is missing, this fails with the internal reference number.
+    /// External references are placed at `next_extid` onwards; you can adjust that number afterwards to get a clean external reference sequence.
+    /// This is useful, for instance, if you have some representation of external references.
+    /// (It's outside of this crate's scope, since that would pull in figuring out Unity YAML for what we're doing here.)
     pub fn include(
         &mut self,
         mut file: OdinASTFile,
@@ -430,7 +454,7 @@ impl OdinASTBuilder {
         }
         while let Some(mut res) = file.refs.pop_first() {
             for v in &mut res.1.1 {
-                v.remap_irefs(&remap)?;
+                v.remap_refs(&remap, self.next_extid)?;
             }
             self.file.refs.insert(
                 *remap
@@ -440,7 +464,7 @@ impl OdinASTBuilder {
             );
         }
         for v in &mut file.root {
-            v.remap_irefs(&remap)?;
+            v.remap_refs(&remap, self.next_extid)?;
         }
         Ok((file.root, remap))
     }

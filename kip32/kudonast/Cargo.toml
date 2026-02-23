@@ -1,5 +1,5 @@
 [package]
-name = "kudonwriter"
+name = "kudonast"
 publish.workspace = true
 version.workspace = true
 edition.workspace = true

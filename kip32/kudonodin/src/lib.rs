@@ -58,7 +58,6 @@ pub enum OdinPrimitive {
     ExternalRefGuid(OdinGuid),
     ExternalRefString(String),
     // }
-    ExternalRefIdx(i32),
     Null,
 }
 
@@ -75,6 +74,7 @@ pub enum OdinEntryValue {
     StartRefNode(OdinTypeEntry, i32),
     StartStructNode(OdinTypeEntry),
     InternalRef(i32),
+    ExternalRefIdx(i32),
     Primitive(OdinPrimitive),
 }
 
@@ -287,7 +287,7 @@ impl OdinEntry {
                 odin_write_name_opt(target, name, 0x09)?;
                 target.write_all(&id.to_le_bytes())?;
             }
-            Self::Value(name, OdinEntryValue::Primitive(OdinPrimitive::ExternalRefIdx(id))) => {
+            Self::Value(name, OdinEntryValue::ExternalRefIdx(id)) => {
                 odin_write_name_opt(target, name, 0x0B)?;
                 target.write_all(&id.to_le_bytes())?;
             }
@@ -442,8 +442,8 @@ impl OdinEntry {
             // --
             0x09 => des_nval!(src, OdinEntryValue::InternalRef(read_int!(src, i32))),
             0x0A => des_uval!(OdinEntryValue::InternalRef(read_int!(src, i32))),
-            0x0B => des_nprim!(src, OdinPrimitive::ExternalRefIdx(read_int!(src, i32))),
-            0x0C => des_uprim!(OdinPrimitive::ExternalRefIdx(read_int!(src, i32))),
+            0x0B => des_nval!(src, OdinEntryValue::ExternalRefIdx(read_int!(src, i32))),
+            0x0C => des_uval!(OdinEntryValue::ExternalRefIdx(read_int!(src, i32))),
             // --
             0x0D => des_nprim!(src, OdinPrimitive::ExternalRefGuid(read_fixed(src)?)),
             0x0E => des_uprim!(OdinPrimitive::ExternalRefGuid(read_fixed(src)?)),

@@ -7,5 +7,5 @@ license = "Unlicense"
 
 [workspace]
 resolver = "2"
-members = ["kip32ingest", "elf2uasm", "kudonwriter", "kudonodin"]
+members = ["kip32ingest", "elf2uasm", "kudonast", "kudonodin"]
 

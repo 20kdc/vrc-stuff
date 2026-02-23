@@ -1,0 +1,16 @@
+.data_start
+	.export message
+	message: %SystemString, "Hello, world!"
+	exampleThis: %UnityEngineGameObject, this
+	.export syncMe
+	syncMe: %SystemInt32, 1
+	.sync syncMe, linear
+.data_end
+
+.code_start
+	.export _start
+	_start:
+		PUSH, message
+		EXTERN, "UnityEngineDebug.__Log__SystemObject__SystemVoid"
+		JUMP, 0xFFFFFFFC
+.code_end
