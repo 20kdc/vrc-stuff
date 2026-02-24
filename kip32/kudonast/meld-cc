@@ -1,0 +1,2 @@
+#!/bin/sh
+meld crosscheck_ref.ron crosscheck_out.ron

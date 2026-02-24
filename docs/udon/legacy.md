@@ -10,6 +10,10 @@ Some similarities in wording are to be expected; what you see here is the intern
 
 Research was performed partially by getting OdinSerializer to dump using the OdinSerializer JSON dump format (this format is _not_ reliably reversible, but it's decent for viewing).
 
+Very important errata:
+
+* **ByteCode** is described here as little-endian. It's big-endian.
+
  \- 20kdc
 
 # UdonVM: A Primer

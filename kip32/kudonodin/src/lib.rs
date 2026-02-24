@@ -62,6 +62,51 @@ pub enum OdinPrimitive {
     Null,
 }
 
+#[derive(Clone, Copy, Debug, PartialOrd, Ord, PartialEq, Eq, Serialize, Deserialize)]
+pub enum OdinIntType {
+    SByte,
+    Byte,
+    Short,
+    UShort,
+    Int,
+    UInt,
+    Long,
+    ULong,
+    Char
+}
+
+impl OdinPrimitive {
+    /// Decomposes an integer value into the integer type and 'universal' [i64] value.
+    pub fn decompose_int(&self) -> Option<(OdinIntType, i64)> {
+        match self {
+            Self::SByte(b) => Some((OdinIntType::SByte, *b as i64)),
+            Self::Byte(b) => Some((OdinIntType::Byte, *b as i64)),
+            Self::Short(b) => Some((OdinIntType::Short, *b as i64)),
+            Self::UShort(b) => Some((OdinIntType::UShort, *b as i64)),
+            Self::Int(b) => Some((OdinIntType::Int, *b as i64)),
+            Self::UInt(b) => Some((OdinIntType::UInt, *b as i64)),
+            Self::Long(b) => Some((OdinIntType::Long, *b as i64)),
+            Self::ULong(b) => Some((OdinIntType::ULong, *b as i64)),
+            Self::Char(b) => Some((OdinIntType::Char, *b as i64)),
+            _ => None
+        }
+    }
+    /// Composes an integer value from integer type and 'universal' [i64] value.
+    pub fn compose_int(int_type: OdinIntType, value: i64) -> Self {
+        match int_type {
+            OdinIntType::SByte => Self::SByte(value as i8),
+            OdinIntType::Byte => Self::Byte(value as u8),
+            OdinIntType::Short => Self::Short(value as i16),
+            OdinIntType::UShort => Self::UShort(value as u16),
+            OdinIntType::Int => Self::Int(value as i32),
+            OdinIntType::UInt => Self::UInt(value as u32),
+            OdinIntType::Long => Self::Long(value as i64),
+            OdinIntType::ULong => Self::ULong(value as u64),
+            OdinIntType::Char => Self::Char(value as u16),
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialOrd, Ord, PartialEq, Eq, Serialize, Deserialize)]
 pub enum OdinTypeEntry {
     Null,

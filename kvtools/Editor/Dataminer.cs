@@ -60,6 +60,9 @@ namespace KDCVRCTools {
 					total.Add(GetUdonTypeName(getUdonTypeName, tuple.Item2));
 				}
 			}
+			// -- special marker types --
+			DiscoverTypes(types, typeof(VRC.Udon.Common.UdonGameObjectComponentHeapReference));
+			// -- type discovery complete --
 			foreach (Type t in types) {
 				total.Add("TYPE");
 				string typeUdonName = GetUdonTypeName(getUdonTypeName, t);

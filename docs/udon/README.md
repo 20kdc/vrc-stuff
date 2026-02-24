@@ -163,7 +163,7 @@ Programs are a `VRC.Udon.Common.UdonProgram` instance, consisting of, **in this 
 
 * `InstructionSetIdentifier` (`UDON`)
 * `InstructionSetVersion` (1)
-* `ByteCode`: A byte array of little-endian uint32 values. These are addressed by their indexes multiplied by 4, even though the accesses can't be offset at all.
+* `ByteCode`: A byte array of **big-endian** uint32 values. These are addressed by their indexes multiplied by 4, even though the accesses can't be offset at all.
 * `Heap`: Also known as `VRC.Udon.Common.UdonHeap`. Constant and dynamic values through the life of the program. This is an array of values; a "heap index" is an index into this array.
 * `EntryPoints`: This is a `VRC.Udon.Common.UdonSymbolTable` mapping names to code addresses, with a second list of "exported" symbols. (Event handlers are exported.)
 * `SymbolTable`: This is a `VRC.Udon.Common.UdonSymbolTable` mapping names to heap addresses, with a second list of "exported" symbols. (Exported symbols are visible in the Unity editor.)
