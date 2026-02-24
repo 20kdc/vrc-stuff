@@ -105,6 +105,17 @@ pub enum UdonHeapValue {
     OdinASTStruct(OdinASTStruct)
 }
 
+impl From<OdinPrimitive> for UdonHeapValue {
+    fn from(value: OdinPrimitive) -> Self {
+        Self::P(value)
+    }
+}
+impl From<UdonType> for UdonHeapValue {
+    fn from(value: UdonType) -> Self {
+        Self::RType(value.odin_name.to_string())
+    }
+}
+
 /// Udon heap slot.
 /// Note that UdonGameObjectComponentHeapReference 'supplants' the type in an unusual way.
 #[derive(Clone, Debug, Serialize, Deserialize)]
