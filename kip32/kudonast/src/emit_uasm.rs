@@ -93,6 +93,27 @@ pub fn udonprogram_emit_uasm(program: &UdonProgram, uasm_writer: &UASMWriter) ->
         }
     }
 
+    // -- Other Stuff --
+
+    match program.update_order.resolve(&program.internal_syms) {
+        Ok(res) => {
+            if res != 0 {
+                uasm_writer.code(format!(".update_order 0x{:08x}", res as u32));
+                uasm_writer.code("");
+            }
+        }
+        Err(err) => {
+            translate_ctx.err_code(format!("update_order failed to resolve: {}", err));
+            uasm_writer.code("");
+        }
+    }
+
+    if let Some(v) = &program.network_call_metadata {
+        if !v.is_empty() {
+            translate_ctx.err_code("Network call metadata is not supported.");
+        }
+    }
+
     // -- Data --
 
     for (k, v) in program.data.iter().enumerate() {
@@ -115,10 +136,10 @@ pub fn udonprogram_emit_uasm(program: &UdonProgram, uasm_writer: &UASMWriter) ->
                 "null".to_string()
             },
             UdonHeapValue::P(OdinPrimitive::Int(v)) => {
-                format!("{}", v)
+                format!("0x{:08x}", *v as u32)
             },
             UdonHeapValue::P(OdinPrimitive::UInt(v)) => {
-                format!("{}", v)
+                format!("0x{:08x}", *v as u32)
             },
             UdonHeapValue::P(OdinPrimitive::Float(v)) => {
                 format!("{}", v)
@@ -139,6 +160,18 @@ pub fn udonprogram_emit_uasm(program: &UdonProgram, uasm_writer: &UASMWriter) ->
             }
         };
         uasm_writer.declare_heap(&rmp.name, &type_slot.name, &value, rmp.public);
+    }
+
+    uasm_writer.data("");
+    for v in &program.sync_metadata {
+        // .sync variable->this
+        // uasm_writer.data(format!("{}->{}", variable, this));
+        let res = kudoninfo::sparse_table_get(kudoninfo::UDON_INTERPOLATIONS, v.1 as usize);
+        let res = res.unwrap_or_else(|| {
+            translate_ctx.err_data(format!("sync metadata on {} uses unknown interpolation {}", v.0, v.1));
+            "none"
+        });
+        uasm_writer.data(format!("\t.sync {}, {}", v.0, res));
     }
 
     // -- Code --

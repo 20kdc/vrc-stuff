@@ -172,8 +172,21 @@ pub static UDON_OPCODES: &[Option<&'static UdonOpcode>] = &[
     Some(&opcodes::COPY),
 ];
 
+pub mod interpolations {
+    pub const NONE: u64 = 0;
+    pub const LINEAR: u64 = 1;
+    pub const SMOOTH: u64 = 2;
+}
+
+/// Every interpolation in Udon, in uasm form, as a sparse table (see [sparse_table_get]).
+pub static UDON_INTERPOLATIONS: &[Option<&'static str>] = &[
+    Some("none"),
+    Some("linear"),
+    Some("smooth")
+];
+
 /// Looks up a value from a sparse table.
-pub fn sparse_table_get<T>(table: &[Option<&'static T>], index: usize) -> Option<&'static T> {
+pub fn sparse_table_get<T: Copy>(table: &[Option<T>], index: usize) -> Option<T> {
     if let Some(v) = table.get(index) {
         // This is a pretty weird operation; we're implicitly Copy-ing the `&'static T` here.
         *v

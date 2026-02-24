@@ -147,6 +147,7 @@ pub struct UdonProgram {
     /// This is similar.
     pub data_syms: Vec<UdonSymbol>,
     /// This mapping is hacky but should work.
+    /// TODO: It doesn't support per-property metadata. Do we need to support this?
     pub sync_metadata: Vec<(String, u64)>,
     /// Behold, network call metadata.
     pub network_call_metadata: Option<Vec<UdonNetworkCallMetadata>>,
