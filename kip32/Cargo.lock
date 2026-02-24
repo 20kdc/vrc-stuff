@@ -80,6 +80,9 @@ dependencies = [
 [[package]]
 name = "kudonast"
 version = "0.1.0"
+dependencies = [
+ "kudoninfo",
+]
 
 [[package]]
 name = "kudoninfo"
