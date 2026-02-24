@@ -238,45 +238,70 @@ pub fn udonsymboltable_emit_odin(
 
 /// Builds the sync metadata.
 pub fn udonsyncmetadata_emit_odin(
-    table: &[(String, u64)],
+    table: &Vec<(String, String, u64)>,
     builder: &mut OdinASTBuilder,
 ) -> Result<OdinASTStruct, String> {
     let symbol_list_ref_id = builder.alloc_refid();
 
     let mut symbol_vec = Vec::new();
 
-    for (k, v) in table.iter() {
-        let usm_ref_id = builder.alloc_refid();
-        let prop_list_ref_id = builder.alloc_refid();
-        let prop_ref_id = builder.alloc_refid();
+    // The basic idea is that we keep adding props to lists.
+    // At the end (once all props are confirmed) we insert into the refs table.
+    // (Situations like this are why the Odin AST refs table was built the way it was.)
+
+    let mut symbol_prop_list_map: BTreeMap<String, (i32, Vec<OdinASTEntry>)> = BTreeMap::new();
+
+    for (kname, kprop, v) in table {
+        // Sort of a 'fill-in-the-blanks'.
+        // We guarantee the prop_ref_id is in the list, and then we actually put the property into it.
+        // Technically if tests weren't being so strict about object order this wouldn't matter.
+
+        let prop_ref_id = match symbol_prop_list_map.get_mut(kname) {
+            Some(xm) => {
+                let prop_ref_id = builder.alloc_refid();
+                xm.1.push(OdinASTEntry::uval(OdinASTValue::InternalRef(prop_ref_id)));
+                prop_ref_id
+            },
+            None => {
+                let usm_ref_id = builder.alloc_refid();
+                let prop_list_ref_id = builder.alloc_refid();
+                let prop_ref_id = builder.alloc_refid();
+
+                builder.file.refs.insert(usm_ref_id, OdinASTStruct(Some("VRC.Udon.Common.UdonSyncMetadata, VRC.Udon.Common".to_string()), vec![
+                    OdinASTEntry::Array(2, vec![
+                        OdinASTEntry::nval("type", "System.String, mscorlib"),
+                        OdinASTEntry::nval("Name", kname.as_str()),
+                        OdinASTEntry::nval("type", "System.Collections.Generic.List`1[[VRC.Udon.Common.Interfaces.IUdonSyncProperty, VRC.Udon.Common]], mscorlib"),
+                        OdinASTEntry::nval("Properties", OdinASTValue::InternalRef(prop_list_ref_id)),
+                    ])
+                ]));
+                symbol_vec.push(OdinASTEntry::Value(
+                    None,
+                    OdinASTValue::InternalRef(usm_ref_id),
+                ));
+
+                symbol_prop_list_map.insert(kname.clone(), (prop_list_ref_id, vec![
+                    OdinASTEntry::uval(OdinASTValue::InternalRef(prop_ref_id))
+                ]));
+
+                prop_ref_id
+            }
+        };
 
         builder.file.refs.insert(prop_ref_id, OdinASTStruct(Some("VRC.Udon.Common.UdonSyncProperty, VRC.Udon.Common".to_string()), vec![
             OdinASTEntry::Array(2, vec![
                 OdinASTEntry::nval("type", "System.String, mscorlib"),
-                OdinASTEntry::nval("Name", "this"),
+                OdinASTEntry::nval("Name", kprop.as_str()),
                 OdinASTEntry::nval("type", "VRC.Udon.Common.Interfaces.UdonSyncInterpolationMethod, VRC.Udon.Common"),
                 OdinASTEntry::nval("InterpolationAlgorithm", OdinPrimitive::ULong(*v)),
             ])
         ]));
+    }
 
-        builder.file.refs.insert(prop_list_ref_id, OdinASTStruct(Some("System.Collections.Generic.List`1[[VRC.Udon.Common.Interfaces.IUdonSyncProperty, VRC.Udon.Common]], mscorlib".to_string()), vec![
-            OdinASTEntry::Array(1, vec![
-                OdinASTEntry::uval(OdinASTValue::InternalRef(prop_ref_id)),
-            ])
+    while let Some((_, v)) = symbol_prop_list_map.pop_first() {
+        builder.file.refs.insert(v.0, OdinASTStruct(Some("System.Collections.Generic.List`1[[VRC.Udon.Common.Interfaces.IUdonSyncProperty, VRC.Udon.Common]], mscorlib".to_string()), vec![
+            OdinASTEntry::array(v.1)
         ]));
-
-        builder.file.refs.insert(usm_ref_id, OdinASTStruct(Some("VRC.Udon.Common.UdonSyncMetadata, VRC.Udon.Common".to_string()), vec![
-            OdinASTEntry::Array(2, vec![
-                OdinASTEntry::nval("type", "System.String, mscorlib"),
-                OdinASTEntry::nval("Name", k.as_str()),
-                OdinASTEntry::nval("type", "System.Collections.Generic.List`1[[VRC.Udon.Common.Interfaces.IUdonSyncProperty, VRC.Udon.Common]], mscorlib"),
-                OdinASTEntry::nval("Properties", OdinASTValue::InternalRef(prop_list_ref_id)),
-            ])
-        ]));
-        symbol_vec.push(OdinASTEntry::Value(
-            None,
-            OdinASTValue::InternalRef(usm_ref_id),
-        ));
     }
 
     let symbol_list_struct = OdinASTStruct(Some("System.Collections.Generic.List`1[[VRC.Udon.Common.Interfaces.IUdonSyncMetadata, VRC.Udon.Common]], mscorlib".to_string()), vec![

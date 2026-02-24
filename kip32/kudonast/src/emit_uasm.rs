@@ -198,15 +198,19 @@ pub fn udonprogram_emit_uasm(
     for v in &program.sync_metadata {
         // .sync variable->this
         // uasm_writer.data(format!("{}->{}", variable, this));
-        let res = kudoninfo::sparse_table_get(kudoninfo::UDON_INTERPOLATIONS, v.1 as usize);
+        let res = kudoninfo::sparse_table_get(kudoninfo::UDON_INTERPOLATIONS, v.2 as usize);
         let res = res.unwrap_or_else(|| {
             translate_ctx.err_data(format!(
-                "sync metadata on {} uses unknown interpolation {}",
-                v.0, v.1
+                "sync metadata on {}->{} uses unknown interpolation {}",
+                v.0, v.1, v.2
             ));
             "none"
         });
-        uasm_writer.data(format!("\t.sync {}, {}", v.0, res));
+        if v.1.eq("this") {
+            uasm_writer.data(format!("\t.sync {}, {}", v.0, res));
+        } else {
+            uasm_writer.data(format!("\t.sync {}->{}, {}", v.0, v.1, res));
+        }
     }
 
     // -- Code --

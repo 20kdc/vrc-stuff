@@ -125,8 +125,8 @@
 		)
 	],
 	sync_metadata: [
-		("floatSmooth", 2),
-		("floatLinear", 1)
+		("floatSmooth", "this", 2),
+		("floatLinear", "this", 1)
 	],
 	network_call_metadata: Some([
 		(
