@@ -11,3 +11,4 @@ anyhow = "1.0.100"
 base64 = "0.22.1"
 lexopt = "0.3.1"
 kip32ingest = { path = "../kip32ingest" }
+kudonast = { path = "../kudonast" }

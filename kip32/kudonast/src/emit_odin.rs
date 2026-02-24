@@ -287,23 +287,27 @@ pub fn udonprogram_emit_udonjson(program: &UdonProgram) -> Result<JsonValue, Str
     } else {
         &[]
     };
-    let network_calling_entrypoint_metadata = JsonValue::Array(ncd.iter().map(|v| {
+
+    let mut network_calling_entrypoint_metadata = Vec::new();
+    for v in ncd {
         let mut res = JsonValue::new_object();
         res["_name"] = v.name.clone().into();
-        res["_parameters"] = JsonValue::Array(v.parameters.iter().map(|p| {
+        let mut parameters_arr = Vec::new();
+        for p in &v.parameters {
             let mut res = JsonValue::new_object();
-            res["_name"] = p.name.clone().into();
-            res["_type"] = p.sync_type.into();
-            res
-        }).collect());
+            res["_name"] = p.0.clone().into();
+            res["_type"] = p.1.sync_type.ok_or_else(|| format!("Network RPC {} parameter {} has no sync type", &v.name, &p.0))?.into();
+            parameters_arr.push(res);
+        }
+        res["_parameters"] = JsonValue::Array(parameters_arr);
         res["_maxEventsPerSecond"] = v.max_events_per_second.into();
-        res
-    }).collect());
+        network_calling_entrypoint_metadata.push(res);
+    }
 
     let mut monobehaviour = JsonValue::new_object();
     monobehaviour["serializedProgramCompressedBytes"] = serialized_program_compressed_bytes;
     monobehaviour["programUnityEngineObjects"] = program_unity_engine_objects;
-    monobehaviour["networkCallingEntrypointMetadata"] = network_calling_entrypoint_metadata;
+    monobehaviour["networkCallingEntrypointMetadata"] = JsonValue::Array(network_calling_entrypoint_metadata);
 
     let mut outer_object = JsonValue::new_object();
     outer_object["MonoBehaviour"] = monobehaviour;

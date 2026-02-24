@@ -129,6 +129,13 @@
 		("floatLinear", 1)
 	],
 	network_call_metadata: Some([
+		(
+			name: "NetworkEventTest",
+			max_events_per_second: 5,
+			parameters: [
+				("NetworkEventTest_Parameter1", "SystemString")
+			]
+		)
 	]),
 	internal_syms: {
 	},

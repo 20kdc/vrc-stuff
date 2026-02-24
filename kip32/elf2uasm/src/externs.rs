@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use crate::UdonAsm;
+use kudonast::UASMWriter;
 
 macro_rules! udon_ext {
     ($($id:ident ($($arg:ident)*) = $value:literal)*) => {
@@ -10,7 +10,7 @@ macro_rules! udon_ext {
             )*
         }
         impl UdonExterns {
-            pub fn new(asm: &UdonAsm) -> UdonExterns {
+            pub fn new(asm: &UASMWriter) -> UdonExterns {
                 UdonExterns {
                     $(
                         $id: asm.ensure_extern($value),
@@ -18,7 +18,7 @@ macro_rules! udon_ext {
                 }
             }
             $(
-                pub fn $id(&self, asm: &UdonAsm$(, $arg: impl std::fmt::Display)*) {
+                pub fn $id(&self, asm: &UASMWriter$(, $arg: impl std::fmt::Display)*) {
                     $(
                         asm.push($arg);
                     )*

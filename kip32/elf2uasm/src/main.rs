@@ -4,8 +4,7 @@ use kip32ingest::*;
 use lexopt::prelude::*;
 use std::collections::HashMap;
 
-mod asmwr;
-use asmwr::*;
+use kudonast::*;
 
 mod externs;
 use externs::*;
@@ -93,7 +92,7 @@ const REGISTERS_R: [&'static str; 32] = [
     "_vm_s8", "_vm_s9", "_vm_s10", "_vm_s11", "_vm_t3", "_vm_t4", "_vm_t5", "_vm_t6",
 ];
 
-fn resolve_alur(asm: &UdonAsm, value: Sci32ALUSource) -> String {
+fn resolve_alur(asm: &UASMWriter, value: Sci32ALUSource) -> String {
     match value {
         Sci32ALUSource::Immediate(v) => asm.ensure_i32(v as i32),
         Sci32ALUSource::Register(rs) => REGISTERS_R[rs as usize].to_string(),
@@ -122,7 +121,7 @@ enum LoadPipe {
 
 fn main() -> Result<()> {
     let mut arg_parser = lexopt::Parser::from_env();
-    let mut asm = UdonAsm::default();
+    let mut asm = UASMWriter::default();
     let mut img = Sci32Image::default();
     let mut out_filename: Option<std::ffi::OsString> = None;
     let mut inc_files: Vec<String> = Vec::new();

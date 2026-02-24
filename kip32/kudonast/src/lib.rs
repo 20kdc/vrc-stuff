@@ -129,13 +129,8 @@ pub struct UdonNetworkCallMetadata {
     pub parameters: Vec<UdonNetworkCallParameter>
 }
 
-/// Network call parameter.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct UdonNetworkCallParameter {
-    pub name: String,
-    /// Sync type (see [kudoninfo::UDON_SYNCTYPES])
-    pub sync_type: i32
-}
+/// Network call parameter; a name and type. UdonType is used for convenience.
+pub type UdonNetworkCallParameter = (String, UdonType);
 
 /// This does not match neatly with IUdonProgram; it really translates best to a `.udonjson` file.
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
@@ -165,6 +160,12 @@ pub struct UdonProgram {
 
 mod emit_odin;
 pub use emit_odin::*;
+
+mod uasm_writer;
+pub use uasm_writer::*;
+
+mod emit_uasm;
+pub use emit_uasm::*;
 
 #[cfg(test)]
 mod tests;

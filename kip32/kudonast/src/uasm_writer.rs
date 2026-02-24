@@ -6,8 +6,9 @@ use std::fmt::Display;
 use std::fmt::Write;
 
 /// Udon Assembly program wrapper.
+/// This is built immutably in order to allow for chained calls onto the writer (which happen often).
 #[derive(Clone, Default)]
-pub struct UdonAsm {
+pub struct UASMWriter {
     pub data: RefCell<String>,
     pub code: RefCell<String>,
     /// For convenience, integer constants are managed here.
@@ -16,7 +17,7 @@ pub struct UdonAsm {
     pub externs: RefCell<HashSet<String>>,
 }
 
-impl Display for UdonAsm {
+impl Display for UASMWriter {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(".data_start\n\n")?;
         f.write_str(&self.data.borrow())?;
@@ -28,7 +29,7 @@ impl Display for UdonAsm {
     }
 }
 
-impl UdonAsm {
+impl UASMWriter {
     pub fn declare_heap(&self, id: &str, ut: &str, ival: &str, export: bool) {
         if export {
             writeln!(self.data.borrow_mut(), "\t.export {}", id).unwrap();

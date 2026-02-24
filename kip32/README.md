@@ -6,6 +6,8 @@ And then I realized, most of the issues don't apply if the user trusts their own
 
 **Therefore, this project statically recompiles RV32I instructions into Udon Assembly.**
 
+(It also includes its own Udon compiler, as part of a planned rework.)
+
 ## Why would you want to do that?
 
 Writing complex logic in C/Rust/etc. targetting VRChat.
