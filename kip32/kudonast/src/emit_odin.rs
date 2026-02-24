@@ -24,7 +24,7 @@ pub fn udonheapval_emit_odin_astinsert(
 /// Translates UdonHeapValue to OdinASTValue.
 pub fn udonheapval_emit_odin(
     val: &UdonHeapValue,
-    symtab: &BTreeMap<String, UdonResolvedInternalSym>,
+    symtab: &BTreeMap<String, i64>,
     builder: &mut OdinASTBuilder,
     unity_obj: &mut Vec<UdonUnityObject>,
 ) -> Result<OdinASTValue, String> {
@@ -72,7 +72,7 @@ pub fn udonheapval_emit_odin(
 pub fn udonheap_emit_odin(
     min_heap_capacity: Option<u32>,
     heap: &[UdonHeapSlot],
-    symtab: &BTreeMap<String, UdonResolvedInternalSym>,
+    symtab: &BTreeMap<String, i64>,
     builder: &mut OdinASTBuilder,
     unity_obj: &mut Vec<UdonUnityObject>,
 ) -> Result<OdinASTStruct, String> {
@@ -144,7 +144,7 @@ pub fn udonheap_emit_odin(
 /// Builds the UdonSymbolTable.
 pub fn udonsymboltable_emit_odin(
     table: &[UdonSymbol],
-    symtab: &BTreeMap<String, UdonResolvedInternalSym>,
+    symtab: &BTreeMap<String, i64>,
     builder: &mut OdinASTBuilder,
 ) -> Result<OdinASTStruct, String> {
     let symbol_list_ref_id = builder.alloc_refid();

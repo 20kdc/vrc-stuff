@@ -9,9 +9,6 @@ use std::collections::BTreeMap;
 
 // -- part 1: linker value resolver --
 
-/// Resolved internal symbol.
-pub type UdonResolvedInternalSym = (UdonSpaciality, i64);
-
 /// Calculatable integer in the Udon AST.
 /// In a linked program, all UdonInt instances are replaced with just the one kind.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -41,14 +38,14 @@ impl UdonInt {
     /// Resolves to a constant.
     pub fn resolve(
         &self,
-        symtab: &BTreeMap<String, UdonResolvedInternalSym>,
+        symtab: &BTreeMap<String, i64>,
     ) -> Result<i64, String> {
         match self {
             Self::I(v) => Ok(*v),
             Self::Op(op) => Ok(op.opcode as i64),
             Self::Sym(sym) => match symtab.get(sym) {
                 None => Err(format!("missing internal symbol {}", sym)),
-                Some(v) => Ok(v.1),
+                Some(v) => Ok(*v),
             },
             Self::Add(a, b) => Ok(a.resolve(symtab)?.wrapping_add(b.resolve(symtab)?)),
             Self::Sub(a, b) => Ok(a.resolve(symtab)?.wrapping_sub(b.resolve(symtab)?)),
@@ -165,7 +162,7 @@ pub struct UdonProgram {
     /// 'Internal' symbol table.
     /// This symbol table is not written out, only used in UdonInt calculations.
     /// When writing to Udon Assembly, the strings here are _not used._
-    pub internal_syms: BTreeMap<String, UdonResolvedInternalSym>,
+    pub internal_syms: BTreeMap<String, i64>,
     /// Update order.
     pub update_order: UdonInt,
 }
