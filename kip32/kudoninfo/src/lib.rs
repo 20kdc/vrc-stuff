@@ -135,7 +135,7 @@ pub fn udonopcode_get(b: &str) -> Option<&'static UdonOpcode> {
 }
 
 /// Every opcode in Udon, in a module for compile-time access.
-mod opcodes {
+pub mod opcodes {
     use crate::{UdonOpcode, UdonSpaciality};
     macro_rules! def_opcode {
         ($opcode:literal, $name:ident, $params:expr) => {

@@ -83,10 +83,15 @@ pub struct UdonOdinASTInsert {
 
 /// Udon heap value specification.
 /// More-or-less directly translates to Odin AST data.
+/// This struct is intended to be deliberately 'wide' (sadly making it harder to translate).
+/// The idea is to make it convenient to specify any kind of value.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum UdonHeapValue {
-    /// Odin primitve.
+    /// Odin primitive.
     P(OdinPrimitive),
+    /// Primitive array with the encompassing object auto-generated.
+    /// This is the most convenient way to handle, i.e. [kudoninfo::udon_types::SystemByteArray].
+    PrimitiveArray(UdonType, OdinPrimitiveArray),
     /// Calculated integer.
     I(OdinIntType, UdonInt),
     /// .NET type.
@@ -95,7 +100,9 @@ pub enum UdonHeapValue {
     /// UdonGameObjectComponentHeapReference is used for Const This.
     UdonGameObjectComponentHeapReference(UdonType),
     /// Inserted Odin AST.
-    OdinASTInsert(UdonOdinASTInsert)
+    OdinASTInsert(UdonOdinASTInsert),
+    /// Inserted Odin AST struct.
+    OdinASTStruct(OdinASTStruct)
 }
 
 /// Udon heap slot.

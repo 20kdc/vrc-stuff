@@ -2,10 +2,31 @@ use crate::*;
 use std::io::Write;
 use json::JsonValue;
 
+pub fn udonheapval_emit_odin_astinsert(val: &UdonOdinASTInsert, builder: &mut OdinASTBuilder, unity_obj: &mut Vec<UdonUnityObject>) -> Result<OdinASTValue, String> {
+    let mut incres = builder.include(val.file.clone()).map_err(|v| format!("OdinASTInsert error: {:?}", v))?;
+    for v in &val.unity_objects {
+        unity_obj.push(v.clone());
+    }
+    builder.next_extid += val.unity_objects.len() as i32;
+    if let Some(OdinASTEntry::Value(_, value)) = incres.0.pop() {
+        Ok(value)
+    } else {
+        Err("OdinASTInsert did not resolve to a single Value entry".to_string())
+    }
+}
+
 /// Translates UdonHeapValue to OdinASTValue.
 pub fn udonheapval_emit_odin(val: &UdonHeapValue, symtab: &BTreeMap<String, UdonResolvedInternalSym>, builder: &mut OdinASTBuilder, unity_obj: &mut Vec<UdonUnityObject>) -> Result<OdinASTValue, String> {
     match val {
         UdonHeapValue::P(p) => Ok(OdinASTValue::Primitive(p.clone())),
+        UdonHeapValue::PrimitiveArray(ut, p) => {
+            let ref_id = builder.alloc_refid();
+            builder.file.refs.insert(ref_id, OdinASTStruct(Some(ut.odin_name.to_string()), vec![
+                OdinASTEntry::PrimitiveArray(p.clone())
+            ]));
+            Ok(OdinASTValue::InternalRef(ref_id))
+        },
+        UdonHeapValue::OdinASTStruct(p) => Ok(OdinASTValue::Struct(p.clone())),
         UdonHeapValue::I(it, v) => Ok(OdinASTValue::Primitive(OdinPrimitive::compose_int(*it, v.resolve(symtab)?))),
         UdonHeapValue::RType(ty) => Ok(OdinASTValue::InternalRef(builder.runtime_type(ty))),
         UdonHeapValue::UdonGameObjectComponentHeapReference(ty) => {
@@ -16,18 +37,7 @@ pub fn udonheapval_emit_odin(val: &UdonHeapValue, symtab: &BTreeMap<String, Udon
             ]));
             Ok(OdinASTValue::InternalRef(ref_id))
         },
-        UdonHeapValue::OdinASTInsert(insert) => {
-            let mut incres = builder.include(insert.file.clone()).map_err(|v| format!("OdinASTInsert error: {:?}", v))?;
-            for v in &insert.unity_objects {
-                unity_obj.push(v.clone());
-            }
-            builder.next_extid += insert.unity_objects.len() as i32;
-            if let Some(OdinASTEntry::Value(_, value)) = incres.0.pop() {
-                Ok(value)
-            } else {
-                Err("OdinASTInsert did not resolve to a single Value entry".to_string())
-            }
-        }
+        UdonHeapValue::OdinASTInsert(insert) => udonheapval_emit_odin_astinsert(insert, builder, unity_obj),
     }
 }
 
