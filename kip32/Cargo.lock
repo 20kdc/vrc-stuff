@@ -82,11 +82,16 @@ name = "kudonast"
 version = "0.1.0"
 dependencies = [
  "kudoninfo",
+ "kudonodin",
+ "serde",
 ]
 
 [[package]]
 name = "kudoninfo"
 version = "0.1.0"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "kudonodin"

@@ -20935,7 +20935,7 @@ pub mod udon_types {
 }
 
 /// All known [UdonType]s.
-pub static UDON_TYPES: &[&'static UdonType] = [
+pub static UDON_TYPES: &[&'static UdonType] = &[
     &udon_types::CinemachineCinemachineComponentBaseArray,
     &udon_types::CinemachineCinemachineDollyCart,
     &udon_types::CinemachineCinemachineDollyCartArray,
@@ -23928,7 +23928,7 @@ pub static UDON_TYPES: &[&'static UdonType] = [
 ];
 
 /// Mapping of synctype numbers to corresponding [UdonType]s.
-pub static UDON_SYNCTYPES: &[Option<&'static UdonType>] = [
+pub static UDON_SYNCTYPES: &[Option<&'static UdonType>] = &[
     None,
     Some(&udon_types::SystemInt16),
     Some(&udon_types::SystemUInt16),

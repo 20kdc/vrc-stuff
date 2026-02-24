@@ -17,6 +17,22 @@ pub enum OdinASTValue {
     Struct(OdinASTStruct),
 }
 
+impl From<&str> for OdinASTValue {
+    fn from(value: &str) -> Self {
+        Self::Primitive(OdinPrimitive::String(value.into()))
+    }
+}
+impl From<OdinPrimitive> for OdinASTValue {
+    fn from(value: OdinPrimitive) -> Self {
+        Self::Primitive(value)
+    }
+}
+impl From<OdinASTStruct> for OdinASTValue {
+    fn from(value: OdinASTStruct) -> Self {
+        Self::Struct(value)
+    }
+}
+
 /// Entry in the AST.
 #[derive(Clone, Debug, PartialOrd, PartialEq, Serialize, Deserialize)]
 pub enum OdinASTEntry {
@@ -349,6 +365,21 @@ impl OdinASTEntry {
             }
         }
         None
+    }
+
+    /// Shorthand.
+    pub fn uval(val: impl Into<OdinASTValue>) -> Self {
+        Self::Value(None, val.into())
+    }
+
+    /// Shorthand.
+    pub fn nval(name: impl Into<String>, val: impl Into<OdinASTValue>) -> Self {
+        Self::Value(Some(name.into()), val.into())
+    }
+
+    /// Array with obvious length.
+    pub fn array(val: Vec<OdinASTEntry>) -> Self {
+        Self::Array(val.len() as i64, val)
     }
 }
 

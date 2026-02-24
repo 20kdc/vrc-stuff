@@ -41,6 +41,7 @@ pub type OdinDecimal = [u8; 8];
 pub enum OdinPrimitive {
     Decimal(OdinDecimal),
     String(String),
+    WTF16(Vec<u16>),
     Guid(OdinGuid),
     SByte(i8),
     Byte(u8),
@@ -128,10 +129,9 @@ fn read_vec(src: &mut impl Read, sz: usize) -> std::io::Result<Vec<u8>> {
     Ok(alloced)
 }
 
-pub fn odin_write_string_value(target: &mut impl Write, sv: &str) -> std::io::Result<()> {
+pub fn odin_write_wtf16_value(target: &mut impl Write, res: &[u16]) -> std::io::Result<()> {
     // The Udon writer doesn't seem to ever use 8-bit strings.
     target.write_all(&[1])?;
-    let res: Vec<u16> = sv.encode_utf16().collect();
     target.write_all(&(res.len() as u32).to_le_bytes())?;
     for v in res {
         target.write_all(&v.to_le_bytes())?;
@@ -139,12 +139,22 @@ pub fn odin_write_string_value(target: &mut impl Write, sv: &str) -> std::io::Re
     Ok(())
 }
 
+pub fn odin_write_string_value(target: &mut impl Write, sv: &str) -> std::io::Result<()> {
+    // The Udon writer doesn't seem to ever use 8-bit strings.
+    let vec: Vec<u16> = sv.encode_utf16().collect();
+    odin_write_wtf16_value(target, &vec)
+}
+
 pub fn odin_read_string_value(src: &mut impl Read) -> std::io::Result<String> {
     let flag = read_int!(src, u8);
     let strlen = read_int!(src, u32);
     if flag == 0 {
-        // utf-8
-        Ok(String::from_utf8_lossy(&read_vec(src, strlen as usize)?).into())
+        // latin-1
+        let mut s = String::new();
+        for _ in 0..strlen {
+            s.push(read_int!(src, u8) as char);
+        }
+        Ok(s)
     } else {
         // utf-16
         let mut vec: Vec<u16> = Vec::new();
@@ -152,6 +162,31 @@ pub fn odin_read_string_value(src: &mut impl Read) -> std::io::Result<String> {
             vec.push(read_int!(src, u16));
         }
         Ok(String::from_utf16_lossy(&vec))
+    }
+}
+
+/// Dodgy UTF-16 is usually lost (if it appears in, say, type names), but we might want to support it for primitive values where it can easily (and safely) occur.
+pub fn odin_read_string_or_wtf16_value(src: &mut impl Read) -> std::io::Result<OdinPrimitive> {
+    let flag = read_int!(src, u8);
+    let strlen = read_int!(src, u32);
+    if flag == 0 {
+        // latin-1
+        let mut s = String::new();
+        for _ in 0..strlen {
+            s.push(read_int!(src, u8) as char);
+        }
+        Ok(OdinPrimitive::String(s))
+    } else {
+        // utf-16
+        let mut vec: Vec<u16> = Vec::new();
+        for _ in 0..strlen {
+            vec.push(read_int!(src, u16));
+        }
+        if let Ok(s) = String::from_utf16(&vec) {
+            Ok(OdinPrimitive::String(s))
+        } else {
+            Ok(OdinPrimitive::WTF16(vec))
+        }
     }
 }
 
@@ -337,6 +372,10 @@ impl OdinEntry {
                 odin_write_name_opt(target, name, 0x27)?;
                 odin_write_string_value(target, &b)?;
             }
+            Self::Value(name, OdinEntryValue::Primitive(OdinPrimitive::WTF16(b))) => {
+                odin_write_name_opt(target, name, 0x27)?;
+                odin_write_wtf16_value(target, &b)?;
+            }
             Self::Value(name, OdinEntryValue::Primitive(OdinPrimitive::Guid(b))) => {
                 odin_write_name_opt(target, name, 0x29)?;
                 target.write_all(b)?;
@@ -471,8 +510,8 @@ impl OdinEntry {
             0x24 => des_uprim!(OdinPrimitive::Decimal(read_fixed(src)?)),
             0x25 => des_nprim!(src, OdinPrimitive::Char(read_int!(src, u16))),
             0x26 => des_uprim!(OdinPrimitive::Char(read_int!(src, u16))),
-            0x27 => des_nprim!(src, OdinPrimitive::String(odin_read_string_value(src)?)),
-            0x28 => des_uprim!(OdinPrimitive::String(odin_read_string_value(src)?)),
+            0x27 => des_nprim!(src, odin_read_string_or_wtf16_value(src)?),
+            0x28 => des_uprim!(odin_read_string_or_wtf16_value(src)?),
             0x29 => des_nprim!(src, OdinPrimitive::Guid(read_fixed(src)?)),
             0x2A => des_uprim!(OdinPrimitive::Guid(read_fixed(src)?)),
             0x2B => des_nprim!(src, OdinPrimitive::Boolean(read_int!(src, u8) == 1)),
