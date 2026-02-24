@@ -10,6 +10,7 @@ using VRC.Udon.Editor;
 using VRC.Udon.EditorBindings;
 using VRC.SDK3.Network;
 using UdonSharp.Compiler.Udon;
+using VRC.Udon.Serialization.OdinSerializer;
 
 namespace KDCVRCTools {
 	public static class Dataminer {
@@ -63,7 +64,7 @@ namespace KDCVRCTools {
 				total.Add("TYPE");
 				string typeUdonName = GetUdonTypeName(getUdonTypeName, t);
 				total.Add(typeUdonName);
-				total.Add(t.FullName);
+				total.Add(TwoWaySerializationBinder.Default.BindToName(t));
 				if (t.BaseType != null) {
 					total.Add(GetUdonTypeName(getUdonTypeName, t.BaseType));
 				} else {

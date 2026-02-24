@@ -21,7 +21,9 @@ namespace KDCVRCTools {
 	 * ...ok, the plan ran into significant problems on the reading side because... Unity.
 	 * Unity is being absolutely awful at every step of the way.
 	 * One would think the editor JSON serialization able to carry UUIDs would properly deserialize.
-	 * It doesn't. So we spend a lot of effort essentially just to get back where we started.
+	 * It either doesn't, or the upcoming stuff makes it disappear, or something.
+	 * (The code might get reverted to remove BunnyRegular if it's not actually useful.)
+	 * So we spend a lot of effort essentially just to get back where we started.
 	 * ...and then, of course, the deserialized public variables **still** regularly disappear into the aether!
 	 * I'm not sure how -- the diffs are showing it's perfectly replicating the original file.
 	 * I think you'll just have to live with this.
@@ -31,7 +33,7 @@ namespace KDCVRCTools {
 		[SerializeField]
 		public string InternalJSON = "{}";
 
-		// basically Unity is being incredibly painful on what it will and won't deserialize
+		// basically something is being incredibly painful on what will and won't deserialize
 		public KDCJSONLittleFakeProxyObject BunnyEditor;
 		public DataToken BunnyRegular;
 

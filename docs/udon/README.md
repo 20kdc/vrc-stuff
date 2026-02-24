@@ -427,9 +427,11 @@ The type numbers are handled via `VRCUdonSyncTypeConverter`; a table is given he
 
 This menu option will create `Assets/datamine.txt` -- copy or symlink for `datamine2json.py`, then run it.
 
-It will create two files:
+It will create some files:
+
 * `api.json`: JSON dump of the known Udon API of VRChat. This includes type hierarchies.
 * `synctypes.md`: GFM-table-formatted table for import into the Network Calling Metadata section of this document.
+* `../../kip32/kudonast/src/generated.rs`: Derived data in kudonast.
 
 ### `VRChat SDK/KDCVRCTools/Dump Odin`
 
