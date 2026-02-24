@@ -261,7 +261,7 @@ pub fn udonsyncmetadata_emit_odin(
                 let prop_ref_id = builder.alloc_refid();
                 xm.1.push(OdinASTEntry::uval(OdinASTValue::InternalRef(prop_ref_id)));
                 prop_ref_id
-            },
+            }
             None => {
                 let usm_ref_id = builder.alloc_refid();
                 let prop_list_ref_id = builder.alloc_refid();
@@ -280,9 +280,13 @@ pub fn udonsyncmetadata_emit_odin(
                     OdinASTValue::InternalRef(usm_ref_id),
                 ));
 
-                symbol_prop_list_map.insert(kname.clone(), (prop_list_ref_id, vec![
-                    OdinASTEntry::uval(OdinASTValue::InternalRef(prop_ref_id))
-                ]));
+                symbol_prop_list_map.insert(
+                    kname.clone(),
+                    (
+                        prop_list_ref_id,
+                        vec![OdinASTEntry::uval(OdinASTValue::InternalRef(prop_ref_id))],
+                    ),
+                );
 
                 prop_ref_id
             }

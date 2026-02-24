@@ -36,10 +36,7 @@ impl Default for UdonInt {
 
 impl UdonInt {
     /// Resolves to a constant.
-    pub fn resolve(
-        &self,
-        symtab: &BTreeMap<String, i64>,
-    ) -> Result<i64, String> {
+    pub fn resolve(&self, symtab: &BTreeMap<String, i64>) -> Result<i64, String> {
         match self {
             Self::I(v) => Ok(*v),
             Self::Op(op) => Ok(op.opcode as i64),
