@@ -2,9 +2,9 @@
 //! This AST is not designed for complete round-trip 1:1 conversion (for that, maybe consider `kudonodin`).
 //! This AST is designed to be easily assembled to, but decently flexible.
 
-use kudoninfo::{UdonSpaciality, UdonType, UdonOpcode};
+use kudoninfo::{UdonOpcode, UdonSpaciality, UdonType};
 use kudonodin::*;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
 // -- part 1: linker value resolver --
@@ -39,13 +39,16 @@ impl Default for UdonInt {
 
 impl UdonInt {
     /// Resolves to a constant.
-    pub fn resolve(&self, symtab: &BTreeMap<String, UdonResolvedInternalSym>) -> Result<i64, String> {
+    pub fn resolve(
+        &self,
+        symtab: &BTreeMap<String, UdonResolvedInternalSym>,
+    ) -> Result<i64, String> {
         match self {
             Self::I(v) => Ok(*v),
             Self::Op(op) => Ok(op.opcode as i64),
             Self::Sym(sym) => match symtab.get(sym) {
                 None => Err(format!("missing internal symbol {}", sym)),
-                Some(v) => Ok(v.1)
+                Some(v) => Ok(v.1),
             },
             Self::Add(a, b) => Ok(a.resolve(symtab)?.wrapping_add(b.resolve(symtab)?)),
             Self::Sub(a, b) => Ok(a.resolve(symtab)?.wrapping_sub(b.resolve(symtab)?)),
@@ -60,6 +63,7 @@ impl UdonInt {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct UdonSymbol {
     pub name: String,
+    /// _Ignored in UASM._
     pub udon_type: Option<UdonType>,
     pub address: UdonInt,
     pub public: bool,
@@ -78,7 +82,7 @@ pub struct UdonOdinASTInsert {
     /// The root entries must solely consist of a single Value entry.
     /// This Value entry will be patched to have the correct name if necessary.
     pub file: OdinASTFile,
-    pub unity_objects: Vec<UdonUnityObject>
+    pub unity_objects: Vec<UdonUnityObject>,
 }
 
 /// Udon heap value specification.
@@ -88,21 +92,27 @@ pub struct UdonOdinASTInsert {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum UdonHeapValue {
     /// Odin primitive.
+    /// _Limited support in UASM -- all integers written as UInt._
     P(OdinPrimitive),
     /// Primitive array with the encompassing object auto-generated.
     /// This is the most convenient way to handle, i.e. [kudoninfo::udon_types::SystemByteArray].
+    /// _Not supported in UASM._
     PrimitiveArray(UdonType, OdinPrimitiveArray),
     /// Calculated integer.
+    /// _Limited support in UASM -- all integers written as UInt._
     I(OdinIntType, UdonInt),
     /// .NET type.
     /// String is used because Udon Assembly can't represent this anyway.
+    /// _Not supported in UASM._
     RType(String),
     /// UdonGameObjectComponentHeapReference is used for Const This.
     UdonGameObjectComponentHeapReference(UdonType),
     /// Inserted Odin AST.
+    /// _Not supported in UASM._
     OdinASTInsert(UdonOdinASTInsert),
     /// Inserted Odin AST struct.
-    OdinASTStruct(OdinASTStruct)
+    /// _Not supported in UASM._
+    OdinASTStruct(OdinASTStruct),
 }
 
 impl From<OdinPrimitive> for UdonHeapValue {
@@ -126,7 +136,7 @@ pub struct UdonHeapSlot(pub UdonType, pub UdonHeapValue);
 pub struct UdonNetworkCallMetadata {
     pub name: String,
     pub max_events_per_second: i32,
-    pub parameters: Vec<UdonNetworkCallParameter>
+    pub parameters: Vec<UdonNetworkCallParameter>,
 }
 
 /// Network call parameter; a name and type. UdonType is used for convenience.
@@ -139,6 +149,7 @@ pub struct UdonProgram {
     pub code: Vec<UdonInt>,
     /// Minimum heap capacity. This is used to emulate.
     /// Defaults to 1.
+    /// _Ignored in UASM._
     pub min_heap_capacity: Option<u32>,
     /// Data
     pub data: Vec<UdonHeapSlot>,
@@ -150,13 +161,14 @@ pub struct UdonProgram {
     /// TODO: It doesn't support per-property metadata. Do we need to support this?
     pub sync_metadata: Vec<(String, u64)>,
     /// Behold, network call metadata.
+    /// _Not supported in UASM._
     pub network_call_metadata: Option<Vec<UdonNetworkCallMetadata>>,
     /// 'Internal' symbol table.
     /// This symbol table is not written out, only used in UdonInt calculations.
     /// When writing to Udon Assembly, the strings here are _not used._
     pub internal_syms: BTreeMap<String, UdonResolvedInternalSym>,
     /// Update order.
-    pub update_order: UdonInt
+    pub update_order: UdonInt,
 }
 
 mod emit_odin;

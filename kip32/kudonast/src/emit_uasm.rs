@@ -22,8 +22,8 @@ fn get_code_or_error(program: &UdonProgram, at: usize, translate_ctx: &UASMTrans
             Err(err) => {
                 translate_ctx.err_code(err);
                 0
-            },
-            Ok(v) => v as u32
+            }
+            Ok(v) => v as u32,
         }
     } else {
         translate_ctx.err_code("Instruction parser escaped the codebuffer. Was last heard joyfully shouting \"I'M FREE!\".");
@@ -37,7 +37,10 @@ fn codeptr_to_i64(codeptr: usize) -> i64 {
 
 /// Translates [UdonProgram] into VRCSDK Udon Assembly.
 /// This assembly is severely limited compared to kudonast.
-pub fn udonprogram_emit_uasm(program: &UdonProgram, uasm_writer: &UASMWriter) -> Result<(), String> {
+pub fn udonprogram_emit_uasm(
+    program: &UdonProgram,
+    uasm_writer: &UASMWriter,
+) -> Result<(), String> {
     let translate_ctx = UASMTranslateCtx(uasm_writer, RefCell::new(Vec::new()));
 
     // -- Code Early Pass --
@@ -68,9 +71,12 @@ pub fn udonprogram_emit_uasm(program: &UdonProgram, uasm_writer: &UASMWriter) ->
                 if valid_code_locations.contains(&address) {
                     code_remapped.insert(address, v.clone());
                 } else {
-                    translate_ctx.err_code(format!("Code symbol {} resolved outside of code: {}", v.name, address));
+                    translate_ctx.err_code(format!(
+                        "Code symbol {} resolved outside of code: {}",
+                        v.name, address
+                    ));
                 }
-            },
+            }
             Err(err) => {
                 translate_ctx.err_code(format!("Code symbol {} did not resolve: {}", v.name, err));
             }
@@ -84,9 +90,12 @@ pub fn udonprogram_emit_uasm(program: &UdonProgram, uasm_writer: &UASMWriter) ->
                 if address >= 0 && address < ((program.data.len()) as i64) {
                     data_remapped.insert(address, v.clone());
                 } else {
-                    translate_ctx.err_data(format!("Data symbol {} resolved outside of data: {}", v.name, address));
+                    translate_ctx.err_data(format!(
+                        "Data symbol {} resolved outside of data: {}",
+                        v.name, address
+                    ));
                 }
-            },
+            }
             Err(err) => {
                 translate_ctx.err_data(format!("Data symbol {} did not resolve: {}", v.name, err));
             }
@@ -117,45 +126,68 @@ pub fn udonprogram_emit_uasm(program: &UdonProgram, uasm_writer: &UASMWriter) ->
     // -- Data --
 
     for (k, v) in program.data.iter().enumerate() {
-        let rmp = data_remapped.get(&(k as i64)).map(|v| v.clone()).unwrap_or_else(|| {
-            let v = format!("__kudonastemituasm__{}", k);
-            let sym = UdonSymbol {
-                name: v.clone(),
-                udon_type: None,
-                address: UdonInt::I(k as i64),
-                public: false
-            };
-            // retroactively add this
-            data_remapped.insert(k as i64, sym.clone());
-            sym
-        });
+        let rmp = data_remapped
+            .get(&(k as i64))
+            .map(|v| v.clone())
+            .unwrap_or_else(|| {
+                let v = format!("__kudonastemituasm__{}", k);
+                let sym = UdonSymbol {
+                    name: v.clone(),
+                    udon_type: None,
+                    address: UdonInt::I(k as i64),
+                    public: false,
+                };
+                // retroactively add this
+                data_remapped.insert(k as i64, sym.clone());
+                sym
+            });
         // for UdonGameObjectComponentHeapReference swapping
         let mut type_slot = &v.0;
         let value = match &v.1 {
-            UdonHeapValue::P(OdinPrimitive::Null) => {
-                "null".to_string()
-            },
-            UdonHeapValue::P(OdinPrimitive::Int(v)) => {
-                format!("0x{:08x}", *v as u32)
-            },
-            UdonHeapValue::P(OdinPrimitive::UInt(v)) => {
-                format!("0x{:08x}", *v as u32)
-            },
-            UdonHeapValue::P(OdinPrimitive::Float(v)) => {
-                format!("{}", v)
-            },
-            UdonHeapValue::P(OdinPrimitive::Double(v)) => {
-                format!("{}", v)
-            },
-            UdonHeapValue::P(OdinPrimitive::String(s)) => {
-                format!("\"{}\"", s)
+            UdonHeapValue::P(prim) => {
+                if let Some(int) = prim.decompose_int() {
+                    format!("0x{:08x}", int.1 as u32)
+                } else {
+                    match prim {
+                        OdinPrimitive::Null => "null".to_string(),
+                        OdinPrimitive::Float(v) => {
+                            format!("{}", v)
+                        }
+                        OdinPrimitive::Double(v) => {
+                            format!("{}", v)
+                        }
+                        OdinPrimitive::String(s) => {
+                            format!("\"{}\"", s)
+                        }
+                        _ => {
+                            translate_ctx.err_data(format!(
+                                "Data symbol {} contains untranslatable primitive {:?}",
+                                rmp.name, prim
+                            ));
+                            "null".to_string()
+                        }
+                    }
+                }
+            }
+            UdonHeapValue::I(_, i) => match i.resolve(&program.internal_syms) {
+                Ok(v) => {
+                    format!("0x{:08x}", v as u32)
+                }
+                Err(err) => {
+                    translate_ctx
+                        .err_data(format!("Data symbol {} failed resolve: {}", rmp.name, err));
+                    "0".to_string()
+                }
             },
             UdonHeapValue::UdonGameObjectComponentHeapReference(udon_type) => {
                 type_slot = udon_type;
                 "this".to_string()
-            },
+            }
             _ => {
-                translate_ctx.err_data(format!("Data symbol {} contains untranslatable value {:?}", rmp.name, v.1));
+                translate_ctx.err_data(format!(
+                    "Data symbol {} contains untranslatable value {:?}",
+                    rmp.name, v.1
+                ));
                 "null".to_string()
             }
         };
@@ -168,7 +200,10 @@ pub fn udonprogram_emit_uasm(program: &UdonProgram, uasm_writer: &UASMWriter) ->
         // uasm_writer.data(format!("{}->{}", variable, this));
         let res = kudoninfo::sparse_table_get(kudoninfo::UDON_INTERPOLATIONS, v.1 as usize);
         let res = res.unwrap_or_else(|| {
-            translate_ctx.err_data(format!("sync metadata on {} uses unknown interpolation {}", v.0, v.1));
+            translate_ctx.err_data(format!(
+                "sync metadata on {} uses unknown interpolation {}",
+                v.0, v.1
+            ));
             "none"
         });
         uasm_writer.data(format!("\t.sync {}, {}", v.0, res));

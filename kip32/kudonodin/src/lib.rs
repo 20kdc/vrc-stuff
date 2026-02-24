@@ -72,7 +72,7 @@ pub enum OdinIntType {
     UInt,
     Long,
     ULong,
-    Char
+    Char,
 }
 
 impl OdinPrimitive {
@@ -88,7 +88,7 @@ impl OdinPrimitive {
             Self::Long(b) => Some((OdinIntType::Long, *b as i64)),
             Self::ULong(b) => Some((OdinIntType::ULong, *b as i64)),
             Self::Char(b) => Some((OdinIntType::Char, *b as i64)),
-            _ => None
+            _ => None,
         }
     }
     /// Composes an integer value from integer type and 'universal' [i64] value.

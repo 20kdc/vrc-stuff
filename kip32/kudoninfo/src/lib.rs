@@ -1,8 +1,8 @@
 //! `kudoninfo` represents a Rust reification of some of the output of `datamine2json.py`, plus some additional core structures.
 //! Presently, the focus is on providing just enough information for a complete assembler.
 
-use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 /// Type metadata.
 #[derive(Clone)]
@@ -27,7 +27,8 @@ impl std::fmt::Debug for UdonType {
 impl serde::Serialize for UdonType {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
-        S: serde::Serializer {
+        S: serde::Serializer,
+    {
         serializer.serialize_str(&self.name)
     }
 }
@@ -35,10 +36,13 @@ impl serde::Serialize for UdonType {
 impl<'de> serde::Deserialize<'de> for UdonType {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
-        D: serde::Deserializer<'de> {
+        D: serde::Deserializer<'de>,
+    {
         // this is poor construction, but it should do
         let string = String::deserialize(deserializer)?;
-        udontype_get(&string).ok_or(serde::de::Error::custom("invalid UdonType")).map(|v| v.clone())
+        udontype_get(&string)
+            .ok_or(serde::de::Error::custom("invalid UdonType"))
+            .map(|v| v.clone())
     }
 }
 
@@ -82,7 +86,8 @@ pub struct UdonOpcode {
 impl Serialize for &'static UdonOpcode {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
-        S: serde::Serializer {
+        S: serde::Serializer,
+    {
         serializer.serialize_str(self.name)
     }
 }
@@ -90,7 +95,8 @@ impl Serialize for &'static UdonOpcode {
 impl<'de> Deserialize<'de> for &'static UdonOpcode {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
-        D: serde::Deserializer<'de> {
+        D: serde::Deserializer<'de>,
+    {
         let string = String::deserialize(deserializer)?;
         udonopcode_get(&string).ok_or(serde::de::Error::custom("invalid UdonOpcode"))
     }
@@ -113,9 +119,7 @@ pub fn udontype_hashmap() -> HashMap<String, UdonType> {
 /// Gets an [UdonType] statically using binary search.
 /// This is used in deserialization.
 pub fn udontype_get(b: &str) -> Option<&'static UdonType> {
-    if let Ok(res) = UDON_TYPES.binary_search_by_key(&b, |v| {
-        &v.name
-    }) {
+    if let Ok(res) = UDON_TYPES.binary_search_by_key(&b, |v| &v.name) {
         Some(UDON_TYPES[res])
     } else {
         None
@@ -179,11 +183,8 @@ pub mod interpolations {
 }
 
 /// Every interpolation in Udon, in uasm form, as a sparse table (see [sparse_table_get]).
-pub static UDON_INTERPOLATIONS: &[Option<&'static str>] = &[
-    Some("none"),
-    Some("linear"),
-    Some("smooth")
-];
+pub static UDON_INTERPOLATIONS: &[Option<&'static str>] =
+    &[Some("none"), Some("linear"), Some("smooth")];
 
 /// Looks up a value from a sparse table.
 pub fn sparse_table_get<T: Copy>(table: &[Option<T>], index: usize) -> Option<T> {
@@ -199,8 +200,23 @@ pub fn sparse_table_get<T: Copy>(table: &[Option<T>], index: usize) -> Option<T>
 mod tests {
     #[test]
     pub fn test_udontype_lookups() {
-        assert_eq!(crate::udontype_get("SystemInt32").expect("SystemInt32 must exist").name, "SystemInt32");
-        assert_eq!(crate::udontype_get("SystemUInt32").expect("SystemUInt32 must exist").name, "SystemUInt32");
-        assert_eq!(crate::udontype_get("VRCSDKBaseVRCRenderTexture").expect("VRCSDKBaseVRCRenderTexture must exist").name, "VRCSDKBaseVRCRenderTexture");
+        assert_eq!(
+            crate::udontype_get("SystemInt32")
+                .expect("SystemInt32 must exist")
+                .name,
+            "SystemInt32"
+        );
+        assert_eq!(
+            crate::udontype_get("SystemUInt32")
+                .expect("SystemUInt32 must exist")
+                .name,
+            "SystemUInt32"
+        );
+        assert_eq!(
+            crate::udontype_get("VRCSDKBaseVRCRenderTexture")
+                .expect("VRCSDKBaseVRCRenderTexture must exist")
+                .name,
+            "VRCSDKBaseVRCRenderTexture"
+        );
     }
 }
