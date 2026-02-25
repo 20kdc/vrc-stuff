@@ -1,16 +1,16 @@
 /*
  * data and code can mix freely
  * symbols aren't quoted
- * access is divided into 'internal', 'symbol' and 'public'
+ * access is divided into 'internal', 'symbol' (default) and 'public'
  * newlines are used as implicit separators
  */
-var (message, public, string("hello
+var_public (message, string("hello
 world"))
 // as a shorthand, simple variable types are often listed by C# type with their default values, as so:
-var (example_int, public, int(12))
+var (example_int, int(12))
 // integer or char values are parsed as instruction operands
 // however, only char values use char affinity
-var (example_char, public, char("A"))
+var (example_char, char("A"))
 // string/sbyte/byte/short/ushort/uint/long/ulong/float/double/char/true/false/null/this/ast
 // all the 'known type' cases always use their types (use `ast` to override)
 // `string("string")` is as expected

@@ -148,10 +148,6 @@ pub struct UdonProgram {
     /// _UASM only._
     #[serde(default)]
     pub code_comments: BTreeMap<usize, String>,
-    /// Maps externs to symbol names.
-    /// If the extern is then referenced with [UdonProgram::ensure_string], a correponding Udon symbol is created.
-    #[serde(default)]
-    pub extern_symnames: BTreeMap<String, String>,
     /// Minimum heap capacity. This is used to emulate.
     /// Defaults to 1.
     /// _Ignored in UASM._
@@ -212,14 +208,8 @@ impl UdonProgram {
     }
     /// Ensures the presence of the given string or extern, returning the resulting internal symbol name.
     pub fn ensure_string(&mut self, ext: &str, is_ext: bool) -> String {
-        let mut is_udonsym = false;
         let key = if is_ext {
-            if let Some(s) = self.extern_symnames.get(ext) {
-                is_udonsym = true;
-                s.clone()
-            } else {
-                format!("_extern.{}", ext)
-            }
+            format!("_extern__{}", ext.replace(".", "_dot_"))
         } else {
             format!("_string.{}", ext)
         };
@@ -229,12 +219,12 @@ impl UdonProgram {
                 kudoninfo::udon_types::SystemString.clone(),
                 UdonHeapValue::P(OdinPrimitive::String(ext.to_string())),
             ));
-            if is_udonsym {
+            if is_ext {
                 self.data_syms.push(UdonSymbol {
                     name: key.clone(),
                     udon_type: Some(kudoninfo::udon_types::SystemString.clone()),
                     address: UdonInt::Sym(key.clone()),
-                    public: true,
+                    public: false,
                 });
             }
             self.internal_syms.insert(key.clone(), residx as i64);
@@ -246,6 +236,15 @@ impl UdonProgram {
         let num = self.gensym_number;
         self.gensym_number += 1;
         format!("_{}_gensym{}", r, num)
+    }
+    /// Comment.
+    pub fn add_comment(code_comments: &mut BTreeMap<usize, String>, at: usize, comm: &str) {
+        if let Some(ci) = code_comments.get_mut(&at) {
+            ci.push_str("\n");
+            ci.push_str(comm);
+        } else {
+            code_comments.insert(at, comm.to_string());
+        }
     }
 }
 

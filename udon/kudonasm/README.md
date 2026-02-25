@@ -84,7 +84,11 @@ It's possible for kudonasm to avoid putting a symbol there _period,_ which helps
 
 The available levels of access, written as their code labels, are:
 
-* `internal(sym)` / `_(sym)`: Not written to Udon symbol table.
+* `internal(sym)`: Not written to Udon symbol table.
+* `symbol(sym)` / `_(sym)`: Written to Udon symbol table.
+* `public(sym)`: Exported.
+
+Where access isn't specified (`_(sym)` and `var(sym, val)`), it's `symbol`.
 
 There is also an 'honourable mention' to symbols declared as `local()`, which declares a unique name.
 
@@ -103,12 +107,25 @@ There are also a 'macroinstruction':
 
 ## Declarations
 
-### `var(sym, access, value)`
+### `var(sym, value)` / `var_internal(sym, value)` / `var_symbol(sym, value)` / `var_public(sym, value)`
 
 Declares a heap value.
 
-    #[serde(rename = "var")]
-    Var(KU2Symbol, KU2Access, KU2HeapSlot),
+The value itself can be:
+
+* `int(n)`, `uint(n)`, `short(n)`, `ushort(n)`, `byte(n)`, `sbyte(n)`, `long(n)`, `ulong(n)`: Heap slot of the given type with the given operand as value.
+	* Importantly, the value here can refer to i.e. a code symbol.
+	* Operand is evaluted with `error` affinity.
+* `char(n)`: Similar to the above, but with `char` affinity.
+* `string(v)`, `true`, `false`, `float(v)`, `double(v)`: Fixed values; no operand evaluation
+* `null(type)`, `this(type)`: with the given `UdonType`.
+* `ast(type, value)`: Fixed `UdonType` and `kudonast::UdonHeapValue`
+
+An `UdonType` is written as a string, such as `"SystemString"`.
+
+```
+var(MyInteger, int(0))
+```
 
 ### `sync(sym, itype)` / `sync_prop(sym, prop, itype)`
 
@@ -169,6 +186,8 @@ rename_sym(Routine_code, "Routine")
 
 And would generate the intended effect in the Udon symbol table.
 
+## Meta
+
 ### `package("name", ["dep", "dep"])`
 
 For 'normal' assembly purposes, this does nothing.
@@ -191,6 +210,16 @@ package("snippet", ["example"])
 // instance-specific code here...
 ```
 
+### `code_comment(text)` / `data_comment(text)`
+
+Inserts a comment into output UASM.
+
+```
+code_comment("Test")
+
+data_comment("Test")
+```
+
 ## Equate Pseudoinstructions
 
 ### `equ(sym, operand)` / `equ_str(sym, affinity, operand)`
@@ -203,7 +232,7 @@ Since this manipulates equates, the symbol is not 're-evaluated'.
 
 ```
 equ_str(message, data, "Hello, world!")
-equ_str(_s2i_, extern, "Hello, world!")
+equ_str(_ecall_ext_char2str, extern, "SystemConvert.__ToString__SystemChar__SystemString")
 ```
 
 ### `local(sym)`

@@ -171,14 +171,14 @@ impl KU2Context {
         match val {
             KU2HeapSlot::String(v) => pmap!(SystemString, String, v),
 
-            KU2HeapSlot::SByte(v) => imap!(SystemSByte, SByte, v, Data),
-            KU2HeapSlot::Byte(v) => imap!(SystemByte, Byte, v, Data),
-            KU2HeapSlot::Short(v) => imap!(SystemInt16, Short, v, Data),
-            KU2HeapSlot::UShort(v) => imap!(SystemUInt16, UShort, v, Data),
-            KU2HeapSlot::Int(v) => imap!(SystemInt32, Int, v, Data),
-            KU2HeapSlot::UInt(v) => imap!(SystemUInt32, UInt, v, Data),
-            KU2HeapSlot::Long(v) => imap!(SystemInt64, Long, v, Data),
-            KU2HeapSlot::ULong(v) => imap!(SystemUInt64, ULong, v, Data),
+            KU2HeapSlot::SByte(v) => imap!(SystemSByte, SByte, v, Error),
+            KU2HeapSlot::Byte(v) => imap!(SystemByte, Byte, v, Error),
+            KU2HeapSlot::Short(v) => imap!(SystemInt16, Short, v, Error),
+            KU2HeapSlot::UShort(v) => imap!(SystemUInt16, UShort, v, Error),
+            KU2HeapSlot::Int(v) => imap!(SystemInt32, Int, v, Error),
+            KU2HeapSlot::UInt(v) => imap!(SystemUInt32, UInt, v, Error),
+            KU2HeapSlot::Long(v) => imap!(SystemInt64, Long, v, Error),
+            KU2HeapSlot::ULong(v) => imap!(SystemUInt64, ULong, v, Error),
             KU2HeapSlot::Float(v) => pmap!(SystemSingle, Float, v),
             KU2HeapSlot::Double(v) => pmap!(SystemDouble, Double, v),
             KU2HeapSlot::Char(v) => imap!(SystemChar, Char, v, Char),
@@ -196,6 +196,26 @@ impl KU2Context {
         }
     }
 
+    pub fn assemble_var(
+        &mut self,
+        file: &mut UdonProgram,
+        sym: &KU2Symbol,
+        val: &KU2HeapSlot,
+        acc: KU2Access,
+    ) -> Result<(), String> {
+        let loc = file.data.len();
+        let uhs: UdonHeapSlot = self.conv_heap_slot(file, val)?;
+        file.data.push(uhs.clone());
+        self.create_label(
+            &mut file.internal_syms,
+            &mut file.data_syms,
+            sym,
+            Some(uhs.0),
+            acc,
+            loc as i64,
+        )
+    }
+
     /// Assembles a single instruction of code.
     pub fn assemble(
         &mut self,
@@ -205,18 +225,14 @@ impl KU2Context {
         let code_base_ptr = (file.code.len() * 4) as i64;
         match instr {
             // -- decl --
-            KU2Instruction::Var(sym, acc, val) => {
-                let loc = file.data.len();
-                let uhs: UdonHeapSlot = self.conv_heap_slot(file, val)?;
-                file.data.push(uhs.clone());
-                self.create_label(
-                    &mut file.internal_syms,
-                    &mut file.data_syms,
-                    sym,
-                    Some(uhs.0),
-                    *acc,
-                    loc as i64,
-                )
+            KU2Instruction::VarInternal(sym, val) => {
+                self.assemble_var(file, sym, val, KU2Access::Internal)
+            }
+            KU2Instruction::VarSymbol(sym, val) => {
+                self.assemble_var(file, sym, val, KU2Access::Symbol)
+            }
+            KU2Instruction::VarPublic(sym, val) => {
+                self.assemble_var(file, sym, val, KU2Access::Public)
             }
             KU2Instruction::Sync(sym, synctype) => {
                 let sym = self.ku2sym_to_udon(&sym)?;
@@ -276,7 +292,16 @@ impl KU2Context {
                 }
                 Ok(())
             }
+            // -- meta --
             KU2Instruction::Package(_, _) => Ok(()),
+            KU2Instruction::CodeComment(comm) => {
+                UdonProgram::add_comment(&mut file.code_comments, file.code.len(), comm);
+                Ok(())
+            }
+            KU2Instruction::DataComment(comm) => {
+                UdonProgram::add_comment(&mut file.data_comments, file.data.len(), comm);
+                Ok(())
+            }
             // -- codelabel --
             KU2Instruction::CodeInternal(sym) => self.create_label(
                 &mut file.internal_syms,

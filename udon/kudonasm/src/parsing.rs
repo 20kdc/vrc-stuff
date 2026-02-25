@@ -211,8 +211,13 @@ pub enum KU2HeapSlot {
 #[derive(Clone, Debug, PartialEq, PartialOrd, Deserialize)]
 pub enum KU2Instruction {
     // decl
-    #[serde(rename = "var")]
-    Var(KU2Symbol, KU2Access, KU2HeapSlot),
+    #[serde(rename = "var_internal")]
+    VarInternal(KU2Symbol, KU2HeapSlot),
+    #[serde(rename = "var_symbol")]
+    #[serde(alias = "var")]
+    VarSymbol(KU2Symbol, KU2HeapSlot),
+    #[serde(rename = "var_public")]
+    VarPublic(KU2Symbol, KU2HeapSlot),
     #[serde(rename = "sync")]
     Sync(KU2Symbol, KU2SyncType),
     #[serde(rename = "sync_prop")]
@@ -223,8 +228,13 @@ pub enum KU2Instruction {
     NetEvent(KU2Symbol, i32, Vec<(KU2Symbol, UdonType)>),
     #[serde(rename = "rename_sym")]
     RenameSym(KU2Symbol, String),
+    // meta
     #[serde(rename = "package")]
     Package(String, Vec<String>),
+    #[serde(rename = "code_comment")]
+    CodeComment(String),
+    #[serde(rename = "data_comment")]
+    DataComment(String),
     // codelabel
     #[serde(rename = "internal")]
     #[serde(alias = "_")]

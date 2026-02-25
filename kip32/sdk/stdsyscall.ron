@@ -1,0 +1,49 @@
+// Simple syscalls file.
+
+// The transpiler creates _ecall_vector_table, a UInt32 pointing at the start of where code is --inc'd.
+
+var(_ecall_c10, int(10))
+var(_ecall_cFF, int(255))
+equ_str(_ecall_ext_i32eq, extern, "SystemInt32.__op_Equality__SystemInt32_SystemInt32__SystemBoolean")
+equ_str(_ecall_ext_i32and, extern, "SystemInt32.__op_LogicalAnd__SystemInt32_SystemInt32__SystemInt32")
+equ_str(_ecall_ext_log, extern, "UnityEngineDebug.__Log__SystemObject__SystemVoid")
+equ_str(_ecall_ext_tochar, extern, "SystemConvert.__ToChar__SystemInt32__SystemChar")
+equ_str(_ecall_ext_char2str, extern, "SystemConvert.__ToString__SystemChar__SystemString")
+equ_str(_ecall_ext_stradd, extern, "SystemString.__op_Addition__SystemString_SystemString__SystemString")
+var_public(_ecall_logmsg, string(""))
+var(_ecall_logmsg_empty, string(""))
+var(_ecall_logchar, null("SystemChar"))
+var(_ecall_logcharstr, string(""))
+
+
+// This really needs to be changed to be a better, proper example of how to implement syscalls.
+_(_ecall)
+	push([a0])
+	push([_ecall_c10])
+	push([_vm_tmp_bool])
+	extern([_ecall_ext_i32eq])
+	push([_vm_tmp_bool])
+	jump_if_false([_ecall_not_newline])
+	push([_ecall_logmsg])
+	extern([_ecall_ext_log])
+	push([_ecall_logmsg_empty])
+	push([_ecall_logmsg])
+	copy
+	jump([_vm_indirect_jump])
+
+_(_ecall_not_newline)
+	push([a0])
+	push([_ecall_cFF])
+	push([a0])
+	extern([_c_extern_SystemInt32___op_LogicalAnd__SystemInt32_SystemInt32__SystemInt32])
+	push([a0])
+	push([_ecall_logchar])
+	extern([_ecall_ext_tochar])
+	push([_ecall_logchar])
+	push([_ecall_logcharstr])
+	extern([_ecall_ext_char2str])
+	push([_ecall_logmsg])
+	push([_ecall_logcharstr])
+	push([_ecall_logmsg])
+	extern([_ecall_ext_stradd])
+	jump([_vm_indirect_jump])
