@@ -660,7 +660,9 @@ fn main() -> Result<()> {
     // -- final stage --
 
     let result_text = if udonjson {
-        udonprogram_emit_udonjson(&asm.asm.borrow()).expect("emit of udonjson should work").dump()
+        udonprogram_emit_udonjson(&asm.asm.borrow())
+            .expect("emit of udonjson should work")
+            .dump()
     } else {
         let uasm_writer = UASMWriter::default();
 
