@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 /// Type metadata.
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct UdonType {
     /// Udon type.
     pub name: std::borrow::Cow<'static, str>,
@@ -76,7 +76,7 @@ impl std::ops::Add<UdonSpaciality> for UdonSpaciality {
 /// These are static; Udon is never getting new opcodes.
 /// Accordingly, serialize/deserialize are applied specifically to `&'static UdonOpcode`.
 /// It's best understood as a Java-style enum.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub struct UdonOpcode {
     pub name: &'static str,
     pub opcode: u32,

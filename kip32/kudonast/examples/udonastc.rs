@@ -8,6 +8,7 @@ fn main() {
     assert!(args.next().is_none());
     let res = std::fs::read_to_string(filename).expect("file must be readable");
     let udon_program: kudonast::UdonProgram = ron::from_str(&res).expect("decode must succeed");
+    udon_program.verify().expect("verify must succeed");
     if mode.eq("udonjson") {
         let file =
             kudonast::udonprogram_emit_udonjson(&udon_program).expect("assemble must succeed");

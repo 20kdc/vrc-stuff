@@ -116,6 +116,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "kudonasm"
+version = "0.1.0"
+dependencies = [
+ "kudonast",
+ "kudoninfo",
+ "kudonodin",
+ "ron",
+ "serde",
+]
+
+[[package]]
 name = "kudonast"
 version = "0.1.0"
 dependencies = [

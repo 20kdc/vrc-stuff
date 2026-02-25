@@ -5,13 +5,13 @@
 use kudoninfo::{UdonOpcode, UdonSpaciality, UdonType};
 use kudonodin::*;
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 
 // -- part 1: linker value resolver --
 
 /// Calculatable integer in the Udon AST.
 /// In a linked program, all UdonInt instances are replaced with just the one kind.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum UdonInt {
     /// Constant integer.
     I(i64),
@@ -64,13 +64,13 @@ pub struct UdonSymbol {
 }
 
 /// Reference to a Unity object.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, PartialOrd, Serialize, Deserialize)]
 pub enum UdonUnityObject {
     Ref(String, i64),
 }
 
 /// Used to insert arbitrary data.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, PartialOrd, Serialize, Deserialize)]
 pub struct UdonOdinASTInsert {
     /// The OdinASTFile representing this value.
     /// The root entries must solely consist of a single Value entry.
@@ -83,7 +83,7 @@ pub struct UdonOdinASTInsert {
 /// More-or-less directly translates to Odin AST data.
 /// This struct is intended to be deliberately 'wide' (sadly making it harder to translate).
 /// The idea is to make it convenient to specify any kind of value.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, PartialOrd, Serialize, Deserialize)]
 pub enum UdonHeapValue {
     /// Odin primitive.
     /// _Limited support in UASM -- all integers written as UInt._
@@ -158,10 +158,49 @@ pub struct UdonProgram {
     pub network_call_metadata: Option<Vec<UdonNetworkCallMetadata>>,
     /// 'Internal' symbol table.
     /// This symbol table is not written out, only used in UdonInt calculations.
-    /// When writing to Udon Assembly, the strings here are _not used._
+    /// The symbols aren't even seen in UASM.
+    /// The strings here are only used as keys.
+    /// There are a few 'canonical' symbol namespaces used by provided utility functions:
+    /// `extern.Example.Example` : The extern of the given name.
+    /// `string.Hello, world!` : The string of the given text.
     pub internal_syms: BTreeMap<String, i64>,
     /// Update order.
     pub update_order: UdonInt,
+}
+
+impl UdonProgram {
+    fn verify_symbol_table(&self, v: &Vec<UdonSymbol>) -> Result<(), String> {
+        let mut map = HashSet::new();
+        for value in v {
+            let resolved = value.address.resolve(&self.internal_syms)?;
+            if !map.insert(resolved) {
+                return Err(format!("Symtab duplicate at: {}", value.name));
+            }
+        }
+        Ok(())
+    }
+    pub fn verify(&self) -> Result<(), String> {
+        Self::verify_symbol_table(self, &self.code_syms)?;
+        Self::verify_symbol_table(self, &self.data_syms)?;
+        Ok(())
+    }
+    /// Ensures the presence of the given string or extern, returning the resulting internal symbol name.
+    pub fn ensure_string(&mut self, ext: &str, is_ext: bool) -> String {
+        let key = if is_ext {
+            format!("extern.{}", ext)
+        } else {
+            format!("string.{}", ext)
+        };
+        if !self.internal_syms.contains_key(&key) {
+            let residx = self.data.len();
+            self.data.push(UdonHeapSlot(
+                kudoninfo::udon_types::SystemString.clone(),
+                UdonHeapValue::P(OdinPrimitive::String(ext.to_string())),
+            ));
+            self.internal_syms.insert(key.clone(), residx as i64);
+        }
+        key
+    }
 }
 
 mod emit_odin;
