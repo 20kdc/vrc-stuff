@@ -35,6 +35,19 @@ fn codeptr_to_i64(codeptr: usize) -> i64 {
     (codeptr * 4) as i64
 }
 
+fn build_comment(comment: &str) -> String {
+    let mut res = "\t# ".to_string();
+    let mut first = true;
+    for v in comment.split("\n") {
+        if !first {
+            res.push_str("\n\t# ");
+        }
+        first = false;
+        res.push_str(v);
+    }
+    res
+}
+
 /// Translates [UdonProgram] into VRCSDK Udon Assembly.
 /// This assembly is severely limited compared to kudonast.
 pub fn udonprogram_emit_uasm(
@@ -117,15 +130,16 @@ pub fn udonprogram_emit_uasm(
         }
     }
 
-    if let Some(v) = &program.network_call_metadata {
-        if !v.is_empty() {
-            translate_ctx.err_code("Network call metadata is not supported.");
-        }
+    if !program.network_call_metadata.is_empty() {
+        translate_ctx.err_code("Network call metadata is not supported.");
     }
 
     // -- Data --
 
     for (k, v) in program.data.iter().enumerate() {
+        if let Some(comm) = program.data_comments.get(&k) {
+            uasm_writer.data(build_comment(&comm));
+        }
         let rmp = data_remapped
             .get(&(k as i64))
             .map(|v| v.clone())
@@ -216,6 +230,9 @@ pub fn udonprogram_emit_uasm(
     codeptr = 0;
 
     while codeptr < program.code.len() {
+        if let Some(comm) = program.code_comments.get(&codeptr) {
+            uasm_writer.code(build_comment(&comm));
+        }
         if let Some(sym) = code_remapped.get(&codeptr_to_i64(codeptr)) {
             uasm_writer.code_label(&sym.name, sym.public);
         }

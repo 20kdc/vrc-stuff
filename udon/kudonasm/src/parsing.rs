@@ -34,6 +34,18 @@ pub enum KU2Access {
     Public,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+pub enum KU2StringAffinity {
+    #[serde(rename = "data")]
+    Data,
+    #[serde(rename = "extern")]
+    Extern,
+    #[serde(rename = "char")]
+    Char,
+    #[serde(rename = "error")]
+    Error,
+}
+
 /// Use when this is definitely a symbol.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct KU2Symbol(pub String);
@@ -74,6 +86,16 @@ fn ku2symbol_parse_test() {
     assert_eq!(r1, KU2Symbol("Test".to_string()));
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Deserialize)]
+pub enum KU2Modifier {
+    #[serde(rename = "add")]
+    Add(KU2Operand),
+    #[serde(rename = "sub")]
+    Sub(KU2Operand),
+    #[serde(rename = "mul")]
+    Mul(KU2Operand),
+}
+
 /// Use when this is an operand.
 /// Forms:
 /// * `[symbol]`
@@ -81,7 +103,7 @@ fn ku2symbol_parse_test() {
 /// * `1234`
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum KU2Operand {
-    Sym(KU2Symbol),
+    Sym(KU2Symbol, Vec<KU2Modifier>),
     Str(String),
     I(i64),
 }
@@ -115,14 +137,11 @@ impl<'de> Visitor<'de> for KU2ExprVisitor {
     {
         let a: Option<KU2Symbol> = seq.next_element()?;
         if let Some(a) = a {
-            let b: Option<KU2Symbol> = seq.next_element()?;
-            if b.is_some() {
-                Err(serde::de::Error::custom(
-                    "Label reference should only have the label.",
-                ))
-            } else {
-                Ok(KU2Operand::Sym(a))
+            let mut total = Vec::new();
+            while let Some(modifier) = seq.next_element()? as Option<KU2Modifier> {
+                total.push(modifier);
             }
+            Ok(KU2Operand::Sym(a, total))
         } else {
             Err(serde::de::Error::custom(
                 "Label reference without reference.",
@@ -139,29 +158,90 @@ impl<'de> Deserialize<'de> for KU2Operand {
     }
 }
 
+/// Heap slots contents.
+/// Reference [kudonodin::OdinPrimitive]
+#[derive(Clone, Debug, PartialEq, PartialOrd, Deserialize)]
+pub enum KU2HeapSlot {
+    // --
+    // Decimal(OdinDecimal),
+    #[serde(rename = "string")]
+    String(String),
+    // WTF16(Vec<u16>),
+    // Guid(OdinGuid),
+    #[serde(rename = "sbyte")]
+    SByte(KU2Operand),
+    #[serde(rename = "byte")]
+    Byte(KU2Operand),
+    #[serde(rename = "short")]
+    Short(KU2Operand),
+    #[serde(rename = "ushort")]
+    UShort(KU2Operand),
+    #[serde(rename = "int")]
+    Int(KU2Operand),
+    #[serde(rename = "uint")]
+    UInt(KU2Operand),
+    #[serde(rename = "long")]
+    Long(KU2Operand),
+    #[serde(rename = "ulong")]
+    ULong(KU2Operand),
+    #[serde(rename = "float")]
+    Float(f32),
+    #[serde(rename = "double")]
+    Double(f64),
+    #[serde(rename = "char")]
+    Char(KU2Operand),
+    // boolean
+    #[serde(rename = "true")]
+    True,
+    #[serde(rename = "false")]
+    False,
+    // ExternalRefGuid(OdinGuid),
+    // ExternalRefString(String),
+    // }
+    #[serde(rename = "null")]
+    Null(UdonType),
+    // --
+    #[serde(rename = "this")]
+    This(UdonType),
+    #[serde(rename = "ast")]
+    Custom(UdonType, kudonast::UdonHeapValue),
+}
+
 /// Instruction/pseudoinstruction enum.
 #[derive(Clone, Debug, PartialEq, PartialOrd, Deserialize)]
 pub enum KU2Instruction {
+    // decl
     #[serde(rename = "var")]
-    Var(KU2Symbol, KU2Access, UdonType, kudonast::UdonHeapValue),
+    Var(KU2Symbol, KU2Access, KU2HeapSlot),
     #[serde(rename = "sync")]
-    Sync(KU2Symbol, KU2Symbol, KU2SyncType),
-    #[serde(rename = "internal")]
-    CodeInternal(KU2Symbol),
-    #[serde(rename = "_")]
-    CodeInternalAlt(KU2Symbol),
-    #[serde(rename = "symbol")]
-    CodeSymbol(KU2Symbol),
-    #[serde(rename = "public")]
-    CodePublic(KU2Symbol),
-    #[serde(rename = "equ")]
-    Equate(KU2Symbol, kudonast::UdonInt),
-    #[serde(rename = "equ_extern")]
-    EquateExtern(KU2Symbol, String),
+    Sync(KU2Symbol, KU2SyncType),
+    #[serde(rename = "sync_prop")]
+    SyncProp(KU2Symbol, String, KU2SyncType),
     #[serde(rename = "update_order")]
     UpdateOrder(KU2Operand),
     #[serde(rename = "net_event")]
     NetEvent(KU2Symbol, i32, Vec<(KU2Symbol, UdonType)>),
+    #[serde(rename = "rename_sym")]
+    RenameSym(KU2Symbol, String),
+    #[serde(rename = "package")]
+    Package(String, Vec<String>),
+    // codelabel
+    #[serde(rename = "internal")]
+    #[serde(alias = "_")]
+    CodeInternal(KU2Symbol),
+    #[serde(rename = "symbol")]
+    CodeSymbol(KU2Symbol),
+    #[serde(rename = "public")]
+    CodePublic(KU2Symbol),
+    // equate
+    #[serde(rename = "equ")]
+    EquateInt(KU2Symbol, KU2Operand),
+    #[serde(rename = "equ_str")]
+    EquateStr(KU2Symbol, KU2StringAffinity, KU2Operand),
+    #[serde(rename = "local")]
+    Local(KU2Symbol),
+    #[serde(rename = "undef")]
+    Undef(KU2Symbol),
     // instructions
     #[serde(rename = "nop")]
     NOP,
@@ -181,6 +261,9 @@ pub enum KU2Instruction {
     JumpIndirect(KU2Operand),
     #[serde(rename = "copy")]
     Copy,
+    // macroinstructions
+    #[serde(rename = "stop")]
+    Stop,
 }
 
 #[cfg(test)]
@@ -189,13 +272,13 @@ fn ku2instruction_parse_test() {
     let r1: KU2Instruction = ron::from_str("_(Test)").unwrap();
     assert_eq!(
         r1,
-        KU2Instruction::CodeInternalAlt(KU2Symbol("Test".to_string()))
+        KU2Instruction::CodeInternal(KU2Symbol("Test".to_string()))
     );
 }
 
 /// Parsing. This focuses on implementing line by line reading on top of RON by essentially fudging the JavaScript semicolon trick.
 /// In the error case, performance gets worse and worse for longer bodies, so, er. don't commit errors I guess.'
-pub fn parse(src: &str) -> Result<Vec<KU2Instruction>, ron::error::SpannedError> {
+pub fn parse(src: &str) -> Result<Vec<(usize, KU2Instruction)>, ron::error::SpannedError> {
     let mut instructions = Vec::new();
     let mut line_number_offset: usize = 0;
     let mut bank = String::new();
@@ -227,10 +310,11 @@ pub fn parse(src: &str) -> Result<Vec<KU2Instruction>, ron::error::SpannedError>
                 Some(err)
             }
             Ok(ok) => {
+                let lno = line_number_offset;
                 bank.clear();
                 line_number_offset += banked_lines;
                 banked_lines = 0;
-                instructions.push(ok);
+                instructions.push((lno + 1, ok));
                 None
             }
         };
@@ -254,38 +338,6 @@ pub fn parse(src: &str) -> Result<Vec<KU2Instruction>, ron::error::SpannedError>
 #[cfg(test)]
 #[test]
 fn ku2parsing_card() {
-    let card = r###"
-/*
- * data and code can mix freely
- * symbols aren't quoted
- * access is divided into 'internal', 'symbol' and 'public'
- * newlines are used as implicit separators
- */
-var (message, public, "SystemString", P(String("hello
-world")))
-sync (message, this, none)
-// equates expose UdonInt ops
-equ (example, Add(I(1), I(2)))
-// or can be used to shorthand externs
-equ_extern (ext_log, "UnityEngineDebug.__Log__SystemObject__SystemVoid")
-// code labels use the access as their opening keyword, except 'internal' can also be '_'
-public(_interact)
-    // instruction operands are:
-    // * [label]
-    // * "constant string/extern"
-    // * 0x1234 // numbers
-    push ([message])
-    extern ([ext_log])
-    jump (0xFFFFFFFC)
-_(infinite_loop)
-    // parsing will add in each line until a complete entity is found
-    // this can lead to unexpected errors if i.e. commas are missing
-    jump ([
-        infinite_loop,
-    ])
-// assorted
-update_order (0)
-net_event (Test, 5, [(Test_Param1, "SystemString")])
-"###;
-    let _v: Vec<KU2Instruction> = parse(card).unwrap();
+    let card = include_str!("card.ron");
+    let _v: Vec<(usize, KU2Instruction)> = parse(card).unwrap();
 }

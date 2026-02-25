@@ -128,7 +128,7 @@
 		("floatSmooth", "this", 2),
 		("floatLinear", "this", 1)
 	],
-	network_call_metadata: Some([
+	network_call_metadata: [
 		(
 			name: "NetworkEventTest",
 			max_events_per_second: 5,
@@ -136,8 +136,7 @@
 				("NetworkEventTest_Parameter1", "SystemString")
 			]
 		)
-	]),
+	],
 	internal_syms: {
-	},
-	update_order: I(0)
+	}
 )

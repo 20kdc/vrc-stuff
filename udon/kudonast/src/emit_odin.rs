@@ -446,14 +446,8 @@ pub fn udonprogram_emit_udonjson(program: &UdonProgram) -> Result<JsonValue, Str
             .collect(),
     );
 
-    let ncd = if let Some(ncd) = &program.network_call_metadata {
-        ncd.as_slice()
-    } else {
-        &[]
-    };
-
     let mut network_calling_entrypoint_metadata = Vec::new();
-    for v in ncd {
+    for v in &program.network_call_metadata {
         let mut res = JsonValue::new_object();
         res["_name"] = v.name.clone().into();
         let mut parameters_arr = Vec::new();

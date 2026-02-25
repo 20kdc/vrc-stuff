@@ -2,17 +2,47 @@
 //! Presently, the focus is on providing just enough information for a complete assembler.
 
 use serde::{Deserialize, Serialize};
+use std::borrow::Cow;
 use std::collections::HashMap;
+use std::rc::Rc;
 
 /// Type metadata.
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct UdonType {
     /// Udon type.
-    pub name: std::borrow::Cow<'static, str>,
+    pub name: Cow<'static, str>,
     /// Odin/shortened .NET type name.
-    pub odin_name: std::borrow::Cow<'static, str>,
+    pub odin_name: Cow<'static, str>,
     /// 'Sync type'. This is used for, among other things, network call RPC.
     pub sync_type: Option<i32>,
+}
+
+/// Reference to an Udon type.
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum UdonTypeRef {
+    C(&'static UdonType),
+    R(Rc<UdonType>),
+}
+
+impl From<&'static UdonType> for UdonTypeRef {
+    fn from(value: &'static UdonType) -> Self {
+        Self::C(value)
+    }
+}
+
+impl From<UdonType> for UdonTypeRef {
+    fn from(value: UdonType) -> Self {
+        Self::R(Rc::new(value))
+    }
+}
+
+impl AsRef<UdonType> for UdonTypeRef {
+    fn as_ref(&self) -> &UdonType {
+        match self {
+            Self::C(v) => v,
+            Self::R(v) => v,
+        }
+    }
 }
 
 // To 'simplify' things, these implementations are somewhat cursed.
@@ -47,29 +77,14 @@ impl<'de> serde::Deserialize<'de> for UdonType {
 }
 
 /// Spaciality is meant to aid in assembly emit.
+/// It's also used by kudonasm to control default string affinity.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug, Serialize, Deserialize)]
 pub enum UdonSpaciality {
     Indistinct,
     Code,
     Data,
+    DataExtern,
     Annotation,
-}
-
-impl std::ops::Add<UdonSpaciality> for UdonSpaciality {
-    type Output = UdonSpaciality;
-    fn add(self, rhs: UdonSpaciality) -> Self::Output {
-        // Prefer non-indistinct.
-        // If unclear, choose indistinct.
-        if self == rhs {
-            self
-        } else if self == Self::Indistinct {
-            rhs
-        } else if rhs == Self::Indistinct {
-            self
-        } else {
-            Self::Indistinct
-        }
-    }
 }
 
 /// Opcode metadata.
@@ -156,7 +171,7 @@ pub mod opcodes {
     // 3 omitted
     def_opcode!(4, JUMP_IF_FALSE, &[UdonSpaciality::Code]);
     def_opcode!(5, JUMP, &[UdonSpaciality::Code]);
-    def_opcode!(6, EXTERN, &[UdonSpaciality::Data]);
+    def_opcode!(6, EXTERN, &[UdonSpaciality::DataExtern]);
     def_opcode!(7, ANNOTATION, &[UdonSpaciality::Annotation]);
     def_opcode!(8, JUMP_INDIRECT, &[UdonSpaciality::Data]);
     def_opcode!(9, COPY, &[]);

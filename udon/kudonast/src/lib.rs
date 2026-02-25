@@ -141,32 +141,57 @@ pub type UdonNetworkCallParameter = (String, UdonType);
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub struct UdonProgram {
     /// Instructions; the actual bytecode.
+    #[serde(default)]
     pub code: Vec<UdonInt>,
+    /// Comments on code.
+    /// These are indexed by code array index, not multiplied by 4.
+    /// _UASM only._
+    #[serde(default)]
+    pub code_comments: BTreeMap<usize, String>,
+    /// Maps externs to symbol names.
+    /// If the extern is then referenced with [UdonProgram::ensure_string], a correponding Udon symbol is created.
+    #[serde(default)]
+    pub extern_symnames: BTreeMap<String, String>,
     /// Minimum heap capacity. This is used to emulate.
     /// Defaults to 1.
     /// _Ignored in UASM._
     pub min_heap_capacity: Option<u32>,
     /// Data
+    #[serde(default)]
     pub data: Vec<UdonHeapSlot>,
+    /// Comments on data.
+    /// _UASM only._
+    #[serde(default)]
+    pub data_comments: BTreeMap<usize, String>,
     /// This is a reasonably literal transliteration into this assembler's world.
+    #[serde(default)]
     pub code_syms: Vec<UdonSymbol>,
     /// This is similar.
+    #[serde(default)]
     pub data_syms: Vec<UdonSymbol>,
     /// This mapping is hacky but should work. Values correspond to [kudoninfo::UDON_INTERPOLATIONS].
+    #[serde(default)]
     pub sync_metadata: Vec<(String, String, u64)>,
     /// Behold, network call metadata.
     /// _Not supported in UASM._
-    pub network_call_metadata: Option<Vec<UdonNetworkCallMetadata>>,
+    #[serde(default)]
+    pub network_call_metadata: Vec<UdonNetworkCallMetadata>,
     /// 'Internal' symbol table.
     /// This symbol table is not written out, only used in UdonInt calculations.
     /// The symbols aren't even seen in UASM.
     /// The strings here are only used as keys.
     /// There are a few 'canonical' symbol namespaces used by provided utility functions:
-    /// `extern.Example.Example` : The extern of the given name.
-    /// `string.Hello, world!` : The string of the given text.
+    /// `_extern.Example.Example` : The extern of the given name.
+    /// `_string.Hello, world!` : The string of the given text.
+    /// `_example_gensym0`: Unique symbols. See gensym function.
+    #[serde(default)]
     pub internal_syms: BTreeMap<String, i64>,
     /// Update order.
+    #[serde(default)]
     pub update_order: UdonInt,
+    /// Gensym number.
+    #[serde(default)]
+    pub gensym_number: u64,
 }
 
 impl UdonProgram {
@@ -187,10 +212,16 @@ impl UdonProgram {
     }
     /// Ensures the presence of the given string or extern, returning the resulting internal symbol name.
     pub fn ensure_string(&mut self, ext: &str, is_ext: bool) -> String {
+        let mut is_udonsym = false;
         let key = if is_ext {
-            format!("extern.{}", ext)
+            if let Some(s) = self.extern_symnames.get(ext) {
+                is_udonsym = true;
+                s.clone()
+            } else {
+                format!("_extern.{}", ext)
+            }
         } else {
-            format!("string.{}", ext)
+            format!("_string.{}", ext)
         };
         if !self.internal_syms.contains_key(&key) {
             let residx = self.data.len();
@@ -198,9 +229,23 @@ impl UdonProgram {
                 kudoninfo::udon_types::SystemString.clone(),
                 UdonHeapValue::P(OdinPrimitive::String(ext.to_string())),
             ));
+            if is_udonsym {
+                self.data_syms.push(UdonSymbol {
+                    name: key.clone(),
+                    udon_type: Some(kudoninfo::udon_types::SystemString.clone()),
+                    address: UdonInt::Sym(key.clone()),
+                    public: true,
+                });
+            }
             self.internal_syms.insert(key.clone(), residx as i64);
         }
         key
+    }
+    /// Generates a uniqueish symbol.
+    pub fn gensym(&mut self, r: &str) -> String {
+        let num = self.gensym_number;
+        self.gensym_number += 1;
+        format!("_{}_gensym{}", r, num)
     }
 }
 
