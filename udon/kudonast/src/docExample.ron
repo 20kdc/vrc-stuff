@@ -24,8 +24,8 @@
 		("SystemType", RType("System.String, mscorlib")),
 		("SystemString", P(Null)),
 		("SystemObject", P(Null)),
-		("VRCUdonCommonUdonGameObjectComponentHeapReference", UdonGameObjectComponentHeapReference("UnityEngineGameObject")),
-		("VRCUdonCommonUdonGameObjectComponentHeapReference", UdonGameObjectComponentHeapReference("UnityEngineGameObject")),
+		("UnityEngineGameObject", This),
+		("UnityEngineGameObject", This),
 		("SystemSingle", P(Float(0.0))),
 		("SystemSingle", P(Float(0.0))),
 		("UnityEngineObject", OdinASTInsert(

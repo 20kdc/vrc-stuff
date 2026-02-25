@@ -100,7 +100,8 @@ pub enum UdonHeapValue {
     /// _Not supported in UASM._
     RType(String),
     /// UdonGameObjectComponentHeapReference is used for Const This.
-    UdonGameObjectComponentHeapReference(UdonType),
+    /// This causes special behaviour in slot handling.
+    This,
     /// Inserted Odin AST.
     /// _Not supported in UASM._
     OdinASTInsert(UdonOdinASTInsert),

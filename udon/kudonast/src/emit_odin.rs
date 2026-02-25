@@ -22,14 +22,14 @@ pub fn udonheapval_emit_odin_astinsert(
 }
 
 /// Translates UdonHeapValue to OdinASTValue.
-pub fn udonheapval_emit_odin(
-    val: &UdonHeapValue,
+pub fn udonheapval_emit_odin<'src>(
+    val: &'src UdonHeapSlot,
     symtab: &BTreeMap<String, i64>,
     builder: &mut OdinASTBuilder,
     unity_obj: &mut Vec<UdonUnityObject>,
-) -> Result<OdinASTValue, String> {
-    match val {
-        UdonHeapValue::P(p) => Ok(OdinASTValue::Primitive(p.clone())),
+) -> Result<(&'src UdonType, OdinASTValue), String> {
+    match &val.1 {
+        UdonHeapValue::P(p) => Ok((&val.0, OdinASTValue::Primitive(p.clone()))),
         UdonHeapValue::PrimitiveArray(ut, p) => {
             let ref_id = builder.alloc_refid();
             builder.file.refs.insert(
@@ -39,31 +39,32 @@ pub fn udonheapval_emit_odin(
                     vec![OdinASTEntry::PrimitiveArray(p.clone())],
                 ),
             );
-            Ok(OdinASTValue::InternalRef(ref_id))
+            Ok((&val.0, OdinASTValue::InternalRef(ref_id)))
         }
-        UdonHeapValue::OdinASTStruct(p) => Ok(OdinASTValue::Struct(p.clone())),
-        UdonHeapValue::I(it, v) => Ok(OdinASTValue::Primitive(OdinPrimitive::compose_int(
-            *it,
-            v.resolve(symtab)?,
-        ))),
-        UdonHeapValue::RType(ty) => Ok(OdinASTValue::InternalRef(builder.runtime_type(ty))),
-        UdonHeapValue::UdonGameObjectComponentHeapReference(ty) => {
+        UdonHeapValue::OdinASTStruct(p) => Ok((&val.0, OdinASTValue::Struct(p.clone()))),
+        UdonHeapValue::I(it, v) => Ok((
+            &val.0,
+            OdinASTValue::Primitive(OdinPrimitive::compose_int(*it, v.resolve(symtab)?)),
+        )),
+        UdonHeapValue::RType(ty) => {
+            Ok((&val.0, OdinASTValue::InternalRef(builder.runtime_type(&ty))))
+        }
+        UdonHeapValue::This => {
             let ref_id = builder.alloc_refid();
-            let rt = builder.runtime_type(&ty.odin_name);
+            let rt = builder.runtime_type(&val.0.odin_name);
+            let replacement_type =
+                &kudoninfo::udon_types::VRCUdonCommonUdonGameObjectComponentHeapReference;
             builder.file.refs.insert(
                 ref_id,
                 OdinASTStruct(
-                    Some(
-                        "VRC.Udon.Common.UdonGameObjectComponentHeapReference, VRC.Udon.Common"
-                            .to_string(),
-                    ),
+                    Some(replacement_type.odin_name.to_string()),
                     vec![OdinASTEntry::uval(OdinASTValue::InternalRef(rt))],
                 ),
             );
-            Ok(OdinASTValue::InternalRef(ref_id))
+            Ok((replacement_type, OdinASTValue::InternalRef(ref_id)))
         }
         UdonHeapValue::OdinASTInsert(insert) => {
-            udonheapval_emit_odin_astinsert(insert, builder, unity_obj)
+            udonheapval_emit_odin_astinsert(insert, builder, unity_obj).map(|v| (&val.0, v))
         }
     }
 }
@@ -88,18 +89,18 @@ pub fn udonheap_emit_odin(
 
     for (k, v) in heap.iter().enumerate() {
         let strongbox_ref_id = builder.alloc_refid();
-        let emitted_val = udonheapval_emit_odin(&v.1, symtab, builder, unity_obj)?;
+        let (udon_type, emitted_val) = udonheapval_emit_odin(&v, symtab, builder, unity_obj)?;
         builder.file.refs.insert(
             strongbox_ref_id,
             OdinASTStruct(
                 Some(format!(
                     "System.Runtime.CompilerServices.StrongBox`1[[{}]], System.Core",
-                    v.0.odin_name
+                    udon_type.odin_name
                 )),
                 vec![OdinASTEntry::nval("Value", emitted_val)],
             ),
         );
-        let runtime_type_ref_id = builder.runtime_type(&v.0.odin_name);
+        let runtime_type_ref_id = builder.runtime_type(&udon_type.odin_name);
         true_heap_vec.push(OdinASTEntry::uval(OdinASTStruct(Some("System.ValueTuple`3[[System.UInt32, mscorlib],[System.Runtime.CompilerServices.IStrongBox, System.Core],[System.Type, mscorlib]], mscorlib".to_string()), vec![
             OdinASTEntry::nval("Item1", OdinPrimitive::UInt(k as u32)),
             OdinASTEntry::nval("Item2", OdinASTValue::InternalRef(strongbox_ref_id)),

@@ -141,8 +141,9 @@ pub fn udonprogram_emit_uasm(
                 data_remapped.insert(k as i64, sym.clone());
                 sym
             });
-        // for UdonGameObjectComponentHeapReference swapping
-        let mut type_slot = &v.0;
+        // originally added for UdonGameObjectComponentHeapReference swapping
+        // then that was changed to be handled by AST
+        let type_slot = &v.0;
         let value = match &v.1 {
             UdonHeapValue::P(prim) => {
                 if let Some(int) = prim.decompose_int() {
@@ -179,10 +180,7 @@ pub fn udonprogram_emit_uasm(
                     "0".to_string()
                 }
             },
-            UdonHeapValue::UdonGameObjectComponentHeapReference(udon_type) => {
-                type_slot = udon_type;
-                "this".to_string()
-            }
+            UdonHeapValue::This => "this".to_string(),
             _ => {
                 translate_ctx.err_data(format!(
                     "Data symbol {} contains untranslatable value {:?}",
