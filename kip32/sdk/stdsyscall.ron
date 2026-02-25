@@ -1,3 +1,5 @@
+package("inc_code", [])
+
 // Simple syscalls file.
 
 // The transpiler creates _ecall_vector_table, a UInt32 pointing at the start of where code is --inc'd.
@@ -35,7 +37,7 @@ _(_ecall_not_newline)
 	push([a0])
 	push([_ecall_cFF])
 	push([a0])
-	extern([_c_extern_SystemInt32___op_LogicalAnd__SystemInt32_SystemInt32__SystemInt32])
+	extern([_ecall_ext_i32and])
 	push([a0])
 	push([_ecall_logchar])
 	extern([_ecall_ext_tochar])

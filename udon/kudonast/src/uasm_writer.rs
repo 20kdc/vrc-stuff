@@ -1,7 +1,6 @@
 #![allow(dead_code)]
 
 use std::cell::RefCell;
-use std::collections::HashSet;
 use std::fmt::Display;
 use std::fmt::Write;
 
@@ -11,10 +10,6 @@ use std::fmt::Write;
 pub struct UASMWriter {
     pub data: RefCell<String>,
     pub code: RefCell<String>,
-    /// For convenience, integer constants are managed here.
-    pub consts_i32: RefCell<HashSet<i32>>,
-    /// Externs are managed here.
-    pub externs: RefCell<HashSet<String>>,
 }
 
 impl Display for UASMWriter {
@@ -46,20 +41,6 @@ impl UASMWriter {
     }
     pub fn declare_heap_u32(&self, id: &str, ival: u32, export: bool) {
         self.declare_heap(&id, "SystemUInt32", &format!("0x{:08x}", ival), export);
-    }
-    pub fn ensure_i32(&self, x: i32) -> String {
-        let id = format!("_c_i32_{:08X}", x as u32);
-        if self.consts_i32.borrow_mut().insert(x) {
-            self.declare_heap_i32(&id, x, false);
-        }
-        id
-    }
-    pub fn ensure_extern(&self, x: &str) -> String {
-        let id = format!("_c_extern_{}", x.replace(".", "_"));
-        if self.externs.borrow_mut().insert(x.to_string()) {
-            self.declare_heap(&id, "SystemString", &format!("\"{}\"", x), false);
-        }
-        id
     }
 
     // -- Writer Wrapping --

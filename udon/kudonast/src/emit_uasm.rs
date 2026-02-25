@@ -245,12 +245,15 @@ pub fn udonprogram_emit_uasm(
                 let pv = get_code_or_error(program, codeptr, &translate_ctx);
                 codeptr += 1;
                 let mut over: Option<&str> = None;
-                if let UdonSpaciality::Code = space {
-                    if let Some(sym) = code_remapped.get(&(pv as i64)) {
-                        over = Some(&sym.name);
-                    }
-                } else if let UdonSpaciality::Data = space {
-                    if let Some(sym) = data_remapped.get(&(pv as i64)) {
+                let table = match space {
+                    UdonSpaciality::Code => Some(&code_remapped),
+                    UdonSpaciality::Data => Some(&data_remapped),
+                    UdonSpaciality::DataExtern => Some(&data_remapped),
+                    UdonSpaciality::Indistinct => None,
+                    UdonSpaciality::Annotation => None,
+                };
+                if let Some(table) = table {
+                    if let Some(sym) = table.get(&(pv as i64)) {
                         over = Some(&sym.name);
                     }
                 }

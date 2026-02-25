@@ -75,6 +75,23 @@ pub enum OdinIntType {
     Char,
 }
 
+impl OdinIntType {
+    /// This name will match regex `[a-z]+`.
+    pub fn mangle_name(&self) -> &'static str {
+        match self {
+            Self::SByte => "sbyte",
+            Self::Byte => "byte",
+            Self::Short => "short",
+            Self::UShort => "ushort",
+            Self::Int => "int",
+            Self::UInt => "uint",
+            Self::Long => "long",
+            Self::ULong => "ulong",
+            Self::Char => "char",
+        }
+    }
+}
+
 impl OdinPrimitive {
     /// Decomposes an integer value into the integer type and 'universal' [i64] value.
     pub fn decompose_int(&self) -> Option<(OdinIntType, i64)> {

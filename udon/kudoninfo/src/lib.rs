@@ -24,6 +24,16 @@ pub enum UdonTypeRef {
     R(Rc<UdonType>),
 }
 
+impl Serialize for UdonTypeRef {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let r: &UdonType = self.as_ref();
+        r.serialize(serializer)
+    }
+}
+
 impl From<&'static UdonType> for UdonTypeRef {
     fn from(value: &'static UdonType) -> Self {
         Self::C(value)
@@ -33,6 +43,16 @@ impl From<&'static UdonType> for UdonTypeRef {
 impl From<UdonType> for UdonTypeRef {
     fn from(value: UdonType) -> Self {
         Self::R(Rc::new(value))
+    }
+}
+
+impl std::ops::Deref for UdonTypeRef {
+    type Target = UdonType;
+    fn deref(&self) -> &Self::Target {
+        match self {
+            Self::C(v) => v,
+            Self::R(v) => v,
+        }
     }
 }
 
@@ -73,6 +93,19 @@ impl<'de> serde::Deserialize<'de> for UdonType {
         udontype_get(&string)
             .ok_or(serde::de::Error::custom("invalid UdonType"))
             .map(|v| v.clone())
+    }
+}
+
+impl<'de> Deserialize<'de> for UdonTypeRef {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        // this is poor construction, but it should do
+        let string = String::deserialize(deserializer)?;
+        udontype_get(&string)
+            .ok_or(serde::de::Error::custom("invalid UdonType"))
+            .map(|v| UdonTypeRef::C(v))
     }
 }
 

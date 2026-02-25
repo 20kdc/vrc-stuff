@@ -1,4 +1,4 @@
-use kudoninfo::UdonType;
+use kudoninfo::{UdonType, UdonTypeRef};
 use serde::{Deserialize, Serialize, de::Visitor};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -22,16 +22,6 @@ impl Into<u64> for KU2SyncType {
             Self::Custom(v) => v,
         }
     }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-pub enum KU2Access {
-    #[serde(rename = "internal")]
-    Internal,
-    #[serde(rename = "symbol")]
-    Symbol,
-    #[serde(rename = "public")]
-    Public,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -94,6 +84,8 @@ pub enum KU2Modifier {
     Sub(KU2Operand),
     #[serde(rename = "mul")]
     Mul(KU2Operand),
+    #[serde(rename = "heap_const")]
+    HeapConst(kudonodin::OdinIntType),
 }
 
 /// Use when this is an operand.
@@ -199,12 +191,12 @@ pub enum KU2HeapSlot {
     // ExternalRefString(String),
     // }
     #[serde(rename = "null")]
-    Null(UdonType),
+    Null(UdonTypeRef),
     // --
     #[serde(rename = "this")]
-    This(UdonType),
+    This(UdonTypeRef),
     #[serde(rename = "ast")]
-    Custom(UdonType, kudonast::UdonHeapValue),
+    Custom(UdonTypeRef, kudonast::UdonHeapValue),
 }
 
 /// Instruction/pseudoinstruction enum.
@@ -274,6 +266,10 @@ pub enum KU2Instruction {
     // macroinstructions
     #[serde(rename = "stop")]
     Stop,
+    #[serde(rename = "copy_static")]
+    CopyStatic(KU2Operand, KU2Operand),
+    #[serde(rename = "ext")]
+    Ext(KU2Symbol, Vec<KU2Operand>),
 }
 
 #[cfg(test)]
@@ -288,7 +284,7 @@ fn ku2instruction_parse_test() {
 
 /// Parsing. This focuses on implementing line by line reading on top of RON by essentially fudging the JavaScript semicolon trick.
 /// In the error case, performance gets worse and worse for longer bodies, so, er. don't commit errors I guess.'
-pub fn parse(src: &str) -> Result<Vec<(usize, KU2Instruction)>, ron::error::SpannedError> {
+pub fn kudonasm_parse(src: &str) -> Result<Vec<(usize, KU2Instruction)>, ron::error::SpannedError> {
     let mut instructions = Vec::new();
     let mut line_number_offset: usize = 0;
     let mut bank = String::new();
@@ -349,5 +345,5 @@ pub fn parse(src: &str) -> Result<Vec<(usize, KU2Instruction)>, ron::error::Span
 #[test]
 fn ku2parsing_card() {
     let card = include_str!("card.ron");
-    let _v: Vec<(usize, KU2Instruction)> = parse(card).unwrap();
+    let _v: Vec<(usize, KU2Instruction)> = kudonasm_parse(card).unwrap();
 }

@@ -21,13 +21,16 @@ pub fn udonheapval_emit_odin_astinsert(
     }
 }
 
+const UHV_THIS_REPLACEMENT: &'static UdonTypeRef =
+    &UdonTypeRef::C(&kudoninfo::udon_types::VRCUdonCommonUdonGameObjectComponentHeapReference);
+
 /// Translates UdonHeapValue to OdinASTValue.
 pub fn udonheapval_emit_odin<'src>(
     val: &'src UdonHeapSlot,
     symtab: &BTreeMap<String, i64>,
     builder: &mut OdinASTBuilder,
     unity_obj: &mut Vec<UdonUnityObject>,
-) -> Result<(&'src UdonType, OdinASTValue), String> {
+) -> Result<(&'src UdonTypeRef, OdinASTValue), String> {
     match &val.1 {
         UdonHeapValue::P(p) => Ok((&val.0, OdinASTValue::Primitive(p.clone()))),
         UdonHeapValue::PrimitiveArray(ut, p) => {
@@ -52,16 +55,14 @@ pub fn udonheapval_emit_odin<'src>(
         UdonHeapValue::This => {
             let ref_id = builder.alloc_refid();
             let rt = builder.runtime_type(&val.0.odin_name);
-            let replacement_type =
-                &kudoninfo::udon_types::VRCUdonCommonUdonGameObjectComponentHeapReference;
             builder.file.refs.insert(
                 ref_id,
                 OdinASTStruct(
-                    Some(replacement_type.odin_name.to_string()),
+                    Some(UHV_THIS_REPLACEMENT.odin_name.to_string()),
                     vec![OdinASTEntry::uval(OdinASTValue::InternalRef(rt))],
                 ),
             );
-            Ok((replacement_type, OdinASTValue::InternalRef(ref_id)))
+            Ok((UHV_THIS_REPLACEMENT, OdinASTValue::InternalRef(ref_id)))
         }
         UdonHeapValue::OdinASTInsert(insert) => {
             udonheapval_emit_odin_astinsert(insert, builder, unity_obj).map(|v| (&val.0, v))

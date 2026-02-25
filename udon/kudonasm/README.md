@@ -58,9 +58,11 @@ Operands have the following forms:
 * `[symbol]`, `[symbol, modifier...]` (can add modifiers arbitrarily)
 	* The `_` equate is useful for calculations that don't follow this order.
 	* Modifiers are applied in sequence. They are:
-		* `add(operand)`
-		* `sub(operand)`
-		* `mul(operand)`
+		* `add(operand)`: Adds the operand to the symbol.
+		* `sub(operand)`: Subtracts the operand from the symbol.
+		* `mul(operand)`: Multiplies the operand by the symbol.
+		* `heap_const(int_type)`: `int_type` here is a capitalized integer type (`OdinIntType`). These match the variable declarations, except the capitalization is `UInt` etc.
+			* The symbol must be _**immediately resolvable.**_
 * `1234`: Integers become their corresponding values.
 * `"example"`: Strings are handled according to the operand's 'affinity'. Affinities are:
 	* `error`: Strings are not permitted.
@@ -101,9 +103,13 @@ As a quick reference listing, the instructions of Udon are:
 * `jump_if_false(target)`, `jump(target)`: Operand with `error` affinity (as jumping to data space makes little sense)
 * `extern(ext_slot)`: Operand with `extern` affinity.
 
-There are also a 'macroinstruction':
+There are also 'macroinstructions':
 
 * `stop`: No operands, shorthand for `jump(0xFFFFFFFC)`, jumping to the conventional stop address.
+* `copy_static(src, dst)`: Shorthand for `push(src)`, `push(dst)`, `copy`
+	* Example: `copy_static([1234, heap_const(UInt)], [some_uint])`
+* `ext(id, [param...])`: Shorthand for `push(param)` on each parameter, followed by `extern([id])`.
+	* Note the implication that `id` is always a symbol/equate.
 
 ## Declarations
 

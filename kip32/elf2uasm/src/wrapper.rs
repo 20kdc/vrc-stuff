@@ -1,33 +1,120 @@
 #![allow(dead_code)]
+#![allow(mismatched_lifetime_syntaxes)]
 
-use kudonast::UASMWriter;
+use kudonasm::KU2Context;
+use kudonast::{UdonAccess, UdonHeapValue, UdonInt, UdonProgram, uasm_op};
+use kudoninfo::UdonTypeRef;
+use kudonodin::OdinIntType;
+use std::cell::RefCell;
 
 macro_rules! udon_ext {
     ($($id:ident ($($arg:ident)*) = $value:literal)*) => {
-        pub struct UdonExterns {
+        pub struct Wrapper {
+            pub ku2: RefCell<KU2Context>,
+            pub asm: RefCell<UdonProgram>,
             $(
                 pub $id: String,
             )*
         }
-        impl UdonExterns {
-            pub fn new(asm: &UASMWriter) -> UdonExterns {
-                UdonExterns {
+        impl Wrapper {
+            pub fn new() -> Wrapper {
+                let mut asm = UdonProgram::default();
+                let mut ku2 = KU2Context::default();
+                $(
+                    let $id = asm.ensure_string($value, true);
+                    ku2.equates.insert(format!("_vmext_{}", stringify!($id)), UdonInt::Sym($id.clone()));
+                )*
+                Wrapper {
+                    ku2: RefCell::new(ku2),
+                    asm: RefCell::new(asm),
                     $(
-                        $id: asm.ensure_extern($value),
+                        $id,
                     )*
                 }
             }
             $(
-                pub fn $id(&self, asm: &UASMWriter$(, $arg: impl std::fmt::Display)*) {
+                pub fn $id(&self$(, $arg: impl std::fmt::Display)*) {
                     $(
-                        asm.push($arg);
+                        uasm_op!(self.asm.borrow_mut(), PUSH, $arg);
                     )*
-                    asm.ext(&self.$id);
+                    uasm_op!(self.asm.borrow_mut(), EXTERN, self.$id);
                 }
             )*
         }
     };
 }
+
+// this really ought to be a crate in itself, huh - refcell wrappers
+macro_rules! asm_proxy {
+    ($id:ident ( $($key:ident : $ty:ty),* ) -> $ret:ty) => {
+        pub fn $id(&self $(, $key: $ty)*) -> $ret {
+            self.asm().$id(
+                $(
+                    $key,
+                )*
+            )
+        }
+    };
+    ($id:ident ( $($key:ident : $ty:ty),* )) => {
+        pub fn $id(&self $(, $key: $ty)*) {
+            self.asm().$id(
+                $(
+                    $key,
+                )*
+            )
+        }
+    };
+}
+
+impl Wrapper {
+    pub fn asm(&self) -> std::cell::RefMut<UdonProgram> {
+        self.asm.borrow_mut()
+    }
+    pub fn ku2(&self) -> std::cell::RefMut<KU2Context> {
+        self.ku2.borrow_mut()
+    }
+    pub fn ensure_i32(&self, v: i32) -> String {
+        self.asm().ensure_iconst(OdinIntType::Int, v as i64)
+    }
+    pub fn comment_c(&self, v: &str) {
+        let mut asm = self.asm();
+        let cl = asm.code.len();
+        UdonProgram::add_comment(&mut asm.code_comments, cl, v);
+    }
+    pub fn comment_d(&self, v: &str) {
+        let mut asm = self.asm();
+        let cl = asm.data.len();
+        UdonProgram::add_comment(&mut asm.data_comments, cl, v);
+    }
+    pub fn jump(&self, a: &str) {
+        uasm_op!(self.asm(), JUMP, a);
+    }
+    pub fn jump_ui(&self, a: UdonInt) {
+        self.asm().code.push(UdonInt::Op(&kudoninfo::opcodes::JUMP));
+        self.asm().code.push(a);
+    }
+    pub fn copy_static(&self, a: &str, b: &str) {
+        uasm_op!(self.asm(), PUSH, a);
+        uasm_op!(self.asm(), PUSH, b);
+        uasm_op!(self.asm(), COPY);
+    }
+    pub fn jump_if_false_static(&self, a: &str, b: &str) {
+        uasm_op!(self.asm(), PUSH, a);
+        uasm_op!(self.asm(), JUMP_IF_FALSE, b);
+    }
+    pub fn jump_if_false_static_ui(&self, a: &str, b: UdonInt) {
+        uasm_op!(self.asm(), PUSH, a);
+        self.asm()
+            .code
+            .push(UdonInt::Op(&kudoninfo::opcodes::JUMP_IF_FALSE));
+        self.asm().code.push(b);
+    }
+    asm_proxy!(ensure_iconst(ty: OdinIntType, v: i64) -> String);
+    asm_proxy!(declare_heap(name: &impl ToString, public: UdonAccess, ty: impl Into<UdonTypeRef>, val: impl Into<UdonHeapValue>) -> Result<(), String>);
+    asm_proxy!(declare_heap_i(name: &impl ToString, public: UdonAccess, ty: OdinIntType, val: impl Into<UdonInt>) -> Result<(), String>);
+    asm_proxy!(code_label(name: &impl ToString, public: UdonAccess) -> Result<(), String>);
+}
+
 udon_ext!(
     obj_equality(a b r) =
         "SystemObject.__op_Equality__SystemObject_SystemObject__SystemBoolean"

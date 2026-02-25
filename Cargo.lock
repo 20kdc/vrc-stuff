@@ -81,7 +81,10 @@ dependencies = [
  "anyhow",
  "base64",
  "kip32ingest",
+ "kudonasm",
  "kudonast",
+ "kudoninfo",
+ "kudonodin",
  "lexopt",
 ]
 

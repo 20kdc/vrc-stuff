@@ -1,12 +1,15 @@
 //! `kudonasm` is a replacement assembly language for Udon.
 
-use kudonast::{UdonHeapSlot, UdonHeapValue, UdonInt, UdonProgram, UdonSymbol};
-use kudoninfo::{UdonOpcode, UdonType};
+use kudonast::{UdonAccess, UdonHeapSlot, UdonHeapValue, UdonInt, UdonProgram, UdonSymbol};
+use kudoninfo::{UdonOpcode, UdonTypeRef};
 use kudonodin::{OdinIntType, OdinPrimitive};
 use std::collections::{BTreeMap, BTreeSet};
 
-pub mod parsing;
-use parsing::*;
+mod parsing;
+pub use parsing::*;
+
+mod librarian;
+pub use librarian::*;
 
 #[derive(Clone, Debug)]
 pub struct KU2Context {
@@ -69,6 +72,12 @@ impl KU2Context {
                             Box::new(base),
                             Box::new(self.operand_udonint(file, op, affinity)?),
                         ),
+                        KU2Modifier::HeapConst(ic) => {
+                            let v = base
+                                .resolve(&file.internal_syms)
+                                .map_err(|v| format!("in heap_const: {}", v))?;
+                            UdonInt::Sym(file.ensure_iconst(*ic, v))
+                        }
                     };
                 }
                 Ok(base)
@@ -120,8 +129,8 @@ impl KU2Context {
         internal_syms: &mut BTreeMap<String, i64>,
         symtab: &mut Vec<UdonSymbol>,
         sym: &KU2Symbol,
-        ty: Option<UdonType>,
-        acc: KU2Access,
+        ty: Option<UdonTypeRef>,
+        acc: UdonAccess,
         loc: i64,
     ) -> Result<(), String> {
         let sym_remap = self.ku2sym_to_udon(sym)?;
@@ -132,12 +141,12 @@ impl KU2Context {
             ))
         } else {
             internal_syms.insert(sym_remap.clone(), loc);
-            if acc != KU2Access::Internal {
+            if acc != UdonAccess::Internal {
                 symtab.push(UdonSymbol {
                     name: sym_remap.clone(),
                     udon_type: ty.clone(),
                     address: UdonInt::Sym(sym_remap.clone()),
-                    public: acc == KU2Access::Public,
+                    public: acc == UdonAccess::Public,
                 });
             }
             Ok(())
@@ -152,15 +161,15 @@ impl KU2Context {
         macro_rules! pmap {
             ($udon_type:ident, $variant:ident, $v:expr) => {
                 Ok(UdonHeapSlot(
-                    kudoninfo::udon_types::$udon_type.clone(),
+                    (&kudoninfo::udon_types::$udon_type).into(),
                     UdonHeapValue::P(OdinPrimitive::$variant($v.clone())),
                 ))
             };
         }
         macro_rules! imap {
-            ($udon_type:ident, $variant:ident, $v:expr, $a:ident) => {
+            ($variant:ident, $v:expr, $a:ident) => {
                 Ok(UdonHeapSlot(
-                    kudoninfo::udon_types::$udon_type.clone(),
+                    kudonast::odininttype_to_udontype(OdinIntType::$variant),
                     UdonHeapValue::I(
                         OdinIntType::$variant,
                         self.operand_udonint(file, $v, KU2StringAffinity::$a)?,
@@ -171,17 +180,17 @@ impl KU2Context {
         match val {
             KU2HeapSlot::String(v) => pmap!(SystemString, String, v),
 
-            KU2HeapSlot::SByte(v) => imap!(SystemSByte, SByte, v, Error),
-            KU2HeapSlot::Byte(v) => imap!(SystemByte, Byte, v, Error),
-            KU2HeapSlot::Short(v) => imap!(SystemInt16, Short, v, Error),
-            KU2HeapSlot::UShort(v) => imap!(SystemUInt16, UShort, v, Error),
-            KU2HeapSlot::Int(v) => imap!(SystemInt32, Int, v, Error),
-            KU2HeapSlot::UInt(v) => imap!(SystemUInt32, UInt, v, Error),
-            KU2HeapSlot::Long(v) => imap!(SystemInt64, Long, v, Error),
-            KU2HeapSlot::ULong(v) => imap!(SystemUInt64, ULong, v, Error),
+            KU2HeapSlot::SByte(v) => imap!(SByte, v, Error),
+            KU2HeapSlot::Byte(v) => imap!(Byte, v, Error),
+            KU2HeapSlot::Short(v) => imap!(Short, v, Error),
+            KU2HeapSlot::UShort(v) => imap!(UShort, v, Error),
+            KU2HeapSlot::Int(v) => imap!(Int, v, Error),
+            KU2HeapSlot::UInt(v) => imap!(UInt, v, Error),
+            KU2HeapSlot::Long(v) => imap!(Long, v, Error),
+            KU2HeapSlot::ULong(v) => imap!(ULong, v, Error),
             KU2HeapSlot::Float(v) => pmap!(SystemSingle, Float, v),
             KU2HeapSlot::Double(v) => pmap!(SystemDouble, Double, v),
-            KU2HeapSlot::Char(v) => imap!(SystemChar, Char, v, Char),
+            KU2HeapSlot::Char(v) => imap!(Char, v, Char),
 
             KU2HeapSlot::True => pmap!(SystemBoolean, Boolean, true),
             KU2HeapSlot::False => pmap!(SystemBoolean, Boolean, false),
@@ -201,7 +210,7 @@ impl KU2Context {
         file: &mut UdonProgram,
         sym: &KU2Symbol,
         val: &KU2HeapSlot,
-        acc: KU2Access,
+        acc: UdonAccess,
     ) -> Result<(), String> {
         let loc = file.data.len();
         let uhs: UdonHeapSlot = self.conv_heap_slot(file, val)?;
@@ -226,13 +235,13 @@ impl KU2Context {
         match instr {
             // -- decl --
             KU2Instruction::VarInternal(sym, val) => {
-                self.assemble_var(file, sym, val, KU2Access::Internal)
+                self.assemble_var(file, sym, val, UdonAccess::Internal)
             }
             KU2Instruction::VarSymbol(sym, val) => {
-                self.assemble_var(file, sym, val, KU2Access::Symbol)
+                self.assemble_var(file, sym, val, UdonAccess::Symbol)
             }
             KU2Instruction::VarPublic(sym, val) => {
-                self.assemble_var(file, sym, val, KU2Access::Public)
+                self.assemble_var(file, sym, val, UdonAccess::Public)
             }
             KU2Instruction::Sync(sym, synctype) => {
                 let sym = self.ku2sym_to_udon(&sym)?;
@@ -308,7 +317,7 @@ impl KU2Context {
                 &mut file.code_syms,
                 sym,
                 None,
-                KU2Access::Internal,
+                UdonAccess::Internal,
                 code_base_ptr,
             ),
             KU2Instruction::CodeSymbol(sym) => self.create_label(
@@ -316,7 +325,7 @@ impl KU2Context {
                 &mut file.code_syms,
                 sym,
                 None,
-                KU2Access::Symbol,
+                UdonAccess::Symbol,
                 code_base_ptr,
             ),
             KU2Instruction::CodePublic(sym) => self.create_label(
@@ -324,7 +333,7 @@ impl KU2Context {
                 &mut file.code_syms,
                 sym,
                 None,
-                KU2Access::Public,
+                UdonAccess::Public,
                 code_base_ptr,
             ),
             // -- equate --
@@ -369,6 +378,18 @@ impl KU2Context {
                 file.code.push(UdonInt::Op(&kudoninfo::opcodes::JUMP));
                 file.code.push(UdonInt::I(0xFFFFFFFC));
                 Ok(())
+            }
+            KU2Instruction::CopyStatic(a, b) => {
+                self.assemble_op(file, &kudoninfo::opcodes::PUSH, &[a])?;
+                self.assemble_op(file, &kudoninfo::opcodes::PUSH, &[b])?;
+                self.assemble_op(file, &kudoninfo::opcodes::COPY, &[])
+            }
+            KU2Instruction::Ext(id, params) => {
+                for param in params {
+                    self.assemble_op(file, &kudoninfo::opcodes::PUSH, &[param])?;
+                }
+                let operand = KU2Operand::Sym(id.clone(), vec![]);
+                self.assemble_op(file, &kudoninfo::opcodes::EXTERN, &[&operand])
             }
         }
     }
