@@ -145,7 +145,7 @@ impl KU2Context {
         symtab: &mut Vec<UdonSymbol>,
         sym: &KU2Symbol,
         ty: Option<UdonTypeRef>,
-        acc: UdonAccess,
+        acc: Option<UdonAccess>,
         loc: i64,
     ) -> Result<(), String> {
         let sym_remap = self.ku2sym_to_udon(sym)?;
@@ -156,12 +156,12 @@ impl KU2Context {
             ))
         } else {
             internal_syms.insert(sym_remap.clone(), loc);
-            if acc != UdonAccess::Internal {
+            if let Some(acc) = acc {
                 symtab.push(UdonSymbol {
                     name: sym_remap.clone(),
                     udon_type: ty.clone(),
                     address: UdonInt::Sym(sym_remap.clone()),
-                    public: acc == UdonAccess::Public,
+                    mode: acc,
                 });
             }
             Ok(())
@@ -225,7 +225,7 @@ impl KU2Context {
         file: &mut UdonProgram,
         sym: &KU2Symbol,
         val: &KU2HeapSlot,
-        acc: UdonAccess,
+        acc: Option<UdonAccess>,
     ) -> Result<(), String> {
         let loc = file.data.len();
         let uhs: UdonHeapSlot = self.conv_heap_slot(file, val)?;
@@ -279,14 +279,15 @@ impl KU2Context {
 
         match instr {
             // -- decl --
-            KU2Instruction::VarInternal(sym, val) => {
-                self.assemble_var(file, sym, val, UdonAccess::Internal)
+            KU2Instruction::VarInternal(sym, val) => self.assemble_var(file, sym, val, None),
+            KU2Instruction::VarElidable(sym, val) => {
+                self.assemble_var(file, sym, val, Some(UdonAccess::Elidable))
             }
             KU2Instruction::VarSymbol(sym, val) => {
-                self.assemble_var(file, sym, val, UdonAccess::Symbol)
+                self.assemble_var(file, sym, val, Some(UdonAccess::Symbol))
             }
             KU2Instruction::VarPublic(sym, val) => {
-                self.assemble_var(file, sym, val, UdonAccess::Public)
+                self.assemble_var(file, sym, val, Some(UdonAccess::Public))
             }
             KU2Instruction::Sync(sym, synctype) => {
                 let sym = self.ku2sym_to_udon(&sym)?;
@@ -367,7 +368,7 @@ impl KU2Context {
                 &mut file.code_syms,
                 sym,
                 None,
-                UdonAccess::Internal,
+                None,
                 code_base_ptr,
             ),
             KU2Instruction::CodeSymbol(sym) => self.create_label(
@@ -375,7 +376,15 @@ impl KU2Context {
                 &mut file.code_syms,
                 sym,
                 None,
-                UdonAccess::Symbol,
+                Some(UdonAccess::Symbol),
+                code_base_ptr,
+            ),
+            KU2Instruction::CodeElidable(sym) => self.create_label(
+                &mut file.internal_syms,
+                &mut file.code_syms,
+                sym,
+                None,
+                Some(UdonAccess::Elidable),
                 code_base_ptr,
             ),
             KU2Instruction::CodePublic(sym) => self.create_label(
@@ -383,7 +392,7 @@ impl KU2Context {
                 &mut file.code_syms,
                 sym,
                 None,
-                UdonAccess::Public,
+                Some(UdonAccess::Public),
                 code_base_ptr,
             ),
             // -- equate --
@@ -539,6 +548,8 @@ impl KU2Context {
         if self.installed_packages.contains(pkg) {
             return Ok(());
         }
+        self.installed_packages.insert(pkg.to_string());
+
         let deps = if let Some(pkg) = self.packages.get(pkg) {
             Ok(pkg.deps.clone())
         } else {

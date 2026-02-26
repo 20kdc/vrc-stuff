@@ -240,7 +240,7 @@ fn main() -> Result<()> {
     let highbit = asm.ensure_i32(0x80000000u32 as i32);
     asm.declare_heap(
         &"_vm_initdata",
-        UdonAccess::Symbol,
+        Some(UdonAccess::Symbol),
         &udon_types::SystemString,
         OdinPrimitive::String(data),
     )
@@ -261,9 +261,9 @@ fn main() -> Result<()> {
         asm.declare_heap_i(
             &authentic,
             if authentic.starts_with("_") {
-                UdonAccess::Symbol
+                Some(UdonAccess::Symbol)
             } else {
-                UdonAccess::Public
+                Some(UdonAccess::Public)
             },
             OdinIntType::Int,
             0,
@@ -282,10 +282,27 @@ fn main() -> Result<()> {
     }
     asm.comment_c("");
 
-    asm.comment_c("-- SYSCALL CODE --");
+    asm.comment_c("-- inc_code --");
     asm.ku2()
         .install(&mut asm.asm(), "inc_code")
         .expect("inc_code install should succeed");
+    asm.comment_c("");
+
+    asm.comment_c("-- syscall packages --");
+    for i in 0..img.instructions {
+        let pc = (i * 4) as u32;
+        let istr = Kip32FusedInstr::read_fuse(&img, pc);
+        if let Kip32FIC::NametableSyscall(name) = istr.content {
+            let syscall_package = format!("syscall_{}", name);
+            // just in case all the other measures failed, the syscall must exist
+            let package_exists = asm.ku2().packages.contains_key(&syscall_package);
+            if package_exists {
+                asm.ku2()
+                    .install_deps(&mut asm.asm(), &syscall_package)
+                    .expect("syscall deps assembly must succeed");
+            }
+        }
+    }
     asm.comment_c("");
 
     asm.ku2()
@@ -303,7 +320,7 @@ fn main() -> Result<()> {
             let cut_name = sym.st_name.clone();
             let fastpath_name = format!("_thunk_{}_fastpath", cut_name);
 
-            asm.code_label(&cut_name, UdonAccess::Public).unwrap();
+            asm.code_label(&cut_name, Some(UdonAccess::Public)).unwrap();
             // check if the VM has inited; if it has, we speedrun init
             asm.obj_equality("_vm_memory_chk", "_null", "_vm_tmp_bool");
             asm.jump_if_false_static("_vm_tmp_bool", &fastpath_name);
@@ -317,7 +334,8 @@ fn main() -> Result<()> {
             asm.jump("_vm_reset_and_jump");
 
             // Fastpath: Machine is ready. Copy registers and directly jump into code.
-            asm.code_label(&fastpath_name, UdonAccess::Symbol).unwrap();
+            asm.code_label(&fastpath_name, Some(UdonAccess::Symbol))
+                .unwrap();
             // Setup registers...
             asm.copy_static("vm_initsp", "vm_sp");
             asm.copy_static("vm_initra", "vm_ra");
@@ -335,7 +353,7 @@ fn main() -> Result<()> {
             continue;
         }
         // either way, export as a 'data symbol'
-        asm.code_label(&format!("_sym_{}", sym.st_name), UdonAccess::Public)
+        asm.code_label(&format!("_sym_{}", sym.st_name), Some(UdonAccess::Public))
             .unwrap();
         // just set this now
         asm.copy_static(&asm.ensure_i32(sym.st_addr as i32), "a0");
@@ -358,27 +376,35 @@ fn main() -> Result<()> {
             asm.comment_c("");
             asm.comment_c(&format!("SYMBOL: {}", sym));
         }
-        let istr = Sci32Instr::decode(pc, img.data[i]);
-        asm.comment_c(&format!("{:?}", istr));
-        asm.code_label(&code_addr(pc, ""), UdonAccess::Symbol)
+        let istr = Kip32FusedInstr::read_fuse(&img, pc);
+        asm.comment_c(&format!("{:?}", istr.content));
+        asm.code_label(&code_addr(pc, ""), Some(UdonAccess::Symbol))
             .unwrap();
-        match istr {
-            Sci32Instr::JumpAndLink {
+
+        // We add a jump unless this is true.
+        // This ensures that we jump over the other instructions in a fused instruction.
+        // Notably, if the instruction is a guaranteed branch instruction, we auto-set this to true.
+        // Meanwhile, NOP sets this to false so that we generate at least one instruction.
+        let mut fallthrough_ok = istr.fallthrough_ok;
+
+        match istr.content {
+            Kip32FIC::I(Sci32Instr::JumpAndLink {
                 rd,
                 rd_value,
                 value,
-            } => {
+            }) => {
                 if rd != Kip32Reg::Zero {
                     asm.copy_static(&asm.ensure_i32(rd_value as i32), REGISTERS_W[rd as usize]);
                 }
                 asm.jump_ui(resolve_jump(&asm, &img, value));
+                fallthrough_ok = true;
             }
-            Sci32Instr::JumpAndLinkRegister {
+            Kip32FIC::I(Sci32Instr::JumpAndLinkRegister {
                 rd,
                 rd_value,
                 rs1,
                 offset,
-            } => {
+            }) => {
                 let si = REGISTERS_R[rs1 as usize].to_string();
                 if offset == 0 {
                     asm.u32_fromi32(si, "vm_indirect_jump_target");
@@ -390,19 +416,22 @@ fn main() -> Result<()> {
                     asm.copy_static(&asm.ensure_i32(rd_value as i32), REGISTERS_W[rd as usize]);
                 }
                 asm.jump("_vm_indirect_jump");
+                fallthrough_ok = true;
             }
-            Sci32Instr::SetRegister { rd, value } => {
+            Kip32FIC::I(Sci32Instr::SetRegister { rd, value }) => {
                 asm.copy_static(&resolve_alur(&asm, value), REGISTERS_W[rd as usize]);
             }
-            Sci32Instr::NOP => {
-                uasm_op!(asm.asm(), NOP);
+            Kip32FIC::I(Sci32Instr::NOP) => {
+                // Guarantee we generate at least one instruction.
+                // This used to just write a NOP, but instruction fusion now uses NOPs for jumps, and will fuse NOP-JUMP.
+                fallthrough_ok = false;
             }
-            Sci32Instr::Load {
+            Kip32FIC::I(Sci32Instr::Load {
                 rd,
                 rs1,
                 kind,
                 offset,
-            } => {
+            }) => {
                 let mut s_addr = REGISTERS_R[rs1 as usize].to_string();
                 let dst = REGISTERS_W[rd as usize].to_string();
                 if offset != 0 {
@@ -476,12 +505,12 @@ fn main() -> Result<()> {
                     }
                 }
             }
-            Sci32Instr::Store {
+            Kip32FIC::I(Sci32Instr::Store {
                 rs1,
                 rs2,
                 kind,
                 offset,
-            } => {
+            }) => {
                 let mut s_addr = REGISTERS_R[rs1 as usize].to_string();
                 let s_value = REGISTERS_R[rs2 as usize].to_string();
                 if offset != 0 {
@@ -511,12 +540,12 @@ fn main() -> Result<()> {
                     asm.ensure_i32(length),
                 );
             }
-            Sci32Instr::Branch {
+            Kip32FIC::I(Sci32Instr::Branch {
                 rs1,
                 rs2,
                 kind,
                 value,
-            } => {
+            }) => {
                 let mut s1 = REGISTERS_R[rs1 as usize].to_string();
                 let mut s2 = REGISTERS_R[rs2 as usize].to_string();
                 if kind == Sci32BranchType::BLTU || kind == Sci32BranchType::BGEU {
@@ -542,7 +571,7 @@ fn main() -> Result<()> {
                 uasm_op!(asm.asm(), EXTERN, comptype);
                 asm.jump_if_false_static_ui("_vm_tmp_bool", resolve_jump(&asm, &img, value));
             }
-            Sci32Instr::ALU(alu) => {
+            Kip32FIC::I(Sci32Instr::ALU(alu)) => {
                 let mut s1 = resolve_alur(&asm, alu.s1);
                 let mut s2 = resolve_alur(&asm, alu.s2);
                 let rd = REGISTERS_W[alu.rd as usize];
@@ -625,20 +654,55 @@ fn main() -> Result<()> {
                         }
                         _ => {
                             uasm_stop!(asm.asm());
+                            fallthrough_ok = true;
                         }
                     }
                 }
             }
-            Sci32Instr::ECALL => {
+            // Legacy syscalls. We'll keep this around even if we aren't using it.
+            Kip32FIC::I(Sci32Instr::ECALL) => {
                 // This is for the sake of the ECALL handler.
                 // This allows it to return back to normal program execution just using _vm_indirect_jump.
-                asm.u32_fromi32(asm.ensure_i32((pc + 4) as i32), "vm_indirect_jump_target");
+                asm.u32_fromi32(asm.ensure_i32(istr.jump as i32), "vm_indirect_jump_target");
                 uasm_op!(asm.asm(), JUMP, "_ecall");
+                fallthrough_ok = true;
+            }
+            Kip32FIC::NametableSyscall(name) => {
+                let syscall_package = format!("syscall_{}", name);
+                // just in case all the other measures failed, the syscall must exist
+                let package_exists = asm.ku2().packages.contains_key(&syscall_package);
+                if package_exists {
+                    let jmp = resolve_jump(&asm, &img, istr.jump);
+                    asm.ku2()
+                        .snippet_invoke(
+                            &mut asm.asm(),
+                            &syscall_package,
+                            Some(vec![
+                                (format!("_syscall_return"), jmp),
+                                (
+                                    format!("_syscall_return_indirect"),
+                                    UdonInt::I(istr.jump as i64),
+                                ),
+                            ]),
+                        )
+                        .expect("syscall should assemble");
+                } else {
+                    // don't mention which, just in case it breaks UASM writer
+                    asm.comment_c(&format!("WARN: syscall does not exist"));
+                    uasm_stop!(asm.asm());
+                }
+                // Nametable syscalls rely on the package content to force a jump.
+                fallthrough_ok = true;
             }
             // unrecognized, break, etc.
             _ => {
                 uasm_stop!(asm.asm());
+                fallthrough_ok = true;
             }
+        }
+
+        if !fallthrough_ok {
+            asm.jump_ui(resolve_jump(&asm, &img, istr.jump));
         }
     }
 

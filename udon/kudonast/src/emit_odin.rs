@@ -157,6 +157,13 @@ pub fn udonsymboltable_emit_odin(
     let mut export_set = Vec::new();
 
     for v in table {
+        let is_public = match v.mode {
+            UdonAccess::Elidable => {
+                continue;
+            }
+            UdonAccess::Symbol => false,
+            UdonAccess::Public => true,
+        };
         let symref = builder.alloc_refid();
         let address = v.address.resolve(symtab)?;
         let mut typetype = OdinASTEntry::nval("type", "System.Object, mscorlib");
@@ -189,7 +196,7 @@ pub fn udonsymboltable_emit_odin(
             ),
         );
         symbol_vec.push(OdinASTEntry::Value(None, OdinASTValue::InternalRef(symref)));
-        if v.public {
+        if is_public {
             export_set.push((v.name.clone(), address));
         }
     }

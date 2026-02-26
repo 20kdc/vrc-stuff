@@ -110,9 +110,9 @@ impl Wrapper {
         self.asm().code.push(b);
     }
     asm_proxy!(ensure_iconst(ty: OdinIntType, v: i64) -> String);
-    asm_proxy!(declare_heap(name: &impl ToString, public: UdonAccess, ty: impl Into<UdonTypeRef>, val: impl Into<UdonHeapValue>) -> Result<(), String>);
-    asm_proxy!(declare_heap_i(name: &impl ToString, public: UdonAccess, ty: OdinIntType, val: impl Into<UdonInt>) -> Result<(), String>);
-    asm_proxy!(code_label(name: &impl ToString, public: UdonAccess) -> Result<(), String>);
+    asm_proxy!(declare_heap(name: &impl ToString, public: Option<UdonAccess>, ty: impl Into<UdonTypeRef>, val: impl Into<UdonHeapValue>) -> Result<(), String>);
+    asm_proxy!(declare_heap_i(name: &impl ToString, public: Option<UdonAccess>, ty: OdinIntType, val: impl Into<UdonInt>) -> Result<(), String>);
+    asm_proxy!(code_label(name: &impl ToString, public: Option<UdonAccess>) -> Result<(), String>);
 }
 
 udon_ext!(

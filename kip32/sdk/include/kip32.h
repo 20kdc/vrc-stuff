@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include <stdint.h>
+
 /* Exported symbols are put into a specific section. */
 #define KIP32_EXPORT __attribute__((section(".kip32_export")))
 
@@ -16,14 +18,14 @@ static inline __attribute__((always_inline)) void name { \
 	register intptr_t a5 __asm__("a5") e5 v5; \
 	register intptr_t a6 __asm__("a6") e6 v6; \
 	register intptr_t a7 __asm__("a7") e7 v7; \
-	static const char syscallname[] = cstr; \
-	/* This is to write ECALL followed exactly by a C-string syscall name. */ \
+	static const char __attribute__((section(".kip32_zero_metadata"))) syscallname[] = cstr; \
+	/* This is to write EBREAK followed by the address of a C-string syscall name. */ \
 	/* The new converter identifies this and reads the string. */ \
 	__asm__ volatile ( \
-		"ecall\n" \
-		".dw %0" \
+		"ebreak\n" \
+		".word %8" \
 		: "=r" (a0), "=r" (a1), "=r" (a2), "=r" (a3), "=r" (a4), "=r" (a5), "=r" (a6), "=r" (a7) \
-		: ":" (syscallname), "r" (a0), "r" (a1), "r" (a2), "r" (a3), "r" (a4), "r" (a5), "r" (a6), "r" (a7) \
+		: "s" (syscallname), "r" (a0), "r" (a1), "r" (a2), "r" (a3), "r" (a4), "r" (a5), "r" (a6), "r" (a7) \
 		: \
 	); \
 	v0 e0 a0; \

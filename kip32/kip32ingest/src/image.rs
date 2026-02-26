@@ -27,6 +27,9 @@ pub struct Sci32Image {
     /// Symbol table.
     /// A BTreeMap is used due to determinism issues with HashMap.
     pub symbols: BTreeMap<String, Sci32SymInfo>,
+    /// These regions get zeroed out when building the data.
+    /// This is good for compression.
+    pub data_zero: Vec<std::ops::Range<usize>>,
 }
 
 fn get<const LEN: usize>(bytes: &[u8], at: usize) -> Result<[u8; LEN]> {
@@ -110,9 +113,14 @@ impl Sci32Image {
     }
 
     /// Reads a C string from the image memory.
-    pub fn read_cstr(&self, mut at: usize) -> String {
+    /// Deliberately a bit paranoid, since it's used in nametable syscall interpretation.
+    pub fn read_cstr(&self, mut at: usize) -> Option<String> {
         let mut total: Vec<u8> = Vec::new();
         loop {
+            if at >= (self.data.len() * 4) {
+                // ran off of end of buffer
+                return None;
+            }
             let b = self.read8(at);
             if b == 0 {
                 break;
@@ -120,7 +128,7 @@ impl Sci32Image {
             total.push(b);
             at += 1;
         }
-        String::from_utf8_lossy(&total).to_string()
+        String::from_utf8(total).ok()
     }
 
     /// Writes a value into the image memory at the given byte address.
@@ -163,6 +171,10 @@ impl Sci32Image {
         }
         // process sections
         for section in &section_info {
+            let section_name_strofs =
+                (section.sh_name + section_info[shstrndx as usize].sh_offset) as usize;
+            let section_name = get_string(bytes, section_name_strofs)?;
+
             if (section.sh_flags & SHF_ALLOC) != 0 {
                 // This section is blittable.
                 let end_addr = (section.sh_addr as usize) + (section.sh_size as usize);
@@ -174,6 +186,12 @@ impl Sci32Image {
                         let addr = (section.sh_addr as usize) + (i as usize);
                         self.write8(addr, get_u8(bytes, ofs)?);
                     }
+                }
+                if section_name.starts_with(".kip32_zero") {
+                    // these get zeroed out on building data
+                    self.data_zero.push(
+                        (section.sh_addr as usize)..((section.sh_addr + section.sh_size) as usize),
+                    );
                 }
             }
             if section.sh_type == SHT_SYMTAB {
@@ -204,7 +222,7 @@ impl Sci32Image {
                             let strofs = (section_info[st_shndx].sh_name
                                 + section_info[shstrndx as usize].sh_offset)
                                 as usize;
-                            if get_string(bytes, strofs)?.eq(".kip32_export") {
+                            if get_string(bytes, strofs)?.starts_with(".kip32_export") {
                                 export_section = true;
                             }
                         }
@@ -229,6 +247,13 @@ impl Sci32Image {
         let mut res = Vec::new();
         for v in &self.data {
             res.extend_from_slice(&v.to_le_bytes());
+        }
+        for range in &self.data_zero {
+            for i in range.clone() {
+                if i < res.len() {
+                    res[i] = 0;
+                }
+            }
         }
         while res.len() > 0 && res[res.len() - 1] == 0 {
             res.truncate(res.len() - 1);

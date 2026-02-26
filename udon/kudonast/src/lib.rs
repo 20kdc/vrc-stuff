@@ -66,7 +66,7 @@ pub struct UdonSymbol {
     /// _Ignored in UASM._
     pub udon_type: Option<UdonTypeRef>,
     pub address: UdonInt,
-    pub public: bool,
+    pub mode: UdonAccess,
 }
 
 /// Reference to a Unity object.
@@ -214,7 +214,8 @@ pub struct UdonProgram {
 /// Meanwhile more convenience logic got merged into UdonProgram and this happened.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum UdonAccess {
-    Internal,
+    /// Removable in Odin
+    Elidable,
     Symbol,
     Public,
 }
@@ -253,7 +254,7 @@ impl UdonProgram {
                     name: key.clone(),
                     udon_type: Some((&kudoninfo::udon_types::SystemString).into()),
                     address: UdonInt::Sym(key.clone()),
-                    public: false,
+                    mode: UdonAccess::Elidable,
                 });
             }
             self.internal_syms.insert(key.clone(), residx as i64);
@@ -273,7 +274,7 @@ impl UdonProgram {
                 name: key.clone(),
                 udon_type: Some((&kudoninfo::udon_types::SystemString).into()),
                 address: UdonInt::Sym(key.clone()),
-                public: false,
+                mode: UdonAccess::Elidable,
             });
             self.internal_syms.insert(key.clone(), residx as i64);
         }
@@ -299,7 +300,7 @@ impl UdonProgram {
     pub fn declare_heap(
         &mut self,
         name: &impl ToString,
-        public: UdonAccess,
+        public: Option<UdonAccess>,
         ty: impl Into<UdonTypeRef>,
         val: impl Into<UdonHeapValue>,
     ) -> Result<(), String> {
@@ -314,12 +315,12 @@ impl UdonProgram {
             ));
         }
         self.internal_syms.insert(name.to_string(), place);
-        if public != UdonAccess::Internal {
+        if let Some(mode) = public {
             self.data_syms.push(UdonSymbol {
                 name: name.to_string(),
                 udon_type: Some(ty),
                 address: UdonInt::Sym(name.to_string()),
-                public: public == UdonAccess::Public,
+                mode,
             });
         }
         Ok(())
@@ -328,7 +329,7 @@ impl UdonProgram {
     pub fn declare_heap_i(
         &mut self,
         name: &impl ToString,
-        public: UdonAccess,
+        public: Option<UdonAccess>,
         ty: OdinIntType,
         val: impl Into<UdonInt>,
     ) -> Result<(), String> {
@@ -341,7 +342,11 @@ impl UdonProgram {
     }
 
     /// Another UASMWriter rescue.
-    pub fn code_label(&mut self, name: &impl ToString, public: UdonAccess) -> Result<(), String> {
+    pub fn code_label(
+        &mut self,
+        name: &impl ToString,
+        public: Option<UdonAccess>,
+    ) -> Result<(), String> {
         let place = (self.code.len() * 4) as i64;
         let name = name.to_string();
         if self.internal_syms.contains_key(&name) {
@@ -351,12 +356,12 @@ impl UdonProgram {
             ));
         }
         self.internal_syms.insert(name.to_string(), place);
-        if public != UdonAccess::Internal {
+        if let Some(mode) = public.into() {
             self.code_syms.push(UdonSymbol {
                 name: name.to_string(),
                 udon_type: None,
                 address: UdonInt::Sym(name.to_string()),
-                public: public == UdonAccess::Public,
+                mode,
             });
         }
         Ok(())

@@ -205,8 +205,10 @@ pub enum KU2Instruction {
     // decl
     #[serde(rename = "var_internal")]
     VarInternal(KU2Symbol, KU2HeapSlot),
-    #[serde(rename = "var_symbol")]
+    #[serde(rename = "var_elidable")]
     #[serde(alias = "var")]
+    VarElidable(KU2Symbol, KU2HeapSlot),
+    #[serde(rename = "var_symbol")]
     VarSymbol(KU2Symbol, KU2HeapSlot),
     #[serde(rename = "var_public")]
     VarPublic(KU2Symbol, KU2HeapSlot),
@@ -231,8 +233,10 @@ pub enum KU2Instruction {
     DataComment(String),
     // codelabel
     #[serde(rename = "internal")]
-    #[serde(alias = "_")]
     CodeInternal(KU2Symbol),
+    #[serde(rename = "elidable")]
+    #[serde(alias = "_")]
+    CodeElidable(KU2Symbol),
     #[serde(rename = "symbol")]
     CodeSymbol(KU2Symbol),
     #[serde(rename = "public")]
@@ -280,7 +284,7 @@ fn ku2instruction_parse_test() {
     let r1: KU2Instruction = ron::from_str("_(Test)").unwrap();
     assert_eq!(
         r1,
-        KU2Instruction::CodeInternal(KU2Symbol("Test".to_string()))
+        KU2Instruction::CodeElidable(KU2Symbol("Test".to_string()))
     );
 }
 

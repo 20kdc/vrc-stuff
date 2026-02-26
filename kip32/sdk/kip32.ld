@@ -34,6 +34,12 @@ SECTIONS {
 		*(.sbss)
 		*(.sbss.*)
 	}
+	/* post-compile-removable data, such as syscall names */
+	.kip32_zero_metadata : {
+		. = ALIGN(4);
+		*(.kip32_zero_metadata)
+		*(.kip32_zero_metadata.*)
+	}
 	/* If this section is marked ALLOC, check your linker map with -M and adjust this file as necessary */
 	.checklinkermap : {
 		. = ALIGN(4);

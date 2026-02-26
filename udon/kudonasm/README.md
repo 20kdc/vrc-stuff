@@ -87,10 +87,11 @@ It's possible for kudonasm to avoid putting a symbol there _period,_ which helps
 The available levels of access, written as their code labels, are:
 
 * `internal(sym)`: Not written to Udon symbol table.
+* `elidable(sym)`: Only written to the Udon symbol table when emitting Udon Assembly.
 * `symbol(sym)` / `_(sym)`: Written to Udon symbol table.
 * `public(sym)`: Exported.
 
-Where access isn't specified (`_(sym)` and `var(sym, val)`), it's `symbol`.
+Where access isn't specified (`_(sym)` and `var(sym, val)`), it's `elidable`.
 
 There is also an 'honourable mention' to symbols declared as `local()`, which declares a unique name.
 
@@ -113,7 +114,7 @@ There are also 'macroinstructions':
 
 ## Declarations
 
-### `var(sym, value)` / `var_internal(sym, value)` / `var_symbol(sym, value)` / `var_public(sym, value)`
+### `var(sym, value)` / `var_internal(sym, value)` / `var_elidable(sym, value)` / `var_symbol(sym, value)` / `var_public(sym, value)`
 
 Declares a heap value.
 

@@ -1,14 +1,9 @@
 #include <kip32.h>
 
+KIP32_SYSCALL1(_putchar_internal, "stdsyscall_putchar")
+
 void putchar(int c) {
-	// TEMPORARY
-	register int a0 __asm__("a0") = c;
-	__asm__ volatile (
-		"ecall\n"
-		: "=r" (a0)
-		: "r" (a0)
-		:
-	);
+	_putchar_internal(&c);
 }
 
 void puts(const char * s) {

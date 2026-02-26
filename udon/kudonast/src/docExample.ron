@@ -48,12 +48,12 @@
 		(
 			name: "_interact",
 			address: I(44),
-			public: true
+			mode: Public
 		),
 		(
 			name: "NetworkEventTest",
 			address: I(0),
-			public: true
+			mode: Public
 		)
 	],
 	data_syms: [
@@ -61,67 +61,67 @@
 			name: "__message_0",
 			address: I(0),
 			udon_type: Some("SystemObject"),
-			public: false
+			mode: Symbol
 		),
 		(
 			name: "__message_1",
 			address: I(5),
 			udon_type: Some("SystemObject"),
-			public: false
+			mode: Symbol
 		),
 		(
 			name: "__GameObject_0",
 			address: I(7),
 			udon_type: Some("UnityEngineGameObject"),
-			public: false
+			mode: Symbol
 		),
 		(
 			name: "__Parameter1_type_0",
 			address: I(3),
 			udon_type: Some("SystemType"),
-			public: false
+			mode: Symbol
 		),
 		(
 			name: "floatLinear",
 			address: I(9),
 			udon_type: Some("SystemSingle"),
-			public: true
+			mode: Public
 		),
 		(
 			name: "__instance_0",
 			address: I(6),
 			udon_type: Some("UnityEngineGameObject"),
-			public: false
+			mode: Symbol
 		),
 		(
 			name: "__EventName_0",
 			address: I(1),
 			udon_type: Some("SystemString"),
-			public: false
+			mode: Symbol
 		),
 		(
 			name: "ofAllTheThingsToWork",
 			address: I(10),
 			udon_type: Some("UnityEngineObject"),
-			public: true
+			mode: Public
 		),
 		(
 			name: "NetworkEventTest_Parameter1",
 			address: I(4),
 			udon_type: Some("SystemString"),
-			public: false
+			mode: Symbol
 		),
 		(
 			name: "__MaxEventsPerSecond_0",
 			address: I(2),
 			udon_type: Some("SystemInt32"),
-			public: false
+			mode: Symbol
 		),
 		(
 			name: "floatSmooth",
 			address: I(8),
 			udon_type: Some("SystemSingle"),
-			public: true
+			mode: Public
 		)
 	],
 	sync_metadata: [

@@ -1,39 +1,65 @@
-package("inc_code", [])
-
 // Simple syscalls file.
 
-// The transpiler creates _ecall_vector_table, a UInt32 pointing at the start of where code is --inc'd.
+// -- Support for the legacy syscall mechanism --
 
-var(_ecall_c10, int(10))
-var(_ecall_cFF, int(255))
-equ_str(_ecall_ext_i32eq, extern, "SystemInt32.__op_Equality__SystemInt32_SystemInt32__SystemBoolean")
-equ_str(_ecall_ext_i32and, extern, "SystemInt32.__op_LogicalAnd__SystemInt32_SystemInt32__SystemInt32")
-equ_str(_ecall_ext_log, extern, "UnityEngineDebug.__Log__SystemObject__SystemVoid")
-equ_str(_ecall_ext_tochar, extern, "SystemConvert.__ToChar__SystemInt32__SystemChar")
-equ_str(_ecall_ext_char2str, extern, "SystemConvert.__ToString__SystemChar__SystemString")
-equ_str(_ecall_ext_stradd, extern, "SystemString.__op_Addition__SystemString_SystemString__SystemString")
-var_public(_ecall_logmsg, string(""))
-var(_ecall_logmsg_empty, string(""))
-var(_ecall_logchar, null("SystemChar"))
-var(_ecall_logcharstr, string(""))
+// This is also documentation on how the legacy syscall mechanism worked in principle.
 
+package("ecall", [])
+	_(_ecall)
+	// Jumps to syscall-specific code can be put in this package reasonably safely.
 
-// This really needs to be changed to be a better, proper example of how to implement syscalls.
-_(_ecall)
-	push([a0])
-	push([_ecall_c10])
+package("ecall_end", [])
+	// Return to calling code
+	jump([_vm_indirect_jump])
+
+package("inc_code", ["ecall", "ecall_end"])
+
+// -- nametable syscalls --
+
+// The new mechanism is based on the package/snippet mechanism:
+// package("syscall_example", [])
+//     // return method 1: direct
+//     jump([_syscall_return]) // return to calling code (local equate)
+//     // return method 2: indirect
+//     copy_static([_syscall_return_indirect, heap_const(UInt)], [_vm_indirect_jump_target])
+//     jump([_vm_indirect_jump])
+// EBREAK is followed by the address of a C-string naming the syscall to run.
+// Packages required here are all installed immediately after inc_code.
+
+// -- putchar --
+
+package("stdsyscall_putchar", [])
+
+	// Variables, etc.
+	var(_ecall_c10, int(10))
+	var(_ecall_cFF, int(255))
+	equ_str(_ecall_ext_i32eq, extern, "SystemInt32.__op_Equality__SystemInt32_SystemInt32__SystemBoolean")
+	equ_str(_ecall_ext_i32and, extern, "SystemInt32.__op_LogicalAnd__SystemInt32_SystemInt32__SystemInt32")
+	equ_str(_ecall_ext_log, extern, "UnityEngineDebug.__Log__SystemObject__SystemVoid")
+	equ_str(_ecall_ext_tochar, extern, "SystemConvert.__ToChar__SystemInt32__SystemChar")
+	equ_str(_ecall_ext_char2str, extern, "SystemConvert.__ToString__SystemChar__SystemString")
+	equ_str(_ecall_ext_stradd, extern, "SystemString.__op_Addition__SystemString_SystemString__SystemString")
+	var_public(_ecall_logmsg, string(""))
+	var(_ecall_logmsg_empty, string(""))
+	var(_ecall_logchar, null("SystemChar"))
+	var(_ecall_logcharstr, string(""))
+
+package("syscall_stdsyscall_putchar", ["stdsyscall_putchar"])
+
+local(not_newline)
+
+	ext(_ecall_ext_i32eq, [[a0], [_ecall_c10], [_vm_tmp_bool]])
 	push([_vm_tmp_bool])
-	extern([_ecall_ext_i32eq])
-	push([_vm_tmp_bool])
-	jump_if_false([_ecall_not_newline])
+	jump_if_false([not_newline])
 	push([_ecall_logmsg])
 	extern([_ecall_ext_log])
 	push([_ecall_logmsg_empty])
 	push([_ecall_logmsg])
 	copy
-	jump([_vm_indirect_jump])
+	jump([_syscall_return])
 
-_(_ecall_not_newline)
+_(not_newline)
+
 	push([a0])
 	push([_ecall_cFF])
 	push([a0])
@@ -48,4 +74,4 @@ _(_ecall_not_newline)
 	push([_ecall_logcharstr])
 	push([_ecall_logmsg])
 	extern([_ecall_ext_stradd])
-	jump([_vm_indirect_jump])
+	jump([_syscall_return])

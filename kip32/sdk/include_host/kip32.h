@@ -3,6 +3,7 @@
 #pragma once
 
 #include <stdint.h>
+
 #ifdef WINDOWS
 #define KIP32_EXPORT __attribute__((dllexport))
 #else

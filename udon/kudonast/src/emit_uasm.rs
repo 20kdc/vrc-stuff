@@ -149,7 +149,7 @@ pub fn udonprogram_emit_uasm(
                     name: v.clone(),
                     udon_type: None,
                     address: UdonInt::I(k as i64),
-                    public: false,
+                    mode: UdonAccess::Symbol,
                 };
                 // retroactively add this
                 data_remapped.insert(k as i64, sym.clone());
@@ -203,7 +203,12 @@ pub fn udonprogram_emit_uasm(
                 "null".to_string()
             }
         };
-        uasm_writer.declare_heap(&rmp.name, &type_slot.name, &value, rmp.public);
+        uasm_writer.declare_heap(
+            &rmp.name,
+            &type_slot.name,
+            &value,
+            rmp.mode == UdonAccess::Public,
+        );
     }
 
     uasm_writer.data("");
@@ -234,7 +239,7 @@ pub fn udonprogram_emit_uasm(
             uasm_writer.code(build_comment(&comm));
         }
         if let Some(sym) = code_remapped.get(&codeptr_to_i64(codeptr)) {
-            uasm_writer.code_label(&sym.name, sym.public);
+            uasm_writer.code_label(&sym.name, sym.mode == UdonAccess::Public);
         }
         let opc = get_code_or_error(program, codeptr, &translate_ctx);
         codeptr += 1;
@@ -269,7 +274,7 @@ pub fn udonprogram_emit_uasm(
         }
     }
     if let Some(sym) = code_remapped.get(&codeptr_to_i64(codeptr)) {
-        uasm_writer.code_label(&sym.name, sym.public);
+        uasm_writer.code_label(&sym.name, sym.mode == UdonAccess::Public);
     }
 
     // -- Finale --
