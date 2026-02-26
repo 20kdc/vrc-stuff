@@ -14,6 +14,8 @@ data["types"] = data_types
 data["events"] = data_events
 data["sync_types"] = data_synctype
 
+max_param_count = 0
+
 while True:
 	decltype = dfile.readline().strip()
 	if decltype == "END":
@@ -33,6 +35,7 @@ while True:
 				"type": p_type,
 				"dir": p_dir,
 			})
+		max_param_count = max(max_param_count, len(extern_parameters))
 		data_externs[extern_id] = {
 			"id": extern_id,
 			"id_type": extern_id_type,
@@ -127,3 +130,14 @@ ran_proc = subprocess.run(["xz", "-v", "-z", "api_c.json", "-9", "-c"], stdout =
 generated_xz = open("../../udon/kudon_apijson/src/api_c.json.xz", "wb")
 generated_xz.write(ran_proc.stdout)
 generated_xz.close()
+
+# --
+
+statistics = open("statistics.md", "w")
+
+statistics.write("# Statistics (`datamine2json.py`)\n")
+statistics.write("\n")
+
+statistics.write("* " + str(max_param_count) + " parameters max.\n")
+statistics.write("* " + str(len(data_externs)) + " total externs.\n")
+statistics.write("* " + str(len(data_types)) + " discovered types.\n")

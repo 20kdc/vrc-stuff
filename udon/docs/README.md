@@ -432,6 +432,7 @@ It will create some files:
 * `api.json`: JSON dump of the known Udon API of VRChat. This includes type hierarchies.
 * `api_c.json`: Same, but without formatting/indentation.
 * `synctypes.md`: GFM-table-formatted table for import into the Network Calling Metadata section of this document.
+* `statistics.md`: Statistics for easier diff review.
 * `../../udon/kudon_apijson/src/api_c.json.xz`: `api.json` in small form for committing to Git.
 
 ### `VRChat SDK/KDCVRCTools/Dump Odin`
