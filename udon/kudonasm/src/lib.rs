@@ -8,13 +8,26 @@ use std::collections::{BTreeMap, BTreeSet};
 mod parsing;
 pub use parsing::*;
 
-mod librarian;
-pub use librarian::*;
+/// Represents a loaded package/snippet.
+#[derive(Clone, Debug)]
+pub struct KU2Package {
+    pub name: String,
+    pub deps: BTreeSet<String>,
+    pub contents: Vec<(String, KU2Instruction)>,
+}
 
 #[derive(Clone, Debug)]
 pub struct KU2Context {
     pub equates: BTreeMap<String, UdonInt>,
-    pub packages: BTreeSet<String>,
+    /// Packages that have actually been installed.
+    pub installed_packages: BTreeSet<String>,
+    /// Packages.
+    /// Note that packages are temporarily removed while being executed or edited.
+    /// It's an ugly hack, but it works.
+    pub packages: BTreeMap<String, KU2Package>,
+    /// The package being edited.
+    /// While being edited, the package is not available for invoke.
+    pub editing_package: Option<KU2Package>,
 }
 
 impl Default for KU2Context {
@@ -23,7 +36,9 @@ impl Default for KU2Context {
         equates.insert("_".to_string(), UdonInt::I(0));
         Self {
             equates,
+            installed_packages: Default::default(),
             packages: Default::default(),
+            editing_package: None,
         }
     }
 }
@@ -226,12 +241,42 @@ impl KU2Context {
     }
 
     /// Assembles a single instruction of code.
-    pub fn assemble(
+    /// Notably, this function doesn't add the file/line string to the errors.
+    pub fn assemble_no_line_info(
         &mut self,
         file: &mut UdonProgram,
+        loc: &str,
         instr: &KU2Instruction,
     ) -> Result<(), String> {
         let code_base_ptr = (file.code.len() * 4) as i64;
+
+        if let KU2Instruction::Package(name, deps) = instr {
+            self.end_package();
+            let mut pkg = if let Some(pkg) = self.packages.remove(name) {
+                pkg
+            } else {
+                KU2Package {
+                    name: name.clone(),
+                    deps: BTreeSet::new(),
+                    contents: vec![],
+                }
+            };
+            for v in deps {
+                pkg.deps.insert(v.clone());
+            }
+            self.editing_package = Some(pkg);
+            return Ok(());
+        } else if let KU2Instruction::PackageEnd = instr {
+            self.end_package();
+            return Ok(());
+        } else if let Some(editing_package) = &mut self.editing_package {
+            // Editing a package, so append.
+            editing_package
+                .contents
+                .push((loc.to_string(), instr.clone()));
+            return Ok(());
+        }
+
         match instr {
             // -- decl --
             KU2Instruction::VarInternal(sym, val) => {
@@ -302,7 +347,12 @@ impl KU2Context {
                 Ok(())
             }
             // -- meta --
-            KU2Instruction::Package(_, _) => Ok(()),
+            KU2Instruction::Package(_, _) => {
+                unreachable!();
+            }
+            KU2Instruction::PackageEnd => {
+                unreachable!();
+            }
             KU2Instruction::CodeComment(comm) => {
                 UdonProgram::add_comment(&mut file.code_comments, file.code.len(), comm);
                 Ok(())
@@ -392,5 +442,116 @@ impl KU2Context {
                 self.assemble_op(file, &kudoninfo::opcodes::EXTERN, &[&operand])
             }
         }
+    }
+
+    /// Assembles a single line of code.
+    /// This prefixes errors with the file/line.
+    pub fn assemble(
+        &mut self,
+        file: &mut UdonProgram,
+        loc: &str,
+        instr: &KU2Instruction,
+    ) -> Result<(), String> {
+        self.assemble_no_line_info(file, loc, instr)
+            .map_err(|v| format!("{}: {}", loc, v))
+    }
+
+    /// Ends the current package if necessary.
+    pub fn end_package(&mut self) {
+        if let Some(pkg) = self.editing_package.take() {
+            let name = pkg.name.clone();
+            self.packages.insert(name, pkg);
+        }
+    }
+
+    /// Assembles a file.
+    pub fn assemble_file(
+        &mut self,
+        file: &mut UdonProgram,
+        srcname: &str,
+        instrs: &[(usize, KU2Instruction)],
+    ) -> Result<(), String> {
+        self.end_package();
+        for v in instrs {
+            self.assemble(file, &format!("{}:{}", srcname, v.0), &v.1)?;
+        }
+        self.end_package();
+        Ok(())
+    }
+
+    // -- Librarian --
+
+    /// Invokes a snippet/package.
+    /// Note dependencies are NOT handled here -- use [install_deps] at an appropriate time.
+    pub fn snippet_invoke(
+        &mut self,
+        file: &mut UdonProgram,
+        pkg_name: &str,
+        snippet_equates: Option<Vec<(String, UdonInt)>>,
+    ) -> Result<(), String> {
+        if let Some(pkg) = self.packages.remove_entry(pkg_name) {
+            let backup = if let Some(params) = snippet_equates {
+                let r = Some(self.equates.clone());
+                for v in params {
+                    self.equates.insert(v.0, v.1);
+                }
+                r
+            } else {
+                None
+            };
+            let mut res = Ok(());
+            for line in &pkg.1.contents {
+                let res_l = self.assemble(file, &line.0, &line.1);
+                if let Err(err) = res_l {
+                    res = Err(format!("package {}: {}", pkg_name, err));
+                    break;
+                }
+            }
+            // restore equates on completion
+            if let Some(backup) = backup {
+                self.equates = backup;
+            }
+            self.packages.insert(pkg.0, pkg.1);
+            res
+        } else {
+            Err(format!("Package '{}' unavailable", pkg_name))
+        }
+    }
+
+    /// Installs the dependencies of the given package.
+    pub fn install_deps(&mut self, file: &mut UdonProgram, pkg: &str) -> Result<(), String> {
+        let deps = if let Some(pkg) = self.packages.get(pkg) {
+            Ok(pkg.deps.clone())
+        } else {
+            Err(format!(
+                "Can't install dependencies of package '{}' as it doesn't exist.",
+                pkg
+            ))
+        }?;
+        for v in deps {
+            self.install(file, &v)?;
+        }
+        Ok(())
+    }
+
+    /// If the given package is not already installed, installs it, including dependencies if needed, immediately.
+    pub fn install(&mut self, file: &mut UdonProgram, pkg: &str) -> Result<(), String> {
+        if self.installed_packages.contains(pkg) {
+            return Ok(());
+        }
+        let deps = if let Some(pkg) = self.packages.get(pkg) {
+            Ok(pkg.deps.clone())
+        } else {
+            Err(format!(
+                "Can't install package '{}' as it doesn't exist.",
+                pkg
+            ))
+        }?;
+        // install dependencies
+        for v in deps {
+            self.install(file, &v)?;
+        }
+        // invoke the package itself
+        self.snippet_invoke(file, pkg, None)
     }
 }

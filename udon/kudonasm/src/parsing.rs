@@ -223,6 +223,8 @@ pub enum KU2Instruction {
     // meta
     #[serde(rename = "package")]
     Package(String, Vec<String>),
+    #[serde(rename = "package_end")]
+    PackageEnd,
     #[serde(rename = "code_comment")]
     CodeComment(String),
     #[serde(rename = "data_comment")]

@@ -72,3 +72,7 @@ package("builtin_vm_reset", [])
 	ext(_vmext_u32_add, [[vm_indirect_jump_target], [vm_indirect_jump_target], [vm_indirect_jump_target]])
 	jump_indirect([vm_indirect_jump_target])
 	code_comment("")
+
+// add a blank inc_code package in case it's needed
+package("inc_code", [])
+package_end

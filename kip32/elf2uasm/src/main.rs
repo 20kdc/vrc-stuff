@@ -196,25 +196,24 @@ fn main() -> Result<()> {
             .expect("if stdsyscall is in use, KIP32_SDK must be set to find it");
         inc_files.insert(0, format!("{}/stdsyscall.ron", var));
     }
-    let mut librarian = KU2Librarian::new();
-    KU2Package::add_blank(&mut librarian, "inc_code");
+
+    // -- parse includes --
     {
         let builtin_parsed =
             kudonasm_parse(&include_str!("builtin.ron")).expect("builtin.ron failed to parse");
-        if KU2Package::split(&mut librarian, "BUILTIN", builtin_parsed).len() > 0 {
-            panic!("Leftover code in BUILTIN",);
-        }
+        asm.ku2()
+            .assemble_file(&mut asm.asm(), "BUILTIN", &builtin_parsed)
+            .expect("builtin.ron failed to assemble");
     }
     for v in inc_files {
         let a = std::fs::read_to_string(&v).expect(&format!("{:?} invalid", v));
         let parsed = kudonasm_parse(&a).expect(&format!("{:?} failed to parse", v));
-        if KU2Package::split(&mut librarian, &v, parsed).len() > 0 {
-            panic!(
-                "Leftover code in {:?}. Use inc_code package while we're still using legacy syscall mechanism",
-                v
-            );
-        }
+        asm.ku2()
+            .assemble_file(&mut asm.asm(), &v, &parsed)
+            .expect(&format!("{:?} failed to assemble", v));
     }
+
+    // -- it begins --
     let initial_sp = match img.symbols.get("_stack_start") {
         Some(initial_sp_sym) => initial_sp_sym.st_addr as i32,
         None => {
@@ -234,21 +233,10 @@ fn main() -> Result<()> {
     let abort_vec = 0x7FFFFFFE;
     let data = BASE64_STANDARD.encode(&img.initialized_bytes());
 
-    KU2Package::assemble_by_name(
-        &mut asm.ku2.borrow_mut(),
-        &mut asm.asm(),
-        &librarian,
-        "builtin_globals",
-    )
-    .expect("builtin_globals install should succeed");
+    asm.ku2()
+        .install(&mut asm.asm(), "builtin_globals")
+        .expect("builtin_globals install should succeed");
 
-    asm.declare_heap_i(
-        &"_ecall_vector_table",
-        UdonAccess::Symbol,
-        OdinIntType::UInt,
-        (img.instructions * 8) as i64,
-    )
-    .unwrap();
     let highbit = asm.ensure_i32(0x80000000u32 as i32);
     asm.declare_heap(
         &"_vm_initdata",
@@ -295,17 +283,14 @@ fn main() -> Result<()> {
     asm.comment_c("");
 
     asm.comment_c("-- SYSCALL CODE --");
-    KU2Package::assemble_by_name(&mut asm.ku2(), &mut asm.asm(), &librarian, "inc_code")
+    asm.ku2()
+        .install(&mut asm.asm(), "inc_code")
         .expect("inc_code install should succeed");
     asm.comment_c("");
 
-    KU2Package::assemble_by_name(
-        &mut asm.ku2(),
-        &mut asm.asm(),
-        &librarian,
-        "builtin_vm_reset",
-    )
-    .expect("inc_code install should succeed");
+    asm.ku2()
+        .install(&mut asm.asm(), "builtin_vm_reset")
+        .expect("builtin_vm_reset install should succeed");
 
     let mut symbol_marking: HashMap<u32, String> = HashMap::new();
     asm.comment_c(" -- THUNKS --");

@@ -245,6 +245,7 @@ impl Sci32Instr {
         }
         Sci32Instr::ALU(op)
     }
+
     /// Decodes a RISC-V instruction.
     pub fn decode(pc: u32, ci: u32) -> Sci32Instr {
         let split = Kip32Split::from(ci);

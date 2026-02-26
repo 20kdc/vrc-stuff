@@ -96,6 +96,33 @@ impl Sci32Image {
             self.instructions = word;
         }
     }
+
+    /// Reads a byte from the image memory.
+    /// Reads 0 on miss.
+    pub fn read8(&self, at: usize) -> u8 {
+        let word = at >> 2;
+        let subword = (at & 3) as u32;
+        if word >= self.data.len() {
+            return 0;
+        }
+        let shift = subword * 8;
+        (self.data[word] >> shift) as u8
+    }
+
+    /// Reads a C string from the image memory.
+    pub fn read_cstr(&self, mut at: usize) -> String {
+        let mut total: Vec<u8> = Vec::new();
+        loop {
+            let b = self.read8(at);
+            if b == 0 {
+                break;
+            }
+            total.push(b);
+            at += 1;
+        }
+        String::from_utf8_lossy(&total).to_string()
+    }
+
     /// Writes a value into the image memory at the given byte address.
     /// Slow, but reliable.
     pub fn write8(&mut self, at: usize, val: u8) {

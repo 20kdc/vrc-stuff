@@ -194,17 +194,17 @@ And would generate the intended effect in the Udon symbol table.
 
 ## Meta
 
-### `package("name", ["dep", "dep"])`
+### `package("name", ["dep", "dep"])` / `package_end`
 
-For 'normal' assembly purposes, this does nothing.
-
-However, this acts as a marker which may be used to 'cut up' a set of assembly files into different segments.
+This 'cuts up' a set of assembly files into different segments.
 
 Practically, 'packages' would be split into packages and snippets.
 
-Packages are invoked when snippets require them for the first time.
-
 Snippets are invoked multiple times with different equates, and then the equate table is reverted afterwards.
+
+_**Code which runs snippets should be extremely careful to invoke dependencies early.**_
+
+Packages end between files, or when `package_end` is used.
 
 ```
 package("example", [])

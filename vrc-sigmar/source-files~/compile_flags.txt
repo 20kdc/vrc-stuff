@@ -1,2 +1,2 @@
 gcc
--I../kip32/sdk/include_host
+-I../../kip32/sdk/include_host

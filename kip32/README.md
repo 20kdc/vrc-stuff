@@ -34,6 +34,7 @@ Meanwhile, RV32I has a clear minimal set of instructions a compiler can be told 
 2. Write _complex_ code in C/Rust/etc.
 	* Write this code as if you're writing it for a microcontroller you don't happen to have on your desk. \
 	  In other words, you should have a clear method of testing as a native executable.
+	* The `kip32.h` header comes in both on-host and in-Udon variants.
 3. Compile to what is essentially a RV32I microcontroller. Link with `sdk/kip32.ld` linker script.
 	* Symbols starting with `Udon` are exported as custom events (or regular events) with the prefix removed.
 		* The expected workflow for other behaviours is to set the `a0`-`a7` registers, execute a custom event, and retrieve results.
@@ -48,7 +49,7 @@ Meanwhile, RV32I has a clear minimal set of instructions a compiler can be told 
 		* Relocations are completely ignored, so if you're relying on them you're going to have a bad time.
 		* For efficiency reasons, executable sections should should start at 0 and end as early as possible to minimize the size of the indirect jump table.
 4. Tighter integration may be achieved using various flags, particularly `--inc`; see transpiler help for details.
-	* Also see `sdk/stdsyscall.uasm`.
+	* Also see `sdk/stdsyscall.ron`.
 5. Udon Assembly doesn't play as well as it could with import on the no-auto-import configuration.
 	* For this reason, you may have to manually delete the SerializedUdonProgram file to get it to recompile.
 
@@ -61,6 +62,8 @@ Meanwhile, RV32I has a clear minimal set of instructions a compiler can be told 
 
 ## Why Udon Assembly, despite its issues re: constants?
 
+_At this point, it's basically just so that deployment is zero-C#,_ since the new assembly has been deployed and the C# part of it is ticking over fine.
+
 The issues with constants don't actually severely interfere with RISC-V dynamic recompilation because we don't need constants of the types affected by those issues.
 
 In fact, as it turns out, there are so many flaws in Udon's handling of numeric types that you basically should use as high-precision a type as you dare _whenever possible,_ just so you don't have to AND off bits, just so that `System.Convert` won't come knocking with an exception.
@@ -68,27 +71,3 @@ In fact, as it turns out, there are so many flaws in Udon's handling of numeric 
 RV32I only performs type conversions during loads and stores. It is no coincidence that the load/store code is the most painful part of the recompiler.
 
 For the purposes of this project, the benefits of not having to deal with the Domain Reloading crash (which is part of why this subproject was even started) outweigh the loss from using Udon Assembly.
-
-## Licensing Considerations
-
-The `kudonodin` crate was written with heavy consultation of <https://github.com/TeamSirenix/odin-serializer/blob/8d9fc0bca118d9c6f927ee2fb23330138a99cbf2/OdinSerializer/Core/DataReaderWriters/Binary/BinaryDataReader.cs>. _This is not VRChat proprietary code, but is licensed under the Apache License, 2.0._
-
-If this consultation is sufficient to make `kudonodin` a derivative work is ultimately up to the consideration of the OdinSerializer developers.
-
-In good faith, the license header is reproduced here:
-
-```
-// Copyright (c) 2018 Sirenix IVS
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-```
