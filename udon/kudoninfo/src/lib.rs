@@ -150,9 +150,7 @@ impl<'de> Deserialize<'de> for &'static UdonOpcode {
     }
 }
 
-mod generated;
-
-pub use generated::*;
+include!(concat!(env!("OUT_DIR"), "/generated.rs"));
 
 /// Creates an [UdonType] [HashMap].
 /// This maps the Udon type name to the corresponding [UdonType].

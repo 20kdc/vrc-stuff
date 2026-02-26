@@ -13,6 +13,7 @@ members = [
     "udon/kudonast",
     "udon/kudonodin",
     "udon/kudoninfo",
+    "udon/kudon_apijson",
     "udon/kudonasm"
 ]
 
