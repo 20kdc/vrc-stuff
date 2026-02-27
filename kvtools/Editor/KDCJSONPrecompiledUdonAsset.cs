@@ -42,7 +42,9 @@ namespace KDCVRCTools {
 				UdonEditorManager.Instance.QueueAndRefreshProgram(this);
 			DrawInteractionArea(udonBehaviour);
 			DrawPublicVariables(udonBehaviour, ref dirty);
-			DrawProgramDisassembly();
+			// The disassembly is not only rubbish, but a really bad idea on the kinds of programs where this format would be used.
+			// Every single time this function is called, it re-disassembles the program.
+			// This ends poorly.
 		}
 
 		protected override void RefreshProgramImpl() {
