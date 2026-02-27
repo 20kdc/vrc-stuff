@@ -6,6 +6,7 @@ SECTIONS {
 		*(.strtab)
 		*(.shstrtab)
 		*(.riscv.attributes)
+		*(.debug*)
 	}
 	.kip32_export : {
 		. = ALIGN(4);

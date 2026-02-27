@@ -12,10 +12,65 @@ void puts(const char * s) {
 	putchar(10);
 }
 
+int vi_m1 = -1;
+int vi_p1 = 1;
+unsigned int vu_m1 = (unsigned int) -1;
+unsigned int vu_p1 = 1;
+
+int barrier_store;
+
+int barrier(int v) {
+	barrier_store = v;
+	// this instruction could conceivably do ANYTHING!
+	__asm__ volatile ("");
+	return barrier_store;
+}
+
 int tmp = 0;
 
+short arr_s16[] = {0xE912, 0x4896, 0x8421, 0, 0x8421, 0x8421, 0x8421};
+unsigned short vu16 = 0xE912;
+signed char arr_s8[] = {0x80, 0x40, 0x10};
+unsigned char vu8 = 0xEE;
+
+#define TEST(info, cond) if (cond) { puts(info " OK"); } else { puts(info " FAIL"); }
+#define TEST_NOT(info, cond) if (cond) { puts(info " FAIL"); } else { puts(info " OK"); }
+
 KIP32_EXPORT int _interact() {
-	puts("Hello, Udon World!");
+	puts("science.c : kip32 test program");
+	// -- comparison checks --
+	TEST("signed LT",             vi_m1 < vi_p1);
+	TEST_NOT("signed LTR",        vi_p1 < vi_m1);
+	TEST_NOT("unsigned LT",       vu_m1 < vu_p1);
+	TEST("unsigned LTR",          vu_p1 < vu_m1);
+	// -- SLT checks --
+	TEST("signed SLT",    barrier(vi_m1 < vi_p1));
+	TEST("signed SLTR",  !barrier(vi_p1 < vi_m1));
+	TEST("unsigned SLT", !barrier(vu_m1 < vu_p1));
+	TEST("unsigned SLTR", barrier(vu_p1 < vu_m1));
+	// -- memory accesses, 16-bit --
+	TEST("arr_s16[0]", barrier(arr_s16[0]) == (int) (short) 0xE912);
+	TEST("arr_s16[1]", barrier(arr_s16[1]) == 0x4896);
+	TEST("arr_s16[2]", barrier(arr_s16[2]) == (int) (short) 0x8421);
+	arr_s16[3] = 0x1234;
+	arr_s16[5] = 0x5555;
+	TEST("arr_s16[3] write", arr_s16[3] == (int) (short) 0x1234);
+	TEST("arr_s16[5] write", arr_s16[5] == (int) (short) 0x5555);
+	TEST("arr_s16[2]", arr_s16[2] == (int) (short) 0x8421);
+	TEST("arr_s16[4]", arr_s16[4] == (int) (short) 0x8421);
+	TEST("arr_s16[6]", arr_s16[6] == (int) (short) 0x8421);
+	// -- memory accesses, 16-bit unsigned --
+	TEST("vu16", barrier(vu16) == 0xE912);
+	// -- memory accesses, 8-bit signed --
+	TEST("vs8 0", barrier(arr_s8[0]) == -128);
+	arr_s8[1] = 0xF3;
+	TEST("vs8 1 write", barrier(arr_s8[1]) == (signed char) 0xF3);
+	TEST("vs8 2", barrier(arr_s8[2]) == 0x10);
+	// -- memory accesses, 8-bit unsigned --
+	TEST("vu8", barrier(vu8) == 0xEE);
+	// -- done --
+	puts("test suite complete");
+
 	tmp++;
 	return tmp * tmp;
 }
@@ -25,37 +80,4 @@ KIP32_EXPORT int increment() {
 }
 KIP32_EXPORT int decrement() {
 	return --tmp;
-}
-
-// SLT checks. Test with a0 = ? and a1 = -1 for best effect.
-KIP32_EXPORT int SLT(int a, int b) {
-	return a < b;
-}
-KIP32_EXPORT int SLTU(unsigned int a, unsigned int b) {
-	return a < b;
-}
-
-// memory tests
-char arr_s8[] = "Temporary";
-short arr_s16[] = {0, 1, 2, 3};
-KIP32_EXPORT void write_s8() {
-	arr_s8[tmp] = 0x80;
-}
-KIP32_EXPORT int read_s8() {
-	// So here's a fun one; char seems to be unsigned on this compiler.
-	// Not a bug, though, since specifying the type better compiles LB as expected.
-	// return arr_s8[tmp];
-	return ((signed char *) arr_s8)[tmp];
-}
-KIP32_EXPORT int read_u8() {
-	return ((unsigned char *) arr_s8)[tmp];
-}
-KIP32_EXPORT void write_s16() {
-	arr_s16[tmp] = 0x8234;
-}
-KIP32_EXPORT int read_s16() {
-	return arr_s16[tmp];
-}
-KIP32_EXPORT int read_u16() {
-	return ((unsigned short * ) arr_s16)[tmp];
 }
