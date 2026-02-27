@@ -43,6 +43,8 @@ pub enum OdinPrimitive {
     String(String),
     WTF16(Vec<u16>),
     Guid(OdinGuid),
+
+    // OdinIntType
     SByte(i8),
     Byte(u8),
     Short(i16),
@@ -51,10 +53,11 @@ pub enum OdinPrimitive {
     UInt(u32),
     Long(i64),
     ULong(u64),
+    Bool(bool),
+    Char(u16),
+
     Float(f32),
     Double(f64),
-    Char(u16),
-    Boolean(bool),
     // Note that VRC doesn't actually set these up {
     ExternalRefGuid(OdinGuid),
     ExternalRefString(String),
@@ -72,6 +75,7 @@ pub enum OdinIntType {
     UInt,
     Long,
     ULong,
+    Bool,
     Char,
 }
 
@@ -87,6 +91,7 @@ impl OdinIntType {
             Self::UInt => "uint",
             Self::Long => "long",
             Self::ULong => "ulong",
+            Self::Bool => "bool",
             Self::Char => "char",
         }
     }
@@ -104,6 +109,7 @@ impl OdinPrimitive {
             Self::UInt(b) => Some((OdinIntType::UInt, *b as i64)),
             Self::Long(b) => Some((OdinIntType::Long, *b as i64)),
             Self::ULong(b) => Some((OdinIntType::ULong, *b as i64)),
+            Self::Bool(b) => Some((OdinIntType::Bool, *b as i64)),
             Self::Char(b) => Some((OdinIntType::Char, *b as i64)),
             _ => None,
         }
@@ -119,6 +125,7 @@ impl OdinPrimitive {
             OdinIntType::UInt => Self::UInt(value as u32),
             OdinIntType::Long => Self::Long(value as i64),
             OdinIntType::ULong => Self::ULong(value as u64),
+            OdinIntType::Bool => Self::Bool(value != 0),
             OdinIntType::Char => Self::Char(value as u16),
         }
     }
@@ -442,7 +449,7 @@ impl OdinEntry {
                 odin_write_name_opt(target, name, 0x29)?;
                 target.write_all(b)?;
             }
-            Self::Value(name, OdinEntryValue::Primitive(OdinPrimitive::Boolean(b))) => {
+            Self::Value(name, OdinEntryValue::Primitive(OdinPrimitive::Bool(b))) => {
                 odin_write_name_opt(target, name, 0x2B)?;
                 if *b {
                     target.write_all(&[0x01])?;
@@ -576,8 +583,8 @@ impl OdinEntry {
             0x28 => des_uprim!(odin_read_string_or_wtf16_value(src)?),
             0x29 => des_nprim!(src, OdinPrimitive::Guid(read_fixed(src)?)),
             0x2A => des_uprim!(OdinPrimitive::Guid(read_fixed(src)?)),
-            0x2B => des_nprim!(src, OdinPrimitive::Boolean(read_int!(src, u8) == 1)),
-            0x2C => des_uprim!(OdinPrimitive::Boolean(read_int!(src, u8) == 1)),
+            0x2B => des_nprim!(src, OdinPrimitive::Bool(read_int!(src, u8) == 1)),
+            0x2C => des_uprim!(OdinPrimitive::Bool(read_int!(src, u8) == 1)),
             0x2D => des_nprim!(src, OdinPrimitive::Null),
             0x2E => des_uprim!(OdinPrimitive::Null),
             // --

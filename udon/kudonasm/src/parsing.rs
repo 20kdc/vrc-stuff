@@ -1,5 +1,5 @@
 use kudoninfo::{UdonType, UdonTypeRef};
-use serde::{Deserialize, Serialize, de::Visitor};
+use serde::{Deserialize, Serialize, de::VariantAccess, de::Visitor};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum KU2SyncType {
@@ -22,18 +22,6 @@ impl Into<u64> for KU2SyncType {
             Self::Custom(v) => v,
         }
     }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-pub enum KU2StringAffinity {
-    #[serde(rename = "data")]
-    Data,
-    #[serde(rename = "extern")]
-    Extern,
-    #[serde(rename = "char")]
-    Char,
-    #[serde(rename = "error")]
-    Error,
 }
 
 /// Use when this is definitely a symbol.
@@ -76,68 +64,86 @@ fn ku2symbol_parse_test() {
     assert_eq!(r1, KU2Symbol("Test".to_string()));
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Deserialize)]
-pub enum KU2Modifier {
-    #[serde(rename = "add")]
-    Add(KU2Operand),
-    #[serde(rename = "sub")]
-    Sub(KU2Operand),
-    #[serde(rename = "mul")]
-    Mul(KU2Operand),
-    #[serde(rename = "heap_const")]
-    HeapConst(kudonodin::OdinIntType),
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum KU2ChainOp {
+    Add,
+    Sub,
+    Mul,
 }
 
 /// Use when this is an operand.
 /// Forms:
-/// * `[symbol]`
-/// * `"string"`
-/// * `1234`
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+/// * `symbol`
+/// * `C(true)`
+/// * `I(1234)`
+/// * `ADD(I(1), I(2))`
+/// * `SUB(I(1), I(2))`
+/// * `MUL(I(1), I(2))`
+/// * `EXT(I(1), I(2))`
+/// * `ORD('\n')`
+#[derive(Clone, Debug, PartialEq, PartialOrd)]
 pub enum KU2Operand {
-    Sym(KU2Symbol, Vec<KU2Modifier>),
-    Str(String),
-    I(i64),
+    Sym(KU2Symbol),
+    HeapConst(Box<KU2HeapSlot>),
+    Raw(i64),
+    ChainOp(KU2ChainOp, Box<KU2Operand>, Box<KU2Operand>),
+    Ext(String),
+    Ord(char),
 }
-struct KU2ExprVisitor;
-impl<'de> Visitor<'de> for KU2ExprVisitor {
+
+struct KU2ChainOpVisitor(KU2ChainOp);
+impl<'de> Visitor<'de> for KU2ChainOpVisitor {
     type Value = KU2Operand;
     fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(formatter, "KU2Operand")
-    }
-    fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
-    where
-        E: serde::de::Error,
-    {
-        Ok(KU2Operand::Str(v.to_string()))
-    }
-    fn visit_i64<E>(self, v: i64) -> Result<Self::Value, E>
-    where
-        E: serde::de::Error,
-    {
-        Ok(KU2Operand::I(v as i64))
-    }
-    fn visit_u64<E>(self, v: u64) -> Result<Self::Value, E>
-    where
-        E: serde::de::Error,
-    {
-        Ok(KU2Operand::I(v as i64))
+        write!(formatter, "chain op content")
     }
     fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
     where
         A: serde::de::SeqAccess<'de>,
     {
-        let a: Option<KU2Symbol> = seq.next_element()?;
-        if let Some(a) = a {
-            let mut total = Vec::new();
-            while let Some(modifier) = seq.next_element()? as Option<KU2Modifier> {
-                total.push(modifier);
-            }
-            Ok(KU2Operand::Sym(a, total))
+        let mut ba: KU2Operand = seq
+            .next_element()?
+            .ok_or_else(|| serde::de::Error::custom("needs at least one element"))?;
+        while let Some(v) = seq.next_element()? {
+            ba = KU2Operand::ChainOp(self.0, Box::new(ba), Box::new(v));
+        }
+        Ok(ba)
+    }
+}
+
+struct KU2ExprVisitor;
+
+impl<'de> Visitor<'de> for KU2ExprVisitor {
+    type Value = KU2Operand;
+    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(formatter, "KU2Operand")
+    }
+
+    fn visit_enum<A>(self, data: A) -> Result<Self::Value, A::Error>
+    where
+        A: serde::de::EnumAccess<'de>,
+    {
+        // RON will *always* call this immediately.
+        let v: (KU2Symbol, A::Variant) = data.variant()?;
+        if v.0.0.eq("C") {
+            Ok(KU2Operand::HeapConst(v.1.newtype_variant()?))
+        } else if v.0.0.eq("I") {
+            Ok(KU2Operand::Raw(v.1.newtype_variant()?))
+        } else if v.0.0.eq("ADD") {
+            v.1.tuple_variant(2, KU2ChainOpVisitor(KU2ChainOp::Add))
+        } else if v.0.0.eq("SUB") {
+            v.1.tuple_variant(2, KU2ChainOpVisitor(KU2ChainOp::Sub))
+        } else if v.0.0.eq("MUL") {
+            v.1.tuple_variant(2, KU2ChainOpVisitor(KU2ChainOp::Mul))
+        } else if v.0.0.eq("EXT") {
+            Ok(KU2Operand::Ext(v.1.newtype_variant()?))
+        } else if v.0.0.eq("ORD") {
+            Ok(KU2Operand::Ord(v.1.newtype_variant()?))
+        } else if v.0.0.eq("SYM") {
+            Ok(KU2Operand::Sym(v.1.newtype_variant()?))
         } else {
-            Err(serde::de::Error::custom(
-                "Label reference without reference.",
-            ))
+            v.1.unit_variant()?;
+            Ok(KU2Operand::Sym(v.0))
         }
     }
 }
@@ -146,7 +152,11 @@ impl<'de> Deserialize<'de> for KU2Operand {
     where
         D: serde::Deserializer<'de>,
     {
-        deserializer.deserialize_any(KU2ExprVisitor)
+        deserializer.deserialize_enum(
+            "KU2Operand",
+            &["C", "I", "ADD", "SUB", "MUL", "EXT", "SYM"],
+            KU2ExprVisitor,
+        )
     }
 }
 
@@ -161,27 +171,51 @@ pub enum KU2HeapSlot {
     // WTF16(Vec<u16>),
     // Guid(OdinGuid),
     #[serde(rename = "sbyte")]
-    SByte(KU2Operand),
+    SByte(i64),
     #[serde(rename = "byte")]
-    Byte(KU2Operand),
+    Byte(i64),
     #[serde(rename = "short")]
-    Short(KU2Operand),
+    Short(i64),
     #[serde(rename = "ushort")]
-    UShort(KU2Operand),
+    UShort(i64),
     #[serde(rename = "int")]
-    Int(KU2Operand),
+    Int(i64),
     #[serde(rename = "uint")]
-    UInt(KU2Operand),
+    UInt(i64),
     #[serde(rename = "long")]
-    Long(KU2Operand),
+    Long(i64),
     #[serde(rename = "ulong")]
-    ULong(KU2Operand),
+    ULong(i64),
+    #[serde(rename = "bool")]
+    Bool(i64),
+    #[serde(rename = "char")]
+    Char(char),
+
+    #[serde(rename = "sbyte_c")]
+    SByteC(KU2Operand),
+    #[serde(rename = "byte_c")]
+    ByteC(KU2Operand),
+    #[serde(rename = "short_c")]
+    ShortC(KU2Operand),
+    #[serde(rename = "ushort_c")]
+    UShortC(KU2Operand),
+    #[serde(rename = "int_c")]
+    IntC(KU2Operand),
+    #[serde(rename = "uint_c")]
+    UIntC(KU2Operand),
+    #[serde(rename = "long_c")]
+    LongC(KU2Operand),
+    #[serde(rename = "ulong_c")]
+    ULongC(KU2Operand),
+    #[serde(rename = "bool_c")]
+    BoolC(KU2Operand),
+    #[serde(rename = "char_c")]
+    CharC(KU2Operand),
+
     #[serde(rename = "float")]
     Float(f32),
     #[serde(rename = "double")]
     Double(f64),
-    #[serde(rename = "char")]
-    Char(KU2Operand),
     // boolean
     #[serde(rename = "true")]
     True,
@@ -244,8 +278,6 @@ pub enum KU2Instruction {
     // equate
     #[serde(rename = "equ")]
     EquateInt(KU2Symbol, KU2Operand),
-    #[serde(rename = "equ_str")]
-    EquateStr(KU2Symbol, KU2StringAffinity, KU2Operand),
     #[serde(rename = "local")]
     Local(KU2Symbol),
     #[serde(rename = "undef")]
@@ -316,7 +348,14 @@ pub fn kudonasm_parse(src: &str) -> Result<Vec<(usize, KU2Instruction)>, ron::er
                     ron::Error::UnclosedLineComment => {}
                     ron::Error::ExpectedStringEnd => {}
                     _ => {
-                        return Err(err);
+                        // If we let this go on too long, we'll run into performance issues.
+                        // So we have a principle of 'coyote time'.
+                        // As long as the error is *changing,* the parser is making forward progress.
+                        if let Some(last_error) = last_error {
+                            if last_error.eq(&err) {
+                                return Err(err);
+                            }
+                        }
                     }
                 }
                 Some(err)

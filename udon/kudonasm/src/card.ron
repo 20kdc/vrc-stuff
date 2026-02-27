@@ -1,7 +1,7 @@
 /*
  * data and code can mix freely
  * symbols aren't quoted
- * access is divided into 'internal', 'symbol' (default) and 'public'
+ * access is divided into 'internal', 'elidable' (default), 'symbol' and 'public'
  * newlines are used as implicit separators
  */
 var_public (message, string("hello
@@ -9,8 +9,7 @@ world"))
 // as a shorthand, simple variable types are often listed by C# type with their default values, as so:
 var (example_int, int(12))
 // integer or char values are parsed as instruction operands
-// however, only char values use char affinity
-var (example_char, char("A"))
+var (example_char, char('A'))
 // string/sbyte/byte/short/ushort/uint/long/ulong/float/double/char/true/false/null/this/ast
 // all the 'known type' cases always use their types (use `ast` to override)
 // `string("string")` is as expected
@@ -24,45 +23,38 @@ sync (message, none)
 // they don't enter the UdonAST, which may be useful for embedded cases, and is useful for scoping
 // equ (symbol, value)
 // there is a default equate "_" with value 0
-equ (addition_a, 123)
-// modifiers to a symbol are add/sub/mul. which must follow it and can contain any further operand
-// modifiers are applied in sequence
-// modifiers share affinity (see equ_str)
-equ (addition_b, [addition_a, add(456)])
+equ (addition_a, I(123))
+equ (addition_b, ADD(addition_a, I(456)))
 
 // equ_str (symbol, affinity, value)
 // the affinity can be data/extern/char/error to control how strings are interpreted
 // equ alone uses 'error' affinity
 // operands of opcodes use 'data' except for jump/jump_if_false=error, and extern=extern
-equ_str (other_message, data, "Hello, world!")
-equ_str (ext_log, extern, "UnityEngineDebug.__Log__SystemObject__SystemVoid")
+equ (other_message, C(string("Hello, world!")))
+equ (ext_log, EXT("UnityEngineDebug.__Log__SystemObject__SystemVoid"))
 // code labels use the access as their opening keyword, except 'internal' can also be '_'
 public(_interact)
-    // instruction operands are:
-    // * [label]
-    // * "constant string/extern"
-    // * 0x1234 // numbers
-    push ([message])
-    extern ([ext_log])
-    // as a special rule, extern operand constants live in a separate string pool
-    push ("And thanks for all the fish!")
-    extern ("UnityEngineDebug.__Log__SystemObject__SystemVoid")
-    jump (0xFFFFFFFC)
+    // instruction operands are symbols and a bunch of stuff see the new README
+    push (message)
+    extern (ext_log)
+    push (C(string("And thanks for all the fish!")))
+    extern (EXT("UnityEngineDebug.__Log__SystemObject__SystemVoid"))
+    jump (I(0xFFFFFFFC))
 
 // local creates a unique symbol and sets up a corresponding equate.
 local(infinite_loop)
 _(infinite_loop)
     // parsing will add in each line until a complete entity is found
     // this can lead to unexpected errors if i.e. commas are missing
-    jump ([
+    jump (
         infinite_loop,
-    ])
+    )
 
 // undef removes an equate.
 undef(infinite_loop)
 
 // assorted
-update_order (0)
+update_order (I(0))
 net_event (Test, 5, [(Test_Param1, "SystemString")])
 // renames all current Udon-side symbol-table presence from the former name to the latter name
 // this includes inside sync metadata and net event tables, just in case the ID format is too restrictive or something

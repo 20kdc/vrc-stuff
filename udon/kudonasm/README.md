@@ -33,6 +33,20 @@ Key principles are:
 * Simple implementation.
 * Ability to express arbitrary OdinSerializer data.
 
+## Line Termination
+
+RON apparently does not support reading a series of concatenated entities. For this reason, `kudonasm` uses what will be gracefully called 'ugly magic' to implement this.
+
+The `kudonasm` parser essentially collects lines until one of two things happens:
+
+* Parsing succeeds, in which case the parsed entity is added, the lines so far cleared, and the 'virtual line number offset' adjusted.
+* An error of a type that isn't 'protected' occurs _twice in a row with the same details,_ in which case the error is returned. \
+  In the code comments, this principle of allowing the error to occur twice is referred to as 'coyote time'.
+	* The goal here is to check if the parser can't make further progress with more data. \
+	  If it's still reading to the end of the stream, the error end position moves with it -- if not, the error end position remains static.
+
+To be clear, this is something of a bodged compromise to allow a single statement to span multiple lines on what is otherwise meant to be a 'line by line' language.
+
 ## Symbols / Equates
 
 `kudonasm` has two 'symbol' sets (the symbols written to the Udon symbol table don't really count): Internal symbols and equates.
@@ -55,20 +69,16 @@ Operands are the core value of `kudonasm`. They conceptually resolve to 64-bit s
 
 Operands have the following forms:
 
-* `[symbol]`, `[symbol, modifier...]` (can add modifiers arbitrarily)
-	* The `_` equate is useful for calculations that don't follow this order.
-	* Modifiers are applied in sequence. They are:
-		* `add(operand)`: Adds the operand to the symbol.
-		* `sub(operand)`: Subtracts the operand from the symbol.
-		* `mul(operand)`: Multiplies the operand by the symbol.
-		* `heap_const(int_type)`: `int_type` here is a capitalized integer type (`OdinIntType`). These match the variable declarations, except the capitalization is `UInt` etc.
-			* The symbol must be _**immediately resolvable.**_
-* `1234`: Integers become their corresponding values.
-* `"example"`: Strings are handled according to the operand's 'affinity'. Affinities are:
-	* `error`: Strings are not permitted.
-	* `data`: Strings are resolved to constant strings. These are automatically reused.
-	* `extern`: Strings are resolved to dedicated 'extern strings'. These do not overlap with data strings.
-	* `char`: Strings must contain a single Unicode codepoint, which is returned.
+* `symbol`: Symbol (short form). Note that the other forms prevent you from using their names as symbols.
+* `SYM(symbol)`: Symbol.
+* `C(value)`: Constant. See `var()` below for what `value` can be.
+	* If the value is a string or an integer _resolvable at the time this line is assembled,_ the constant is shared between uses.
+* `I(value)`: **Raw** constant integer.
+	* Be wary of this. `push(I(0))` would push the index of the first heap slot, _which is almost never what you want._
+	* It's best used, say, _inside_ a constant.
+* `ADD(o1, o2)` / `SUB(o1, o2)` / `MUL(o1, o2)`: Performs maths. Keep in mind the same caveats as `I` -- you usually won't want to do this.
+* `EXT(extern)`: Extern. These are allocated from a special pool since the Udon runtime overwrites them with their delegates as an optimization.
+* `ORD(char)`: Character code, i.e. `ORD('A')`
 
 <!--
 
@@ -108,8 +118,8 @@ There are also 'macroinstructions':
 
 * `stop`: No operands, shorthand for `jump(0xFFFFFFFC)`, jumping to the conventional stop address.
 * `copy_static(src, dst)`: Shorthand for `push(src)`, `push(dst)`, `copy`
-	* Example: `copy_static([1234, heap_const(UInt)], [some_uint])`
-* `ext(id, [param...])`: Shorthand for `push(param)` on each parameter, followed by `extern([id])`.
+	* Example: `copy_static(C(uint(1234)), some_uint)`
+* `ext(id, [param...])`: Shorthand for `push(param)` on each parameter, followed by `extern(SYM(id))`.
 	* Note the implication that `id` is always a symbol/equate.
 
 ## Declarations
@@ -120,11 +130,11 @@ Declares a heap value.
 
 The value itself can be:
 
-* `int(n)`, `uint(n)`, `short(n)`, `ushort(n)`, `byte(n)`, `sbyte(n)`, `long(n)`, `ulong(n)`: Heap slot of the given type with the given operand as value.
+* `int(n)`, `uint(n)`, `short(n)`, `ushort(n)`, `byte(n)`, `sbyte(n)`, `long(n)`, `ulong(n)`: Fixed values; no operand evaluation
+* `string(v)`, `char(v)`, `true`, `false`, `float(v)`, `double(v)`: Fixed values; no operand evaluation
+	* Char in particular is written as `char('A')` (similar to `ORD`)
+* `int_c(n)`, `uint_c(n)`, `short_c(n)`, `ushort_c(n)`, `byte_c(n)`, `sbyte_c(n)`, `long_c(n)`, `ulong_c(n)`, `char_c(n)`: Heap slot of the given type with the given operand as value.
 	* Importantly, the value here can refer to i.e. a code symbol.
-	* Operand is evaluted with `error` affinity.
-* `char(n)`: Similar to the above, but with `char` affinity.
-* `string(v)`, `true`, `false`, `float(v)`, `double(v)`: Fixed values; no operand evaluation
 * `null(type)`, `this(type)`: with the given `UdonType`.
 * `ast(type, value)`: Fixed `UdonType` and `kudonast::UdonHeapValue`
 
@@ -229,29 +239,33 @@ data_comment("Test")
 
 ## Equate Pseudoinstructions
 
-### `equ(sym, operand)` / `equ_str(sym, affinity, operand)`
+### `equ(sym, operand)`
 
 Sets an equate. An existing equate will be overridden.
-
-`equ(sym, operand)` is short for `equ_str(sym, error, operand)`.
 
 Since this manipulates equates, the symbol is not 're-evaluated'.
 
 ```
-equ_str(message, data, "Hello, world!")
-equ_str(_ecall_ext_char2str, extern, "SystemConvert.__ToString__SystemChar__SystemString")
+equ(message, C(string("Hello, world!")))
+equ(_ecall_ext_char2str, EXT("SystemConvert.__ToString__SystemChar__SystemString"))
 ```
 
 ### `local(sym)`
 
+Defines an equate between a symbol and a unique name.
+
+Pairs well with `undef(sym)`.
+
 ```
-local()
+local(sym)
 ```
 
 ### `undef(sym)`
 
-    // equate
-    #[serde(rename = "local")]
-    Local(KU2Symbol),
-    #[serde(rename = "undef")]
-    Undef(KU2Symbol),
+Undefines an equate.
+
+Pairs well with `local(sym)`.
+
+```
+undef(sym)
+```

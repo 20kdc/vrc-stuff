@@ -1,6 +1,9 @@
 //! `kudonasm` is a replacement assembly language for Udon.
 
-use kudonast::{UdonAccess, UdonHeapSlot, UdonHeapValue, UdonInt, UdonProgram, UdonSymbol};
+use kudonast::{
+    UdonAccess, UdonHeapSlot, UdonHeapValue, UdonInt, UdonProgram, UdonSymbol,
+    odininttype_to_udontype,
+};
 use kudoninfo::{UdonOpcode, UdonTypeRef};
 use kudonodin::{OdinIntType, OdinPrimitive};
 use std::collections::{BTreeMap, BTreeSet};
@@ -32,8 +35,7 @@ pub struct KU2Context {
 
 impl Default for KU2Context {
     fn default() -> Self {
-        let mut equates = BTreeMap::new();
-        equates.insert("_".to_string(), UdonInt::I(0));
+        let equates = BTreeMap::new();
         Self {
             equates,
             installed_packages: Default::default(),
@@ -44,6 +46,7 @@ impl Default for KU2Context {
 }
 
 impl KU2Context {
+    /// Handles equate symbol remap.
     pub fn ku2sym_to_udon(&self, v: &KU2Symbol) -> Result<String, String> {
         if let Some(equ) = self.equates.get(&v.0) {
             if let UdonInt::Sym(sym) = equ {
@@ -58,65 +61,211 @@ impl KU2Context {
             Ok(v.0.clone())
         }
     }
+
+    /// Converts a heap slot from KU2 form to a proper heap slot.
+    pub fn conv_heap_slot(
+        &mut self,
+        file: &mut UdonProgram,
+        val: &KU2HeapSlot,
+    ) -> Result<UdonHeapSlot, String> {
+        macro_rules! pmap {
+            ($udon_type:ident, $variant:ident, $v:expr) => {
+                Ok(UdonHeapSlot(
+                    (&kudoninfo::udon_types::$udon_type).into(),
+                    UdonHeapValue::P(OdinPrimitive::$variant($v.clone())),
+                ))
+            };
+        }
+        macro_rules! imap {
+            ($variant:ident, $v:expr) => {
+                Ok(UdonHeapSlot(
+                    kudonast::odininttype_to_udontype(OdinIntType::$variant),
+                    UdonHeapValue::I(OdinIntType::$variant, UdonInt::I($v)),
+                ))
+            };
+        }
+        macro_rules! icmap {
+            ($variant:ident, $v:expr) => {
+                Ok(UdonHeapSlot(
+                    kudonast::odininttype_to_udontype(OdinIntType::$variant),
+                    UdonHeapValue::I(OdinIntType::$variant, self.operand_udonint(file, $v)?),
+                ))
+            };
+        }
+
+        match val {
+            KU2HeapSlot::String(v) => pmap!(SystemString, String, v),
+
+            KU2HeapSlot::SByte(v) => imap!(SByte, *v),
+            KU2HeapSlot::Byte(v) => imap!(Byte, *v),
+            KU2HeapSlot::Short(v) => imap!(Short, *v),
+            KU2HeapSlot::UShort(v) => imap!(UShort, *v),
+            KU2HeapSlot::Int(v) => imap!(Int, *v),
+            KU2HeapSlot::UInt(v) => imap!(UInt, *v),
+            KU2HeapSlot::Long(v) => imap!(Long, *v),
+            KU2HeapSlot::ULong(v) => imap!(ULong, *v),
+            KU2HeapSlot::Bool(v) => imap!(Bool, *v),
+            KU2HeapSlot::Char(v) => imap!(Char, *v as i64),
+
+            KU2HeapSlot::SByteC(v) => icmap!(SByte, v),
+            KU2HeapSlot::ByteC(v) => icmap!(Byte, v),
+            KU2HeapSlot::ShortC(v) => icmap!(Short, v),
+            KU2HeapSlot::UShortC(v) => icmap!(UShort, v),
+            KU2HeapSlot::IntC(v) => icmap!(Int, v),
+            KU2HeapSlot::UIntC(v) => icmap!(UInt, v),
+            KU2HeapSlot::LongC(v) => icmap!(Long, v),
+            KU2HeapSlot::ULongC(v) => icmap!(ULong, v),
+            KU2HeapSlot::BoolC(v) => icmap!(Bool, v),
+            KU2HeapSlot::CharC(v) => icmap!(Char, v),
+
+            KU2HeapSlot::Float(v) => pmap!(SystemSingle, Float, v),
+            KU2HeapSlot::Double(v) => pmap!(SystemDouble, Double, v),
+
+            KU2HeapSlot::True => pmap!(SystemBoolean, Bool, true),
+            KU2HeapSlot::False => pmap!(SystemBoolean, Bool, false),
+
+            KU2HeapSlot::Null(ot) => Ok(UdonHeapSlot(
+                ot.clone(),
+                UdonHeapValue::P(OdinPrimitive::Null),
+            )),
+
+            KU2HeapSlot::This(ot) => Ok(UdonHeapSlot(ot.clone(), UdonHeapValue::This)),
+            KU2HeapSlot::Custom(ot, ov) => Ok(UdonHeapSlot(ot.clone(), ov.clone())),
+        }
+    }
+
+    pub fn conv_heap_const_int(
+        &mut self,
+        file: &mut UdonProgram,
+        ot: OdinIntType,
+        v: &KU2Operand,
+    ) -> Result<UdonInt, String> {
+        let val = self.operand_udonint(file, v)?;
+        if let Ok(early_resolve) = val.resolve(&file.internal_syms) {
+            Ok(UdonInt::Sym(file.ensure_iconst(ot, early_resolve)))
+        } else {
+            let sym = file.gensym("late_iconst");
+            let pos = file.data.len();
+            UdonProgram::add_comment(
+                &mut file.data_comments,
+                pos,
+                &format!("immediate operand: {:?}", val),
+            );
+            file.declare_heap(
+                &sym,
+                Some(UdonAccess::Elidable),
+                odininttype_to_udontype(ot),
+                UdonHeapValue::I(ot, val),
+            )?;
+            Ok(UdonInt::Sym(sym))
+        }
+    }
+
+    /// **Use only for operands!**
+    /// Like conv_heap_slot, but opportunistically makes use of constants.
+    pub fn conv_heap_const(
+        &mut self,
+        file: &mut UdonProgram,
+        val: &KU2HeapSlot,
+    ) -> Result<UdonInt, String> {
+        match val {
+            KU2HeapSlot::String(v) => Ok(UdonInt::Sym(file.ensure_string(&v, false))),
+
+            KU2HeapSlot::SByte(v) => {
+                self.conv_heap_const_int(file, OdinIntType::SByte, &KU2Operand::Raw(*v))
+            }
+            KU2HeapSlot::Byte(v) => {
+                self.conv_heap_const_int(file, OdinIntType::Byte, &KU2Operand::Raw(*v))
+            }
+            KU2HeapSlot::Short(v) => {
+                self.conv_heap_const_int(file, OdinIntType::Short, &KU2Operand::Raw(*v))
+            }
+            KU2HeapSlot::UShort(v) => {
+                self.conv_heap_const_int(file, OdinIntType::UShort, &KU2Operand::Raw(*v))
+            }
+            KU2HeapSlot::Int(v) => {
+                self.conv_heap_const_int(file, OdinIntType::Int, &KU2Operand::Raw(*v))
+            }
+            KU2HeapSlot::UInt(v) => {
+                self.conv_heap_const_int(file, OdinIntType::UInt, &KU2Operand::Raw(*v))
+            }
+            KU2HeapSlot::Long(v) => {
+                self.conv_heap_const_int(file, OdinIntType::Long, &KU2Operand::Raw(*v))
+            }
+            KU2HeapSlot::ULong(v) => {
+                self.conv_heap_const_int(file, OdinIntType::ULong, &KU2Operand::Raw(*v))
+            }
+            KU2HeapSlot::Bool(v) => {
+                self.conv_heap_const_int(file, OdinIntType::Bool, &KU2Operand::Raw(*v))
+            }
+            KU2HeapSlot::Char(v) => {
+                self.conv_heap_const_int(file, OdinIntType::Char, &KU2Operand::Raw(*v as i64))
+            }
+
+            KU2HeapSlot::SByteC(v) => self.conv_heap_const_int(file, OdinIntType::SByte, v),
+            KU2HeapSlot::ByteC(v) => self.conv_heap_const_int(file, OdinIntType::Byte, v),
+            KU2HeapSlot::ShortC(v) => self.conv_heap_const_int(file, OdinIntType::Short, v),
+            KU2HeapSlot::UShortC(v) => self.conv_heap_const_int(file, OdinIntType::UShort, v),
+            KU2HeapSlot::IntC(v) => self.conv_heap_const_int(file, OdinIntType::Int, v),
+            KU2HeapSlot::UIntC(v) => self.conv_heap_const_int(file, OdinIntType::UInt, v),
+            KU2HeapSlot::LongC(v) => self.conv_heap_const_int(file, OdinIntType::Long, v),
+            KU2HeapSlot::ULongC(v) => self.conv_heap_const_int(file, OdinIntType::ULong, v),
+            KU2HeapSlot::BoolC(v) => self.conv_heap_const_int(file, OdinIntType::Bool, v),
+            KU2HeapSlot::CharC(v) => self.conv_heap_const_int(file, OdinIntType::Char, v),
+
+            KU2HeapSlot::True => {
+                self.conv_heap_const_int(file, OdinIntType::Bool, &KU2Operand::Raw(1))
+            }
+            KU2HeapSlot::False => {
+                self.conv_heap_const_int(file, OdinIntType::Bool, &KU2Operand::Raw(0))
+            }
+
+            _ => {
+                let slot = self.conv_heap_slot(file, val)?;
+                let sym = file.gensym("immediate");
+                let pos = file.data.len();
+                UdonProgram::add_comment(
+                    &mut file.data_comments,
+                    pos,
+                    &format!("immediate operand: {:?}", val),
+                );
+                file.declare_heap(&sym, Some(UdonAccess::Elidable), slot.0, slot.1)?;
+                Ok(UdonInt::Sym(sym))
+            }
+        }
+    }
+
     /// Parses an operand to [UdonInt].
     pub fn operand_udonint(
         &mut self,
         file: &mut UdonProgram,
         v: &KU2Operand,
-        affinity: KU2StringAffinity,
     ) -> Result<UdonInt, String> {
         match v {
-            KU2Operand::Sym(sym, mods) => {
-                let mut base = if let Some(equ) = self.equates.get(&sym.0) {
+            KU2Operand::Sym(sym) => {
+                if let Some(equ) = self.equates.get(&sym.0) {
                     // Existing equate
-                    equ.clone()
+                    Ok(equ.clone())
                 } else {
-                    UdonInt::Sym(sym.0.clone())
-                };
-                for v in mods {
-                    base = match v {
-                        KU2Modifier::Add(op) => UdonInt::Add(
-                            Box::new(base),
-                            Box::new(self.operand_udonint(file, op, affinity)?),
-                        ),
-                        KU2Modifier::Sub(op) => UdonInt::Sub(
-                            Box::new(base),
-                            Box::new(self.operand_udonint(file, op, affinity)?),
-                        ),
-                        KU2Modifier::Mul(op) => UdonInt::Mul(
-                            Box::new(base),
-                            Box::new(self.operand_udonint(file, op, affinity)?),
-                        ),
-                        KU2Modifier::HeapConst(ic) => {
-                            let v = base
-                                .resolve(&file.internal_syms)
-                                .map_err(|v| format!("in heap_const: {}", v))?;
-                            UdonInt::Sym(file.ensure_iconst(*ic, v))
-                        }
-                    };
+                    Ok(UdonInt::Sym(sym.0.clone()))
                 }
-                Ok(base)
             }
-            KU2Operand::Str(v) => match affinity {
-                KU2StringAffinity::Data => Ok(UdonInt::Sym(file.ensure_string(&v, false))),
-                KU2StringAffinity::Extern => Ok(UdonInt::Sym(file.ensure_string(&v, true))),
-                KU2StringAffinity::Char => {
-                    let chars: Vec<char> = v.chars().collect();
-                    if chars.len() != 1 {
-                        Err(format!(
-                            "'{}' interpreted as character constant, but wasn't a single codepoint",
-                            &v
-                        ))
-                    } else {
-                        Ok(UdonInt::I(chars[0] as i64))
-                    }
-                }
-                KU2StringAffinity::Error => Err(format!(
-                    "String '{}' used, but unsure how to interpret. Consider 'equ_str'.",
-                    &v
-                )),
-            },
-            KU2Operand::I(v) => Ok(UdonInt::I(*v)),
+            KU2Operand::HeapConst(heap_slot) => self.conv_heap_const(file, heap_slot),
+            KU2Operand::Raw(v) => Ok(UdonInt::I(*v)),
+            KU2Operand::ChainOp(KU2ChainOp::Add, a, b) => Ok(UdonInt::Add(
+                Box::new(self.operand_udonint(file, a)?),
+                Box::new(self.operand_udonint(file, b)?),
+            )),
+            KU2Operand::ChainOp(KU2ChainOp::Sub, a, b) => Ok(UdonInt::Sub(
+                Box::new(self.operand_udonint(file, a)?),
+                Box::new(self.operand_udonint(file, b)?),
+            )),
+            KU2Operand::ChainOp(KU2ChainOp::Mul, a, b) => Ok(UdonInt::Mul(
+                Box::new(self.operand_udonint(file, a)?),
+                Box::new(self.operand_udonint(file, b)?),
+            )),
+            KU2Operand::Ext(ext) => Ok(UdonInt::Sym(file.ensure_string(ext, true))),
+            KU2Operand::Ord(ord) => Ok(UdonInt::I(*ord as i64)),
         }
     }
     pub fn assemble_op(
@@ -127,14 +276,7 @@ impl KU2Context {
     ) -> Result<(), String> {
         file.code.push(kudonast::UdonInt::Op(opcode));
         for v in stuff.iter().enumerate() {
-            let affinity = match opcode.parameters[v.0] {
-                kudoninfo::UdonSpaciality::Indistinct => KU2StringAffinity::Data,
-                kudoninfo::UdonSpaciality::Annotation => KU2StringAffinity::Data,
-                kudoninfo::UdonSpaciality::Data => KU2StringAffinity::Data,
-                kudoninfo::UdonSpaciality::DataExtern => KU2StringAffinity::Extern,
-                kudoninfo::UdonSpaciality::Code => KU2StringAffinity::Error,
-            };
-            let res = self.operand_udonint(file, v.1, affinity)?;
+            let res = self.operand_udonint(file, v.1)?;
             file.code.push(res);
         }
         Ok(())
@@ -165,58 +307,6 @@ impl KU2Context {
                 });
             }
             Ok(())
-        }
-    }
-
-    pub fn conv_heap_slot(
-        &mut self,
-        file: &mut UdonProgram,
-        val: &KU2HeapSlot,
-    ) -> Result<UdonHeapSlot, String> {
-        macro_rules! pmap {
-            ($udon_type:ident, $variant:ident, $v:expr) => {
-                Ok(UdonHeapSlot(
-                    (&kudoninfo::udon_types::$udon_type).into(),
-                    UdonHeapValue::P(OdinPrimitive::$variant($v.clone())),
-                ))
-            };
-        }
-        macro_rules! imap {
-            ($variant:ident, $v:expr, $a:ident) => {
-                Ok(UdonHeapSlot(
-                    kudonast::odininttype_to_udontype(OdinIntType::$variant),
-                    UdonHeapValue::I(
-                        OdinIntType::$variant,
-                        self.operand_udonint(file, $v, KU2StringAffinity::$a)?,
-                    ),
-                ))
-            };
-        }
-        match val {
-            KU2HeapSlot::String(v) => pmap!(SystemString, String, v),
-
-            KU2HeapSlot::SByte(v) => imap!(SByte, v, Error),
-            KU2HeapSlot::Byte(v) => imap!(Byte, v, Error),
-            KU2HeapSlot::Short(v) => imap!(Short, v, Error),
-            KU2HeapSlot::UShort(v) => imap!(UShort, v, Error),
-            KU2HeapSlot::Int(v) => imap!(Int, v, Error),
-            KU2HeapSlot::UInt(v) => imap!(UInt, v, Error),
-            KU2HeapSlot::Long(v) => imap!(Long, v, Error),
-            KU2HeapSlot::ULong(v) => imap!(ULong, v, Error),
-            KU2HeapSlot::Float(v) => pmap!(SystemSingle, Float, v),
-            KU2HeapSlot::Double(v) => pmap!(SystemDouble, Double, v),
-            KU2HeapSlot::Char(v) => imap!(Char, v, Char),
-
-            KU2HeapSlot::True => pmap!(SystemBoolean, Boolean, true),
-            KU2HeapSlot::False => pmap!(SystemBoolean, Boolean, false),
-
-            KU2HeapSlot::Null(ot) => Ok(UdonHeapSlot(
-                ot.clone(),
-                UdonHeapValue::P(OdinPrimitive::Null),
-            )),
-
-            KU2HeapSlot::This(ot) => Ok(UdonHeapSlot(ot.clone(), UdonHeapValue::This)),
-            KU2HeapSlot::Custom(ot, ov) => Ok(UdonHeapSlot(ot.clone(), ov.clone())),
         }
     }
 
@@ -302,8 +392,7 @@ impl KU2Context {
                 Ok(())
             }
             KU2Instruction::UpdateOrder(operand) => {
-                file.update_order =
-                    self.operand_udonint(file, operand, KU2StringAffinity::Error)?;
+                file.update_order = self.operand_udonint(file, operand)?;
                 Ok(())
             }
             KU2Instruction::NetEvent(subr, maxeps, params) => {
@@ -397,12 +486,7 @@ impl KU2Context {
             ),
             // -- equate --
             KU2Instruction::EquateInt(sym, operand) => {
-                let value = self.operand_udonint(file, operand, KU2StringAffinity::Error)?;
-                self.equates.insert(sym.0.clone(), value);
-                Ok(())
-            }
-            KU2Instruction::EquateStr(sym, affinity, operand) => {
-                let value = self.operand_udonint(file, operand, *affinity)?;
+                let value = self.operand_udonint(file, operand)?;
                 self.equates.insert(sym.0.clone(), value);
                 Ok(())
             }
@@ -447,7 +531,7 @@ impl KU2Context {
                 for param in params {
                     self.assemble_op(file, &kudoninfo::opcodes::PUSH, &[param])?;
                 }
-                let operand = KU2Operand::Sym(id.clone(), vec![]);
+                let operand = KU2Operand::Sym(id.clone());
                 self.assemble_op(file, &kudoninfo::opcodes::EXTERN, &[&operand])
             }
         }

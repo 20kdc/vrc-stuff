@@ -1,3 +1,5 @@
+// builtin
+
 package("builtin_globals", [])
 	// VM-declared
 	// _vm_equ_initsp
@@ -31,46 +33,43 @@ package("builtin_globals", [])
 	// most registers are auto-declared, but not this
 	var(_vm_zero, int(0))
 
-	equ(_vm_c_i32_0, [_, heap_const(Int)])
-	equ(_vm_c_i32_1, [_, add(1), heap_const(Int)])
-
 package("builtin_vm_reset", [])
 	code_comment("-- MEMORY INIT / RESET / INDIRECT JUMP --")
 	public(_vm_reset)
 
 	// The external reset just sets us up to indirect jump straight to abort.
 	// This means you can just poke _vm_reset and get a nicely reset VM.
-	copy_static([_vm_equ_abort, heap_const(UInt)], [vm_indirect_jump_target])
+	copy_static(C(uint_c(_vm_equ_abort)), vm_indirect_jump_target)
 
 	// FALLTHROUGH: we've just setup the indirect jump to abort, so do a reset-and-jump
 
 	public(_vm_reset_and_jump)
 	// setup VM settings to match the binary.
-	copy_static([_vm_equ_initsp, heap_const(Int)], [vm_initsp])
-	copy_static([_vm_equ_abort, heap_const(Int)], [vm_initra])
+	copy_static(C(uint_c(_vm_equ_initsp)), vm_initsp)
+	copy_static(C(uint_c(_vm_equ_abort)), vm_initra)
 	// create scratch buffers
-	ext(_vmext_i32array_create, [[_vm_c_i32_1], [_vm_bcopy_i32]])
-	ext(_vmext_i16array_create, [[_vm_c_i32_1], [_vm_bcopy_i16]])
-	ext(_vmext_i8array_create, [[_vm_c_i32_1], [_vm_bcopy_i8]])
+	ext(_vmext_i32array_create, [C(int(1)), _vm_bcopy_i32])
+	ext(_vmext_i16array_create, [C(int(1)), _vm_bcopy_i16])
+	ext(_vmext_i8array_create, [C(int(1)), _vm_bcopy_i8])
 	// setup like a thunk would. we're called by thunks when the machine hasn't been setup yet
 	// and we can also be called by external code that won't know what the initsp/abort values are yet
-	copy_static([vm_initsp], [vm_sp])
-	copy_static([vm_initra], [vm_ra])
+	copy_static(vm_initsp, vm_sp)
+	copy_static(vm_initra, vm_ra)
 	// create the array & copy to check field so we don't do this twice
-	ext(_vmext_u8array_create, [[_vm_equ_image_bytes, heap_const(Int)], [vm_memory]])
-	copy_static([vm_memory], [_vm_memory_chk])
+	ext(_vmext_u8array_create, [C(int_c(_vm_equ_image_bytes)), vm_memory])
+	copy_static(vm_memory, _vm_memory_chk)
 	// decode the data and copy it into the start of the memory array
-	ext(_vmext_base64_decode, [[_vm_initdata], [_vm_initdata_dec]])
-	ext(_vmext_bytearray_copy, [[_vm_initdata_dec], [vm_memory], [_vm_c_i32_0]])
+	ext(_vmext_base64_decode, [_vm_initdata, _vm_initdata_dec])
+	ext(_vmext_bytearray_copy, [_vm_initdata_dec, vm_memory, C(int(0))])
 	// clean up
-	copy_static([_null], [_vm_initdata_dec])
+	copy_static(_null, _vm_initdata_dec)
 
 	// FALLTHROUGH: we now move right on to performing an indirect jump
 
 	public(_vm_indirect_jump)
 	// The jump table is laid out so that a simple multiplication by 2 will fix up the target.
-	ext(_vmext_u32_add, [[vm_indirect_jump_target], [vm_indirect_jump_target], [vm_indirect_jump_target]])
-	jump_indirect([vm_indirect_jump_target])
+	ext(_vmext_u32_add, [vm_indirect_jump_target, vm_indirect_jump_target, vm_indirect_jump_target])
+	jump_indirect(vm_indirect_jump_target)
 	code_comment("")
 
 // add a blank inc_code package in case it's needed

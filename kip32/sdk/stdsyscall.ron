@@ -10,7 +10,7 @@ package("ecall", [])
 
 package("ecall_end", [])
 	// Return to calling code
-	jump([_vm_indirect_jump])
+	jump(_vm_indirect_jump)
 
 package("inc_code", ["ecall", "ecall_end"])
 
@@ -19,10 +19,10 @@ package("inc_code", ["ecall", "ecall_end"])
 // The new mechanism is based on the package/snippet mechanism:
 // package("syscall_example", [])
 //     // return method 1: direct
-//     jump([_syscall_return]) // return to calling code (local equate)
+//     jump(_syscall_return) // return to calling code (local equate)
 //     // return method 2: indirect
-//     copy_static([_syscall_return_indirect, heap_const(UInt)], [_vm_indirect_jump_target])
-//     jump([_vm_indirect_jump])
+//     copy_static(C(uint_c(_syscall_return_indirect)), _vm_indirect_jump_target)
+//     jump(_vm_indirect_jump)
 // EBREAK is followed by the address of a C-string naming the syscall to run.
 // Packages required here are all installed immediately after inc_code.
 
@@ -39,26 +39,26 @@ package("stdsyscall_putchar", [])
 
 package("syscall_stdsyscall_putchar", ["stdsyscall_putchar"])
 
-	equ_str(_ecall_ext_i32eq, extern, "SystemInt32.__op_Equality__SystemInt32_SystemInt32__SystemBoolean")
-	equ_str(_ecall_ext_log, extern, "UnityEngineDebug.__Log__SystemObject__SystemVoid")
-	equ_str(_ecall_ext_i32and, extern, "SystemInt32.__op_LogicalAnd__SystemInt32_SystemInt32__SystemInt32")
-	equ_str(_ecall_ext_tochar, extern, "SystemConvert.__ToChar__SystemInt32__SystemChar")
-	equ_str(_ecall_ext_char2str, extern, "SystemConvert.__ToString__SystemChar__SystemString")
-	equ_str(_ecall_ext_stradd, extern, "SystemString.__op_Addition__SystemString_SystemString__SystemString")
+	equ(_ecall_ext_i32eq, EXT("SystemInt32.__op_Equality__SystemInt32_SystemInt32__SystemBoolean"))
+	equ(_ecall_ext_log, EXT("UnityEngineDebug.__Log__SystemObject__SystemVoid"))
+	equ(_ecall_ext_i32and, EXT("SystemInt32.__op_LogicalAnd__SystemInt32_SystemInt32__SystemInt32"))
+	equ(_ecall_ext_tochar, EXT("SystemConvert.__ToChar__SystemInt32__SystemChar"))
+	equ(_ecall_ext_char2str, EXT("SystemConvert.__ToString__SystemChar__SystemString"))
+	equ(_ecall_ext_stradd, EXT("SystemString.__op_Addition__SystemString_SystemString__SystemString"))
 
 local(not_newline)
 
-	ext(_ecall_ext_i32eq, [[a0], [_ecall_c10], [_vm_tmp_bool]])
-	push([_vm_tmp_bool])
-	jump_if_false([not_newline])
-	ext(_ecall_ext_log, [[_ecall_logmsg]])
-	copy_static("", [_ecall_logmsg])
-	jump([_syscall_return])
+	ext(_ecall_ext_i32eq, [a0, _ecall_c10, _vm_tmp_bool])
+	push(_vm_tmp_bool)
+	jump_if_false(not_newline)
+	ext(_ecall_ext_log, [_ecall_logmsg])
+	copy_static(C(string("")), _ecall_logmsg)
+	jump(_syscall_return)
 
 _(not_newline)
 
-	ext(_ecall_ext_i32and, [[a0], [_ecall_cFF], [a0]])
-	ext(_ecall_ext_tochar, [[a0], [_ecall_logchar]])
-	ext(_ecall_ext_char2str, [[_ecall_logchar], [_ecall_logcharstr]])
-	ext(_ecall_ext_stradd, [[_ecall_logmsg], [_ecall_logcharstr], [_ecall_logmsg]])
-	jump([_syscall_return])
+	ext(_ecall_ext_i32and, [a0, _ecall_cFF, a0])
+	ext(_ecall_ext_tochar, [a0, _ecall_logchar])
+	ext(_ecall_ext_char2str, [_ecall_logchar, _ecall_logcharstr])
+	ext(_ecall_ext_stradd, [_ecall_logmsg, _ecall_logcharstr, _ecall_logmsg])
+	jump(_syscall_return)

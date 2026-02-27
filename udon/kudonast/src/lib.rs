@@ -137,6 +137,7 @@ pub fn odininttype_to_udontype(oit: OdinIntType) -> UdonTypeRef {
         OdinIntType::UInt => (&kudoninfo::udon_types::SystemUInt32).into(),
         OdinIntType::Long => (&kudoninfo::udon_types::SystemInt64).into(),
         OdinIntType::ULong => (&kudoninfo::udon_types::SystemUInt64).into(),
+        OdinIntType::Bool => (&kudoninfo::udon_types::SystemBoolean).into(),
         OdinIntType::Char => (&kudoninfo::udon_types::SystemChar).into(),
     }
 }
