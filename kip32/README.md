@@ -38,6 +38,11 @@ Meanwhile, RV32I has a clear minimal set of instructions a compiler can be told 
 	* The `kip32.h` header comes in both on-host and in-Udon variants.
 3. Compile to what is essentially a RV32I microcontroller. Link with `sdk/kip32.ld` linker script.
 	* The `sdk/kip32cc` script is intended to be a convenient frontend.
+	* Alternatively, if you want things like 'an actual libc' you might want i.e:
+		* `picolibc-riscv64-unknown-elf`
+		* `-mabi=ilp32 -march=rv32i -I$(KIP32_SDK)/include -nostartfiles -specs=/usr/lib/picolibc/riscv64-unknown-elf/picolibc.specs`
+			* the `-nostartfiles` is because `_start` is both a libc function name and an Udon event name, which may be good or bad depending on how you look at it
+		* and other such Fun Stuff
 	* Read `ABI.md` for how the interface works.
 4. Tighter integration may be achieved using various flags, particularly `--inc`; see transpiler help for details.
 	* Also see `sdk/stdsyscall.ron`.

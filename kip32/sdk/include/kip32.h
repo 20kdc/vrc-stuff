@@ -37,14 +37,14 @@
 		  "r" (KIP32_SYSCALL_ra), "r" (KIP32_SYSCALL_t0), "r" (KIP32_SYSCALL_t1), "r" (KIP32_SYSCALL_t2), "r" (KIP32_SYSCALL_t3), "r" (KIP32_SYSCALL_t4), "r" (KIP32_SYSCALL_t5), "r" (KIP32_SYSCALL_t6)  \
 		: \
 	); \
-	v0 e0 KIP32_SYSCALL_a0; \
-	v1 e1 KIP32_SYSCALL_a1; \
-	v2 e2 KIP32_SYSCALL_a2; \
-	v3 e3 KIP32_SYSCALL_a3; \
-	v4 e4 KIP32_SYSCALL_a4; \
-	v5 e5 KIP32_SYSCALL_a5; \
-	v6 e6 KIP32_SYSCALL_a6; \
-	v7 e7 KIP32_SYSCALL_a7; \
+	(void) (v0 e0 KIP32_SYSCALL_a0); \
+	(void) (v1 e1 KIP32_SYSCALL_a1); \
+	(void) (v2 e2 KIP32_SYSCALL_a2); \
+	(void) (v3 e3 KIP32_SYSCALL_a3); \
+	(void) (v4 e4 KIP32_SYSCALL_a4); \
+	(void) (v5 e5 KIP32_SYSCALL_a5); \
+	(void) (v6 e6 KIP32_SYSCALL_a6); \
+	(void) (v7 e7 KIP32_SYSCALL_a7); \
 }
 
 /* -- COMMON -- */

@@ -51,7 +51,7 @@ package("stdsyscall_dynextern", [])
 
 package("syscall_stdsyscall_dynextern", ["stdsyscall_dynextern"])
 
-	ext(_ecall_dynextern)
+	extern(_ecall_dynextern)
 	jump(_syscall_return)
 
 // -- copy --
@@ -100,4 +100,55 @@ _(not_newline)
 	ext(_ecall_ext_tochar, [a0, _ecall_logchar])
 	ext(_ecall_ext_char2str, [_ecall_logchar, _ecall_logcharstr])
 	ext(_ecall_ext_stradd, [_ecall_logmsg, _ecall_logcharstr, _ecall_logmsg])
+	jump(_syscall_return)
+
+// -- memmove --
+
+// dest, src, n
+package("syscall_stdsyscall_memmove", [])
+
+	// copy(source source_ofs dest dest_ofs bytes)
+	equ(_ecall_ext_memmove, EXT("SystemBuffer.__BlockCopy__SystemArray_SystemInt32_SystemArray_SystemInt32_SystemInt32__SystemVoid"))
+
+	ext(_ecall_ext_memmove, [vm_memory, a1, vm_memory, a0, a2])
+
+	jump(_syscall_return)
+
+// -- sbrk --
+
+package("syscall_stdsyscall_sbrk", [])
+
+	equ(_ecall_ext_u8anew, EXT("SystemByteArray.__ctor__SystemInt32__SystemByteArray"))
+	// copy(source source_ofs dest dest_ofs bytes)
+	equ(_ecall_ext_memcpy, EXT("SystemBuffer.__BlockCopy__SystemArray_SystemInt32_SystemArray_SystemInt32_SystemInt32__SystemVoid"))
+	equ(_ecall_ext_u8alen, EXT("SystemByteArray.__get_Length__SystemInt32"))
+	equ(_ecall_ext_i32add, EXT("SystemInt32.__op_Addition__SystemInt32_SystemInt32__SystemInt32"))
+	equ(_ecall_ext_i32neq, EXT("SystemInt32.__op_Inequality__SystemInt32_SystemInt32__SystemBoolean"))
+	equ(_ecall_ext_i32min, EXT("SystemMath.__Min__SystemInt32_SystemInt32__SystemInt32"))
+
+	// just in case someone messed with this
+	copy_static(vm_memory, _vm_memory_chk)
+
+	// This will be used shortly to fastpath sbrk(0)
+	ext(_ecall_ext_i32neq, [a0, C(int(0)), _vm_tmp_bool])
+
+	ext(_ecall_ext_u8alen, [vm_memory, _vm_tmp_r1])
+	ext(_ecall_ext_i32add, [_vm_tmp_r1, a0, a0])
+
+	// a0 is now the target length. If a0 is 0, we can now leave.
+	push(_vm_tmp_bool)
+	jump_if_false(_syscall_return)
+
+	// alright, we're actually doing this huh
+	// set tmpr1 to min length between the old length and the new length
+	// so we know how much to copy
+	ext(_ecall_ext_i32min, [_vm_tmp_r1, a0, _vm_tmp_r1])
+
+	// create the new array and copy over the existing data
+	ext(_ecall_ext_u8anew, [a0, vm_memory])
+	ext(_ecall_ext_memcpy, [_vm_memory_chk, C(int(0)), vm_memory, C(int(0)), _vm_tmp_r1])
+
+	// say after me: 'the memory was always this size'
+	copy_static(vm_memory, _vm_memory_chk)
+
 	jump(_syscall_return)

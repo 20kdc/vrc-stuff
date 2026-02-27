@@ -24,6 +24,7 @@ package("builtin_globals", [])
 	// WORKAROUND: Udon has a habit of deciding it's gonna initialize vm_memory ITSELF.
 	// Obviously this is bad for us, so we hold a second, hidden field of type Object.
 	// It shouldn't initialize *that* behind our backs.
+	// Also note that stdsyscall uses this as a backup for vm_memory.
 	var(_vm_memory_chk, null("SystemObject"))
 	var_public(vm_memory, null("SystemByteArray"))
 	// Declared public, but only initialized with memory.
