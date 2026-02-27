@@ -31,8 +31,6 @@ package("inc_code", ["ecall", "ecall_end"])
 package("stdsyscall_putchar", [])
 
 	// Variables, etc.
-	var(_ecall_c10, int(10))
-	var(_ecall_cFF, int(255))
 	var_public(_ecall_logmsg, string(""))
 	var(_ecall_logchar, null("SystemChar"))
 	var(_ecall_logcharstr, string(""))
@@ -48,7 +46,7 @@ package("syscall_stdsyscall_putchar", ["stdsyscall_putchar"])
 
 local(not_newline)
 
-	ext(_ecall_ext_i32eq, [a0, _ecall_c10, _vm_tmp_bool])
+	ext(_ecall_ext_i32eq, [a0, C(int(10)), _vm_tmp_bool])
 	push(_vm_tmp_bool)
 	jump_if_false(not_newline)
 	ext(_ecall_ext_log, [_ecall_logmsg])
@@ -57,7 +55,7 @@ local(not_newline)
 
 _(not_newline)
 
-	ext(_ecall_ext_i32and, [a0, _ecall_cFF, a0])
+	ext(_ecall_ext_i32and, [a0, C(int(0xFF)), a0])
 	ext(_ecall_ext_tochar, [a0, _ecall_logchar])
 	ext(_ecall_ext_char2str, [_ecall_logchar, _ecall_logcharstr])
 	ext(_ecall_ext_stradd, [_ecall_logmsg, _ecall_logcharstr, _ecall_logmsg])
