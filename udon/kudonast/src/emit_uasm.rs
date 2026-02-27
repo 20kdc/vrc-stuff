@@ -208,6 +208,8 @@ pub fn udonprogram_emit_uasm(
             &type_slot.name,
             &value,
             rmp.mode == UdonAccess::Public,
+            // this is rather useful for debugging by tracing back parameter addresses
+            &format!(" # PA@0x{:08x}", k),
         );
     }
 

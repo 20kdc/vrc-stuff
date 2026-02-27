@@ -386,6 +386,11 @@ pub fn kudonasm_parse(src: &str) -> Result<Vec<(usize, KU2Instruction)>, ron::er
     }
 }
 
+/// Parses an inline operand.
+pub fn kudonasm_parse_operand(s: &str) -> Result<KU2Operand, ron::error::SpannedError> {
+    ron::from_str(s)
+}
+
 #[cfg(test)]
 #[test]
 fn ku2parsing_card() {

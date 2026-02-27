@@ -81,6 +81,7 @@ pub enum OdinIntType {
 
 impl OdinIntType {
     /// This name will match regex `[a-z]+`.
+    /// The values returned here have kind of entered downstream code to prevent a ridiculous level of duplication.
     pub fn mangle_name(&self) -> &'static str {
         match self {
             Self::SByte => "sbyte",
@@ -93,6 +94,30 @@ impl OdinIntType {
             Self::ULong => "ulong",
             Self::Bool => "bool",
             Self::Char => "char",
+        }
+    }
+    /// Inverse of mangle_name.
+    pub fn unmangle_name(val: &str) -> Option<OdinIntType> {
+        if val.eq("sbyte") {
+            Some(Self::SByte)
+        } else if val.eq("byte") {
+            Some(Self::Byte)
+        } else if val.eq("ushort") {
+            Some(Self::UShort)
+        } else if val.eq("int") {
+            Some(Self::Int)
+        } else if val.eq("uint") {
+            Some(Self::UInt)
+        } else if val.eq("long") {
+            Some(Self::Long)
+        } else if val.eq("ulong") {
+            Some(Self::ULong)
+        } else if val.eq("bool") {
+            Some(Self::Bool)
+        } else if val.eq("char") {
+            Some(Self::Char)
+        } else {
+            None
         }
     }
 }

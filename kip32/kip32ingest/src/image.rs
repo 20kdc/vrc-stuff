@@ -268,4 +268,17 @@ impl Sci32Image {
             x < ((self.instructions as u32) * 4)
         }
     }
+    /// Finds the initial SP.
+    /// May automatically allocate stack, so only call once.
+    pub fn initial_sp(&mut self, auto_stack_words: usize) -> u32 {
+        match self.symbols.get("_stack_start") {
+            Some(initial_sp_sym) => initial_sp_sym.st_addr,
+            None => {
+                // auto stack
+                let new_size = self.data.len() + auto_stack_words;
+                self.data.resize(new_size, 0);
+                (new_size * 4) as u32
+            }
+        }
+    }
 }

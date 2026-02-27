@@ -1,9 +1,7 @@
 #include <kip32.h>
 
-KIP32_SYSCALL1(_putchar_internal, "stdsyscall_putchar")
-
 void putchar(int c) {
-	_putchar_internal(&c);
+	KIP32_SYSCALL1("stdsyscall_putchar", c);
 }
 
 void puts(const char * s) {
@@ -69,7 +67,8 @@ KIP32_EXPORT int _interact() {
 	// -- memory accesses, 8-bit unsigned --
 	TEST("vu8", barrier(vu8) == 0xEE);
 	// -- done --
-	puts("test suite complete");
+	KIP32_UDON_PUSH("C(string(\"test suite complete\"))");
+	KIP32_UDON_EXTERN("UnityEngineDebug.__Log__SystemObject__SystemVoid");
 
 	tmp++;
 	return tmp * tmp;

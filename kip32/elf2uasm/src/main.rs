@@ -52,7 +52,7 @@ fn resolve_jump(asm: &Wrapper, img: &Sci32Image, to: u32) -> UdonInt {
 // Except X0, they should match.
 const REGISTERS_W: [&'static str; 32] = [
     "_vm_zero_nopwriteshadow",
-    "vm_ra",
+    "_vm_ra",
     "vm_sp",
     "_vm_x3",
     "_vm_x4",
@@ -89,7 +89,7 @@ const REGISTERS_W: [&'static str; 32] = [
 ];
 // keep in sync!!!
 const REGISTERS_R: [&'static str; 32] = [
-    "_vm_zero", "vm_ra", "vm_sp", "_vm_x3", "_vm_x4", "_vm_t0", "_vm_t1", "_vm_t2",
+    "_vm_zero", "_vm_ra", "vm_sp", "_vm_x3", "_vm_x4", "_vm_t0", "_vm_t1", "_vm_t2",
     // x8/fp
     "_fp", "_s1", // For convenience/sanity, a0-a7 are not marked with any prefix at all.
     "a0", "a1", "a2", "a3", "a4", "a5", // x16
@@ -101,6 +101,51 @@ fn resolve_alur(asm: &Wrapper, value: Sci32ALUSource) -> String {
     match value {
         Sci32ALUSource::Immediate(v) => asm.ensure_i32(v as i32),
         Sci32ALUSource::Register(rs) => REGISTERS_R[rs as usize].to_string(),
+    }
+}
+
+fn asm_syscall(asm: &Wrapper, img: &Sci32Image, name: &str, istr_jump: u32) {
+    let jmp = resolve_jump(&asm, &img, istr_jump);
+    if let Some(sfx) = name.strip_prefix("builtin_extern_") {
+        uasm_op!(asm.asm(), EXTERN, asm.asm().ensure_string(sfx, true));
+        asm.jump_ui(jmp);
+        return;
+    } else if let Some(sfx) = name.strip_prefix("builtin_push_") {
+        if let Result::Ok(v) = kudonasm_parse_operand(sfx) {
+            let ui = asm.ku2().operand_udonint(&mut asm.asm(), &v);
+            if let Result::Ok(r) = ui {
+                uasm_op!(asm.asm(), PUSH);
+                asm.asm().code.push(r);
+                asm.jump_ui(jmp);
+                return;
+            }
+        }
+    }
+    let syscall_package = format!("syscall_{}", name);
+    // just in case all the other measures failed, the syscall must exist
+    let package_exists = asm.ku2().packages.contains_key(&syscall_package);
+    if package_exists {
+        asm.ku2()
+            .snippet_invoke(
+                &mut asm.asm(),
+                &syscall_package,
+                Some(vec![
+                    (format!("_syscall_return"), jmp),
+                    (
+                        format!("_syscall_return_indirect"),
+                        UdonInt::I(istr_jump as i64),
+                    ),
+                ]),
+            )
+            .expect("syscall should assemble");
+    } else {
+        // don't mention which, just in case it breaks UASM writer
+        asm.comment_c(&format!("WARN: syscall does not exist"));
+        eprintln!(
+            "Code looked like it referred to syscall '{}', but it didn't exist.",
+            name
+        );
+        uasm_stop!(asm.asm());
     }
 }
 
@@ -139,13 +184,6 @@ fn main() -> Result<()> {
             Short('?') | Short('h') | Long("help") => {
                 println!("elf2uasm some.elf");
                 println!(" meant to be used with 'microcontroller'-like ELFs");
-                println!(" section headers are used, not program headers; but no relocations");
-                println!(" passing multiple ELF files is 'supported' but probably isn't helpful");
-                println!(" special ELF symbols:");
-                println!("  _stack_start: initial value of SP");
-                println!("                if not found, stack space will be auto-allocated");
-                println!("  (any symbol in .kip32_export): Exports a 'thunk' for easy calling");
-                println!("                                 from other Udon code.");
                 println!(" additional options:");
                 println!(" --out/-o FILE: output .uasm file (default stdout)");
                 println!(" --udonjson: use udonjson format");
@@ -156,10 +194,6 @@ fn main() -> Result<()> {
                 println!("             $KIP32_SDK/stdsyscall.ron is --inc'd first.");
                 println!(" --auto-stack WORDS: size of the auto-allocated stack in 32-bit words");
                 println!("                     has no effect if _stack_start is found");
-                println!(" syscall mechanism notes:");
-                println!(" ECALL sets up so that 'JUMP,_vm_indirect_jump' will return to VM.");
-                println!(" It then jumps to _ecall. a0-a7 are available as Udon heap variables.");
-                println!(" _ecall_vector_table is a uint32 pointing to the syscall table.");
                 std::process::exit(0);
             }
             Short('o') | Long("out") => match arg_parser.next() {
@@ -214,15 +248,7 @@ fn main() -> Result<()> {
     }
 
     // -- it begins --
-    let initial_sp = match img.symbols.get("_stack_start") {
-        Some(initial_sp_sym) => initial_sp_sym.st_addr as i32,
-        None => {
-            // auto stack
-            let new_size = img.data.len() + auto_stack;
-            img.data.resize(new_size, 0);
-            (new_size * 4) as i32
-        }
-    };
+    let initial_sp = img.initial_sp(auto_stack);
     // So this is a pretty nonsensical value to have here, probably needs explaining.
     // Basically, we calculate indirect jump addresses as vec * 2 to hit the appropriate points in the jump table.
     // And the Udon abort vector is at 0xFFFFFFFC.
@@ -318,29 +344,21 @@ fn main() -> Result<()> {
         symbol_marking.insert(sym.st_addr, sym.st_name.clone());
         if sym.export_section {
             let cut_name = sym.st_name.clone();
-            let fastpath_name = format!("_thunk_{}_fastpath", cut_name);
 
             asm.code_label(&cut_name, Some(UdonAccess::Public)).unwrap();
-            // check if the VM has inited; if it has, we speedrun init
-            asm.obj_equality("_vm_memory_chk", "_null", "_vm_tmp_bool");
-            asm.jump_if_false_static("_vm_tmp_bool", &fastpath_name);
-
-            // Slowpath: The machine hasn't been setup yet!
-            // Set indirect jump target and then run Reset-And-Jump.
-            asm.u32_fromi32(
-                asm.ensure_i32(sym.st_addr as i32),
-                "vm_indirect_jump_target",
-            );
-            asm.jump("_vm_reset_and_jump");
-
-            // Fastpath: Machine is ready. Copy registers and directly jump into code.
-            asm.code_label(&fastpath_name, Some(UdonAccess::Symbol))
-                .unwrap();
-            // Setup registers...
-            asm.copy_static("vm_initsp", "vm_sp");
-            asm.copy_static("vm_initra", "vm_ra");
-            // Jump directly into the code.
-            asm.jump_ui(resolve_jump(&asm, &img, sym.st_addr as u32));
+            asm.ku2()
+                .snippet_invoke(
+                    &mut asm.asm(),
+                    "builtin_thunk",
+                    Some(vec![
+                        (format!("_thunk_address"), UdonInt::I(sym.st_addr as i64)),
+                        (
+                            format!("_thunk_jump"),
+                            resolve_jump(&asm, &img, sym.st_addr as u32),
+                        ),
+                    ]),
+                )
+                .expect("builtin_thunk should assemble");
         }
     }
     asm.comment_c("");
@@ -668,29 +686,7 @@ fn main() -> Result<()> {
                 fallthrough_ok = true;
             }
             Kip32FIC::NametableSyscall(name) => {
-                let syscall_package = format!("syscall_{}", name);
-                // just in case all the other measures failed, the syscall must exist
-                let package_exists = asm.ku2().packages.contains_key(&syscall_package);
-                if package_exists {
-                    let jmp = resolve_jump(&asm, &img, istr.jump);
-                    asm.ku2()
-                        .snippet_invoke(
-                            &mut asm.asm(),
-                            &syscall_package,
-                            Some(vec![
-                                (format!("_syscall_return"), jmp),
-                                (
-                                    format!("_syscall_return_indirect"),
-                                    UdonInt::I(istr.jump as i64),
-                                ),
-                            ]),
-                        )
-                        .expect("syscall should assemble");
-                } else {
-                    // don't mention which, just in case it breaks UASM writer
-                    asm.comment_c(&format!("WARN: syscall does not exist"));
-                    uasm_stop!(asm.asm());
-                }
+                asm_syscall(&asm, &img, &name, istr.jump);
                 // Nametable syscalls rely on the package content to force a jump.
                 fallthrough_ok = true;
             }
@@ -718,6 +714,9 @@ fn main() -> Result<()> {
         let res = udonprogram_emit_uasm(&asm.asm.borrow(), &uasm_writer);
         if emit_check {
             res.expect("emit of UASM should work");
+        } else if let Err(err) = res {
+            // be loud about it
+            eprintln!("{}", err);
         }
         uasm_writer.to_string()
     };

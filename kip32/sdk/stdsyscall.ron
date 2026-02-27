@@ -26,7 +26,48 @@ package("inc_code", ["ecall", "ecall_end"])
 // EBREAK is followed by the address of a C-string naming the syscall to run.
 // Packages required here are all installed immediately after inc_code.
 
+// -- bool_sense --
+// pops SystemBoolean index, 'senses' it
+// a0 (out): SystemBoolean
+
+package("syscall_stdsyscall_bool_sense", [])
+
+local(was_false)
+
+	jump_if_false(was_false)
+
+	copy_static(C(int(1)), a0)
+	jump(_syscall_return)
+
+_(was_false)
+	copy_static(C(int(0)), a0)
+	jump(_syscall_return)
+
+// -- dynextern --
+
+package("stdsyscall_dynextern", [])
+
+	var(_ecall_dynextern, string("DynamicExternNotInitialized"))
+
+package("syscall_stdsyscall_dynextern", ["stdsyscall_dynextern"])
+
+	ext(_ecall_dynextern)
+	jump(_syscall_return)
+
+// -- copy --
+
+package("syscall_stdsyscall_copy", [])
+
+	copy
+
+// -- pop --
+
+package("syscall_stdsyscall_pop", [])
+
+	pop
+
 // -- putchar --
+// a0 (in): Latin-1 character
 
 package("stdsyscall_putchar", [])
 

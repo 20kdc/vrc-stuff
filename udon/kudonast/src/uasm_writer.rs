@@ -25,22 +25,19 @@ impl Display for UASMWriter {
 }
 
 impl UASMWriter {
-    pub fn declare_heap(&self, id: &str, ut: &str, ival: &str, export: bool) {
+    pub fn declare_heap(&self, id: &str, ut: &str, ival: &str, export: bool, line_suffix: &str) {
         if export {
             writeln!(self.data.borrow_mut(), "\t.export {}", id).unwrap();
         }
-        writeln!(self.data.borrow_mut(), "\t{}: %{}, {}", id, ut, ival).unwrap();
-    }
-    pub fn declare_heap_i32(&self, id: &str, ival: i32, export: bool) {
-        self.declare_heap(
-            &id,
-            "SystemInt32",
-            &format!("0x{:08x}", ival as u32),
-            export,
-        );
-    }
-    pub fn declare_heap_u32(&self, id: &str, ival: u32, export: bool) {
-        self.declare_heap(&id, "SystemUInt32", &format!("0x{:08x}", ival), export);
+        writeln!(
+            self.data.borrow_mut(),
+            "\t{}: %{}, {}{}",
+            id,
+            ut,
+            ival,
+            line_suffix
+        )
+        .unwrap();
     }
 
     // -- Writer Wrapping --

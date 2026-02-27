@@ -27,15 +27,15 @@ package("builtin_globals", [])
 	var(_vm_memory_chk, null("SystemObject"))
 	var_public(vm_memory, null("SystemByteArray"))
 	// Declared public, but only initialized with memory.
-	var_public(vm_initsp, int(0))
-	var_public(vm_initra, int(0))
 	var_public(vm_indirect_jump_target, uint(0))
 	// most registers are auto-declared, but not this
 	var(_vm_zero, int(0))
 
 package("builtin_vm_reset", [])
+
 	code_comment("-- MEMORY INIT / RESET / INDIRECT JUMP --")
-	public(_vm_reset)
+
+public(_vm_reset)
 
 	// The external reset just sets us up to indirect jump straight to abort.
 	// This means you can just poke _vm_reset and get a nicely reset VM.
@@ -43,18 +43,18 @@ package("builtin_vm_reset", [])
 
 	// FALLTHROUGH: we've just setup the indirect jump to abort, so do a reset-and-jump
 
-	public(_vm_reset_and_jump)
+public(_vm_reset_and_jump)
+
 	// setup VM settings to match the binary.
-	copy_static(C(uint_c(_vm_equ_initsp)), vm_initsp)
-	copy_static(C(uint_c(_vm_equ_abort)), vm_initra)
+	// note that we only set vm_sp *once* since SDK became reentrant, so vm_initsp no longer exists.
+	copy_static(C(int_c(_vm_equ_initsp)), vm_sp)
 	// create scratch buffers
 	ext(_vmext_i32array_create, [C(int(1)), _vm_bcopy_i32])
 	ext(_vmext_i16array_create, [C(int(1)), _vm_bcopy_i16])
 	ext(_vmext_i8array_create, [C(int(1)), _vm_bcopy_i8])
 	// setup like a thunk would. we're called by thunks when the machine hasn't been setup yet
-	// and we can also be called by external code that won't know what the initsp/abort values are yet
-	copy_static(vm_initsp, vm_sp)
-	copy_static(vm_initra, vm_ra)
+	// and we can also be called by external code
+	copy_static(C(int_c(_vm_equ_abort)), _vm_ra)
 	// create the array & copy to check field so we don't do this twice
 	ext(_vmext_u8array_create, [C(int_c(_vm_equ_image_bytes)), vm_memory])
 	copy_static(vm_memory, _vm_memory_chk)
@@ -66,12 +66,42 @@ package("builtin_vm_reset", [])
 
 	// FALLTHROUGH: we now move right on to performing an indirect jump
 
-	public(_vm_indirect_jump)
+public(_vm_indirect_jump)
+
 	// The jump table is laid out so that a simple multiplication by 2 will fix up the target.
 	ext(_vmext_u32_add, [vm_indirect_jump_target, vm_indirect_jump_target, vm_indirect_jump_target])
 	jump_indirect(vm_indirect_jump_target)
 	code_comment("")
 
+package("builtin_thunk", [])
+
+	// Thunk code label is generated in main.rs
+	// Target code VM address is in _thunk_address
+	// Target jump address is in _thunk_jump
+
+local(fastpath)
+
+	// check if the VM has inited; if it has, we speedrun init
+	ext(_vmext_obj_equality, [_vm_memory_chk, _null, _vm_tmp_bool])
+	push(_vm_tmp_bool)
+	jump_if_false(fastpath)
+
+	// Slowpath: The machine hasn't been setup yet!
+	// Set indirect jump target and then run Reset-And-Jump.
+	ext(_vmext_u32_fromi32, [C(int_c(_thunk_address)), vm_indirect_jump_target])
+	jump(_vm_reset_and_jump)
+
+_(fastpath)
+
+	// Fastpath: Machine is ready. Copy registers and directly jump into code.
+	// Setup registers...
+	copy_static(C(int_c(_vm_equ_abort)), _vm_ra)
+	// Jump directly into the code.
+	jump(_thunk_jump)
+
 // add a blank inc_code package in case it's needed
 package("inc_code", [])
 package_end
+
+package("syscall_builtin_abort", [])
+	jump(I(0xFFFFFFFC))
