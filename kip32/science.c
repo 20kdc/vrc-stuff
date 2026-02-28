@@ -1,4 +1,5 @@
 #include <kip32.h>
+#include <kip32_udon.h>
 
 void putchar(int c) {
 	KIP32_SYSCALL1("stdsyscall_putchar", c);
@@ -68,7 +69,7 @@ KIP32_EXPORT int _interact() {
 	TEST("vu8", barrier(vu8) == 0xEE);
 	// -- done --
 	KIP32_UDON_PUSH("C(string(\"test suite complete\"))");
-	KIP32_UDON_EXTERN("UnityEngineDebug.__Log__SystemObject__SystemVoid");
+	KIP32_UDON_EXTERN0("UnityEngineDebug.__Log__SystemObject__SystemVoid");
 
 	tmp++;
 	return tmp * tmp;

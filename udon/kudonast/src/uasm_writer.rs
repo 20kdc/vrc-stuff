@@ -115,10 +115,10 @@ impl UASMWriter {
         self.jump_if_false(to);
     }
 
-    pub fn code_label(&self, id: impl std::fmt::Display, export: bool) {
+    pub fn code_label(&self, id: impl std::fmt::Display, export: bool, line_suffix: &str) {
         if export {
             writeln!(self.code.borrow_mut(), ".export {}", id).unwrap();
         }
-        writeln!(self.code.borrow_mut(), "{}:", id).unwrap();
+        writeln!(self.code.borrow_mut(), "{}:{}", id, line_suffix).unwrap();
     }
 }

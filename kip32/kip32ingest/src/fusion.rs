@@ -35,7 +35,7 @@ impl Kip32FusedInstr {
         let pcp4 = pc.wrapping_add(4);
         let istr = Sci32Instr::decode(pc, img.data[word_idx]);
 
-        // magic syscall
+        // EBREAK syscall
         if img.is_instruction_at(pcp4) {
             if let Sci32Instr::EBREAK = istr {
                 let addr = img.data[word_idx + 1];
@@ -47,6 +47,24 @@ impl Kip32FusedInstr {
                         fallthrough_ok: false,
                     };
                 }
+            }
+        }
+
+        // Call-Into-Data nametable syscall
+        if let Sci32Instr::JumpAndLink {
+            rd: Kip32Reg::RA,
+            rd_value,
+            value,
+        } = &istr
+        {
+            if !img.is_instruction_at(*value)
+                && let Some(cstr) = img.read_cstr(*value as usize)
+            {
+                return Self {
+                    content: Kip32FIC::NametableSyscall(cstr),
+                    jump: *rd_value,
+                    fallthrough_ok: pcp4 == *rd_value,
+                };
             }
         }
 

@@ -27,11 +27,9 @@
 	register intptr_t KIP32_SYSCALL_t5 __asm__("t5"); \
 	register intptr_t KIP32_SYSCALL_t6 __asm__("t6"); \
 	static const char syscallname[] = name; \
-	/* This is to write EBREAK followed by the address of a C-string syscall name. */ \
-	/* The new converter identifies this and reads the string. */ \
+	/* A more direct method of expression-calls was chosen, but the compiler tries to be clever and obfuscates JALs in the process. */ \
 	__asm__ volatile ( \
-		"ebreak\n" \
-		".word %8" \
+		"jal %8\n" \
 		: "=r" (KIP32_SYSCALL_a0), "=r" (KIP32_SYSCALL_a1), "=r" (KIP32_SYSCALL_a2), "=r" (KIP32_SYSCALL_a3), "=r" (KIP32_SYSCALL_a4), "=r" (KIP32_SYSCALL_a5), "=r" (KIP32_SYSCALL_a6), "=r" (KIP32_SYSCALL_a7) \
 		: "s" (syscallname), "r" (KIP32_SYSCALL_a0), "r" (KIP32_SYSCALL_a1), "r" (KIP32_SYSCALL_a2), "r" (KIP32_SYSCALL_a3), "r" (KIP32_SYSCALL_a4), "r" (KIP32_SYSCALL_a5), "r" (KIP32_SYSCALL_a6), "r" (KIP32_SYSCALL_a7), \
 		  "r" (KIP32_SYSCALL_ra), "r" (KIP32_SYSCALL_t0), "r" (KIP32_SYSCALL_t1), "r" (KIP32_SYSCALL_t2), "r" (KIP32_SYSCALL_t3), "r" (KIP32_SYSCALL_t4), "r" (KIP32_SYSCALL_t5), "r" (KIP32_SYSCALL_t6)  \
@@ -49,16 +47,22 @@
 
 /* -- COMMON -- */
 
-/* Syscall definition helpers */
-#define KIP32_SYSCALL0(name) KIP32_SYSCALL_CORE(name,,,,,,,,,,,,,,,,);
-#define KIP32_SYSCALL1(name, c0) KIP32_SYSCALL_CORE(name, =, c0,,,,,,,,,,,,,,);
-#define KIP32_SYSCALL2(name, c0, c1) KIP32_SYSCALL_CORE(name, =, c0, =, c1,,,,,,,,,,,,);
-#define KIP32_SYSCALL3(name, c0, c1, c2) KIP32_SYSCALL_CORE(name, =, c0, =, c1, =, c2,,,,,,,,,,);
-#define KIP32_SYSCALL4(name, c0, c1, c2, c3) KIP32_SYSCALL_CORE(name, =, c0, =, c1, =, c2, =, c3,,,,,,,,);
-#define KIP32_SYSCALL5(name, c0, c1, c2, c3, c4) KIP32_SYSCALL_CORE(name, =, c0, =, c1, =, c2, =, c3, =, c4,,,,,,);
-#define KIP32_SYSCALL6(name, c0, c1, c2, c3, c4, c5) KIP32_SYSCALL_CORE(name, =, c0, =, c1, =, c2, =, c3, =, c4, =, c5,,,,);
-#define KIP32_SYSCALL7(name, c0, c1, c2, c3, c4, c5, c6) KIP32_SYSCALL_CORE(name, =, c0, =, c1, =, c2, =, c3, =, c4, =, c5, =, c6,,);
-#define KIP32_SYSCALL8(name, c0, c1, c2, c3, c4, c5, c6, c7) KIP32_SYSCALL_CORE(name, =, c0, =, c1, =, c2, =, c3, =, c4, =, c5, =, c6, =, c7);
+#define KIP32_INLINE(ty) static inline ty __attribute__((always_inline))
 
-#define KIP32_UDON_EXTERN(ext) KIP32_SYSCALL0("builtin_extern_" ext)
-#define KIP32_UDON_PUSH(ku2) KIP32_SYSCALL0("builtin_push_" ku2)
+/* Syscall definition helpers */
+#define KIP32_SYSCALL0(name) KIP32_SYSCALL_CORE(name,,,,,,,,,,,,,,,,)
+#define KIP32_SYSCALL1(name, c0) KIP32_SYSCALL_CORE(name, =, c0,,,,,,,,,,,,,,)
+#define KIP32_SYSCALL2(name, c0, c1) KIP32_SYSCALL_CORE(name, =, c0, =, c1,,,,,,,,,,,,)
+#define KIP32_SYSCALL3(name, c0, c1, c2) KIP32_SYSCALL_CORE(name, =, c0, =, c1, =, c2,,,,,,,,,,)
+#define KIP32_SYSCALL4(name, c0, c1, c2, c3) KIP32_SYSCALL_CORE(name, =, c0, =, c1, =, c2, =, c3,,,,,,,,)
+#define KIP32_SYSCALL5(name, c0, c1, c2, c3, c4) KIP32_SYSCALL_CORE(name, =, c0, =, c1, =, c2, =, c3, =, c4,,,,,,)
+#define KIP32_SYSCALL6(name, c0, c1, c2, c3, c4, c5) KIP32_SYSCALL_CORE(name, =, c0, =, c1, =, c2, =, c3, =, c4, =, c5,,,,)
+#define KIP32_SYSCALL7(name, c0, c1, c2, c3, c4, c5, c6) KIP32_SYSCALL_CORE(name, =, c0, =, c1, =, c2, =, c3, =, c4, =, c5, =, c6,,)
+#define KIP32_SYSCALL8(name, c0, c1, c2, c3, c4, c5, c6, c7) KIP32_SYSCALL_CORE(name, =, c0, =, c1, =, c2, =, c3, =, c4, =, c5, =, c6, =, c7)
+
+#define KIP32_DEF_SYSCALL0_RET(name, syscall) \
+KIP32_INLINE(intptr_t) name() { \
+	intptr_t ret = 0; \
+	KIP32_SYSCALL1(syscall, ret) \
+	return ret; \
+}

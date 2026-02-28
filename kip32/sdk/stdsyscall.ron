@@ -14,6 +14,9 @@ package("ecall_end", [])
 
 package("inc_code", ["ecall", "ecall_end"])
 
+	// we never don't want this on-tap
+	equ(_ecall_ext_log, EXT("UnityEngineDebug.__Log__SystemObject__SystemVoid"))
+
 // -- nametable syscalls --
 
 // The new mechanism is based on the package/snippet mechanism:
@@ -28,7 +31,7 @@ package("inc_code", ["ecall", "ecall_end"])
 
 // -- bool_sense --
 // pops SystemBoolean index, 'senses' it
-// a0 (out): SystemBoolean
+// a0 (out): 1/0
 
 package("syscall_stdsyscall_bool_sense", [])
 
@@ -41,6 +44,30 @@ local(was_false)
 
 _(was_false)
 	copy_static(C(int(0)), a0)
+	jump(_syscall_return)
+
+// -- is_valid --
+// pops anything index, checks for non-null
+// a0 (out): 1/0
+
+package("syscall_stdsyscall_is_valid", [])
+
+	equ(_ecall_ext_objequal, EXT("SystemObject.__op_Equality__SystemObject_SystemObject__SystemBoolean"))
+
+local(was_false)
+
+	push(_null)
+	push(_vm_tmp_bool)
+	extern(_ecall_ext_objequal)
+
+	push(_vm_tmp_bool)
+	jump_if_false(was_false)
+
+	copy_static(C(int(0)), a0)
+	jump(_syscall_return)
+
+_(was_false)
+	copy_static(C(int(1)), a0)
 	jump(_syscall_return)
 
 // -- dynextern --
@@ -66,6 +93,16 @@ package("syscall_stdsyscall_pop", [])
 
 	pop
 
+// -- push stdsyscall scratch register --
+
+package("stdsyscall_pushscratch", [])
+
+	var(stdsyscall_scratch_reg, null("SystemObject"))
+
+package("syscall_stdsyscall_pushscratch", ["stdsyscall_pushscratch"])
+
+	push(stdsyscall_scratch_reg)
+
 // -- putchar --
 // a0 (in): Latin-1 character
 
@@ -79,7 +116,6 @@ package("stdsyscall_putchar", [])
 package("syscall_stdsyscall_putchar", ["stdsyscall_putchar"])
 
 	equ(_ecall_ext_i32eq, EXT("SystemInt32.__op_Equality__SystemInt32_SystemInt32__SystemBoolean"))
-	equ(_ecall_ext_log, EXT("UnityEngineDebug.__Log__SystemObject__SystemVoid"))
 	equ(_ecall_ext_i32and, EXT("SystemInt32.__op_LogicalAnd__SystemInt32_SystemInt32__SystemInt32"))
 	equ(_ecall_ext_tochar, EXT("SystemConvert.__ToChar__SystemInt32__SystemChar"))
 	equ(_ecall_ext_char2str, EXT("SystemConvert.__ToString__SystemChar__SystemString"))
@@ -152,3 +188,43 @@ package("syscall_stdsyscall_sbrk", [])
 	copy_static(vm_memory, _vm_memory_chk)
 
 	jump(_syscall_return)
+
+// -- update_yield --
+
+// This is a complicated one.
+// By using this, you accept you can't use _update.
+// In return, you gain a limited amount of RTOS-style capability; you can pause your program mid-run.
+// Note that this turns external function calls into basically interrupt handlers.
+// Use with care. In particular, `vm_reset` becomes 'a bit buggy' when this is done.
+
+package("stdsyscall_update_yield", [])
+
+	equ(stdsyscall_update_yield_ext_i32_equality, EXT("SystemInt32.__op_Equality__SystemInt32_SystemInt32__SystemBoolean"))
+	var(stdsyscall_update_yield_reset_count, int(0))
+	var(stdsyscall_update_yield_ra, uint_c(_vm_equ_abort))
+
+public(_update)
+	ext(stdsyscall_update_yield_ext_i32_equality, [_vm_reset_count, stdsyscall_update_yield_reset_count, _vm_tmp_bool])
+	push(_vm_tmp_bool)
+	jump_if_false(stdsyscall_update_yield_reset_handler)
+	// ext(_ecall_ext_log, [C(string("stdsyscall_update_yield CONFIRM"))])
+	// ext(_ecall_ext_log, [stdsyscall_update_yield_ra])
+	// AOK, do it: set indirect jump target, invalidate stored RA, and then resume execution
+	copy_static(stdsyscall_update_yield_ra, vm_indirect_jump_target)
+	copy_static(C(uint_c(_vm_equ_abort)), stdsyscall_update_yield_ra)
+	jump(_vm_indirect_jump)
+
+_(stdsyscall_update_yield_reset_handler)
+	// ext(_ecall_ext_log, [C(string("stdsyscall_update_yield RESET"))])
+	copy_static(C(uint_c(_vm_equ_abort)), stdsyscall_update_yield_ra)
+	copy_static(_vm_reset_count, stdsyscall_update_yield_reset_count)
+	stop
+
+package("syscall_stdsyscall_update_yield", ["stdsyscall_update_yield"])
+
+	copy_static(C(uint_c(_syscall_return_indirect)), stdsyscall_update_yield_ra)
+	copy_static(_vm_reset_count, stdsyscall_update_yield_reset_count)
+	// ext(_ecall_ext_log, [C(string("stdsyscall_update_yield SETUP"))])
+	// ext(_ecall_ext_log, [stdsyscall_update_yield_ra])
+	// ext(_ecall_ext_log, [stdsyscall_update_yield_reset_count])
+	stop

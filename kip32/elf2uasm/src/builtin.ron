@@ -21,6 +21,8 @@ package("builtin_globals", [])
 	var(_vm_bcopy_i16, null("SystemInt16Array"))
 	var(_vm_bcopy_i8, null("SystemSByteArray"))
 	var(_vm_initdata_dec, null("SystemByteArray"))
+	// syscalls can use this to check their internal state isn't stale
+	var(_vm_reset_count, int(0))
 	// WORKAROUND: Udon has a habit of deciding it's gonna initialize vm_memory ITSELF.
 	// Obviously this is bad for us, so we hold a second, hidden field of type Object.
 	// It shouldn't initialize *that* behind our backs.
@@ -45,6 +47,9 @@ public(_vm_reset)
 	// FALLTHROUGH: we've just setup the indirect jump to abort, so do a reset-and-jump
 
 public(_vm_reset_and_jump)
+
+	// increment the reset count for stuff like update_yield
+	ext(_vmext_i32_add, [_vm_reset_count, C(int(1)), _vm_reset_count])
 
 	// setup VM settings to match the binary.
 	// note that we only set vm_sp *once* since SDK became reentrant, so vm_initsp no longer exists.
@@ -105,4 +110,4 @@ package("inc_code", [])
 package_end
 
 package("syscall_builtin_abort", [])
-	jump(I(0xFFFFFFFC))
+	stop

@@ -275,7 +275,11 @@ impl Sci32Image {
             Some(initial_sp_sym) => initial_sp_sym.st_addr,
             None => {
                 // auto stack
-                let new_size = self.data.len() + auto_stack_words;
+                let mut new_size = self.data.len() + auto_stack_words;
+                // 16-byte / 4-word stack alignment
+                while (new_size & 3) != 0 {
+                    new_size += 1;
+                }
                 self.data.resize(new_size, 0);
                 (new_size * 4) as u32
             }

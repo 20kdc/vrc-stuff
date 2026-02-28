@@ -91,7 +91,7 @@ When an entrypoint is invoked, the sequence goes something like this:
 
 ## Syscalls
 
-There are two syscall implementations, 'legacy'/`ECALL` and nametable/`EBREAK`.
+There are two syscall implementations, 'legacy'/`ECALL`, nametable/`EBREAK`, and nametable/Call-Into-Data.
 
 `ECALL` syscalls consist solely of that instruction, and use an implementation-specific mechanism to execute user-provided code.
 
@@ -99,9 +99,11 @@ There are two syscall implementations, 'legacy'/`ECALL` and nametable/`EBREAK`.
 
 _This address and C string are considered part of the instruction, and are safe to erase in the data image._ The instruction will be decoded as a regular EBREAK if the address does not result in a valid UTF-8 C string.
 
+Call-Into-Data syscalls are similar to EBREAK, but are triggered using `JAL ra, string_symbol`. This has the benefit of not potentially confusing the instruction decoder, and can be written in most languages via typecasting, but might not be as easy to encode in all environments.
+
 Memory access during syscalls or between invocations is both possible and expected.
 
-If the syscall may cause reentrancy, the following registers **must** be saved:
+If the syscall may cause reentrancy, the following registers (the caller-saved registers) **must** be saved if necessary (as with any function call):
 
 * `x1`/`ra`
 * `x5`/`t0`
@@ -113,10 +115,13 @@ If the syscall may cause reentrancy, the following registers **must** be saved:
 * `x31`/`t6`
 * While `a0`-`a7` are implicitly syscall arguments/return values, and thus should be _implicitly_ 'saved', if only some of them are used, they should still all be saved.
 
+Notably, callee-saved registers should be reasonably safe as long as all entrypoints follow the RISC-V calling convention. If this isn't the case, then a proper context switch routine is required.
+
 \* In principle, KIP32 could save data image bytes by using the compressed extension. The problem is that the amount of 'dummy' recompiled code would massively increase. \
 For this reason, the instruction parsing apparatus was built around the idea that one word is one 'source instruction'. \
-Nametable syscalls cause a few wasted instruction 'slots,' but allow inlining syscalls, which ultimately improves reentrancy for the target. \
-The architecture required for instruction fusion was added mainly as a side-effect.
+The `EBREAK` syscalls caused a few wasted instruction 'slots,' but allowed inlining syscalls, which ultimately improves reentrancy for the target. \
+The `JAL` syscalls seem to solve many of the later issues in the project (Clang does _not_ like the inline assembly `EBREAK` syscalls were using). \
+In addition, the architecture required for instruction fusion was added in order to support instructions where decoding needs reading outside of the instruction word.
 
 ## Udon Supplement
 
@@ -144,6 +149,13 @@ Nametable syscalls are _mostly_ inlined KU2 defined in `--inc` files or `stdsysc
 	* This is compiled into the KU2 instruction `extern(EXT("*"))`, or UASM instruction `EXTERN, "*"` (kind of)
 * `builtin_push_*`: The contents of `*` are parsed as a KU2 operand.
 	* This is compiled into the KU2 instruction `push(*)`. UASM varies, but a `PUSH, ` is always involved.
+
+The syscall returns by `jump(_syscall_return)` or a sequence equivalent to:
+
+```
+copy_static(_syscall_return_indirect, vm_indirect_jump_target)
+jump(_vm_indirect_jump)
+```
 
 Legacy `ecall` syscalls meanwhile call a single assembly routine. They set the indirect jump pointer for return to be possible, so either this must be properly backed up, or else reentrancy is not possible.
 

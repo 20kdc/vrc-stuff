@@ -240,8 +240,9 @@ pub fn udonprogram_emit_uasm(
         if let Some(comm) = program.code_comments.get(&codeptr) {
             uasm_writer.code(build_comment(&comm));
         }
-        if let Some(sym) = code_remapped.get(&codeptr_to_i64(codeptr)) {
-            uasm_writer.code_label(&sym.name, sym.mode == UdonAccess::Public);
+        let codeptr_udonspace = codeptr_to_i64(codeptr);
+        if let Some(sym) = code_remapped.get(&codeptr_udonspace) {
+            uasm_writer.code_label(&sym.name, sym.mode == UdonAccess::Public, "");
         }
         let opc = get_code_or_error(program, codeptr, &translate_ctx);
         codeptr += 1;
@@ -270,13 +271,20 @@ pub fn udonprogram_emit_uasm(
                     info.push_str(&format!(", 0x{:08x}", pv));
                 }
             }
+            // debug
+            info.push_str(&format!(" # PC@{}", codeptr_udonspace));
             uasm_writer.code(info);
         } else {
             translate_ctx.err_code(format!("Invalid opcode {}", opc));
         }
     }
     if let Some(sym) = code_remapped.get(&codeptr_to_i64(codeptr)) {
-        uasm_writer.code_label(&sym.name, sym.mode == UdonAccess::Public);
+        let codeptr_udonspace = codeptr_to_i64(codeptr);
+        uasm_writer.code_label(
+            &sym.name,
+            sym.mode == UdonAccess::Public,
+            &format!(" # PC@{}", codeptr_udonspace),
+        );
     }
 
     // -- Finale --
