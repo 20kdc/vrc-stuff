@@ -104,7 +104,9 @@ apijsonfile.close()
 pruned_count = 0
 
 if False:
-	# THIS DOESN'T WORK YET, IT DELETED ALL THE LIST METHODS
+	# Ok, this DIDN'T delete the list methods, I forgot those were things VRC didn't expose.
+	# However, I panicked when I realized that generics might not be covered properly in this.
+	# So holding off on deploying this.
 	for dt_name in data_types:
 		dt_externs = data_types[dt_name]["externs"]
 		for extern_id in list(dt_externs.keys()):
