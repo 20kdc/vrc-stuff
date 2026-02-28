@@ -5,16 +5,25 @@ import subprocess
 dfile = open("datamine.txt", "r")
 
 data = {}
-data_externs = {}
 data_types = {}
 data_events = {}
-data_synctype = []
-data["externs"] = data_externs
+data_discard_ext = {}
+data_synctype = [None] * 256
 data["types"] = data_types
 data["events"] = data_events
-data["sync_types"] = data_synctype
+# data["discard_ext"] = data_discard_ext
+# remove for space, redundant
+# data["sync_types"] = data_synctype
 
 max_param_count = 0
+externs_count = 0
+
+# -- utils --
+
+def after_the_dot(extern_id):
+	return extern_id[extern_id.find(".") + 1:]
+
+# -- import pass --
 
 while True:
 	decltype = dfile.readline().strip()
@@ -22,37 +31,24 @@ while True:
 		break
 	elif decltype == "EXTERN":
 		extern_id = dfile.readline().strip()
+		extern_deftype = dfile.readline().strip()
+		extern_declaring = dfile.readline().strip()
 		extern_type = dfile.readline().strip()
-		extern_id_type = extern_id[:extern_id.find(".")]
-		extern_id_signature = extern_id[extern_id.find(".") + 1:]
 		extern_parameters = []
 		for _ in range(int(dfile.readline().strip())):
 			p_name = dfile.readline().strip()
 			p_type = dfile.readline().strip()
 			p_dir = dfile.readline().strip()
-			extern_parameters.append({
-				"name": p_name,
-				"type": p_type,
-				"dir": p_dir,
-			})
+			extern_parameters.append([p_name, p_type, p_dir])
 		max_param_count = max(max_param_count, len(extern_parameters))
-		data_externs[extern_id] = {
-			"id": extern_id,
-			"id_type": extern_id_type,
-			"id_signature": extern_id_signature,
-			"type": extern_type,
+		data_types[extern_type]["externs"][extern_id] = {
+			"declaring": extern_declaring,
 			"parameters": extern_parameters
 		}
-		if not (extern_id_type in data_types):
-			# fake replacable static type
-			data_types[extern_id_type] = {
-				"static": True,
-				"name": extern_id_type,
-				"odin_name": "",
-				"base": "",
-				"interfaces": [],
-				"sync_type": None
-			}
+		externs_count += 1
+	elif decltype == "DISCARD_EXT":
+		extern_id = dfile.readline().strip()
+		data_discard_ext[extern_id] = True
 	elif decltype == "EVENT":
 		event_name = dfile.readline().strip()
 		event_entrypoint = dfile.readline().strip()
@@ -60,10 +56,7 @@ while True:
 		for _ in range(int(dfile.readline().strip())):
 			p_name = dfile.readline().strip()
 			p_type = dfile.readline().strip()
-			event_parameters.append({
-				"name": p_name,
-				"type": p_type
-			})
+			event_parameters.append([p_name, p_type])
 		data_events[event_entrypoint] = {
 			"name": event_name,
 			"entrypoint": event_entrypoint,
@@ -72,18 +65,24 @@ while True:
 	elif decltype == "TYPE":
 		type_name = dfile.readline().strip()
 		type_odin_name = dfile.readline().strip()
+		type_sync_type = int(dfile.readline().strip())
 		type_base = dfile.readline().strip()
 		type_interfaces = []
 		for _ in range(int(dfile.readline().strip())):
 			type_interfaces.append(dfile.readline().strip())
+		if type_name in data_types:
+			raise Exception("Duplicate type error: " + type_name)
 		data_types[type_name] = {
 			"static": False,
 			"name": type_name,
 			"odin_name": type_odin_name,
 			"base": type_base,
 			"interfaces": type_interfaces,
-			"sync_type": None
+			"externs": {}
 		}
+		if type_sync_type != 0:
+			data_synctype[type_sync_type] = type_name
+			data_types[type_name]["sync_type"] = type_sync_type
 		if type_base == "SystemEnum":
 			data_types[type_name]["enumValues"] = {}
 	elif decltype == "EVAL":
@@ -91,37 +90,63 @@ while True:
 		eval_name = dfile.readline().strip()
 		eval_value = int(dfile.readline().strip())
 		data_types[eval_type]["enumValues"][eval_name] = eval_value
-	elif decltype == "SYNCTYPEID":
-		st_id = int(dfile.readline().strip())
-		st_ty = dfile.readline().strip()
-		while len(data_synctype) <= st_id:
-			data_synctype.append(None)
-		data_synctype[st_id] = {
-			"sync_type": st_id,
-			"name": st_ty
-		}
-		data_types[st_ty]["sync_type"] = st_id
 	else:
 		raise Exception("Unknown decltype " + decltype)
+
+# -- api.json is dumped before pruning --
+
+apijsonfile = open("api.json", "w", newline="\n")
+json.dump(data, apijsonfile, ensure_ascii = False, indent = "\t", sort_keys = True)
+apijsonfile.close()
+
+# -- redundancy pruning pass --
+
+pruned_count = 0
+
+if False:
+	# THIS DOESN'T WORK YET, IT DELETED ALL THE LIST METHODS
+	for dt_name in data_types:
+		dt_externs = data_types[dt_name]["externs"]
+		for extern_id in list(dt_externs.keys()):
+			declarator = dt_externs[extern_id]["declaring"]
+			if declarator == "":
+				# ineligible: unable to determine
+				continue
+			if (declarator in data_types) and (declarator != dt_name):
+				# function is declared elsewhere and we can check
+				checkme = declarator + "." + after_the_dot(extern_id)
+				if checkme in data_types[declarator]["externs"]:
+					# binding autogen strikes again
+					del dt_externs[extern_id]
+					pruned_count += 1
+
+# -- redundant metadata removal --
+
+for dt_name in data_types:
+	dt_externs = data_types[dt_name]["externs"]
+	for extern_id in dt_externs:
+		del dt_externs[extern_id]["declaring"]
 
 # --
 
 # since we started committing API data to Git, sort_keys=true has become very important
-apijsonfile = open("api.json", "w", newline="\n")
 apicjsonfile = open("api_c.json", "w", newline="\n")
-json.dump(data, apijsonfile, ensure_ascii = False, indent = "\t", sort_keys = True)
 json.dump(data, apicjsonfile, ensure_ascii = False, indent = None, separators = (",", ":"), sort_keys = True)
-apijsonfile.close()
 apicjsonfile.close()
+
+# prune debug
+apixjsonfile = open("api_x.json", "w", newline="\n")
+json.dump(data, apixjsonfile, ensure_ascii = False, indent = "\t", sort_keys = True)
+apixjsonfile.close()
 
 # --
 
 sync_type_table = open("synctypes.md", "w")
 sync_type_table.write("| Type Index | Udon Type |\n")
 sync_type_table.write("| ---------- | --------- |\n")
-for st in data_synctype:
-	if st != None:
-		sync_type_table.write("| " + str(st["sync_type"]) + " | `" + st["name"] + "` |\n")
+for st in range(len(data_synctype)):
+	if data_synctype[st] != None:
+		sync_type_table.write("| " + str(st) + " | `" + data_synctype[st] + "` |\n")
 sync_type_table.close()
 
 # --
@@ -139,5 +164,6 @@ statistics.write("# Statistics (`datamine2json.py`)\n")
 statistics.write("\n")
 
 statistics.write("* " + str(max_param_count) + " parameters max.\n")
-statistics.write("* " + str(len(data_externs)) + " total externs.\n")
+statistics.write("* " + str(externs_count) + " externs before pruning.\n")
+statistics.write("* " + str(pruned_count) + " externs pruned due to having a perfectly good declaration in another type.\n")
 statistics.write("* " + str(len(data_types)) + " discovered types.\n")

@@ -5,6 +5,7 @@ using System.Reflection;
 using UnityEditor;
 using UnityEngine;
 using VRC.Udon.Graph;
+using VRC.Udon.Graph.NodeRegistries; // OwO
 using VRC.Udon.Common.Interfaces;
 using VRC.Udon.Editor;
 using VRC.Udon.EditorBindings;
@@ -13,70 +14,109 @@ using UdonSharp.Compiler.Udon;
 using VRC.Udon.Serialization.OdinSerializer;
 
 namespace KDCVRCTools {
-	public static class Dataminer {
-		private static readonly BindingFlags lessThanSaneBindingFlags = BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public;
-		// Fun fact: This used to be called 'DatamineZVZ'.
-		[MenuItem("VRChat SDK/KDCVRCTools/Datamine")]
-		public static void ExtractData() {
-			// prepare...
-			var compilerUdonInterface = Type.GetType("UdonSharp.Compiler.Udon.CompilerUdonInterface, UdonSharp.Editor");
+	public class Dataminer {
 
-			var cacheInit = compilerUdonInterface.GetMethod("CacheInit", lessThanSaneBindingFlags);
+		private static readonly BindingFlags idkfaBindingFlags = BindingFlags.Instance | BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.FlattenHierarchy;
+
+		private Type compilerUdonInterface;
+		private UdonEditorInterface editorInterfaceInstance;
+		private Dictionary<string, string> builtinEventLookup;
+		private Dictionary<string, ImmutableArray<(string, Type)>> builtinEventArgumentsLookup;
+		private MethodInfo getUdonTypeName;
+
+		private HashSet<Type> allDiscoveredTypes = new();
+
+		/// The output file.
+		/// This format is very... we'll affectionately call it a 'GML-style mess'.
+		/// But this is fine; it gets converted to something much nicer in D2J.
+		public List<string> total = new();
+
+		public Dataminer() {
+			compilerUdonInterface = Type.GetType("UdonSharp.Compiler.Udon.CompilerUdonInterface, UdonSharp.Editor");
+
+			var cacheInit = compilerUdonInterface.GetMethod("CacheInit", idkfaBindingFlags);
 			cacheInit.Invoke(null, new object[] {});
 
-			UdonEditorInterface editorInterfaceInstance = (UdonEditorInterface) compilerUdonInterface.GetField("_editorInterfaceInstance", lessThanSaneBindingFlags).GetValue(null);
-			Dictionary<string, string> builtinEventLookup = (Dictionary<string, string>) compilerUdonInterface.GetField("_builtinEventLookup", lessThanSaneBindingFlags).GetValue(null);
-			Dictionary<string, ImmutableArray<(string, Type)>> builtinEventArgumentsLookup = (Dictionary<string, ImmutableArray<(string, Type)>>) compilerUdonInterface.GetField("_builtinEventArgumentsLookup", lessThanSaneBindingFlags).GetValue(null);
-			var getUdonTypeName = compilerUdonInterface.GetMethod("GetUdonTypeName", lessThanSaneBindingFlags, null, new Type[] {typeof(Type)}, null);
+			editorInterfaceInstance = (UdonEditorInterface) compilerUdonInterface.GetField("_editorInterfaceInstance", idkfaBindingFlags).GetValue(null);
+			builtinEventLookup = (Dictionary<string, string>) compilerUdonInterface.GetField("_builtinEventLookup", idkfaBindingFlags).GetValue(null);
+			builtinEventArgumentsLookup = (Dictionary<string, ImmutableArray<(string, Type)>>) compilerUdonInterface.GetField("_builtinEventArgumentsLookup", idkfaBindingFlags).GetValue(null);
+			getUdonTypeName = compilerUdonInterface.GetMethod("GetUdonTypeName", idkfaBindingFlags, null, new Type[] {typeof(Type)}, null);
 
-			// can now begin
-			List<string> total = new();
-			HashSet<Type> types = new();
-			foreach (UdonNodeDefinition und in editorInterfaceInstance.GetNodeDefinitions()) {
-				if (!und.fullName.Contains("."))
-					continue;
-				total.Add("EXTERN");
+		}
+
+		public string GetUdonTypeName(Type type) {
+			return (string) getUdonTypeName.Invoke(null, new object[] {type});
+		}
+
+		public void DiscoverTypes(Type t) {
+			if (t == null)
+				return;
+			if (allDiscoveredTypes.Add(t))
+				return;
+			if (t.BaseType != null)
+				DiscoverTypes(t.BaseType);
+			foreach (Type it in t.GetInterfaces())
+				DiscoverTypes(it);
+		}
+
+		/// Discovers types in an Udon node definition.
+		public void DiscoverTypes(UdonNodeDefinition und) {
+			DiscoverTypes(und.type);
+			foreach (UdonNodeParameter par in und.parameters)
+				DiscoverTypes(par.type);
+		}
+
+		/// Adds an Udon node definition.
+		public void AddRecordExtern(UdonNodeDefinition und) {
+			if (!und.fullName.Contains(".")) {
+				total.Add("DISCARD_EXT");
 				total.Add(und.fullName);
-				total.Add(GetUdonTypeName(getUdonTypeName, und.type));
-				DiscoverTypes(types, und.type);
-				total.Add(und.parameters.Count.ToString());
-				foreach (UdonNodeParameter par in und.parameters) {
-					total.Add(par.name);
-					total.Add(GetUdonTypeName(getUdonTypeName, par.type));
-					DiscoverTypes(types, par.type);
-					total.Add(par.parameterType.ToString());
-				}
+				return;
 			}
-			foreach (KeyValuePair<string, string> kvp in builtinEventLookup) {
-				total.Add("EVENT");
-				total.Add(kvp.Key);
-				total.Add(kvp.Value);
-				var args = builtinEventArgumentsLookup[kvp.Key];
-				total.Add(args.Length.ToString());
-				foreach ((string, Type) tuple in args)
-				{
-					total.Add(tuple.Item1);
-					DiscoverTypes(types, tuple.Item2);
-					total.Add(GetUdonTypeName(getUdonTypeName, tuple.Item2));
+			total.Add("EXTERN");
+			total.Add(und.fullName); // extern_id
+			NodeRegistryUtilities.DefinitionInfo addedInfo;
+			int blanksToWrite = 2;
+			try {
+				addedInfo = NodeRegistryUtilities.GetNodeDefinitionInfo(und);
+				total.Add(addedInfo.definitionType.ToString()); // extern_deftype
+				blanksToWrite--;
+				if (addedInfo.info is MemberInfo memberInfo) {
+					total.Add(GetUdonTypeName(memberInfo.DeclaringType)); // extern_declaring
+					blanksToWrite--;
 				}
+			} catch {
 			}
-			// -- special marker types --
-			DiscoverTypes(types, typeof(VRC.Udon.Common.UdonGameObjectComponentHeapReference));
-			// -- type discovery complete --
-			foreach (Type t in types) {
+			if (blanksToWrite >= 2)
+				total.Add(""); // extern_deftype
+			if (blanksToWrite >= 1)
+				total.Add(""); // extern_declaring
+			total.Add(GetUdonTypeName(und.type)); // extern_type
+			total.Add(und.parameters.Count.ToString()); // len(extern_parameters)
+			foreach (UdonNodeParameter par in und.parameters) {
+				total.Add(par.name); // p_name
+				total.Add(GetUdonTypeName(par.type)); // p_type
+				total.Add(par.parameterType.ToString()); // p_dir
+			}
+		}
+
+		/// Add all discovered types as dataset records.
+		public void AddRecordsType() {
+			foreach (Type t in allDiscoveredTypes) {
 				total.Add("TYPE");
-				string typeUdonName = GetUdonTypeName(getUdonTypeName, t);
-				total.Add(typeUdonName);
-				total.Add(TwoWaySerializationBinder.Default.BindToName(t));
+				string typeUdonName = GetUdonTypeName(t);
+				total.Add(typeUdonName); // type_name
+				total.Add(TwoWaySerializationBinder.Default.BindToName(t)); // type_odin_name
+				total.Add(((int) VRCUdonSyncTypeConverter.TypeToUdonType(t)).ToString()); // type_sync_type
 				if (t.BaseType != null) {
-					total.Add(GetUdonTypeName(getUdonTypeName, t.BaseType));
+					total.Add(GetUdonTypeName(t.BaseType)); // type_base
 				} else {
-					total.Add("");
+					total.Add(""); // type_base
 				}
 				var interfaces = t.GetInterfaces();
 				total.Add(interfaces.Length.ToString());
 				foreach (Type it in interfaces)
-					total.Add(GetUdonTypeName(getUdonTypeName, it));
+					total.Add(GetUdonTypeName(it));
 				// if enum, add values
 				if (t.BaseType == typeof(System.Enum)) {
 					foreach (object v in Enum.GetValues(t)) {
@@ -85,6 +125,38 @@ namespace KDCVRCTools {
 						total.Add(Enum.GetName(t, v));
 						total.Add(Convert.ToInt64(v).ToString());
 					}
+				}
+			}
+		}
+
+		public void Datamine() {
+			var nodeDefs = editorInterfaceInstance.GetNodeDefinitions();
+
+			// -- type discovery phase --
+			foreach (UdonNodeDefinition und in nodeDefs)
+				DiscoverTypes(und);
+			foreach (KeyValuePair<string, string> kvp in builtinEventLookup)
+				foreach ((string, Type) tuple in builtinEventArgumentsLookup[kvp.Key])
+					DiscoverTypes(tuple.Item2);
+			// special marker types
+			DiscoverTypes(typeof(VRC.Udon.Common.UdonGameObjectComponentHeapReference));
+			// complete
+			AddRecordsType();
+
+			// -- main records --
+			foreach (UdonNodeDefinition und in nodeDefs)
+				AddRecordExtern(und);
+
+			foreach (KeyValuePair<string, string> kvp in builtinEventLookup) {
+				total.Add("EVENT");
+				total.Add(kvp.Key);
+				total.Add(kvp.Value);
+				var args = builtinEventArgumentsLookup[kvp.Key];
+				total.Add(args.Length.ToString());
+				foreach ((string, Type) tuple in args) {
+					total.Add(tuple.Item1);
+					DiscoverTypes(tuple.Item2);
+					total.Add(GetUdonTypeName(tuple.Item2));
 				}
 			}
 			// add events that aren't exposed
@@ -96,30 +168,16 @@ namespace KDCVRCTools {
 			total.Add("SystemSingleArray");
 			total.Add("onAudioFilterReadChannels");
 			total.Add("SystemInt32");
-			for (int i = 0; i < 256; i++) {
-				System.Type res = VRCUdonSyncTypeConverter.UdonTypeToType((VRCUdonSyncType) i);
-				if (res != null) {
-					total.Add("SYNCTYPEID");
-					total.Add(i.ToString());
-					total.Add(GetUdonTypeName(getUdonTypeName, res));
-				}
-			}
 			// done!
 			total.Add("END");
-			System.IO.File.WriteAllText(Application.dataPath + "/datamine.txt", string.Join("\n", total));
 		}
 
-		public static string GetUdonTypeName(MethodInfo method, Type type) {
-			return (string) method.Invoke(null, new object[] {type});
-		}
-
-		private static void DiscoverTypes(HashSet<Type> hs, Type t) {
-			if (hs.Add(t))
-				return;
-			if (t.BaseType != null)
-				DiscoverTypes(hs, t.BaseType);
-			foreach (Type it in t.GetInterfaces())
-				DiscoverTypes(hs, it);
+		// Fun fact: This used to be called 'DatamineZVZ'.
+		[MenuItem("VRChat SDK/KDCVRCTools/Datamine")]
+		public static void ExtractData() {
+			Dataminer dataminer = new();
+			dataminer.Datamine();
+			System.IO.File.WriteAllText(Application.dataPath + "/datamine.txt", string.Join("\n", dataminer.total));
 		}
 	}
 }
