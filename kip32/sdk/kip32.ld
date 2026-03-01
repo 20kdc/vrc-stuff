@@ -35,9 +35,16 @@ SECTIONS {
 		*(.sbss)
 		*(.sbss.*)
 	}
+	.kip32_metadata : {
+		. = ALIGN(4);
+		/* metadata */
+		*(.kip32_metadata)
+		*(.kip32_metadata.*)
+		/* checklinkermap might generate alignment if this is not set, which causes it to become ALLOC (bad) */
+		. = ALIGN(4);
+	}
 	/* If this section is marked ALLOC, check your linker map with -M and adjust this file as necessary */
 	.checklinkermap : {
-		. = ALIGN(4);
 		*(*)
 	}
 }

@@ -576,6 +576,38 @@ impl KU2Context {
 
     /// Invokes a snippet/package.
     /// Note dependencies are NOT handled here -- use [install_deps] at an appropriate time.
+    pub fn snippet_invoke_anonymous(
+        &mut self,
+        file: &mut UdonProgram,
+        pkg_content: &[(String, KU2Instruction)],
+        snippet_equates: Option<Vec<(String, UdonInt)>>,
+    ) -> Result<(), String> {
+        let backup = if let Some(params) = snippet_equates {
+            let r = Some(self.equates.clone());
+            for v in params {
+                self.equates.insert(v.0, v.1);
+            }
+            r
+        } else {
+            None
+        };
+        let mut res = Ok(());
+        for line in pkg_content {
+            let res_l = self.assemble(file, &line.0, &line.1);
+            if let Err(err) = res_l {
+                res = Err(err);
+                break;
+            }
+        }
+        // restore equates on completion
+        if let Some(backup) = backup {
+            self.equates = backup;
+        }
+        res
+    }
+
+    /// Invokes a snippet/package.
+    /// Note dependencies are NOT handled here -- use [install_deps] at an appropriate time.
     pub fn snippet_invoke(
         &mut self,
         file: &mut UdonProgram,
@@ -583,26 +615,10 @@ impl KU2Context {
         snippet_equates: Option<Vec<(String, UdonInt)>>,
     ) -> Result<(), String> {
         if let Some(pkg) = self.packages.remove_entry(pkg_name) {
-            let backup = if let Some(params) = snippet_equates {
-                let r = Some(self.equates.clone());
-                for v in params {
-                    self.equates.insert(v.0, v.1);
-                }
-                r
-            } else {
-                None
-            };
             let mut res = Ok(());
-            for line in &pkg.1.contents {
-                let res_l = self.assemble(file, &line.0, &line.1);
-                if let Err(err) = res_l {
-                    res = Err(format!("package {}: {}", pkg_name, err));
-                    break;
-                }
-            }
-            // restore equates on completion
-            if let Some(backup) = backup {
-                self.equates = backup;
+            if let Err(err) = self.snippet_invoke_anonymous(file, &pkg.1.contents, snippet_equates)
+            {
+                res = Err(format!("package {}: {}", pkg_name, err));
             }
             self.packages.insert(pkg.0, pkg.1);
             res

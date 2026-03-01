@@ -1,5 +1,5 @@
 use anyhow::*;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 pub const STT_NOTYPE: u8 = 0;
 pub const STT_OBJECT: u8 = 1;
@@ -30,6 +30,12 @@ pub struct Sci32Image {
     /// These regions get zeroed out when building the data.
     /// This is good for compression.
     pub data_zero: Vec<std::ops::Range<usize>>,
+    /// ".kip32_metadata" memory VA.
+    pub metadata_va: u32,
+    /// ".kip32_metadata" memory.
+    pub metadata: Vec<u8>,
+    /// All metadata strings.
+    pub metadata_strings: Vec<String>,
 }
 
 fn get<const LEN: usize>(bytes: &[u8], at: usize) -> Result<[u8; LEN]> {
@@ -73,8 +79,11 @@ const SHF_ALLOC: u32 = 2;
 const SHF_EXECINSTR: u32 = 4;
 
 struct TmpSectionInfo {
-    // This is a u32 because we need the section info to resolve section names
+    /// This is a u32 because we need the section info to resolve section names
     sh_name: u32,
+    /// This gets edited in on a second pass
+    sh_name_str: String,
+    sh_name_tags: BTreeSet<String>,
     sh_type: u32,
     sh_flags: u32,
     sh_addr: u32,
@@ -112,23 +121,30 @@ impl Sci32Image {
         (self.data[word] >> shift) as u8
     }
 
-    /// Reads a C string from the image memory.
+    /// Reads a C string from the metadata memory.
     /// Deliberately a bit paranoid, since it's used in nametable syscall interpretation.
-    pub fn read_cstr(&self, mut at: usize) -> Option<String> {
+    pub fn read_metadata_cstr(&self, at: u32) -> Result<String> {
+        let mut at: usize = at.wrapping_sub(self.metadata_va) as usize;
         let mut total: Vec<u8> = Vec::new();
         loop {
-            if at >= (self.data.len() * 4) {
+            if at >= self.metadata.len() {
                 // ran off of end of buffer
-                return None;
+                return Err(anyhow!("read_metadata_cstr: ran off of end of buffer"));
             }
-            let b = self.read8(at);
+            let b = self.metadata[at];
             if b == 0 {
                 break;
             }
             total.push(b);
             at += 1;
         }
-        String::from_utf8(total).ok()
+        String::from_utf8(total).with_context(|| format!("{} in {:?}", at, self.metadata))
+    }
+
+    /// Reads metadata for a syscall tag.
+    pub fn read_metadata_syscall(&self, at: u32) -> Option<String> {
+        let str = self.read_metadata_cstr(at).ok()?;
+        str.strip_prefix("syscall:").map(|v| v.to_string())
     }
 
     /// Writes a value into the image memory at the given byte address.
@@ -142,6 +158,17 @@ impl Sci32Image {
         let shift = subword * 8;
         self.data[word] &= !(0xFFu32 << shift);
         self.data[word] |= (val as u32) << shift;
+    }
+
+    fn parse_tags(section_name: &str) -> BTreeSet<String> {
+        // determine tags
+        let mut section_tags = BTreeSet::new();
+        if let Some(taglist) = section_name.strip_prefix(".kip32_") {
+            for tag in taglist.split("_") {
+                section_tags.insert(tag.to_string());
+            }
+        }
+        section_tags
     }
 
     /// Reads an ELF into a Sci32Image. Multiple ELFs may be loaded, but you almost certainly never want to do this as it requires very careful linking.
@@ -161,6 +188,8 @@ impl Sci32Image {
             let base = (shoff as usize) + ((i as usize) * 40);
             section_info.push(TmpSectionInfo {
                 sh_name: get_u32(bytes, base)?,
+                sh_name_str: String::new(),
+                sh_name_tags: BTreeSet::new(),
                 sh_type: get_u32(bytes, base + 4)?,
                 sh_flags: get_u32(bytes, base + 8)?,
                 sh_addr: get_u32(bytes, base + 12)?,
@@ -169,13 +198,40 @@ impl Sci32Image {
                 sh_link: get_u32(bytes, base + 24)?,
             });
         }
+
+        // section name parsing
+        for i in 0..(shnum as usize) {
+            let section_name_strofs =
+                (section_info[i].sh_name + section_info[shstrndx as usize].sh_offset) as usize;
+            section_info[i].sh_name_str = get_string(bytes, section_name_strofs)?;
+            section_info[i].sh_name_tags = Self::parse_tags(&section_info[i].sh_name_str);
+        }
+
         // process sections
         for section in &section_info {
-            let section_name_strofs =
-                (section.sh_name + section_info[shstrndx as usize].sh_offset) as usize;
-            let section_name = get_string(bytes, section_name_strofs)?;
-
-            if (section.sh_flags & SHF_ALLOC) != 0 {
+            if section.sh_name_tags.contains("metadata") {
+                // Metadata sections are super-special
+                if section.sh_type != SHT_NOBITS {
+                    self.metadata_va = section.sh_addr;
+                    self.metadata.clear();
+                    for i in 0..section.sh_size {
+                        let ofs = (section.sh_offset as usize) + (i as usize);
+                        self.metadata.push(get_u8(bytes, ofs)?);
+                    }
+                    // extract strings
+                    let mut ptr = self.metadata_va;
+                    let mut bytes = self.metadata.len();
+                    while bytes > 0 {
+                        let metastr = self.read_metadata_cstr(ptr).context("Metadata section was not purely a series of valid UTF-8 null-terminated strings")?;
+                        let len = metastr.len() + 1;
+                        if !metastr.is_empty() {
+                            self.metadata_strings.push(metastr);
+                        }
+                        bytes -= len;
+                        ptr = ptr.wrapping_add(len as u32);
+                    }
+                }
+            } else if (section.sh_flags & SHF_ALLOC) != 0 {
                 // This section is blittable.
                 let end_addr = (section.sh_addr as usize) + (section.sh_size as usize);
                 // Always pad; this is important for marking as code, and if NOBITS is involved the 'blit proper' isn't done.
@@ -187,7 +243,7 @@ impl Sci32Image {
                         self.write8(addr, get_u8(bytes, ofs)?);
                     }
                 }
-                if section_name.starts_with(".kip32_zero") {
+                if section.sh_name_tags.contains("zero") {
                     // these get zeroed out on building data
                     self.data_zero.push(
                         (section.sh_addr as usize)..((section.sh_addr + section.sh_size) as usize),
@@ -219,10 +275,8 @@ impl Sci32Image {
                     } else {
                         let mut export_section = false;
                         if st_shndx < section_info.len() {
-                            let strofs = (section_info[st_shndx].sh_name
-                                + section_info[shstrndx as usize].sh_offset)
-                                as usize;
-                            if get_string(bytes, strofs)?.starts_with(".kip32_export") {
+                            let sym_section = &section_info[st_shndx];
+                            if sym_section.sh_name_tags.contains("export") {
                                 export_section = true;
                             }
                         }

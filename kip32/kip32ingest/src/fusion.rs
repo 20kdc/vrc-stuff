@@ -39,7 +39,7 @@ impl Kip32FusedInstr {
         if img.is_instruction_at(pcp4) {
             if let Sci32Instr::EBREAK = istr {
                 let addr = img.data[word_idx + 1];
-                let name = img.read_cstr(addr as usize);
+                let name = img.read_metadata_syscall(addr);
                 if let Some(name) = name {
                     return Self {
                         content: Kip32FIC::NametableSyscall(name),
@@ -58,7 +58,7 @@ impl Kip32FusedInstr {
         } = &istr
         {
             if !img.is_instruction_at(*value)
-                && let Some(cstr) = img.read_cstr(*value as usize)
+                && let Some(cstr) = img.read_metadata_syscall(*value)
             {
                 return Self {
                     content: Kip32FIC::NametableSyscall(cstr),

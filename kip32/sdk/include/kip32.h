@@ -26,7 +26,7 @@
 	register intptr_t KIP32_SYSCALL_t4 __asm__("t4"); \
 	register intptr_t KIP32_SYSCALL_t5 __asm__("t5"); \
 	register intptr_t KIP32_SYSCALL_t6 __asm__("t6"); \
-	static const char syscallname[] = name; \
+	static const char __attribute__((section(".kip32_metadata"))) syscallname[] = "syscall:" name; \
 	/* A more direct method of expression-calls was chosen, but the compiler tries to be clever and obfuscates JALs in the process. */ \
 	__asm__ volatile ( \
 		"jal %8\n" \

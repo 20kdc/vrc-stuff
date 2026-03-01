@@ -25,6 +25,20 @@ impl Display for UASMWriter {
 }
 
 impl UASMWriter {
+    /// Tries to determine that a string is reasonably safe for inclusion in an Udon symbol.
+    /// (Doesn't check that the start of a token isn't a digit; for various reasons, you'd have to do that on purpose.)
+    pub fn is_udon_safe(x: &str) -> bool {
+        for v in x.chars() {
+            if v.is_ascii_alphanumeric() {
+                continue;
+            } else if v == '_' {
+                continue;
+            }
+            return false;
+        }
+        true
+    }
+
     pub fn declare_heap(&self, id: &str, ut: &str, ival: &str, export: bool, line_suffix: &str) {
         if export {
             writeln!(self.data.borrow_mut(), "\t.export {}", id).unwrap();

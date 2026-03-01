@@ -39,14 +39,26 @@ The loader somewhat respects these section flags:
 * `SHF_ALLOC`: If this flag is not present, the section is ignored.
 * `SHF_NOBITS`: The section's data is read as all-zeros.
 * `SHF_EXECINSTR`: The maximum (highest) end address of these instructions is used to divide code from data to limit the amount of erroneously compiled instructions.
-	* This implies it is most efficient for these sections to all be as close to 0 as possible and to solely consist of decodable instructions. Due to the nametable syscall ABI, this isn't perfectly true, but it mostly holds.
+	* This implies it is most efficient for these sections to all be as close to 0 as possible and to solely consist of decodable instructions. This isn't perfectly true if using `EBREAK` syscalls, but it mostly holds.
 
-Special sections are determined based on prefixes:
+Special sections are announced by the prefix `.kip32_` followed by a set of `_`-separated tags:
 
-* `.kip32_export`: Symbols here are entrypoints.
+* `.kip32_export`: Symbols here are entrypoints. Note that this implies these symbols are _always_ assumed to be code.
+	* Other symbols that have bindings indicating export are potentially _available,_ but not _entrypoints._
 * `.kip32_zero`: _When generating the data image,_ all data in this section is zeroed out.
 	* You can think of this as _execute-only._
 	* A general rule here is that you should only use it if you trust your compiler to behave itself.
+* `.kip32_metadata`: Metadata. This isn't included in the image, even if `SHF_ALLOC` is set. This has a number of consequences:
+	* It is _mostly_ okay for these sections to contain duplicate or obscenely large entries if required.
+		* Some backend-specific strings may have effects which, if duplicated, cause issues.
+	* As it's not _really_ part of the loaded memory image, it doesn't (inherently) increase the amount of memory used.
+		* It may have an arbitrary start address, but it should not be located inside the code section as this would cause nametable syscalls to interfere with regular code.
+		* Typically, this should be the second-to-last last section you link.
+	* All sections must contain a series of null-terminated UTF-8 strings. Where not empty, these strings are prefixed with an identifier followed by a colon to indicate purpose.
+		* The 'universally defined' one is: `syscall:`; the addresses of these strings are special.
+		* Null padding is simply read as a series of empty strings, which are ignored.
+	* The **last metadata section** (which should typically be the only one) is considered '_the_' metadata section; metadata _strings_ are well-defined, but they cannot be indexed by address.
+		* The distinction between 'last metadata section' is to catch a hypothetical Sufficiently Clever Compiler which might attempt to merge suffixes.
 
 There are also these special symbols:
 
@@ -63,6 +75,8 @@ These may be placed at a number of locations, or multiple simultaneously:
 
 * In negative addresses
 * Immediately after the end of instructions, overlapping data
+
+`syscall:` metadata is _almost_ a strictly well-defined Virtual Code Address, but for complexity reasons may only be accessed using typical `jal ra,` instructions (aka `call`).
 
 ## Invocation
 
@@ -91,15 +105,28 @@ When an entrypoint is invoked, the sequence goes something like this:
 
 ## Syscalls
 
-There are two syscall implementations, 'legacy'/`ECALL`, nametable/`EBREAK`, and nametable/Call-Into-Data.
+There are three ways of expressing a syscall.
 
-`ECALL` syscalls consist solely of that instruction, and use an implementation-specific mechanism to execute user-provided code.
+1. 'legacy' `ECALL` syscalls consist solely of that instruction, and use an implementation-specific mechanism to execute user-provided code.
+2. `EBREAK` syscalls rely on the instruction fusion apparatus\*, and consist of that instruction followed by a 32-bit word giving the virtual address of a C string in the (as in, final) `.kip32_metadata` section.
+	* _This address is considered part of the instruction, and is safe to erase in the data image._
+	* The instruction will be decoded as a regular EBREAK if the address does not result in a valid UTF-8 C string in the `.kip32_metadata` section.
+3. Call-Into-Data syscalls are similar to EBREAK, but are triggered using `JAL ra, string_symbol` (aka `CALL string_symbol`).
+	* This has the benefit of not potentially confusing the instruction decoder.
 
-`EBREAK` syscalls rely on the instruction fusion apparatus\*, and consist of that instruction followed by a 32-bit word giving the address of a C string.
+Which of these methods to use depends on your goals.
 
-_This address and C string are considered part of the instruction, and are safe to erase in the data image._ The instruction will be decoded as a regular EBREAK if the address does not result in a valid UTF-8 C string.
-
-Call-Into-Data syscalls are similar to EBREAK, but are triggered using `JAL ra, string_symbol`. This has the benefit of not potentially confusing the instruction decoder, and can be written in most languages via typecasting, but might not be as easy to encode in all environments.
+* `ECALL` is lower performance as dynamic dispatch is a necessity, but may provide higher compatibility with existing code.
+	* This might allow, for instance, a relatively low-effort port of simple Unix-like software where a 'fake kernel' is provided.
+* Which to use of `EBREAK` and Call-Into-Data depends entirely on the programming language you are using to write them.
+	* In particular, it should be possible to express `EBREAK` syscalls via calls to the 'function' `{0x00100073, a, 0x00008067}` where `a` is the target string address.
+		* _**This does not require inline assembly,**_ making it a good fallback option for 'uncooperative' compilers.
+		* It introduces additional operations that aren't 'necessary', which may hamper speed, and the thunk 'functions' will occupy memory even if put in a zeroed section.
+	* Call-Into-Data meanwhile requires forcing writing a `JAL` opcode and forcing the register setup/cleanup to go as expected. This might be more or less difficult in a given language.
+		* `JAL` is a relatively hard-to-encode opcode, and the nature of relocations is unlikely to let you encode it via constant maths unless you know the string address extremely early.
+		* **In practice, this requires inline assembly.**
+		* Still, this is the best for performance; the impact on the data image is, in principle, the call instruction itself.
+	* Using either is still infinitely better and more flexible than the `ECALL` method, especially as the backend may use syscalls as a gateway to inline target assembly.
 
 Memory access during syscalls or between invocations is both possible and expected.
 
@@ -149,6 +176,8 @@ Nametable syscalls are _mostly_ inlined KU2 defined in `--inc` files or `stdsysc
 	* This is compiled into the KU2 instruction `extern(EXT("*"))`, or UASM instruction `EXTERN, "*"` (kind of)
 * `builtin_push_*`: The contents of `*` are parsed as a KU2 operand.
 	* This is compiled into the KU2 instruction `push(*)`. UASM varies, but a `PUSH, ` is always involved.
+* `builtin_asm:*`: The contents of `*` are parsed as a KU2 file.
+	* This file is expected to act like a syscall package with the package marker stripped.
 
 The syscall returns by `jump(_syscall_return)` or a sequence equivalent to:
 
@@ -161,6 +190,7 @@ Legacy `ecall` syscalls meanwhile call a single assembly routine. They set the i
 
 Note that it is reasonably trivial to write non-inlined nametable syscalls if reentrancy is not required for those syscalls, so the only reason to use the `ecall` syscall mechanism is with a precise and specific goal in mind.
 
-Tighter integration may be achieved using various flags, particularly `--inc`; see transpiler help for details.
+Tighter integration may be achieved using:
 
-Also see `sdk/stdsyscall.ron`.
+* `--inc`; see transpiler help for details.
+* See `sdk/stdsyscall.ron` and `sdk/include/kip32_udon.h`.

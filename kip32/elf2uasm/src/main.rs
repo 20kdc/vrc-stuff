@@ -13,20 +13,6 @@ use kudonodin::*;
 mod wrapper;
 use wrapper::*;
 
-/// Tries to determine that a string is reasonably safe for inclusion in an Udon symbol.
-/// (Doesn't check that the start of a token isn't a digit; for various reasons, you'd have to do that on purpose.)
-fn is_udon_safe(x: &str) -> bool {
-    for v in x.chars() {
-        if v.is_ascii_alphanumeric() {
-            continue;
-        } else if v == '_' {
-            continue;
-        }
-        return false;
-    }
-    true
-}
-
 fn code_addr(pc: u32, sfx: &str) -> String {
     format!("_code_{:08X}{}", pc, sfx)
 }
@@ -121,22 +107,34 @@ fn asm_syscall(asm: &Wrapper, img: &Sci32Image, name: &str, istr_jump: u32) {
             }
         }
     }
+    // -- all from now on use snippet_equates
+    let snippet_equates = Some(vec![
+        (format!("_syscall_return"), jmp),
+        (
+            format!("_syscall_return_indirect"),
+            UdonInt::I(istr_jump as i64),
+        ),
+    ]);
+    if let Some(sfx) = name.strip_prefix("builtin_asm:") {
+        // We simply accept that we'll have to abort on a misparse here.
+        // This ought to be extremely unlikely, though, as the prefixes and presence in the metadata guarantees some level of error checking.
+        let mut parsed =
+            kudonasm_parse(sfx).expect(&format!("builtin_asm did not parse: {:?}", sfx));
+        let parsed: Vec<(String, KU2Instruction)> = parsed
+            .drain(..)
+            .map(|v| (format!("builtin_asm:{}", v.0), v.1))
+            .collect();
+        asm.ku2()
+            .snippet_invoke_anonymous(&mut asm.asm(), &parsed, snippet_equates)
+            .expect("builtin_asm should assemble");
+        return;
+    }
     let syscall_package = format!("syscall_{}", name);
     // just in case all the other measures failed, the syscall must exist
     let package_exists = asm.ku2().packages.contains_key(&syscall_package);
     if package_exists {
         asm.ku2()
-            .snippet_invoke(
-                &mut asm.asm(),
-                &syscall_package,
-                Some(vec![
-                    (format!("_syscall_return"), jmp),
-                    (
-                        format!("_syscall_return_indirect"),
-                        UdonInt::I(istr_jump as i64),
-                    ),
-                ]),
-            )
+            .snippet_invoke(&mut asm.asm(), &syscall_package, snippet_equates)
             .expect("syscall should assemble");
     } else {
         // don't mention which, just in case it breaks UASM writer
@@ -314,6 +312,17 @@ fn main() -> Result<()> {
         .expect("inc_code install should succeed");
     asm.comment_c("");
 
+    asm.comment_c("-- asm metadata --");
+    for v in &img.metadata_strings {
+        if let Some(asm_src) = v.strip_prefix("udon_asm:") {
+            let parsed = kudonasm_parse(&asm_src).expect(&format!("{:?} failed to parse", v));
+            asm.ku2()
+                .assemble_file(&mut asm.asm(), &"udon_asm metadata", &parsed)
+                .expect(&format!("{:?} failed to assemble", v));
+        }
+    }
+    asm.comment_c("");
+
     asm.comment_c("-- syscall packages --");
     for i in 0..img.instructions {
         let pc = (i * 4) as u32;
@@ -338,7 +347,7 @@ fn main() -> Result<()> {
     let mut symbol_marking: HashMap<u32, String> = HashMap::new();
     asm.comment_c(" -- THUNKS --");
     for sym in img.symbols.values() {
-        if !is_udon_safe(&sym.st_name) {
+        if !UASMWriter::is_udon_safe(&sym.st_name) {
             continue;
         }
         symbol_marking.insert(sym.st_addr, sym.st_name.clone());
@@ -367,7 +376,7 @@ fn main() -> Result<()> {
     // For this reason, make sure that symbol getters are written after the actual important stuff
     asm.comment_c(" -- SYMGET --");
     for sym in img.symbols.values() {
-        if !is_udon_safe(&sym.st_name) {
+        if !UASMWriter::is_udon_safe(&sym.st_name) {
             continue;
         }
         // either way, export as a 'data symbol'
