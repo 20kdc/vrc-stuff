@@ -1,3 +1,6 @@
+# from https://github.com/rust-lang/mdBook/wiki/Automated-Deployment:-GitHub-Actions
+# with minor modifications
+
 name: Deploy
 on:
   push:
@@ -21,9 +24,9 @@ jobs:
         run: |
           tag=$(curl 'https://api.github.com/repos/rust-lang/mdbook/releases/latest' | jq -r '.tag_name')
           url="https://github.com/rust-lang/mdbook/releases/download/${tag}/mdbook-${tag}-x86_64-unknown-linux-gnu.tar.gz"
-          mkdir mdbook
-          curl -sSL $url | tar -xz --directory=./mdbook
-          echo `pwd`/mdbook >> $GITHUB_PATH
+          mkdir mdbook-bin
+          curl -sSL $url | tar -xz --directory=./mdbook-bin
+          echo `pwd`/mdbook-bin >> $GITHUB_PATH
       # gen phase
       - name: Build Book
         run: |
@@ -35,7 +38,6 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          # Upload entire repository
           path: 'mdbook/book'
       - name: Deploy to GitHub Pages
         id: deployment
