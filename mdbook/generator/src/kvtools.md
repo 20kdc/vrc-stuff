@@ -20,7 +20,7 @@ When writing out from within Unity, `EditorJsonUtility.ToJson` specifically _mus
 
 This menu option will create `Assets/datamine.txt`. The format of this is _really_ subject to change, more so than the rest of this, even; the format is solely meant to be an interface between it and `datamine2json.py`.
 
-## `datamine2json.py`.
+## `datamine2json.py`
 
 This Python program expects `datamine.txt` to exist.
 

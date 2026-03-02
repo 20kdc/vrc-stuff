@@ -10,8 +10,9 @@ To find differences, it's easiest to clone <https://github.com/TeamSirenix/odin-
 
 The main points of note are:
 
-1. Any 'risky' Formatters (used to serialize/deserialize various types of object) have been disabled via various methods. A particular focus has been on removing weak references.
-2. There are some API changes owing to the removal of weak references.
+1. Any 'risky' Formatters (used to serialize/deserialize various types of object) have been disabled via various methods. A particular focus has been on removing the 'weak' deserializers.
+	* Not sure what exactly the deal is; there seems to be an implication 'weak' deserialization is used as a fallback or something?
+2. There are some API changes owing to the removal of weak binding.
 3. There are various performance tweaks.
 
 Importantly, _**there is no difference in the serialization format.**_

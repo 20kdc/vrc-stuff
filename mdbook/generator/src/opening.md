@@ -4,8 +4,8 @@ This 'book' is intended to document things about Udon and to a lesser extent inf
 
 It's compiled using [mdbook](https://github.com/rust-lang/mdBook) and some custom Markdown-templating code.
 
-Most of the contents are templated and devoid of linguistic content.
+To be clear, the information here is _not_ guaranteed to be 100% accurate, particularly the stuff that isn't the extern list, but also to some extent maybe that too.
 
 This serves, essentially, as an export for the `kudoninfo` data.
 
-This is based on `com.vrchat.worlds` version `SDK_VERSION`.
+Extern documentation is based on `com.vrchat.worlds` version `SDK_VERSION`.
