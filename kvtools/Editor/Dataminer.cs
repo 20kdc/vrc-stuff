@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Reflection;
@@ -10,6 +11,7 @@ using VRC.Udon.Common.Interfaces;
 using VRC.Udon.Editor;
 using VRC.Udon.EditorBindings;
 using VRC.SDK3.Network;
+using VRC.SDK3.Data;
 using UdonSharp.Compiler.Udon;
 using VRC.Udon.Serialization.OdinSerializer;
 
@@ -48,15 +50,12 @@ namespace KDCVRCTools {
 			return (string) getUdonTypeName.Invoke(null, new object[] {type});
 		}
 
+		/// Discovers a type.
+		/// This used to discover all base types, but now bases are being elided.
 		public void DiscoverTypes(Type t) {
 			if (t == null)
 				return;
-			if (allDiscoveredTypes.Add(t))
-				return;
-			if (t.BaseType != null)
-				DiscoverTypes(t.BaseType);
-			foreach (Type it in t.GetInterfaces())
-				DiscoverTypes(it);
+			allDiscoveredTypes.Add(t);
 		}
 
 		/// Discovers types in an Udon node definition.
@@ -100,7 +99,23 @@ namespace KDCVRCTools {
 			}
 		}
 
+		public void FindTypeBasesTarget(Type target, List<Type> res) {
+			if (res.Contains(target))
+				return;
+			res.Add(target);
+		}
+
+		/// Finds all bases of a type.
+		/// This is done in a reasonably consistent search order.
+		public void FindTypeBases(Type t, List<Type> res) {
+			if (t.BaseType != null)
+				FindTypeBasesTarget(t.BaseType, res);
+			foreach (Type it in t.GetInterfaces())
+				FindTypeBasesTarget(it, res);
+		}
+
 		/// Add all discovered types as dataset records.
+		/// This is then *followed* by base records.
 		public void AddRecordsType() {
 			foreach (Type t in allDiscoveredTypes) {
 				total.Add("TYPE");
@@ -108,15 +123,17 @@ namespace KDCVRCTools {
 				total.Add(typeUdonName); // type_name
 				total.Add(TwoWaySerializationBinder.Default.BindToName(t)); // type_odin_name
 				total.Add(((int) VRCUdonSyncTypeConverter.TypeToUdonType(t)).ToString()); // type_sync_type
-				if (t.BaseType != null) {
-					total.Add(GetUdonTypeName(t.BaseType)); // type_base
+				if (t.IsInterface) {
+					total.Add("INTERFACE"); // type_kind
+				} else if (t.IsPrimitive) {
+					total.Add("PRIMITIVE"); // type_kind
+				} else if (t.IsArray) {
+					total.Add("ARRAY"); // type_kind
+				} else if (t.IsValueType) {
+					total.Add("STRUCT"); // type_kind
 				} else {
-					total.Add(""); // type_base
+					total.Add("OBJECT"); // type_kind
 				}
-				var interfaces = t.GetInterfaces();
-				total.Add(interfaces.Length.ToString());
-				foreach (Type it in interfaces)
-					total.Add(GetUdonTypeName(it));
 				// if enum, add values
 				if (t.BaseType == typeof(System.Enum)) {
 					foreach (object v in Enum.GetValues(t)) {
@@ -127,9 +144,30 @@ namespace KDCVRCTools {
 					}
 				}
 			}
+			foreach (Type t in allDiscoveredTypes) {
+				string typeUdonName = GetUdonTypeName(t);
+				List<Type> allBaseTypes = new();
+				FindTypeBases(t, allBaseTypes);
+				foreach (Type it in allBaseTypes) {
+					// We only add TYPEBASE records for discovered types.
+					// This prunes a large amount of 'dummy' interfaces out of the API early.
+					if (allDiscoveredTypes.Contains(it)) {
+						total.Add("TYPEBASE");
+						total.Add(typeUdonName);
+						total.Add(GetUdonTypeName(it));
+					}
+				}
+			}
 		}
 
 		public void Datamine() {
+			// -- VRCSDK version --
+			string vrcSdkPackageFile = Path.Combine(Application.dataPath, "..", "Packages", "com.vrchat.worlds", "package.json");
+			VRCJson.TryDeserializeFromJson(File.ReadAllText(vrcSdkPackageFile), out DataToken vrcSdkPackageToken);
+			vrcSdkPackageToken.DataDictionary.TryGetValue("version", out DataToken vrcSdkVersionToken);
+			total.Add("VRCSDKVER");
+			total.Add(vrcSdkVersionToken.String);
+			//
 			var nodeDefs = editorInterfaceInstance.GetNodeDefinitions();
 
 			// -- type discovery phase --

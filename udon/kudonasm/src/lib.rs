@@ -4,7 +4,7 @@ use kudonast::{
     UdonAccess, UdonHeapSlot, UdonHeapValue, UdonInt, UdonProgram, UdonSymbol,
     odininttype_to_udontype,
 };
-use kudoninfo::{UdonOpcode, UdonTypeRef};
+use kudoninfo::{UdonOpcode, UdonTypeRef, udontyperef};
 use kudonodin::{OdinIntType, OdinPrimitive};
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -71,7 +71,7 @@ impl KU2Context {
         macro_rules! pmap {
             ($udon_type:ident, $variant:ident, $v:expr) => {
                 Ok(UdonHeapSlot(
-                    (&kudoninfo::udon_types::$udon_type).into(),
+                    udontyperef!($udon_type),
                     UdonHeapValue::P(OdinPrimitive::$variant($v.clone())),
                 ))
             };

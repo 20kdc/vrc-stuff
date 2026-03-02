@@ -1,4 +1,5 @@
 use std::io::Read;
+use std::sync::OnceLock;
 use xz::read::XzDecoder;
 
 pub static DATA_XZ: &'static [u8] = include_bytes!("api_c.json.xz");
@@ -13,7 +14,26 @@ pub fn as_text() -> String {
     s
 }
 
+static REF_VALUE: OnceLock<json::JsonValue> = OnceLock::new();
+
 /// Reads the datamine to a JSON value.
-pub fn as_json() -> json::JsonValue {
-    json::parse(&as_text()).expect("api_c.json.xz should parse")
+/// This is cached, so you can call this as often as you want.
+pub fn as_json() -> &'static json::JsonValue {
+    REF_VALUE.get_or_init(|| json::parse(&as_text()).expect("api_c.json.xz should parse"))
+}
+
+/// Returns type names in an arbitrary order.
+pub fn type_names() -> Vec<String> {
+    let ty = &as_json()["types"];
+    let mut res = Vec::new();
+    for v in ty.entries() {
+        res.push(v.0.to_string());
+    }
+    res
+}
+
+/// Gets the JSON object describing an Udon type, if it exists.
+pub fn type_by_name(ty: &str) -> Option<&'static json::JsonValue> {
+    let ty = &as_json()["types"][ty];
+    if ty.is_object() { Some(ty) } else { None }
 }

@@ -1,0 +1,6 @@
+#!/bin/sh
+set -e
+cd generator
+cargo run
+cd ..
+mdbook build

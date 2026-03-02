@@ -9,6 +9,7 @@ data_types = {}
 data_events = {}
 data_discard_ext = {}
 data_synctype = [None] * 256
+data["version"] = "(unknown)"
 data["types"] = data_types
 data["events"] = data_events
 # data["discard_ext"] = data_discard_ext
@@ -29,6 +30,8 @@ while True:
 	decltype = dfile.readline().strip()
 	if decltype == "END":
 		break
+	elif decltype == "VRCSDKVER":
+		data["version"] = dfile.readline().strip()
 	elif decltype == "EXTERN":
 		extern_id = dfile.readline().strip()
 		extern_deftype = dfile.readline().strip()
@@ -66,30 +69,33 @@ while True:
 		type_name = dfile.readline().strip()
 		type_odin_name = dfile.readline().strip()
 		type_sync_type = int(dfile.readline().strip())
-		type_base = dfile.readline().strip()
-		type_interfaces = []
-		for _ in range(int(dfile.readline().strip())):
-			type_interfaces.append(dfile.readline().strip())
+		type_kind = dfile.readline().strip()
 		if type_name in data_types:
 			raise Exception("Duplicate type error: " + type_name)
 		data_types[type_name] = {
-			"static": False,
 			"name": type_name,
+			"kind": type_kind,
 			"odin_name": type_odin_name,
-			"base": type_base,
-			"interfaces": type_interfaces,
+			"bases": [],
 			"externs": {}
 		}
 		if type_sync_type != 0:
 			data_synctype[type_sync_type] = type_name
 			data_types[type_name]["sync_type"] = type_sync_type
-		if type_base == "SystemEnum":
-			data_types[type_name]["enumValues"] = {}
+	elif decltype == "TYPEBASE":
+		type_name = dfile.readline().strip()
+		type_base = dfile.readline().strip()
+		assert type_base in data_types
+		data_types[type_name]["bases"].append(type_base)
 	elif decltype == "EVAL":
 		eval_type = dfile.readline().strip()
 		eval_name = dfile.readline().strip()
 		eval_value = int(dfile.readline().strip())
-		data_types[eval_type]["enumValues"][eval_name] = eval_value
+		if not "enum_values" in data_types[eval_type]:
+			# retroactively change "kind"
+			data_types[eval_type]["kind"] = "ENUM"
+			data_types[eval_type]["enum_values"] = {}
+		data_types[eval_type]["enum_values"][eval_name] = eval_value
 	else:
 		raise Exception("Unknown decltype " + decltype)
 
@@ -103,6 +109,7 @@ apijsonfile.close()
 
 pruned_count = 0
 
+# Extern pruning (disabled since untrustworthy)
 if False:
 	# Ok, this DIDN'T delete the list methods, I forgot those were things VRC didn't expose.
 	# However, I panicked when I realized that generics might not be covered properly in this.
@@ -163,6 +170,8 @@ generated_xz.close()
 statistics = open("statistics.md", "w")
 
 statistics.write("# Statistics (`datamine2json.py`)\n")
+statistics.write("\n")
+statistics.write("SDK version (`com.vrchat.worlds`): `" + data["version"] + "`\n")
 statistics.write("\n")
 
 statistics.write("* " + str(max_param_count) + " parameters max.\n")

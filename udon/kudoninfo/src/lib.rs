@@ -3,18 +3,53 @@
 
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::rc::Rc;
+use std::sync::OnceLock;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum UdonTypeKind {
+    Object,
+    Struct,
+    Array,
+    Primitive,
+    Interface,
+    Enum
+}
 
 /// Type metadata.
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct UdonType {
     /// Udon type.
-    pub name: Cow<'static, str>,
+    pub name: Cow<'static, String>,
+    /// Kind.
+    pub kind: UdonTypeKind,
     /// Odin/shortened .NET type name.
-    pub odin_name: Cow<'static, str>,
+    pub odin_name: Cow<'static, String>,
     /// 'Sync type'. This is used for, among other things, network call RPC.
     pub sync_type: Option<i32>,
+}
+
+impl UdonType {
+    /// Infers the assembly (or 'unknown')
+    pub fn assembly(&self) -> &str {
+        if let Some(v) = &self.odin_name.rfind(',') {
+            &self.odin_name[(v + 1)..].trim_ascii()
+        } else {
+            "unknown"
+        }
+    }
+    /// Gets the 'unqualified name'.
+    pub fn unqualified(&self) -> &str {
+        let generic_mark = self.odin_name.find('`').unwrap_or(self.odin_name.len());
+        let comma_mark = self.odin_name.find(',').unwrap_or(self.odin_name.len());
+        &self.odin_name[..generic_mark.min(comma_mark)]
+    }
+    /// Gets the 'short name' (last dotted part etc.)
+    pub fn short_name(&self) -> &str {
+        let ug = self.unqualified();
+        &ug[(ug.rfind('.').map(|v| v + 1).unwrap_or(0))..]
+    }
 }
 
 /// Reference to an Udon type.
@@ -152,24 +187,100 @@ impl<'de> Deserialize<'de> for &'static UdonOpcode {
 
 include!(concat!(env!("OUT_DIR"), "/generated.rs"));
 
-/// Creates an [UdonType] [HashMap].
+static UDONTYPE_MAP: OnceLock<BTreeMap<String, UdonType>> = OnceLock::new();
+
+/// Gets an [UdonType] [BTreeMap].
 /// This maps the Udon type name to the corresponding [UdonType].
-pub fn udontype_hashmap() -> HashMap<String, UdonType> {
-    let mut hm: HashMap<String, UdonType> = HashMap::new();
-    for v in UDON_TYPES {
-        hm.insert(v.name.to_string(), (*v).clone());
-    }
-    hm
+pub fn udontype_map() -> &'static BTreeMap<String, UdonType> {
+    UDONTYPE_MAP.get_or_init(|| {
+        let mut hm: BTreeMap<String, UdonType> = BTreeMap::new();
+        for key in &kudon_apijson::type_names() {
+            let typeobj = kudon_apijson::type_by_name(key).unwrap();
+            let type_kind = typeobj["kind"].as_str().unwrap();
+            let value = UdonType {
+                name: Cow::Owned(key.to_string()),
+                kind: if type_kind.eq("OBJECT") {
+                    UdonTypeKind::Object
+                } else if type_kind.eq("STRUCT") {
+                    UdonTypeKind::Struct
+                } else if type_kind.eq("ARRAY") {
+                    UdonTypeKind::Array
+                } else if type_kind.eq("PRIMITIVE") {
+                    UdonTypeKind::Primitive
+                } else if type_kind.eq("INTERFACE") {
+                    UdonTypeKind::Interface
+                } else if type_kind.eq("ENUM") {
+                    UdonTypeKind::Enum
+                } else {
+                    panic!("type kinds should never be unparsable: {:?} {:?}", key, type_kind)
+                },
+                odin_name: Cow::Owned(typeobj["odin_name"].as_str().unwrap().to_string()),
+                sync_type: typeobj["sync_type"].as_i32(),
+            };
+            hm.insert(key.to_string(), value);
+        }
+        hm
+    })
 }
 
-/// Gets an [UdonType] statically using binary search.
+/// Information about an extern.
+pub struct UdonExtern {
+    pub associated_type: Cow<'static, String>,
+    pub name: Cow<'static, String>
+}
+
+static UDONEXTERN_MAP: OnceLock<BTreeMap<String, UdonExtern>> = OnceLock::new();
+
+/// Gets an [UdonType] [BTreeMap].
+/// This maps the Udon type name to the corresponding [UdonType].
+pub fn udonextern_map() -> &'static BTreeMap<String, UdonExtern> {
+    UDONEXTERN_MAP.get_or_init(|| {
+        let mut hm: BTreeMap<String, UdonExtern> = BTreeMap::new();
+        for key in udontype_map() {
+            let typeobj = kudon_apijson::type_by_name(key.0).unwrap();
+            for ext in typeobj["externs"].entries() {
+                hm.insert(ext.0.to_string(), UdonExtern {
+                    associated_type: Cow::Owned(key.0.to_string()),
+                    name: Cow::Owned(ext.0.to_string())
+                });
+            }
+        }
+        hm
+    })
+}
+
+/// Gets an [UdonType].
 /// This is used in deserialization.
 pub fn udontype_get(b: &str) -> Option<&'static UdonType> {
-    if let Ok(res) = UDON_TYPES.binary_search_by_key(&b, |v| &v.name) {
-        Some(UDON_TYPES[res])
+    if let Some(res) = udontype_map().get(b) {
+        Some(res)
     } else {
         None
     }
+}
+
+/// Gets an [UdonTypeRef].
+pub fn udontyperef_get(b: &str) -> Option<UdonTypeRef> {
+    if let Some(res) = udontype_map().get(b) {
+        Some(UdonTypeRef::C(res))
+    } else {
+        None
+    }
+}
+
+/// May be replaced with a proc macro in future that verifies at compile-time.
+#[macro_export]
+macro_rules! udontype {
+    ($id:ident) => {
+        (kudoninfo::udontype_get(stringify!($id)).unwrap())
+    };
+}
+/// May be replaced with a proc macro in future that verifies at compile-time.
+#[macro_export]
+macro_rules! udontyperef {
+    ($id:ident) => {
+        (kudoninfo::udontyperef_get(stringify!($id)).unwrap())
+    };
 }
 
 /// Gets an [UdonOpcode]. This does a linear search.
@@ -246,23 +357,8 @@ pub fn sparse_table_get<T: Copy>(table: &[Option<T>], index: usize) -> Option<T>
 mod tests {
     #[test]
     pub fn test_udontype_lookups() {
-        assert_eq!(
-            crate::udontype_get("SystemInt32")
-                .expect("SystemInt32 must exist")
-                .name,
-            "SystemInt32"
-        );
-        assert_eq!(
-            crate::udontype_get("SystemUInt32")
-                .expect("SystemUInt32 must exist")
-                .name,
-            "SystemUInt32"
-        );
-        assert_eq!(
-            crate::udontype_get("VRCSDKBaseVRCRenderTexture")
-                .expect("VRCSDKBaseVRCRenderTexture must exist")
-                .name,
-            "VRCSDKBaseVRCRenderTexture"
-        );
+        _ = crate::udontype_get("SystemInt32").unwrap();
+        _ = crate::udontype_get("SystemUInt32").unwrap();
+        _ = crate::udontype_get("VRCSDKBaseVRCRenderTexture").unwrap();
     }
 }

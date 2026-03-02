@@ -2,7 +2,7 @@
 //! This AST is not designed for complete round-trip 1:1 conversion (for that, maybe consider `kudonodin`).
 //! This AST is designed to be easily assembled to, but decently flexible.
 
-use kudoninfo::{UdonOpcode, UdonSpaciality, UdonType, UdonTypeRef};
+use kudoninfo::{UdonOpcode, UdonSpaciality, UdonType, UdonTypeRef, udontyperef};
 use kudonodin::*;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashSet};
@@ -129,16 +129,16 @@ impl From<UdonType> for UdonHeapValue {
 
 pub fn odininttype_to_udontype(oit: OdinIntType) -> UdonTypeRef {
     match oit {
-        OdinIntType::SByte => (&kudoninfo::udon_types::SystemSByte).into(),
-        OdinIntType::Byte => (&kudoninfo::udon_types::SystemByte).into(),
-        OdinIntType::Short => (&kudoninfo::udon_types::SystemInt16).into(),
-        OdinIntType::UShort => (&kudoninfo::udon_types::SystemUInt16).into(),
-        OdinIntType::Int => (&kudoninfo::udon_types::SystemInt32).into(),
-        OdinIntType::UInt => (&kudoninfo::udon_types::SystemUInt32).into(),
-        OdinIntType::Long => (&kudoninfo::udon_types::SystemInt64).into(),
-        OdinIntType::ULong => (&kudoninfo::udon_types::SystemUInt64).into(),
-        OdinIntType::Bool => (&kudoninfo::udon_types::SystemBoolean).into(),
-        OdinIntType::Char => (&kudoninfo::udon_types::SystemChar).into(),
+        OdinIntType::SByte => udontyperef!(SystemSByte),
+        OdinIntType::Byte => udontyperef!(SystemByte),
+        OdinIntType::Short => udontyperef!(SystemInt16),
+        OdinIntType::UShort => udontyperef!(SystemUInt16),
+        OdinIntType::Int => udontyperef!(SystemInt32),
+        OdinIntType::UInt => udontyperef!(SystemUInt32),
+        OdinIntType::Long => udontyperef!(SystemInt64),
+        OdinIntType::ULong => udontyperef!(SystemUInt64),
+        OdinIntType::Bool => udontyperef!(SystemBoolean),
+        OdinIntType::Char => udontyperef!(SystemChar),
     }
 }
 
@@ -247,13 +247,13 @@ impl UdonProgram {
         if !self.internal_syms.contains_key(&key) {
             let residx = self.data.len();
             self.data.push(UdonHeapSlot(
-                (&kudoninfo::udon_types::SystemString).into(),
+                udontyperef!(SystemString).into(),
                 UdonHeapValue::P(OdinPrimitive::String(ext.to_string())),
             ));
             if is_ext {
                 self.data_syms.push(UdonSymbol {
                     name: key.clone(),
-                    udon_type: Some((&kudoninfo::udon_types::SystemString).into()),
+                    udon_type: Some(udontyperef!(SystemString)),
                     address: UdonInt::Sym(key.clone()),
                     mode: UdonAccess::Elidable,
                 });
@@ -273,7 +273,7 @@ impl UdonProgram {
             ));
             self.data_syms.push(UdonSymbol {
                 name: key.clone(),
-                udon_type: Some((&kudoninfo::udon_types::SystemString).into()),
+                udon_type: Some(udontyperef!(SystemString)),
                 address: UdonInt::Sym(key.clone()),
                 mode: UdonAccess::Elidable,
             });

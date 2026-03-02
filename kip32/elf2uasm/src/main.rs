@@ -4,7 +4,7 @@ use kip32ingest::*;
 use lexopt::prelude::*;
 use std::collections::HashMap;
 
-use kudoninfo::{opcodes, udon_types};
+use kudoninfo::{opcodes, udontyperef};
 
 use kudonasm::*;
 use kudonast::*;
@@ -265,7 +265,7 @@ fn main() -> Result<()> {
     asm.declare_heap(
         &"_vm_initdata",
         Some(UdonAccess::Symbol),
-        &udon_types::SystemString,
+        udontyperef!(SystemString),
         OdinPrimitive::String(data),
     )
     .unwrap();

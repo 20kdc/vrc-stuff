@@ -15,5 +15,5 @@ members = [
     "udon/kudoninfo",
     "udon/kudon_apijson",
     "udon/kudonasm"
-]
+, "mdbook/generator"]
 

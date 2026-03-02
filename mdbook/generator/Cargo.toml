@@ -1,0 +1,10 @@
+[package]
+name = "generator"
+publish.workspace = true
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+kudoninfo = { path = "../../udon/kudoninfo" }
