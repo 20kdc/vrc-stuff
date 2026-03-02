@@ -1,6 +1,6 @@
 # Opening
 
-This 'book' is intended to be a comprehensive reference to Udon.
+This 'book' is intended to document things about Udon and to a lesser extent infrastructure in <https://github.com/20kdc/vrc-stuff> relating to that.
 
 It's compiled using [mdbook](https://github.com/rust-lang/mdBook) and some custom Markdown-templating code.
 

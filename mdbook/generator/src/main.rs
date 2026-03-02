@@ -46,7 +46,7 @@ fn find_documentation_for(what: &UdonType) -> String {
         adjustment = adjustment.strip_prefix("UnityEngine.").unwrap_or(adjustment.as_str()).to_string();
         adjustment = adjustment.replace("+", ".");
         adjustment = adjustment.replace("[]", "");
-        format!("https://docs.unity3d.com/2022.2/Documentation/ScriptReference/{}.html", adjustment)
+        format!("https://docs.unity3d.com/2022.3/Documentation/ScriptReference/{}.html", adjustment)
     } else if asm.eq("mscorlib") || asm.eq("z_Collections") {
         if what.kind == UdonTypeKind::Array {
             // wrong version, but close enough
@@ -72,6 +72,16 @@ fn main() {
     // -- Book body --
     let opening = include_str!("opening.md").replace("SDK_VERSION", kudoninfo::SDK_VERSION);
     put_file(&mut summary, "Opening", "opening.md", 0, &opening);
+
+    put_file(&mut summary, "Udon VM (Short Primer)", "udon_vm_primer.md", 0, include_str!("udon_vm_primer.md"));
+
+    put_file(&mut summary, "OdinSerializer", "odinserializer.md", 0, include_str!("odinserializer.md"));
+
+    put_file(&mut summary, "Udon Program Format", "udon_container.md", 0, include_str!("udon_container.md"));
+
+    put_file(&mut summary, "Name Mangling", "udon_mangling.md", 0, include_str!("udon_mangling.md"));
+
+    put_file(&mut summary, "kvtools", "kvtools.md", 0, include_str!("kvtools.md"));
 
     let mut externs_index = include_str!("externs.md").to_string();
 

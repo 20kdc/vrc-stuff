@@ -1,41 +1,28 @@
-# Legacy Notes
+# `SerializedUdonProgramAsset`
 
-The notes are part of the original research from my internal repository that eventually became my `Add a page on the Udon VM and Udon Assembly. #136` creator-docs PR.
+The 'root' of an Udon program's existence is in the `SerializedUdonProgramAsset` passed to `UdonBehaviour`.
 
-By extension, they predate the network event ratelimit/security extensions.
+This is a pretty standard Unity asset, with a few key fields:
 
-I expect them to become relevant if/when I take the logical next step in the project, _direct Udon compilation._
-
-Some similarities in wording are to be expected; what you see here is the internal/research side.
-
-Research was performed partially by getting OdinSerializer to dump using the OdinSerializer JSON dump format (this format is _not_ reliably reversible, but it's decent for viewing).
-
-Very important errata:
-
-* **ByteCode** is described here as little-endian. It's big-endian.
-
- \- 20kdc
-
-# UdonVM: A Primer
-
-Udon is VRChat's sandboxed virtual machine.
-
-Udon operates by moving around values of the C# `object` type, with heavy type-checking (using `StrongBox` as evidenced from serialized Udon data), and running "externs" that manipulate these values.
-
-It also has a conditional jump, an indirect jump, and an integer stack _solely_ consisting of hardcoded integers.
-
-It is extremely minimalist at its core, with only 9 opcodes.
+* `serializedProgramCompressedBytes`: `byte[]` containing GZip'd Udon program.
+* `serializedProgramBytesString`: Legacy method of storing the bytes. If not an empty string, base64-encoded Udon program.
+* `serializationDataFormat`: This refers to the OdinSerializer data format -- in practice this will always be 0 (`DataFormat.Binary`).
+* `networkCallingEntrypointMetadata`: Array of `NetworkCallingEntrypointMetadata`. Used for 'validated RPC'; ClientSim in particular checks this. This is described at the end of the document.
+* `programUnityEngineObjects`: This is a list, used to encode references to i.e. Unity resources from within the program binary blob.
 
 ## Program Format
 
-To follow along with the structures, please use `helloWorld.odin.json`. The corresponding Udon Assembly is `helloWorld.uasm`.
+The Udon program itself is stored in the asset as a GZip'd [OdinSerializer](./odinserializer.md) blob.
 
-The "JSON" file is written using "OdinSerializer JSON", which is not really JSON. But it makes a good, _reliable_ (unlike Udon Assembly), easy to access reference, so that's what'll be used here.
+To follow along with the structures, please use <https://github.com/20kdc/vrc-stuff/blob/main/udon/docs/docExample.odin.json>. The corresponding Udon Graph is kept at <https://github.com/20kdc/vrc-stuff/blob/main/kvassets/Assets/docExample.asset>.
 
-Programs are a `VRC.Udon.Common.UdonProgram` instance, consisting of:
+The "JSON" file is written using "OdinSerializer JSON", which is not really JSON. But it makes a good, clear, easy to access reference, so that's what'll be used here.
 
-* `InstructionSetIdentifier` (`UDON`) and `InstructionSetVersion` (1).
-* `ByteCode`: A byte array of little-endian uint32 values. These are addressed by their indexes multiplied by 4, even though the accesses can't be offset at all.
+Programs are a `VRC.Udon.Common.UdonProgram` instance, consisting of, **in this order**:
+
+* `InstructionSetIdentifier` (`UDON`)
+* `InstructionSetVersion` (1)
+* `ByteCode`: A byte array of **big-endian** uint32 values. These are addressed by their indexes multiplied by 4, even though the accesses can't be offset at all.
 * `Heap`: Also known as `VRC.Udon.Common.UdonHeap`. Constant and dynamic values through the life of the program. This is an array of values; a "heap index" is an index into this array.
 * `EntryPoints`: This is a `VRC.Udon.Common.UdonSymbolTable` mapping names to code addresses, with a second list of "exported" symbols. (Event handlers are exported.)
 * `SymbolTable`: This is a `VRC.Udon.Common.UdonSymbolTable` mapping names to heap addresses, with a second list of "exported" symbols. (Exported symbols are visible in the Unity editor.)
@@ -44,6 +31,7 @@ Programs are a `VRC.Udon.Common.UdonProgram` instance, consisting of:
 
 Some key notes:
 
+* There is a custom `UdonProgramFormatter` at play. It is not particularly flexible - _fields must be in their exact order. Names may as well be ignored._
 * The code must purely consist of _a_ valid instruction sequence, though misinterpretation of parameters as code is allowed and may bypass the intent of this rule.
 * Non-exported symbols are still important to execution, such as `onStringLoadSuccessIVRCStringDownload`: This variable is not exported, but the `_onStringLoadSuccess` event handler presumably uses it to store the parameter.
 
@@ -141,78 +129,71 @@ At present, this covers exactly these types (referred to by C# names for simplic
 * Finally, the types `Vector4`, `Vector2[]`, `Vector3[]`, `Vector4[]`, `Quaternion[]`, `Color[]`, `Color32[]`, `VRCUrl`, `VRCUrl[]` can be synced.
 	* These cannot be interpolated.
 
-## Execution Flow
+## Network Calling Metadata
 
-The Udon interpreter loops until an exception happens or it runs out of instructions (because of a jump beyond program bounds).
+Later on, VRChat added 'network call metadata'. This metadata allows for secure, and more usefully, _parameterized_ Udon RPCs.
 
-`JUMP, 0xFFFFFFFC` is the usual idiom to deliberately stop the interpreter (because of the end of the program). Any label placed at the end of the program will theoretically do. If this difference has any important side-effects is uncertain.
+An example of `networkCallingEntrypointMetadata` in YAML:
 
-Related to this: It is possible for an `UdonBehaviour` to cause a sequence of events which causes an event to be invoked on itself while it is executing.
+```
+  networkCallingEntrypointMetadata:
+  - _maxEventsPerSecond: 5
+    _name: marbleInteract
+    _parameters:
+    - _name: marbleInteract_Parameter1
+      _type: 11
+  - _maxEventsPerSecond: 5
+    _name: loadBoardByChars
+    _parameters:
+    - _name: loadBoardByChars_Parameter1
+      _type: 21
+```
 
-If the compiler separates all temporary variables for all entrypoints, and the entrypoint being called is not already 'in use,' this sort of recursive execution is merely a little concerning.
+Parameter names are (unexported, by apparent convention) heap symbols.
 
-If the compiler does _not_ separate all temporary variables, this will become a nightmare to run away from very, very fast.
+Importantly, there's the implication here that network call metadata is sort of built _around_ Udon; it's not _part of_ Udon per-se.
 
-## Opcodes
+The type numbers are handled via `VRCUdonSyncTypeConverter`; a table is given here:
 
-### 0: NOP
-
-This opcode does nothing. There is generally no reason to use this.
-
-### 1: PUSH parameter
-
-This opcode pushes an integer to the stack. Udon Assembly may give the impression that a value is being pushed; this is not the case. In these cases, it is the heap address that is being pushed.
-
-Unless you are very dedicated to size-optimizing your Udon programs (even at the expense of runtime speed in some cases), or trying to obfuscate, there is never any reason to use this in a conditional fashion. Simply push everything immediately before `EXTERN`, `COPY` or `JUMP_IF_FALSE`.
-
-### 2: POP
-
-Pops an integer from the stack and discards it.
-
-This instruction only really makes sense if you're doing something very weird with the VM.
-
-### 3: (unassigned)
-
-This opcode is unassigned and would fail to be decoded. If executed (say, by placing it in a parameter and jumping to it), it would cause the UdonBehaviour to disable itself, and an error to be logged stating the VM has been halted, _but the VM will not in fact be halted._
-
-### 4: JUMP_IF_FALSE parameter
-
-Pops a heap index from the stack and reads a `System.Boolean` from it.
-
-If this value is false, jumps to the parameter as a bytecode position. Otherwise, continues to the next instruction.
-
-### 5: JUMP parameter
-
-Jumps to the bytecode position given by the parameter.
-
-### 6: EXTERN parameter
-
-Contrary to how this might look in assembly, the heap index given as a parameter is both read and written.
-
-Firstly, it is read.
-
-If it is a string, then this is the extern name, and needs to be resolved into a delegate, which is _then written to the heap index._ If it's already a delegate, this is fine.
-
-The delegate has some metadata about how many arguments it has, so that many heap indexes are popped. These are given to the extern are given in push order (first pushed = first argument). Note that these are still heap indexes, not values.
-
-The delegate can read or write to any heap index given. In the case of out/ref (`Ref` suffix on the type in both cases), it does write, and it doesn't bother reading for out.
-
-The actual _implementation_ of externs is that they are autogenerated wrappers around existing C# functions encased in a shell which doesn't allow listing from external code (_at least, in theory_).
-
-Two important wrinkles appear, in regards to the `this` argument and the return value (including getters). `this` is an additional parameter at the start, and the return value is an additional parameter at the end, the heap index of which is then written to.
-
-### 7: ANNOTATION parameter
-
-This opcode allows for a value to be inserted into the opcode stream with no side-effects whatsoever.
-
-This may be useful for inline debug information or obfuscation; in particular, there is no rule that you can't perform "misaligned" execution.
-
-### 8: JUMP_INDIRECT parameter
-
-Gets a heap index from the parameter and reads a `System.UInt32` from it.
-
-Interprets this as a bytecode position and jumps to it.
-
-### 9: COPY
-
-Pops two heap indexes. The value from the second heap index popped (aka the first heap index given) is copied to the first heap index popped (aka the second heap index given).
+| Type Index | Udon Type |
+| ---------- | --------- |
+| 1 | `SystemInt16` |
+| 2 | `SystemUInt16` |
+| 3 | `SystemChar` |
+| 4 | `SystemSByte` |
+| 5 | `SystemByte` |
+| 6 | `SystemInt64` |
+| 7 | `SystemUInt64` |
+| 8 | `SystemDouble` |
+| 9 | `SystemBoolean` |
+| 10 | `SystemSingle` |
+| 11 | `SystemInt32` |
+| 12 | `SystemUInt32` |
+| 13 | `UnityEngineVector2` |
+| 14 | `UnityEngineVector3` |
+| 15 | `UnityEngineVector4` |
+| 16 | `UnityEngineQuaternion` |
+| 17 | `UnityEngineColor` |
+| 18 | `UnityEngineColor32` |
+| 19 | `SystemInt16Array` |
+| 20 | `SystemUInt16Array` |
+| 21 | `SystemCharArray` |
+| 22 | `SystemSByteArray` |
+| 23 | `SystemByteArray` |
+| 24 | `SystemInt64Array` |
+| 25 | `SystemUInt64Array` |
+| 26 | `SystemDoubleArray` |
+| 27 | `SystemBooleanArray` |
+| 28 | `SystemSingleArray` |
+| 29 | `SystemInt32Array` |
+| 30 | `SystemUInt32Array` |
+| 31 | `UnityEngineVector2Array` |
+| 32 | `UnityEngineVector3Array` |
+| 33 | `UnityEngineVector4Array` |
+| 34 | `UnityEngineQuaternionArray` |
+| 35 | `UnityEngineColorArray` |
+| 36 | `UnityEngineColor32Array` |
+| 37 | `SystemString` |
+| 100 | `VRCSDKBaseVRCUrl` |
+| 101 | `VRCSDKBaseVRCUrlArray` |
+| 102 | `SystemStringArray` |
