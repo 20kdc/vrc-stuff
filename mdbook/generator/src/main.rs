@@ -1,6 +1,6 @@
-use std::fmt::Write;
-use std::collections::BTreeMap;
 use kudoninfo::{UdonType, UdonTypeKind};
+use std::collections::BTreeMap;
+use std::fmt::Write;
 
 static GENSRCROOT: &'static str = "../mdbook_generated_src";
 
@@ -17,14 +17,20 @@ fn put_file(summary: &mut String, title: &str, id: &str, level: usize, text: &st
 }
 
 fn header_translate(asm: &str) -> String {
-    asm.to_ascii_lowercase().replace(".", "").replace(" ", "-").replace("`", "")
+    asm.to_ascii_lowercase()
+        .replace(".", "")
+        .replace(" ", "-")
+        .replace("`", "")
 }
 
 fn unity_package_handler(what: &UdonType, pid: &str) -> String {
-        let mut adjustment = what.unqualified().to_string();
-        adjustment = adjustment.replace("[]", "");
-        adjustment = adjustment.replace("+", ".");
-        format!("https://docs.unity3d.com/Packages/{}/api/{}.html", pid, adjustment)
+    let mut adjustment = what.unqualified().to_string();
+    adjustment = adjustment.replace("[]", "");
+    adjustment = adjustment.replace("+", ".");
+    format!(
+        "https://docs.unity3d.com/Packages/{}/api/{}.html",
+        pid, adjustment
+    )
 }
 
 fn find_documentation_for(what: &UdonType) -> String {
@@ -40,13 +46,25 @@ fn find_documentation_for(what: &UdonType) -> String {
     } else if asm.eq("VRCEconomy") || what.name.as_str().eq("VRCSDK3ComponentsVRCOpenMenu") {
         "https://creators.vrchat.com/economy/sdk/udon-documentation".to_string()
     } else if asm.starts_with("VRC") {
-        format!("https://udonsharp.docs.vrchat.com/vrchat-api/#{}", what.short_name().to_ascii_lowercase().replace("[]", "").replace("+", "."))
+        format!(
+            "https://udonsharp.docs.vrchat.com/vrchat-api/#{}",
+            what.short_name()
+                .to_ascii_lowercase()
+                .replace("[]", "")
+                .replace("+", ".")
+        )
     } else if asm.starts_with("Unity") {
         let mut adjustment = what.unqualified().to_string();
-        adjustment = adjustment.strip_prefix("UnityEngine.").unwrap_or(adjustment.as_str()).to_string();
+        adjustment = adjustment
+            .strip_prefix("UnityEngine.")
+            .unwrap_or(adjustment.as_str())
+            .to_string();
         adjustment = adjustment.replace("+", ".");
         adjustment = adjustment.replace("[]", "");
-        format!("https://docs.unity3d.com/2022.3/Documentation/ScriptReference/{}.html", adjustment)
+        format!(
+            "https://docs.unity3d.com/2022.3/Documentation/ScriptReference/{}.html",
+            adjustment
+        )
     } else if asm.eq("mscorlib") || asm.eq("z_Collections") {
         if what.kind == UdonTypeKind::Array {
             // wrong version, but close enough
@@ -54,7 +72,10 @@ fn find_documentation_for(what: &UdonType) -> String {
         } else {
             let mut adjustment = what.unqualified().to_lowercase();
             adjustment = adjustment.replace("+", ".");
-            format!("https://learn.microsoft.com/en-us/dotnet/api/{}?view=net-10.0", adjustment)
+            format!(
+                "https://learn.microsoft.com/en-us/dotnet/api/{}?view=net-10.0",
+                adjustment
+            )
         }
     } else {
         "UNKNOWN".to_string()
@@ -73,15 +94,45 @@ fn main() {
     let opening = include_str!("opening.md").replace("SDK_VERSION", kudoninfo::SDK_VERSION);
     put_file(&mut summary, "Opening", "opening.md", 0, &opening);
 
-    put_file(&mut summary, "Udon VM (Short Primer)", "udon_vm_primer.md", 0, include_str!("udon_vm_primer.md"));
+    put_file(
+        &mut summary,
+        "Udon VM (Short Primer)",
+        "udon_vm_primer.md",
+        0,
+        include_str!("udon_vm_primer.md"),
+    );
 
-    put_file(&mut summary, "OdinSerializer", "odinserializer.md", 0, include_str!("odinserializer.md"));
+    put_file(
+        &mut summary,
+        "OdinSerializer",
+        "odinserializer.md",
+        0,
+        include_str!("odinserializer.md"),
+    );
 
-    put_file(&mut summary, "Udon Program Format", "udon_container.md", 0, include_str!("udon_container.md"));
+    put_file(
+        &mut summary,
+        "Udon Program Format",
+        "udon_container.md",
+        0,
+        include_str!("udon_container.md"),
+    );
 
-    put_file(&mut summary, "Name Mangling", "udon_mangling.md", 0, include_str!("udon_mangling.md"));
+    put_file(
+        &mut summary,
+        "Name Mangling",
+        "udon_mangling.md",
+        0,
+        include_str!("udon_mangling.md"),
+    );
 
-    put_file(&mut summary, "kvtools", "kvtools.md", 0, include_str!("kvtools.md"));
+    put_file(
+        &mut summary,
+        "kvtools",
+        "kvtools.md",
+        0,
+        include_str!("kvtools.md"),
+    );
 
     let mut externs_index = include_str!("externs.md").to_string();
 
@@ -95,7 +146,10 @@ fn main() {
         if !assemblies.contains_key(assembly) {
             let mut init_idx = String::new();
             if assembly.eq("z_Collections") {
-                _ = writeln!(init_idx, "This is actually `mscorlib`, but this 'assembly' is being used as containment for the large quantity of generic Collection types.");
+                _ = writeln!(
+                    init_idx,
+                    "This is actually `mscorlib`, but this 'assembly' is being used as containment for the large quantity of generic Collection types."
+                );
                 _ = writeln!(init_idx, "");
             }
             let init_content = String::new();
@@ -107,23 +161,35 @@ fn main() {
         let type_reference_fancy = format!("{:?} `{}`", v.1.kind, v.0);
         let type_reference_link = header_translate(&type_reference_fancy);
 
-        _ = writeln!(asm.0, "* [{}](./ext_{}.md#{})", type_reference_fancy, assembly, type_reference_link);
+        _ = writeln!(
+            asm.0,
+            "* [{}](./ext_{}.md#{})",
+            type_reference_fancy, assembly, type_reference_link
+        );
 
         let udon_type = v.1;
         _ = writeln!(asm.1, "");
         _ = writeln!(asm.1, "## {}", type_reference_fancy);
         _ = writeln!(asm.1, "");
-        _ = writeln!(asm.1, "[_back to assembly_](./externs.md#{})", header_translate(assembly));
+        _ = writeln!(
+            asm.1,
+            "[_back to assembly_](./externs.md#{})",
+            header_translate(assembly)
+        );
         _ = writeln!(asm.1, "");
         _ = writeln!(asm.1, "* Kind: `{:?}`", udon_type.kind);
         _ = writeln!(asm.1, "* OdinSerializer: `{}`", udon_type.odin_name);
-        _ = writeln!(asm.1, "* Documentation: <{}>", find_documentation_for(&udon_type));
+        _ = writeln!(
+            asm.1,
+            "* Documentation: <{}>",
+            find_documentation_for(&udon_type)
+        );
         _ = writeln!(asm.1, "");
         _ = writeln!(asm.1, "Externs:");
         _ = writeln!(asm.1, "");
         for ext in kudoninfo::udonextern_map() {
-            if !(ext.1.associated_type.as_str()).eq(v.0) {
-                continue
+            if !(ext.1.associated_type.name.as_str()).eq(v.0) {
+                continue;
             }
             _ = writeln!(asm.1, "* `{}`", ext.0);
         }
@@ -134,7 +200,12 @@ fn main() {
     _ = writeln!(externs_index, "");
     for v in &assemblies {
         let asm = v.0;
-        _ = writeln!(externs_index, "- [{}](./externs.md#{})", asm, header_translate(asm));
+        _ = writeln!(
+            externs_index,
+            "- [{}](./externs.md#{})",
+            asm,
+            header_translate(asm)
+        );
     }
     _ = writeln!(externs_index, "");
 
@@ -165,13 +236,7 @@ fn main() {
     );
 
     for v in &assemblies {
-        put_file(
-            &mut summary,
-            &v.0,
-            &format!("ext_{}.md", v.0),
-            1,
-            &v.1.1,
-        );
+        put_file(&mut summary, &v.0, &format!("ext_{}.md", v.0), 1, &v.1.1);
     }
 
     // finalize

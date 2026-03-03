@@ -1,4 +1,4 @@
-use kudoninfo::{UdonType, UdonTypeRef};
+use kudoninfo::UdonTypeRef;
 use serde::{Deserialize, Serialize, de::VariantAccess, de::Visitor};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -253,7 +253,7 @@ pub enum KU2Instruction {
     #[serde(rename = "update_order")]
     UpdateOrder(KU2Operand),
     #[serde(rename = "net_event")]
-    NetEvent(KU2Symbol, i32, Vec<(KU2Symbol, UdonType)>),
+    NetEvent(KU2Symbol, i32, Vec<(KU2Symbol, UdonTypeRef)>),
     #[serde(rename = "rename_sym")]
     RenameSym(KU2Symbol, String),
     // meta

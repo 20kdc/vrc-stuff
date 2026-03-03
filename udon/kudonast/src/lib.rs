@@ -97,7 +97,7 @@ pub enum UdonHeapValue {
     /// Primitive array with the encompassing object auto-generated.
     /// This is the most convenient way to handle, i.e. [kudoninfo::udon_types::SystemByteArray].
     /// _Not supported in UASM._
-    PrimitiveArray(UdonType, OdinPrimitiveArray),
+    PrimitiveArray(UdonTypeRef, OdinPrimitiveArray),
     /// Calculated integer.
     /// _Limited support in UASM -- all integers written as UInt._
     I(OdinIntType, UdonInt),
@@ -155,8 +155,8 @@ pub struct UdonNetworkCallMetadata {
     pub parameters: Vec<UdonNetworkCallParameter>,
 }
 
-/// Network call parameter; a name and type. UdonType is used for convenience.
-pub type UdonNetworkCallParameter = (String, UdonType);
+/// Network call parameter; a name and type. [UdonTypeRef] is used for convenience instead of the sync type.
+pub type UdonNetworkCallParameter = (String, UdonTypeRef);
 
 /// This does not match neatly with IUdonProgram; it really translates best to a `.udonjson` file.
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]

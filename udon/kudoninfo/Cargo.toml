@@ -10,6 +10,9 @@ license.workspace = true
 kudon_apijson = { path = "../kudon_apijson" }
 serde = { version = "1.0.228", features = ["derive"] }
 
+[dev-dependencies]
+ron = "0.12.0"
+
 [build-dependencies]
 kudon_apijson = { path = "../kudon_apijson" }
 json = "0.12.4"

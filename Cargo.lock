@@ -163,6 +163,7 @@ version = "0.1.0"
 dependencies = [
  "json",
  "kudon_apijson",
+ "ron",
  "serde",
 ]
 
