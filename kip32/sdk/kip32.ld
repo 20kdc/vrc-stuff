@@ -22,6 +22,8 @@ SECTIONS {
 		. = ALIGN(4);
 		*(.rodata)
 		*(.rodata.*)
+		. = ALIGN(4);
+		_sidata = .; /* Having _sidata and _ebss around is useful for syncing static data. */
 		*(.data)
 		*(.data.*)
 		*(.sdata)
@@ -34,6 +36,9 @@ SECTIONS {
 		*(.bss.*)
 		*(.sbss)
 		*(.sbss.*)
+		*(COMMON)
+		. = ALIGN(4);
+		_ebss = .; /* See above. */
 	}
 	.kip32_metadata : {
 		. = ALIGN(4);
