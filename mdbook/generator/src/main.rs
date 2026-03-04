@@ -140,10 +140,10 @@ fn translate_parameter_type(tree: &BTreeMap<String, TypeInfo>, st: &UdonExternPa
         st.udon_type.name.as_str()
     };
     res = res.strip_suffix("Ref").unwrap_or(res);
-    if let Some(v) = tree.get(res) {
-        format!("[`{}`]({}{})", v.udon_type.name, link_pfx, v.link)
+    if let Some(v) = tree.get(st.udon_type.name.as_str()) {
+        format!("[{}]({}{})", res, link_pfx, v.link)
     } else {
-        format!("`{}`", res)
+        format!("{}", res)
     }
 }
 
@@ -270,8 +270,9 @@ fn main() {
             _ = writeln!(asm.1, "### `{}`", ext.name);
             _ = writeln!(asm.1, "");
             // we now attempt to format this extern in a sensible way
+            _ = write!(asm.1, "<code>");
             if ext.method_static {
-                _ = write!(asm.1, "static ")
+                _ = write!(asm.1, "static ");
             }
             if ext.has_return {
                 _ = write!(
@@ -283,9 +284,9 @@ fn main() {
                 _ = write!(asm.1, "void ");
             }
             if ext.has_generic_param {
-                _ = write!(asm.1, "`{}<T>`(", ext.name_parsed.method_name);
+                _ = write!(asm.1, "{}&lt;T&gt;(", ext.name_parsed.method_name);
             } else {
-                _ = write!(asm.1, "`{}`(", ext.name_parsed.method_name);
+                _ = write!(asm.1, "{}(", ext.name_parsed.method_name);
             }
             let mut was_first = true;
             for param in ext.parameters.iter() {
@@ -309,7 +310,7 @@ fn main() {
                     _ = write!(asm.1, "{}", translate_parameter_type(&typeinfo, param, "../"));
                 }
             }
-            _ = writeln!(asm.1, ");");
+            _ = writeln!(asm.1, ");</code>");
             _ = writeln!(asm.1, "");
             _ = write!(asm.1, "Raw: `");
             was_first = true;
