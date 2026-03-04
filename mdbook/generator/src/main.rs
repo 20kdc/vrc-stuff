@@ -1,4 +1,4 @@
-use kudoninfo::{UdonType, UdonTypeKind};
+use kudoninfo::{UdonExternParam, UdonExternParamDir, UdonExternParamRole, UdonType, UdonTypeKind};
 use std::collections::BTreeMap;
 use std::fmt::Write;
 
@@ -65,7 +65,7 @@ fn find_documentation_for(what: &UdonType) -> String {
             "https://docs.unity3d.com/2022.3/Documentation/ScriptReference/{}.html",
             adjustment
         )
-    } else if asm.eq("mscorlib") || asm.eq("z_Collections") {
+    } else if asm.eq("mscorlib") || asm.eq("Collections") || asm.eq("System") {
         if what.kind == UdonTypeKind::Array {
             // wrong version, but close enough
             "https://learn.microsoft.com/en-us/dotnet/api/system.array?view=net-10.0".to_string()
@@ -82,11 +82,77 @@ fn find_documentation_for(what: &UdonType) -> String {
     }
 }
 
+#[derive(Clone, Copy, PartialOrd, Ord, PartialEq, Eq)]
+enum PageCat {
+    Regular,
+    Collections,
+    Arrays,
+}
+
+type PageRef = (PageCat, String);
+
+struct TypeInfo {
+    /// Page reference.
+    page: PageRef,
+    /// Link to the type.
+    link: String,
+    /// Fancy reference (used for header)
+    fancy: String,
+    /// The underlying UdonType.
+    udon_type: &'static UdonType,
+}
+
+fn gen_typeinfo() -> BTreeMap<String, TypeInfo> {
+    let mut typemap: BTreeMap<String, TypeInfo> = BTreeMap::new();
+    for v in kudoninfo::udontype_map() {
+        let mut assembly = (PageCat::Regular, v.1.assembly().to_string());
+        if v.0.starts_with("SystemCollectionsGeneric") {
+            assembly = (PageCat::Collections, "Collections".to_string());
+        }
+        if v.1.kind == UdonTypeKind::Array {
+            assembly = (PageCat::Arrays, format!("{}_arrays", assembly.1));
+        }
+
+        let type_reference_fancy = format!("{:?} `{}`", v.1.kind, v.0);
+        let type_reference_link = format!(
+            "ext/{}.md#{}",
+            assembly.1,
+            header_translate(&type_reference_fancy)
+        );
+
+        typemap.insert(
+            v.0.to_string(),
+            TypeInfo {
+                page: assembly,
+                link: type_reference_link,
+                fancy: type_reference_fancy,
+                udon_type: v.1,
+            },
+        );
+    }
+    typemap
+}
+
+fn translate_parameter_type(tree: &BTreeMap<String, TypeInfo>, st: &UdonExternParam, link_pfx: &str) -> String {
+    let mut res = if let Some(x) = &st.signature_type {
+        x
+    } else {
+        st.udon_type.name.as_str()
+    };
+    res = res.strip_suffix("Ref").unwrap_or(res);
+    if let Some(v) = tree.get(res) {
+        format!("[`{}`]({}{})", v.udon_type.name, link_pfx, v.link)
+    } else {
+        format!("`{}`", res)
+    }
+}
+
 fn main() {
     // Since this is such a dangerous operation, the source directory has been renamed so it doesn't accidentally eat some other src directory.
     // We also hardcode this here so a careless change to the above constant doesn't cause this to start mass-rm'ing.
     _ = std::fs::remove_dir_all("../mdbook_generated_src");
     _ = std::fs::create_dir_all(GENSRCROOT);
+    _ = std::fs::create_dir_all(format!("{}/ext", GENSRCROOT));
     let mut summary = String::new();
     summary.push_str("# Summary\n\n");
 
@@ -136,47 +202,58 @@ fn main() {
 
     let mut externs_index = include_str!("externs.md").to_string();
 
-    let mut assemblies: BTreeMap<String, (String, String)> = BTreeMap::new();
-    for v in kudoninfo::udontype_map() {
-        let mut assembly = v.1.assembly();
-        if v.0.starts_with("SystemCollectionsGeneric") {
-            assembly = "z_Collections";
-        }
+    // Map types to pages and add assemblies.
+    let typeinfo: BTreeMap<String, TypeInfo> = gen_typeinfo();
+    let mut typepages: BTreeMap<PageRef, (String, String)> = BTreeMap::new();
 
-        if !assemblies.contains_key(assembly) {
+    for v in &typeinfo {
+        let ti = &v.1;
+
+        if !typepages.contains_key(&ti.page) {
             let mut init_idx = String::new();
-            if assembly.eq("z_Collections") {
+            if ti.page.0 == PageCat::Collections {
                 _ = writeln!(
                     init_idx,
                     "This is actually `mscorlib`, but this 'assembly' is being used as containment for the large quantity of generic Collection types."
                 );
                 _ = writeln!(init_idx, "");
             }
+            if ti.page.0 == PageCat::Arrays {
+                _ = writeln!(
+                    init_idx,
+                    "This is not actually a separate assembly, but array types tend to clutter up the main listings."
+                );
+                _ = writeln!(init_idx, "");
+            }
             let init_content = String::new();
-            assemblies.insert(assembly.to_string(), (init_idx, init_content));
+            typepages.insert(ti.page.clone(), (init_idx, init_content));
         }
 
-        let asm = assemblies.get_mut(assembly).unwrap();
+        let asm = typepages.get_mut(&ti.page).unwrap();
 
-        let type_reference_fancy = format!("{:?} `{}`", v.1.kind, v.0);
-        let type_reference_link = header_translate(&type_reference_fancy);
+        // The short name makes the search easier to use.
+        _ = writeln!(asm.0, "* [{}]({}) (`{}`)", ti.fancy, ti.link, ti.udon_type.short_name());
 
-        _ = writeln!(
-            asm.0,
-            "* [{}](./ext_{}.md#{})",
-            type_reference_fancy, assembly, type_reference_link
-        );
-
-        let udon_type = v.1;
+        let udon_type = ti.udon_type;
         _ = writeln!(asm.1, "");
-        _ = writeln!(asm.1, "## {}", type_reference_fancy);
+        _ = writeln!(asm.1, "## {}", ti.fancy);
         _ = writeln!(asm.1, "");
         _ = writeln!(
             asm.1,
-            "[_back to assembly_](./externs.md#{})",
-            header_translate(assembly)
+            "[_back to assembly_](../externs.md#{})",
+            header_translate(&ti.page.1)
         );
         _ = writeln!(asm.1, "");
+        if let Some(other_name) = udon_type.name.strip_suffix("Array") {
+            if let Some(other_type) = typeinfo.get(other_name) {
+                _ = writeln!(asm.1, "[_back to element type_](../{})", other_type.link);
+                _ = writeln!(asm.1, "");
+            }
+        }
+        if let Some(other_type) = typeinfo.get(&format!("{}Array", udon_type.name)) {
+            _ = writeln!(asm.1, "[_to array type_](../{})", other_type.link);
+            _ = writeln!(asm.1, "");
+        }
         _ = writeln!(asm.1, "* Kind: `{:?}`", udon_type.kind);
         _ = writeln!(asm.1, "* OdinSerializer: `{}`", udon_type.odin_name);
         _ = writeln!(
@@ -185,32 +262,85 @@ fn main() {
             find_documentation_for(&udon_type)
         );
         _ = writeln!(asm.1, "");
-        _ = writeln!(asm.1, "Externs:");
-        _ = writeln!(asm.1, "");
         for ext in kudoninfo::udonextern_map() {
-            if !(ext.1.associated_type.name.as_str()).eq(v.0) {
+            let ext = ext.1;
+            if !(ext.associated_type.name.as_str()).eq(v.0) {
                 continue;
             }
-            _ = writeln!(asm.1, "* `{}`", ext.0);
+            _ = writeln!(asm.1, "### `{}`", ext.name);
+            _ = writeln!(asm.1, "");
+            // we now attempt to format this extern in a sensible way
+            if ext.method_static {
+                _ = write!(asm.1, "static ")
+            }
+            if ext.has_return {
+                _ = write!(
+                    asm.1,
+                    "{} ",
+                    translate_parameter_type(&typeinfo, ext.parameters.last().unwrap(), "../")
+                );
+            } else {
+                _ = write!(asm.1, "void ");
+            }
+            if ext.has_generic_param {
+                _ = write!(asm.1, "`{}<T>`(", ext.name_parsed.method_name);
+            } else {
+                _ = write!(asm.1, "`{}`(", ext.name_parsed.method_name);
+            }
+            let mut was_first = true;
+            for param in ext.parameters.iter() {
+                if param.role == UdonExternParamRole::Regular {
+                    if !was_first {
+                        _ = write!(asm.1, ", ");
+                    } else {
+                        was_first = false;
+                    }
+                    match param.dir {
+                        UdonExternParamDir::In => {
+                            // normal
+                        },
+                        UdonExternParamDir::Out => {
+                            _ = write!(asm.1, "out ");
+                        },
+                        UdonExternParamDir::InOut => {
+                            _ = write!(asm.1, "ref ");
+                        }
+                    }
+                    _ = write!(asm.1, "{}", translate_parameter_type(&typeinfo, param, "../"));
+                }
+            }
+            _ = writeln!(asm.1, ");");
+            _ = writeln!(asm.1, "");
+            _ = write!(asm.1, "Raw: `");
+            was_first = true;
+            for param in ext.parameters.iter() {
+                if !was_first {
+                    _ = write!(asm.1, ", ");
+                } else {
+                    was_first = false;
+                }
+                _ = write!(asm.1, "{:?}({})", param.dir, param.udon_type.name);
+            }
+            _ = writeln!(asm.1, "`");
         }
     }
 
     _ = writeln!(externs_index, "");
     _ = writeln!(externs_index, "## Assemblies");
     _ = writeln!(externs_index, "");
-    for v in &assemblies {
+    for v in &typepages {
         let asm = v.0;
         _ = writeln!(
             externs_index,
             "- [{}](./externs.md#{})",
-            asm,
-            header_translate(asm)
+            asm.1,
+            header_translate(&asm.1)
         );
     }
     _ = writeln!(externs_index, "");
 
-    for v in &assemblies {
-        _ = writeln!(externs_index, "## {}", &v.0);
+    for v in &typepages {
+        _ = writeln!(externs_index, "## {}", &v.0.1);
         _ = writeln!(externs_index, "");
         _ = writeln!(externs_index, "[_back to top_](./externs.md#assemblies)");
         _ = writeln!(externs_index, "");
@@ -235,8 +365,14 @@ fn main() {
         &"The externs documentation itself goes here, so it doesn't get in the way.",
     );
 
-    for v in &assemblies {
-        put_file(&mut summary, &v.0, &format!("ext_{}.md", v.0), 1, &v.1.1);
+    for v in &typepages {
+        put_file(
+            &mut summary,
+            &v.0.1,
+            &format!("ext/{}.md", v.0.1),
+            1,
+            &v.1.1,
+        );
     }
 
     // finalize

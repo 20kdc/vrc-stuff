@@ -92,6 +92,15 @@ pub enum UdonExternParamDir {
     InOut,
 }
 
+/// Marks special parameters.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+pub enum UdonExternParamRole {
+    Regular,
+    This,
+    Generic,
+    Return,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct UdonExternParam {
     /// Udon type of the parameter as per node metadata
@@ -100,6 +109,8 @@ pub struct UdonExternParam {
     pub name: Cow<'static, str>,
     /// 'Signature type' (from extern ID), if any.
     pub signature_type: Option<Cow<'static, str>>,
+    /// Parameter role.
+    pub role: UdonExternParamRole,
     /// Direction (how the heap slot is used)
     pub dir: UdonExternParamDir,
 }
@@ -146,6 +157,7 @@ pub fn udonextern_map() -> &'static BTreeMap<String, UdonExtern> {
                                 .unwrap_or_else(|| panic!("missing type: {}", ty)),
                             name: Cow::Owned(name.to_string()),
                             signature_type: None,
+                            role: UdonExternParamRole::Regular,
                             dir: if dir.eq("IN") {
                                 UdonExternParamDir::In
                             } else if dir.eq("OUT") {
@@ -188,12 +200,26 @@ pub fn udonextern_map() -> &'static BTreeMap<String, UdonExtern> {
                 };
 
                 // validate methodology
-                let expected_left = (!method_static) as usize;
-                let expected_right = (has_generic_param as usize) + (has_return as usize);
-                let expected_addend = expected_left + expected_right;
+                let mut metadata: Vec<(UdonExternParamRole, Option<Cow<'static, str>>)> =
+                    Vec::new();
+                if !method_static {
+                    metadata.push((UdonExternParamRole::This, None));
+                }
+                for v in parsed.name_parsed.parameters.iter() {
+                    metadata.push((UdonExternParamRole::Regular, Some(v.clone())));
+                }
+                if has_generic_param {
+                    metadata.push((UdonExternParamRole::Generic, None));
+                }
+                if has_return {
+                    metadata.push((
+                        UdonExternParamRole::Return,
+                        Some(parsed.name_parsed.return_type.clone()),
+                    ));
+                }
                 assert_eq!(
                     parsed.parameters.len(),
-                    parsed.name_parsed.parameters.len() + expected_addend,
+                    metadata.len(),
                     "parameter validation failed on\n {}\n {:?}\n {:?}\n {:?}\n {:?}",
                     parsed.name,
                     parsed.parameters,
@@ -203,8 +229,9 @@ pub fn udonextern_map() -> &'static BTreeMap<String, UdonExtern> {
                 );
 
                 // we can now match parameters 1:1
-                for v in parsed.name_parsed.parameters.iter().enumerate() {
-                    parsed.parameters[v.0 + expected_left].signature_type = Some(v.1.clone());
+                for v in metadata.iter().enumerate() {
+                    parsed.parameters[v.0].role = v.1.0;
+                    parsed.parameters[v.0].signature_type = v.1.1.clone();
                 }
 
                 hm.insert(ext.0.to_string(), parsed);

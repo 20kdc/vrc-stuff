@@ -22,7 +22,7 @@ jobs:
       - uses: actions-rust-lang/setup-rust-toolchain@v1
       - name: Install latest mdbook
         run: |
-          url="https://github.com/rust-lang/mdbook/releases/download/v0.4.35/mdbook-v0.4.35-x86_64-unknown-linux-gnu.tar.gz"
+          url="https://github.com/rust-lang/mdbook/releases/download/v0.5.2/mdbook-v0.5.2-x86_64-unknown-linux-gnu.tar.gz"
           mkdir mdbook-bin
           curl -sSL $url | tar -xz --directory=./mdbook-bin
           echo `pwd`/mdbook-bin >> $GITHUB_PATH
