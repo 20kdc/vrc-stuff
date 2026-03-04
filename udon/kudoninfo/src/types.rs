@@ -25,6 +25,8 @@ pub struct UdonType {
     pub odin_name: Cow<'static, String>,
     /// 'Sync type'. This is used for, among other things, network call RPC.
     pub sync_type: Option<i32>,
+    /// Enum values.
+    pub enum_values: Option<BTreeMap<String, i32>>,
 }
 
 udondbentry_impl!(UdonType, udontype_map);
@@ -96,6 +98,15 @@ pub fn udontype_map() -> &'static BTreeMap<String, UdonType> {
                 },
                 odin_name: Cow::Owned(typeobj["odin_name"].as_str().unwrap().to_string()),
                 sync_type: typeobj["sync_type"].as_i32(),
+                enum_values: if typeobj["enum_values"].is_object() {
+                    let mut res = BTreeMap::new();
+                    for v in typeobj["enum_values"].entries() {
+                        res.insert(v.0.to_string(), v.1.as_i32().unwrap());
+                    }
+                    Some(res)
+                } else {
+                    None
+                },
             };
             hm.insert(key.to_string(), value);
         }

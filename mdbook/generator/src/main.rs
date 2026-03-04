@@ -46,13 +46,11 @@ fn find_documentation_for(what: &UdonType) -> String {
     } else if asm.eq("VRCEconomy") || what.name.as_str().eq("VRCSDK3ComponentsVRCOpenMenu") {
         "https://creators.vrchat.com/economy/sdk/udon-documentation".to_string()
     } else if asm.starts_with("VRC") {
-        format!(
-            "https://udonsharp.docs.vrchat.com/vrchat-api/#{}",
-            what.short_name()
-                .to_ascii_lowercase()
-                .replace("[]", "")
-                .replace("+", ".")
-        )
+        let mut name = what.short_name().to_ascii_lowercase().replace("[]", "");
+        if let Some(ptr) = name.find("+") {
+            name = name[ptr + 1..].to_string();
+        }
+        format!("https://udonsharp.docs.vrchat.com/vrchat-api/#{}", name)
     } else if asm.starts_with("Unity") {
         let mut adjustment = what.unqualified().to_string();
         adjustment = adjustment
@@ -133,7 +131,11 @@ fn gen_typeinfo() -> BTreeMap<String, TypeInfo> {
     typemap
 }
 
-fn translate_parameter_type(tree: &BTreeMap<String, TypeInfo>, st: &UdonExternParam, link_pfx: &str) -> String {
+fn translate_parameter_type(
+    tree: &BTreeMap<String, TypeInfo>,
+    st: &UdonExternParam,
+    link_pfx: &str,
+) -> String {
     let mut res = if let Some(x) = &st.signature_type {
         x
     } else {
@@ -232,7 +234,13 @@ fn main() {
         let asm = typepages.get_mut(&ti.page).unwrap();
 
         // The short name makes the search easier to use.
-        _ = writeln!(asm.0, "* [{}]({}) (`{}`)", ti.fancy, ti.link, ti.udon_type.short_name());
+        _ = writeln!(
+            asm.0,
+            "* [{}]({}) (`{}`)",
+            ti.fancy,
+            ti.link,
+            ti.udon_type.short_name()
+        );
 
         let udon_type = ti.udon_type;
         _ = writeln!(asm.1, "");
@@ -262,6 +270,14 @@ fn main() {
             find_documentation_for(&udon_type)
         );
         _ = writeln!(asm.1, "");
+        if let Some(enum_values) = &udon_type.enum_values {
+            _ = writeln!(asm.1, "Enum values:");
+            _ = writeln!(asm.1, "");
+            for v in enum_values {
+                _ = writeln!(asm.1, "* `{} = {}`", v.0, v.1);
+            }
+            _ = writeln!(asm.1, "");
+        }
         for ext in kudoninfo::udonextern_map() {
             let ext = ext.1;
             if !(ext.associated_type.name.as_str()).eq(v.0) {
@@ -299,15 +315,19 @@ fn main() {
                     match param.dir {
                         UdonExternParamDir::In => {
                             // normal
-                        },
+                        }
                         UdonExternParamDir::Out => {
                             _ = write!(asm.1, "out ");
-                        },
+                        }
                         UdonExternParamDir::InOut => {
                             _ = write!(asm.1, "ref ");
                         }
                     }
-                    _ = write!(asm.1, "{}", translate_parameter_type(&typeinfo, param, "../"));
+                    _ = write!(
+                        asm.1,
+                        "{}",
+                        translate_parameter_type(&typeinfo, param, "../")
+                    );
                 }
             }
             _ = writeln!(asm.1, ");</code>");
