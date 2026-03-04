@@ -4,10 +4,8 @@ use std::fs;
 use std::path::Path;
 
 fn push_rust_str(a: &mut String, b: &str) {
-    // this is BAD!!!
-    a.push_str("\"");
-    a.push_str(b);
-    a.push_str("\"");
+    // this is SLIGHTLY LESS BAD!!!
+    a.push_str(&format!("{:?}", b));
 }
 
 fn main() {
@@ -26,10 +24,20 @@ pub static UDON_SYNCTYPES: &[Option<&'static str>] = &[
 "##,
     );
 
-    for st in api["sync_types"].members() {
-        if st.is_object() {
+    let mut st_info: [Option<&str>; 256] = [None; 256];
+
+    for ty in kudon_apijson::type_names() {
+        let ty = kudon_apijson::type_by_name(&ty).unwrap();
+        let st = &ty["sync_type"];
+        if let Some(v) = st.as_u8() {
+            st_info[v as usize] = ty["name"].as_str();
+        }
+    }
+
+    for st in st_info {
+        if let Some(st) = st {
             totality.push_str("    Some(");
-            push_rust_str(&mut totality, st["name"].as_str().unwrap());
+            push_rust_str(&mut totality, st);
             totality.push_str("),\n");
         } else {
             totality.push_str("    None,\n");
@@ -38,10 +46,9 @@ pub static UDON_SYNCTYPES: &[Option<&'static str>] = &[
     totality.push_str("];\n");
     totality.push_str("\n");
     totality.push_str("/// Version of VRChat's SDK matching the types and externs exposed.\n");
-    totality.push_str("pub static SDK_VERSION: &'static str = \"");
-    // baaaaad
-    totality.push_str(api["version"].as_str().unwrap());
-    totality.push_str("\";\n");
+    totality.push_str("pub static SDK_VERSION: &'static str = ");
+    push_rust_str(&mut totality, api["version"].as_str().unwrap());
+    totality.push_str(";\n");
 
     fs::write(&dest_path, totality).unwrap();
     println!("cargo::rerun-if-changed=build.rs");
