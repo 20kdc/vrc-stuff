@@ -8,3 +8,4 @@ ScriptedImporter:
   assetBundleName: 
   assetBundleVariant: 
   script: {fileID: 11500000, guid: 33e5da10a39843992983baf8fbb9db96, type: 3}
+  workspace: {fileID: 11400000, guid: 52ab64c0f42ad43789d4b5e8c6c7b4c3, type: 2}

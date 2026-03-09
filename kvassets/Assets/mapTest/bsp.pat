@@ -58,7 +58,7 @@ struct BSPHead {
     Lump<Vertex> vertices2;
     Lump<u8> lump3;
     Lump<u8> lump4;
-    Lump<u8> lump5;
+    Lump<u8> texinfo5;
     Lump<Face> faces6;
     Lump<u8> lump7;
     Lump<u8> lump8;

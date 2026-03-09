@@ -9,22 +9,37 @@ namespace KDCVRCTools {
 	[ScriptedImporter(1, "bsp")]
 	public class KDCBSPImporter : ScriptedImporter {
 
-		// [TRANSFORM]
-		// This is calibrated to vr_player_stick
 		[SerializeField]
-		public float worldScale = 64.0f;
+		public KDCBSPWorkspaceConfig workspace;
 
 		public override void OnImportAsset(AssetImportContext ctx) {
+			// setup assignments
+			Dictionary<String, KDCBSPWorkspaceConfig.MaterialAssignment> mapping = new();
+			foreach (var v in workspace.materials)
+				mapping[v.name] = v;
+
+			// actually create map meshes
 			byte[] data = File.ReadAllBytes(ctx.assetPath);
 			GameObject mapGO = new GameObject("map");
 			var triangles = GetBSPTriangles(data);
 			foreach (var kvp in triangles) {
 				GameObject materialGO = new GameObject(kvp.Key);
 				materialGO.transform.parent = mapGO.transform;
-				Mesh mesh = TrianglesToMesh(kvp.Value);
+
+				var assignment = workspace.fallbackMaterial;
+				if (mapping.ContainsKey(kvp.Key))
+					assignment = mapping[kvp.Key];
+
+				Mesh mesh = TrianglesToMesh(kvp.Value, Vector2.one / new Vector2(assignment.width, assignment.height));
 				ctx.AddObjectToAsset("mesh " + kvp.Key, mesh);
 				var meshFilter = materialGO.AddComponent(typeof(MeshFilter)) as MeshFilter;
-				materialGO.AddComponent(typeof(MeshRenderer));
+
+				if (assignment.material != null) {
+					var materialsList = new List<Material>();
+					materialsList.Add(assignment.material);
+					(materialGO.AddComponent(typeof(MeshRenderer)) as MeshRenderer).SetSharedMaterials(materialsList);
+				}
+
 				// mesh.isReadable = false;
 				mesh.UploadMeshData(true);
 				meshFilter.mesh = mesh;
@@ -35,10 +50,11 @@ namespace KDCVRCTools {
 			var idx = 0;
 			foreach (var convex in convexes) {
 				string convexName = "convex" + idx;
-				Mesh mesh = TrianglesToMesh(convex);
+				GameObject convexGO = new GameObject(convexName);
+				convexGO.transform.parent = mapGO.transform;
+				Mesh mesh = TrianglesToMesh(convex, Vector2.one);
 				ctx.AddObjectToAsset(convexName, mesh);
-				var collider = mapGO.AddComponent(typeof(MeshCollider)) as MeshCollider;
-				collider.name = convexName;
+				var collider = convexGO.AddComponent(typeof(MeshCollider)) as MeshCollider;
 				collider.convex = true;
 				collider.sharedMesh = mesh;
 				idx++;
@@ -49,22 +65,22 @@ namespace KDCVRCTools {
 
 		// -- Unity Interface --
 
-		public Mesh TrianglesToMesh(List<TriInfo> triangles) {
+		public Mesh TrianglesToMesh(List<TriInfo> triangles, Vector2 uvMul) {
 			var vertices = new Vector3[triangles.Count * 3];
 			var uvs = new Vector2[triangles.Count * 3];
 			var indices = new int[triangles.Count * 3];
 			int idx = 0;
 			foreach (var v in triangles) {
 				vertices[idx] = v.a;
-				uvs[idx] = v.au;
+				uvs[idx] = v.au * uvMul;
 				indices[idx] = idx;
 				idx++;
 				vertices[idx] = v.b;
-				uvs[idx] = v.bu;
+				uvs[idx] = v.bu * uvMul;
 				indices[idx] = idx;
 				idx++;
 				vertices[idx] = v.c;
-				uvs[idx] = v.cu;
+				uvs[idx] = v.cu * uvMul;
 				indices[idx] = idx;
 				idx++;
 			}
@@ -83,10 +99,10 @@ namespace KDCVRCTools {
 			int firstFace = BitConverter.ToInt32(bsp, modelOfs + 40);
 			int numFaces = BitConverter.ToInt32(bsp, modelOfs + 44);
 			for (int i = 0; i < numFaces; i++) {
-				var winding = GetBSPFaceWinding(bsp, firstFace + i);
+				var (texinfo, winding) = GetBSPFaceWinding(bsp, firstFace + i);
 				if (winding.Count == 0)
 					continue;
-				String material = "test";
+				String material = texinfo.tex;
 				List<TriInfo> targetList = null;
 				if (tri.ContainsKey(material)) {
 					targetList = tri[material];
@@ -100,11 +116,11 @@ namespace KDCVRCTools {
 					var c = winding[j + 1];
 					targetList.Add(new TriInfo {
 						a = a,
-						au = Vector2.zero,
+						au = texinfo.MapUV(a),
 						b = b,
-						bu = Vector2.zero,
+						bu = texinfo.MapUV(b),
 						c = c,
-						cu = Vector2.zero
+						cu = texinfo.MapUV(c)
 					});
 				}
 			}
@@ -118,6 +134,15 @@ namespace KDCVRCTools {
 				int brushOfs = GetBSPStructOfs(bsp, 14, i, 12);
 				int firstSide = BitConverter.ToInt32(bsp, brushOfs);
 				int numSides = BitConverter.ToInt32(bsp, brushOfs + 4);
+				int contents = BitConverter.ToInt32(bsp, brushOfs + 8);
+				// CONTENTS_CURRENT_0
+				// We use this as a 'secret handshake' to implement the 'noclip' brush.
+				// Noclip brushes are solid (so block vis), but don't create collision.
+				if ((contents & 0x40000) != 0)
+					continue;
+				// CONTENTS_SOLID | CONTENTS_PLAYERCLIP
+				if ((contents & (1 | 0x10000)) == 0)
+					continue;
 				List<Plane> planes = new();
 				for (int j = 0; j < numSides; j++) {
 					planes.Add(GetBSPBrushSide(bsp, firstSide + j));
@@ -268,10 +293,11 @@ namespace KDCVRCTools {
 		}
 
 		// Gets a face winding.
-		public List<Vector3> GetBSPFaceWinding(byte[] bsp, int face) {
+		public (TexInfo, List<Vector3>) GetBSPFaceWinding(byte[] bsp, int face) {
 			int b = GetBSPStructOfs(bsp, 6, face, 20);
 			int firstEdge = BitConverter.ToInt32(bsp, b + 4);
 			int numEdges = (int) BitConverter.ToUInt16(bsp, b + 8);
+			int ti = (int) BitConverter.ToUInt16(bsp, b + 10);
 			List<Vector3> res = new();
 			for (int i = 0; i < numEdges; i++) {
 				// has to be mapped using surfedges - see https://github.com/id-Software/Quake-2-Tools/blob/master/bsp/qbsp3/writebsp.c#L213
@@ -280,7 +306,7 @@ namespace KDCVRCTools {
 				Vector3 tgt = GetBSPEdgeVertex(bsp, sebVal < 0 ? -sebVal : sebVal, sebVal < 0 ? 1 : 0);
 				res.Add(tgt);
 			}
-			return res;
+			return (GetBSPTexInfo(bsp, ti), res);
 		}
 
 		// Gets a brush side.
@@ -288,6 +314,31 @@ namespace KDCVRCTools {
 			int b = GetBSPStructOfs(bsp, 11, edge, 4);
 			int vtx = (int) BitConverter.ToUInt16(bsp, b + (vertex * 2));
 			return GetBSPVertex(bsp, vtx);
+		}
+
+		public TexInfo GetBSPTexInfo(byte[] bsp, int tex) {
+			int b = GetBSPStructOfs(bsp, 5, tex, 76);
+			int strofs = b + 40;
+			int strlen = 0;
+			while (strlen < 32) {
+				if (bsp[strofs + strlen] == 0)
+					break;
+				strlen++;
+			}
+			string name = new System.Text.UTF8Encoding().GetString(bsp, strofs, strlen);
+			return new TexInfo {
+				// [TRANSFORM]
+				// Note the need to perform axis swapping, world scaling...
+				sX = BitConverter.ToSingle(bsp, b + 0) * workspace.worldScale,
+				sZ = BitConverter.ToSingle(bsp, b + 4) * workspace.worldScale,
+				sY = BitConverter.ToSingle(bsp, b + 8) * workspace.worldScale,
+				sO = BitConverter.ToSingle(bsp, b + 12),
+				tX = BitConverter.ToSingle(bsp, b + 16) * -workspace.worldScale,
+				tZ = BitConverter.ToSingle(bsp, b + 20) * -workspace.worldScale,
+				tY = BitConverter.ToSingle(bsp, b + 24) * -workspace.worldScale,
+				tO = BitConverter.ToSingle(bsp, b + 28) * -1,
+				tex = name
+			};
 		}
 
 		// -- Geometric Getters --
@@ -300,9 +351,9 @@ namespace KDCVRCTools {
 			float nZ = BitConverter.ToSingle(bsp, b + 8);
 			float d = BitConverter.ToSingle(bsp, b + 12);
 			// [TRANSFORM]
-			// So, here's an oddity for you: I don't know why these have to be inverted.
-			// They clearly do, so that's a start, but I don't know why.
-			return new Plane(new Vector3(-nX, -nZ, -nY), d / -worldScale);
+			// So, here's an oddity for you: I don't know why distance has to be inverted.
+			// It clearly does, so that's a start, but I don't know why.
+			return new Plane(new Vector3(nX, nZ, nY), d / -workspace.worldScale);
 		}
 		// Gets a vertex.
 		public Vector3 GetBSPVertex(byte[] bsp, int vertex) {
@@ -314,7 +365,16 @@ namespace KDCVRCTools {
 			// positive X in TB is positive X in Unity
 			// positive Y in TB is positive Z in Unity
 			// positive Z in TB is positive Y in Unity
-			return new Vector3(nX, nZ, nY) / worldScale;
+			return new Vector3(nX, nZ, nY) / workspace.worldScale;
+		}
+
+		public struct TexInfo {
+			public float sX, sY, sZ, sO, tX, tY, tZ, tO;
+			public string tex;
+
+			public Vector2 MapUV(Vector3 i) {
+				return new Vector2(sO + (i.x * sX) + (i.y * sY) + (i.z * sZ), tO + (i.x * tX) + (i.y * tY) + (i.z * tZ));
+			}
 		}
 
 		public struct TriInfo {
