@@ -35,6 +35,13 @@ fn do_setup(v: u32) -> (Kip32Split, u32) {
 /// This test is EXCEPTIONALLY BRITTLE and may be worth putting behind a feature flag; you are expected to see failures when Capstone changes.
 #[test]
 fn idec_imm_test() {
+    if !std::env::var("KIP32_TEST_EXHAUSTIVE")
+        .unwrap_or(String::new())
+        .eq("1")
+    {
+        println!(" \x1b[1mKIP32_TEST_EXHAUSTIVE not set!\x1b[22m Skipping slow idec imm test.");
+        return;
+    }
     let capstone = Capstone::new()
         .riscv()
         .mode(arch::riscv::ArchMode::RiscV32)

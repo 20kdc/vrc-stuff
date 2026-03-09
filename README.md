@@ -4,13 +4,28 @@ Monorepo for 20kdc VRChat projects.
 
 Includes:
 
-* `docs`: Consider this an arcane codex ;3
 * `kip32`: Compiling C (via RISC-V) to Udon (and beyond?)
 * `kvassets`: Assets for 20kdc worlds.
 * `kvtools`: Non-asset universal utilities.
+* `mdbook`: <https://20kdc.github.io/vrc-stuff/>
+* `q3root`: 'Quake 3' root for using NetRadiant to build maps (_in progress, doing tech evaluation_)
+* `udon`: Udon manipulation libraries in Rust.
 * `vrc-sigmar`: An implementation of Sigmar's Garden (from [Zachtronics's Opus Magnum](https://store.steampowered.com/app/558990/Opus_Magnum/)) as an asset for VRChat worlds.
 	* (A proper demo world for this asset is pending a lot of work that may not happen.)
 * `vrc-textslidesystem`: A system to, i.e. let people on a stage broadcast their prewritten announcements on a text display. (Text can also be input live.)
+
+## Building
+
+The build script used to be a shell script; it's now managed using <https://github.com/casey/just>.
+
+Shell scripts are still used in some places, though.
+
+The dependencies required depend on what you're working on:
+
+* `kip32`: `riscv64-unknown-elf-gcc`, also see `udon`
+* `mdbook`: mdBook, also see `udon`
+* `udon`: Rust -- if updating `api_c.xz`, Python is needed
+* `vrc-sigmar` (assuming you need to replace the UASM): See `kip32`.
 
 ## Licensing etc.
 
