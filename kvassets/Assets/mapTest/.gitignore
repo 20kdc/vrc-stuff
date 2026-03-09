@@ -4,3 +4,5 @@
 *.bak
 *.srf
 *.autosave.map
+*.json
+*-compile.map
