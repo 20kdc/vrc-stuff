@@ -12,11 +12,18 @@ namespace KDCVRCTools {
 		[SerializeField]
 		public KDCBSPWorkspaceConfig workspace;
 
+		[SerializeField]
+		public float lmPackMargin = 0.01f;
+
 		public override void OnImportAsset(AssetImportContext ctx) {
 			// setup assignments
 			Dictionary<String, KDCBSPWorkspaceConfig.MaterialAssignment> mapping = new();
 			foreach (var v in workspace.materials)
 				mapping[v.name] = v;
+
+			// this
+			UnwrapParam.SetDefaults(out UnwrapParam lightmapSettings);
+			lightmapSettings.packMargin = lmPackMargin;
 
 			// actually create map meshes
 			byte[] data = File.ReadAllBytes(ctx.assetPath);
@@ -31,6 +38,9 @@ namespace KDCVRCTools {
 					assignment = mapping[kvp.Key];
 
 				Mesh mesh = TrianglesToMesh(kvp.Value, Vector2.one / new Vector2(assignment.width, assignment.height));
+
+				Unwrapping.GenerateSecondaryUVSet(mesh, lightmapSettings);
+
 				ctx.AddObjectToAsset("mesh " + kvp.Key, mesh);
 				var meshFilter = materialGO.AddComponent(typeof(MeshFilter)) as MeshFilter;
 

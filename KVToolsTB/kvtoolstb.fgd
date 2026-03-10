@@ -1,0 +1,13 @@
+@SolidClass = worldspawn : "Ignored" []
+
+@baseclass size(-24 -24 -16, 24 24 112) color(0 255 0) = PlayerClass []
+
+@PointClass base(PlayerClass) = info_player_start : "Player" []
+
+@SolidClass = func_detail : "See ericw-tools docs" []
+
+@SolidClass = func_detail_illusionary : "See ericw-tools docs" []
+
+@SolidClass = func_detail_wall : "See ericw-tools docs" []
+
+@SolidClass = func_detail_fence : "See ericw-tools docs" []

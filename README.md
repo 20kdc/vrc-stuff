@@ -4,11 +4,12 @@ Monorepo for 20kdc VRChat projects.
 
 Includes:
 
+* `baseq2`: For `kvtools` Q2BSP support.
 * `kip32`: Compiling C (via RISC-V) to Udon (and beyond?)
 * `kvassets`: Assets for 20kdc worlds.
 * `kvtools`: Non-asset universal utilities.
+* `KVToolsTB`: TrenchBroom config for `kvtools` Q2BSP.
 * `mdbook`: <https://20kdc.github.io/vrc-stuff/>
-* `qroot`: TrenchBroom generic root to build maps w/ ericw-tools (_in progress, doing tech evaluation_)
 * `udon`: Udon manipulation libraries in Rust.
 * `vrc-sigmar`: An implementation of Sigmar's Garden (from [Zachtronics's Opus Magnum](https://store.steampowered.com/app/558990/Opus_Magnum/)) as an asset for VRChat worlds.
 	* (A proper demo world for this asset is pending a lot of work that may not happen.)
