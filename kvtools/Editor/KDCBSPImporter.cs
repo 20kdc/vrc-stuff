@@ -15,6 +15,9 @@ namespace KDCVRCTools {
 		[SerializeField]
 		public float lmPackMargin = 0.01f;
 
+		[SerializeField]
+		public StaticEditorFlags staticFlags = StaticEditorFlags.OccluderStatic | StaticEditorFlags.OccludeeStatic | StaticEditorFlags.ContributeGI | StaticEditorFlags.BatchingStatic | StaticEditorFlags.ReflectionProbeStatic;
+
 		public override void OnImportAsset(AssetImportContext ctx) {
 			// setup assignments
 			Dictionary<String, KDCBSPWorkspaceConfig.MaterialAssignment> mapping = new();
@@ -28,10 +31,14 @@ namespace KDCVRCTools {
 			// actually create map meshes
 			byte[] data = File.ReadAllBytes(ctx.assetPath);
 			GameObject mapGO = new GameObject("map");
+
+			GameObject visualsGO = new GameObject("visuals");
+			visualsGO.transform.parent = mapGO.transform;
+
 			var triangles = GetBSPTriangles(data);
 			foreach (var kvp in triangles) {
 				GameObject materialGO = new GameObject(kvp.Key);
-				materialGO.transform.parent = mapGO.transform;
+				materialGO.transform.parent = visualsGO.transform;
 
 				var assignment = workspace.fallbackMaterial;
 				if (mapping.ContainsKey(kvp.Key))
@@ -53,15 +60,18 @@ namespace KDCVRCTools {
 				// mesh.isReadable = false;
 				mesh.UploadMeshData(true);
 				meshFilter.mesh = mesh;
-				var staticFlags = StaticEditorFlags.OccluderStatic | StaticEditorFlags.OccludeeStatic | StaticEditorFlags.ContributeGI | StaticEditorFlags.BatchingStatic | StaticEditorFlags.ReflectionProbeStatic;
 				GameObjectUtility.SetStaticEditorFlags(materialGO, staticFlags);
 			}
+
+			GameObject collisionGO = new GameObject("collision");
+			collisionGO.transform.parent = mapGO.transform;
+
 			var convexes = GetBSPConvexes(data);
 			var idx = 0;
 			foreach (var convex in convexes) {
 				string convexName = "convex" + idx;
 				GameObject convexGO = new GameObject(convexName);
-				convexGO.transform.parent = mapGO.transform;
+				convexGO.transform.parent = collisionGO.transform;
 				Mesh mesh = TrianglesToMesh(convex, Vector2.one);
 				ctx.AddObjectToAsset(convexName, mesh);
 				var collider = convexGO.AddComponent(typeof(MeshCollider)) as MeshCollider;
