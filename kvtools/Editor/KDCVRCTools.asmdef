@@ -5,7 +5,8 @@
         "VRC.Udon",
         "VRC.Udon.Serialization.OdinSerializer",
         "VRC.Udon.Editor",
-        "UdonSharp.Editor"
+        "UdonSharp.Editor",
+        "VRC.ClientSim"
     ],
     "includePlatforms": [
         "Editor"

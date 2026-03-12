@@ -4,10 +4,18 @@
 
 It contains:
 
+* Bug workarounds.
 * Datamining infrastructure used to create and maintain this documentation.
 * `.udonjson` support for importing and using precompiled Udon programs
 * Tools to dump compiled Udon programs in your Worlds project
 * Quake 2 BSP import
+
+## Bug Workarounds
+
+`kvtools` contains workarounds for some bugs:
+
+1. When domain reloading is disabled, PlayerObjects typically cause ClientSim to stop functioning on second Play (<https://feedback.vrchat.com/persistence/p/clientsim-doesnt-work-with-player-objects-when-reload-domain-disabled>)
+2. When domain reloading is disabled, NetworkCalling metadata may be 'stuck'
 
 ## `.udonjson`
 
