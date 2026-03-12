@@ -69,6 +69,7 @@ Some particular notes:
 * You need a dummy entity in each world 'cavity' so the map compiler knows the inside and outside.
 * Lightmapping is still handled by Unity, so don't bother running the Q2BSP `light`.
 * **Entities are not supported, but the BSP compiler may have 'built-in' entities. See <https://ericw-tools.readthedocs.io/en/latest/qbsp.html#compiler-internal-bmodels>.**
+* On some versions, `func_detail_illusionary` defaults to `"_mirrorinside" "1"`. _**Make sure to explicitly change it to 0, or it'll horribly break light baking!!!**_
 * If the Unity material is None, triangles will not be created. This is one of the two useful ways to use `common/sky` (the other being a skybox material, perhaps with a custom shader with emission).
 * Special materials (note: The meanings are primarily assigned using `ericw-tools` metadata `.wal_json` files):
 	* If looking for `skip` / `caulk`: These are Q1 and Q3 names of `common/nodraw`.
