@@ -175,7 +175,7 @@ namespace KDCVRCTools {
 		// -- Convex Slicer --
 
 		// Creates a convex from planes.
-		public static List<TriInfo> CutConvex(List<Plane> planes) {
+		public List<TriInfo> CutConvex(List<Plane> planes) {
 			List<TriInfo> res = new();
 			for (int i = 0; i < planes.Count; i++) {
 				// create initial
@@ -207,8 +207,10 @@ namespace KDCVRCTools {
 		}
 
 		// Creates an initial winding for a given plane.
-		public static List<Vector3> GenInitialWinding(Plane p) {
-			float q = 131072;
+		public List<Vector3> GenInitialWinding(Plane p) {
+			// This algorithm in particular is subject to numerical stability issues.
+			// If you're getting precision issues with collision: LOOK HERE FIRST!
+			float q = 131072 / workspace.worldScale;
 			// float q = 1024;
 			List<Vector3> res = new();
 			var nx = Math.Abs(p.normal.x);
@@ -245,7 +247,7 @@ namespace KDCVRCTools {
 
 		// Cuts a winding. Everything on the positive edge of the plane is lost.
 		// Winding order is maintained.
-		public static List<Vector3> CutWinding(List<Vector3> lst, Plane p) {
+		public List<Vector3> CutWinding(List<Vector3> lst, Plane p) {
 			List<Vector3> res = new();
 			for (int i = 0; i < lst.Count; i++) {
 				int j = (i + 1) % lst.Count;
@@ -277,8 +279,8 @@ namespace KDCVRCTools {
 			return res;
 		}
 
-		public static int SideOfPoint(Plane p, Vector3 point) {
-			float epsilon = 0.05f;
+		public int SideOfPoint(Plane p, Vector3 point) {
+			float epsilon = 0.05f / workspace.worldScale;
 			float dist = p.GetDistanceToPoint(point);
 			if (Math.Abs(dist) < epsilon)
 				return 0;

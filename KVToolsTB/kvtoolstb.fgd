@@ -4,10 +4,14 @@
 
 @PointClass base(PlayerClass) = info_player_start : "Player" []
 
-@SolidClass = func_detail : "See ericw-tools docs" []
+@SolidClass = func_group : "See ericw-tools docs" [
+	_mirrorinside(integer) : "Creates mirrored polygons on the inside. See ericw-tools docs. For Unity use, leave unset or zero." : 0
+]
 
-@SolidClass = func_detail_illusionary : "See ericw-tools docs" []
+@SolidClass base(func_group) = func_detail : "See ericw-tools docs" []
 
-@SolidClass = func_detail_wall : "See ericw-tools docs" []
+@SolidClass base(func_group) = func_detail_illusionary : "See ericw-tools docs. SET _mirrorinside 0 EXPLICITLY!!!" []
 
-@SolidClass = func_detail_fence : "See ericw-tools docs" []
+@SolidClass base(func_group) = func_detail_wall : "See ericw-tools docs" []
+
+@SolidClass base(func_group) = func_detail_fence : "See ericw-tools docs" []
