@@ -1,0 +1,6 @@
+var_public (raisebat_line_in, string(""))
+var (raisebat_temp0, null("SystemObject"))
+var (raisebat_temp1, null("SystemObject"))
+// didn't work so we go through Transform
+// var_public (raisebat_target, null("VRCUdonCommonInterfacesIUdonEventReceiver"))
+var_public (raisebat_target, null("UnityEngineTransform"))

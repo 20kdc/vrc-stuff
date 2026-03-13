@@ -1,0 +1,37 @@
+#include <stdint.h>
+
+#define MICROPY_CONFIG_ROM_LEVEL                (MICROPY_CONFIG_ROM_LEVEL_BASIC_FEATURES)
+#define MICROPY_ENABLE_COMPILER                 (1)
+#define MICROPY_ERROR_REPORTING                 (MICROPY_ERROR_REPORTING_TERSE)
+
+#define MICROPY_PY_GC (1)
+#define MICROPY_ENABLE_GC (1)
+#define MICROPY_MODULE_FROZEN (1)
+#define MICROPY_MODULE_FROZEN_MPY (1)
+#define MICROPY_HELPER_REPL (1)
+#define MICROPY_REPL_EVENT_DRIVEN (0)
+#define MICROPY_ENABLE_SCHEDULER (1)
+#define MICROPY_KBD_EXCEPTION (1)
+
+#define MICROPY_PY_IO (0)
+#define MICROPY_PY_UCTYPES (0)
+
+#define MICROPY_PY_SYS_MODULES            (0)
+#define MICROPY_PY_SYS_STDFILES           (0)
+#define MICROPY_PY_SYS_EXIT               (0)
+#define MICROPY_PY_SYS_PATH               (0)
+#define MICROPY_PY_SYS_ARGV               (0)
+
+typedef long mp_off_t;
+
+#include <alloca.h>
+
+#define MICROPY_HW_BOARD_NAME "calamus"
+#define MICROPY_HW_MCU_NAME "kip32"
+
+#define MP_STATE_PORT MP_STATE_VM
+
+extern void raisebat_periodic_timer();
+
+#define MICROPY_VM_HOOK_LOOP { raisebat_periodic_timer(); }
+#define MICROPY_VM_HOOK_RETURN { raisebat_periodic_timer(); }
