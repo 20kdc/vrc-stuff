@@ -150,6 +150,14 @@ The `EBREAK` syscalls caused a few wasted instruction 'slots,' but allowed inlin
 The `JAL` syscalls seem to solve many of the later issues in the project (Clang does _not_ like the inline assembly `EBREAK` syscalls were using). \
 In addition, the architecture required for instruction fusion was added in order to support instructions where decoding needs reading outside of the instruction word.
 
+## 'Known' Syscalls
+
+These syscalls have fixed _intended_ meanings, and are thus reliable for libc.
+
+Note that extremely niche cases may use special compiler flags to remove these syscalls.
+
+* `syscall_stdsyscall_memmove`: Implements `memmove`. See appropriate C specification.
+
 ## Udon Supplement
 
 The argument registers `a0`-`a7` are directly exposed as public `SystemInt32` fields.
