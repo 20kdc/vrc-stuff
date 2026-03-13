@@ -95,6 +95,7 @@ impl KU2Context {
 
         match val {
             KU2HeapSlot::String(v) => pmap!(SystemString, String, v),
+            KU2HeapSlot::Type(v) => Ok(UdonHeapSlot(udontyperef!(SystemType), UdonHeapValue::RType(v.odin_name.to_string()))),
 
             KU2HeapSlot::SByte(v) => imap!(SByte, *v),
             KU2HeapSlot::Byte(v) => imap!(Byte, *v),

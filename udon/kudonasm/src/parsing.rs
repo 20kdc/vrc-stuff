@@ -168,6 +168,9 @@ pub enum KU2HeapSlot {
     // Decimal(OdinDecimal),
     #[serde(rename = "string")]
     String(String),
+    #[serde(rename = "type")]
+    Type(UdonTypeRef),
+
     // WTF16(Vec<u16>),
     // Guid(OdinGuid),
     #[serde(rename = "sbyte")]

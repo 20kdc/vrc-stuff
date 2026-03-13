@@ -138,6 +138,12 @@ KIP32_INLINE(void) kip32_udon_chararray_get_internal(int i) {
 
 #define KIP32_UDON_STR_TOCHARARRAY(p, r) KIP32_UDON_EXTERN2("SystemString.__ToCharArray__SystemCharArray", p, r)
 
+#define KIP32_UDON_UCS2_CHR(v, r) { \
+	kip32_udon_push_a0(); \
+	(kip32_udon_pushed_t) (r); \
+	kip32_udon_system_convert_char_internal(v); \
+}
+
 #define KIP32_UDON_UCS2_STR(v, r) { \
 	kip32_udon_push_a0(); \
 	kip32_udon_push_stdsyscall_scratch_reg(); \

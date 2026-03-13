@@ -136,6 +136,7 @@ The value itself can be:
 * `int_c(n)`, `uint_c(n)`, `short_c(n)`, `ushort_c(n)`, `byte_c(n)`, `sbyte_c(n)`, `long_c(n)`, `ulong_c(n)`, `char_c(n)`: Heap slot of the given type with the given operand as value.
 	* Importantly, the value here can refer to i.e. a code symbol.
 * `null(type)`, `this(type)`: with the given `UdonType`.
+* `type(type)`: `System.Type` (represented via `UdonType`).
 * `ast(type, value)`: Fixed `UdonType` and `kudonast::UdonHeapValue`
 
 An `UdonType` is written as a string, such as `"SystemString"`.
