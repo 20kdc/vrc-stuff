@@ -13,7 +13,7 @@ Includes:
 * `udon`: Udon manipulation libraries in Rust.
 * `vrc-sigmar`: An implementation of Sigmar's Garden (from [Zachtronics's Opus Magnum](https://store.steampowered.com/app/558990/Opus_Magnum/)) as an asset for VRChat worlds.
 	* (A proper demo world for this asset is pending a lot of work that may not happen.)
-* `vrc-textslidesystem`: A system to, i.e. let people on a stage broadcast their prewritten announcements on a text display. (Text can also be input live.)
+* `vrc-textslidesystem`: **_DOESN'T WORK? AND IS NOT USED._** (I might replace this with the core systems from a world I'm publishing when I have the time to refactor everything, idk. Networking is hard). A system to, i.e. let people on a stage broadcast their prewritten announcements on a text display. (Text can also be input live.)
 
 ## Building
 
