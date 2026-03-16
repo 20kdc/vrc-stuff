@@ -7,3 +7,9 @@
 *.autosave.map
 *.json
 *-compile.map
+
+*.bsp.meta
+*-compile.map.meta
+*.prt.meta
+*.json.meta
+*.log.meta
