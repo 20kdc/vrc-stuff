@@ -55,6 +55,8 @@ Shader "z 20kdc kvassets/Mobile Cube-Plane Reflection Shader" {
 		uniform fixed4 _Color;
 
 		UNITY_DECLARE_TEXCUBE(_PSRCubemap);
+		half4 _PSRCubemap_HDR;
+
 		uniform float4 _PSRCubemapOrigin;
 		uniform float _PSRPlaneOrigin;
 		uniform float _PSRPlaneBreadth;
@@ -91,7 +93,8 @@ Shader "z 20kdc kvassets/Mobile Cube-Plane Reflection Shader" {
 			float3 oRelImpactPoint = IN.worldPos + (IN.worldRefl * timeToImpact);
 			half3 reflDir = normalize(oRelImpactPoint - _PSRCubemapOrigin);
 			// get reflection and reduce according to simulated smoothness
-			fixed3 reflection = UNITY_SAMPLE_TEXCUBE_LOD(_PSRCubemap, reflDir, (1.0 - smoothness) * UNITY_SPECCUBE_LOD_STEPS);
+			half4 reflectionA = UNITY_SAMPLE_TEXCUBE_LOD(_PSRCubemap, reflDir, (1.0 - smoothness) * UNITY_SPECCUBE_LOD_STEPS);
+			half3 reflection = DecodeHDR(reflectionA, _PSRCubemap_HDR);
 
 			// this took way too long to get roughly-consistent with Unity
 			o.Albedo = albedo * (1.0 - _Metallic);
