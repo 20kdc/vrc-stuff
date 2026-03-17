@@ -17,7 +17,7 @@ namespace KDCVRCTools {
 		public static void ExtractData() {
 			// This is extremely bad code!
 			string udondb = Path.Combine(Application.dataPath, "SerializedUdonPrograms");
-			string uresdb = Path.Combine(Application.dataPath, "KDCVRCDumpUdonJSON");
+			string uresdb = Path.Combine("Library", "KDCVRCDumpUdonJSON");
 			Directory.CreateDirectory(uresdb);
 			foreach (string file in Directory.GetFiles(udondb)) {
 				string fn = Path.GetFileName(file);

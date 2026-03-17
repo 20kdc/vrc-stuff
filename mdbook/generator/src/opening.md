@@ -1,6 +1,8 @@
 # Opening
 
-This 'book' is intended to document things about Udon and to a lesser extent infrastructure in <https://github.com/20kdc/vrc-stuff> relating to that.
+This 'book' is a notebook for <https://github.com/20kdc/vrc-stuff>.
+
+It contains documentation on vrc-stuff, documentation on Udon, and documentation on my personal development practices.
 
 It's compiled using [mdbook](https://github.com/rust-lang/mdBook) and some custom Markdown-templating code.
 

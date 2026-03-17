@@ -164,6 +164,22 @@ fn main() {
 
     put_file(
         &mut summary,
+        "kvtools",
+        "kvtools.md",
+        0,
+        include_str!("kvtools.md"),
+    );
+
+    put_file(
+        &mut summary,
+        "Version Control Practices",
+        "vcs.md",
+        1,
+        include_str!("vcs.md"),
+    );
+
+    put_file(
+        &mut summary,
         "Udon VM (Short Primer)",
         "udon_vm_primer.md",
         0,
@@ -174,7 +190,7 @@ fn main() {
         &mut summary,
         "OdinSerializer",
         "odinserializer.md",
-        0,
+        1,
         include_str!("odinserializer.md"),
     );
 
@@ -182,7 +198,7 @@ fn main() {
         &mut summary,
         "Udon Program Format",
         "udon_container.md",
-        0,
+        1,
         include_str!("udon_container.md"),
     );
 
@@ -190,16 +206,8 @@ fn main() {
         &mut summary,
         "Name Mangling",
         "udon_mangling.md",
-        0,
+        1,
         include_str!("udon_mangling.md"),
-    );
-
-    put_file(
-        &mut summary,
-        "kvtools",
-        "kvtools.md",
-        0,
-        include_str!("kvtools.md"),
     );
 
     let mut externs_index = include_str!("externs.md").to_string();

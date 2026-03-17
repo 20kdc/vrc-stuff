@@ -47,9 +47,11 @@ It will create some files:
 
 ## `VRChat SDK/KDCVRCTools/Dump Odin`
 
-This transforms `SerializedUdonPrograms` contents into `KDCVRCDumpUdonJSON`.
+This transforms `SerializedUdonPrograms` contents into `Library/KDCVRCDumpUdonJSON`.
 
 This contains `.odin.bin` and `.odin.json` files representing the extracted OdinSerializer contents.
+
+_This should arguably be replaced with something more precisely targetted._
 
 ## Quake 2 BSP Import
 
@@ -93,3 +95,11 @@ Some particular notes:
 	* This separation may be necessary to split larger maps into individual lightmaps.
 	* This separation is required for occlusion culling, whether trigger-based or Unity occlusion.
 	* Technically, it carries `SOLID | CURRENT_0` contents flags (`CURRENT_0` is used as a marker by the importer to mean 'not actually solid'), and `NODRAW` face flags.
+
+## Proxy Assets
+
+_Experimental!_ (I'm not sure if the asset 'importing' technique here has any odd effects.)
+
+Proxy assets prevent Unity from breaking references when the source file is lost.
+
+They are text files with extension `.proxyasset`. Their content is solely a relative path name (`..` may not be supported, so don't try it).
