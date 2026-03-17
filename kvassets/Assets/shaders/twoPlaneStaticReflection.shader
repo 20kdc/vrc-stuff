@@ -1,7 +1,6 @@
 // Mobile cubemap-based two-plane reflection shader.
-// Experimental:
-// 1. I suspect lightmapping may act funny, but it seems fine???
-// 2. Performance has not been verified.
+// Checked on Q3S to be able to maintain 72FPS -- please still show restraint about overdraw.
+//
 // The idea is a specific 'hero' reflection pair (such as floor/ceiling, or two walls) that you want to preserve 'at expense of all else'.
 // The rule is that the planes are centred on the plane origin, one at -breadth and one at +breadth.
 //
@@ -13,7 +12,10 @@
 
 Shader "z 20kdc kvassets/Mobile Cube-Plane Reflection Shader" {
 	Properties {
-		_MainTex("Base (RGB) / Reflectivity (A)", 2D) = "black" {}
+		_MainTex("Base (RGB) / Smoothness (A)", 2D) = "white" {}
+		_Color("Multiplier", Color) = (1,1,1,1)
+		[Gamma] _Metallic("Metallic", Range(0,1)) = 1.0
+		_Glossiness("(Fallback Only) Smoothness", Range(0,1)) = 1.0
 
 		_PSRCubemap("Reflection Cubemap", Cube) = "" {}
 		_PSRCubemapOrigin("Reflection Cubemap Origin", Vector) = (0.0, 1.0, 0.0, 0.0)
@@ -21,9 +23,6 @@ Shader "z 20kdc kvassets/Mobile Cube-Plane Reflection Shader" {
 		[KeywordEnum(X, Y, Z)] _PSRPlane ("Reflection Plane Axis", int) = 0
 		_PSRPlaneOrigin("Reflection Plane Origin", Float) = 0.0
 		_PSRPlaneBreadth("Reflection Plane Breadth", Float) = 0.0
-
-		[Gamma] _Metallic("Metallic", Range(0,1)) = 0.0
-		_Glossiness("(Fallback/Bake) Smoothness", Range(0,1)) = 0.5
 	}
 	SubShader {
 
@@ -53,12 +52,14 @@ Shader "z 20kdc kvassets/Mobile Cube-Plane Reflection Shader" {
 		#pragma surface surf LambertVRC exclude_path:prepass exclude_path:deferred noforwardadd noshadow nodynlightmap nolppv noshadowmask
 
 		UNITY_DECLARE_TEX2D(_MainTex);
+		uniform fixed4 _Color;
 
 		UNITY_DECLARE_TEXCUBE(_PSRCubemap);
 		uniform float4 _PSRCubemapOrigin;
 		uniform float _PSRPlaneOrigin;
 		uniform float _PSRPlaneBreadth;
 		uniform fixed _Metallic;
+		uniform fixed _Glossiness;
 
 		struct Input {
 			float2 uv_MainTex;
@@ -68,8 +69,9 @@ Shader "z 20kdc kvassets/Mobile Cube-Plane Reflection Shader" {
 		};
 
 		void surf (Input IN, inout SurfaceOutputVRC o) {
-			fixed4 c = UNITY_SAMPLE_TEX2D(_MainTex, IN.uv_MainTex);
+			fixed4 c = UNITY_SAMPLE_TEX2D(_MainTex, IN.uv_MainTex) * _Color;
 			fixed3 albedo = c.rgb * IN.color;
+			fixed smoothness = c.a;
 
 			// 'add in' magic
 #if defined(_PSRPLANE_X)
@@ -89,7 +91,7 @@ Shader "z 20kdc kvassets/Mobile Cube-Plane Reflection Shader" {
 			float3 oRelImpactPoint = IN.worldPos + (IN.worldRefl * timeToImpact);
 			half3 reflDir = normalize(oRelImpactPoint - _PSRCubemapOrigin);
 			// get reflection and reduce according to simulated smoothness
-			fixed3 reflection = UNITY_SAMPLE_TEXCUBE_LOD(_PSRCubemap, reflDir, (1.0 - c.a) * UNITY_SPECCUBE_LOD_STEPS);
+			fixed3 reflection = UNITY_SAMPLE_TEXCUBE_LOD(_PSRCubemap, reflDir, (1.0 - smoothness) * UNITY_SPECCUBE_LOD_STEPS);
 
 			// this took way too long to get roughly-consistent with Unity
 			o.Albedo = albedo * (1.0 - _Metallic);
