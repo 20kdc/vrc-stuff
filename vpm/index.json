@@ -1,6 +1,8 @@
 {
 	"name": "20kdc VRChat Assets Etc.",
 	"author": "20kdc",
+	"url": "https://raw.githubusercontent.com/20kdc/vrc-stuff/refs/heads/main/vpm/index.json",
+	"id": "t20kdc.vrcstuff",
 	"packages": {
 		"t20kdc.vrc-workarounds": {
 			"versions": {

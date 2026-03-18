@@ -2,8 +2,6 @@
 
 # VPM release assistant
 
-URL_PREFIX = "https://raw.githubusercontent.com/20kdc/vrc-stuff/refs/heads/main/vpm/"
-
 import subprocess
 import sys
 import os
@@ -27,8 +25,12 @@ pkg_version = pkg_json["version"]
 assert isinstance(pkg_name, str)
 # VRC Creator Companion is less resilient than ALCOM, names are blank if nothing's given here
 assert isinstance(pkg_display_name, str)
+assert isinstance(pkg_version, str)
 
 vpm_json = read_json("vpm/index.json")
+
+URL_PREFIX = vpm_json["url"].replace("/index.json", "/")
+
 pkg_zip_name = pkg_name + "-" + pkg_version + ".zip"
 
 # early JSON setup
