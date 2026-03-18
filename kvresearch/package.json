@@ -1,0 +1,6 @@
+{
+	"name": "t20kdc.vrc-research",
+	"version": "0.0.1",
+	"description": "Primarily contains the code used to research VRChat (particularly Udon) and generate data for other 20kdc projects. May contain other things considered 'not stable enough' for kvtools.",
+	"license": "Unlicense"
+}

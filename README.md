@@ -7,10 +7,13 @@ Includes:
 * `baseq2`: For `kvtools` Q2BSP support.
 * `kip32`: Compiling C (via RISC-V) to Udon (and beyond?)
 * `kvassets`: Assets for 20kdc worlds.
-* `kvtools`: Non-asset universal utilities.
+* `kvresearch`: 'Research' package used to understand Udon + things that aren't stable enough for `kvtools`.
+* `kvtools`: Non-asset world design utilities.
+	* Q2BSP import, precompiled Udon support, domain reloading workarounds.
 * `KVToolsTB`: TrenchBroom config for `kvtools` Q2BSP.
 * `mdbook`: <https://20kdc.github.io/vrc-stuff/>
 * `udon`: Udon manipulation libraries in Rust.
+* `vpm`: VPM repository.
 * `vrc-sigmar`: An implementation of Sigmar's Garden (from [Zachtronics's Opus Magnum](https://store.steampowered.com/app/558990/Opus_Magnum/)) as an asset for VRChat worlds.
 	* (A proper demo world for this asset is pending a lot of work that may not happen.)
 * `vrc-textslidesystem`: **_DOESN'T WORK? AND IS NOT USED._** (I might replace this with the core systems from a world I'm publishing when I have the time to refactor everything, idk. Networking is hard). A system to, i.e. let people on a stage broadcast their prewritten announcements on a text display. (Text can also be input live.)

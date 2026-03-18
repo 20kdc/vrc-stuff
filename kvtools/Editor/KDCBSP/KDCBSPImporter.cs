@@ -9,14 +9,36 @@ namespace KDCVRCTools {
 	[ScriptedImporter(1, "bsp")]
 	public class KDCBSPImporter : ScriptedImporter {
 
+		[Tooltip("Maps Quake 2 material names to Unity materials.")]
 		[SerializeField]
 		public KDCBSPWorkspaceConfig workspace;
 
+		[Tooltip("Lightmap pack margin.")]
 		[SerializeField]
 		public float lmPackMargin = 0.01f;
 
+		[Tooltip("Enables visuals (as opposed to collision only).")]
 		[SerializeField]
-		public StaticEditorFlags staticFlags = StaticEditorFlags.OccluderStatic | StaticEditorFlags.OccludeeStatic | StaticEditorFlags.ContributeGI | StaticEditorFlags.BatchingStatic | StaticEditorFlags.ReflectionProbeStatic;
+		public bool visuals = true;
+
+		/// By default, static flags set in templates are overridden with those here.
+		[Tooltip("If set, all renderer static flags are forced to be visStaticFlags.")]
+		[SerializeField]
+		public bool visOverrideStaticFlags = true;
+
+		[Tooltip("These static flags are used on mesh renderers if there is no template prefab or if visOverrideStaticFlags is set.")]
+		[SerializeField]
+		public StaticEditorFlags visStaticFlags = StaticEditorFlags.OccluderStatic | StaticEditorFlags.OccludeeStatic | StaticEditorFlags.ContributeGI | StaticEditorFlags.BatchingStatic | StaticEditorFlags.ReflectionProbeStatic;
+
+		/// If set, this overrides the material renderer template.
+		/// This is useful if making a case-specific prop using existing materials.
+		[Tooltip("If set, this forcibly replaces the prefab used to render materials, even if the workspace specifies its own prefab.\nThis is useful if quickly making a dynamic prop using a static-focused setup.")]
+		[SerializeField]
+		public LazyLoadReference<GameObject> visOverrideRendererTemplate = null;
+
+		[Tooltip("Controls if/how collision is generated.")]
+		[SerializeField]
+		public CollisionMode collision = CollisionMode.ConvexBrushes;
 
 		public override void OnImportAsset(AssetImportContext ctx) {
 			// setup assignments
@@ -32,53 +54,93 @@ namespace KDCVRCTools {
 			byte[] data = File.ReadAllBytes(ctx.assetPath);
 			GameObject mapGO = new GameObject("map");
 
-			GameObject visualsGO = new GameObject("visuals");
-			visualsGO.transform.parent = mapGO.transform;
-
+			// we always get this -- we may need it for concave evaluation or for visuals or both
 			var triangles = GetBSPTriangles(data);
-			foreach (var kvp in triangles) {
-				GameObject materialGO = new GameObject(kvp.Key);
-				materialGO.transform.parent = visualsGO.transform;
 
-				var assignment = workspace.fallbackMaterial;
-				if (mapping.ContainsKey(kvp.Key))
-					assignment = mapping[kvp.Key];
+			if (visuals) {
+				GameObject visualsGO = new GameObject("visuals");
+				visualsGO.transform.parent = mapGO.transform;
 
-				Mesh mesh = TrianglesToMesh(kvp.Value, Vector2.one / new Vector2(assignment.width, assignment.height));
+				foreach (var kvp in triangles) {
+					var assignment = workspace.fallbackMaterial;
 
-				Unwrapping.GenerateSecondaryUVSet(mesh, lightmapSettings);
+					if (mapping.ContainsKey(kvp.Key))
+						assignment = mapping[kvp.Key];
 
-				ctx.AddObjectToAsset("mesh " + kvp.Key, mesh);
-				var meshFilter = materialGO.AddComponent(typeof(MeshFilter)) as MeshFilter;
+					if (!assignment.material.isSet)
+						continue;
 
-				if (assignment.material != null) {
+					LazyLoadReference<GameObject> rendererTemplate = visOverrideRendererTemplate.isSet ? visOverrideRendererTemplate : assignment.rendererTemplate;
+
+					GameObject materialGO;
+
+					if (rendererTemplate.isSet) {
+						materialGO = (GameObject) UnityEngine.Object.Instantiate(rendererTemplate.asset, Vector3.zero, Quaternion.identity, visualsGO.transform);
+						materialGO.name = kvp.Key;
+					} else {
+						materialGO = new GameObject(kvp.Key);
+						materialGO.transform.parent = visualsGO.transform;
+						GameObjectUtility.SetStaticEditorFlags(materialGO, visStaticFlags);
+					}
+
+					Mesh mesh = TrianglesToMesh(kvp.Value, Vector2.one / new Vector2(assignment.width, assignment.height));
+
+					Unwrapping.GenerateSecondaryUVSet(mesh, lightmapSettings);
+
+					ctx.AddObjectToAsset("mesh " + kvp.Key, mesh);
+
+					var meshFilter = materialGO.GetComponent<MeshFilter>();
+					if (meshFilter == null)
+						meshFilter = materialGO.AddComponent<MeshFilter>();
+
+					var meshRender = materialGO.GetComponent<MeshRenderer>();
+					if (meshRender == null)
+						meshRender = materialGO.AddComponent<MeshRenderer>();
+
 					var materialsList = new List<Material>();
-					materialsList.Add(assignment.material);
-					(materialGO.AddComponent(typeof(MeshRenderer)) as MeshRenderer).SetSharedMaterials(materialsList);
+					materialsList.Add(assignment.material.asset);
+					meshRender.SetSharedMaterials(materialsList);
+
+					// mesh.isReadable = false;
+					mesh.UploadMeshData(true);
+					meshFilter.mesh = mesh;
+					if (visOverrideStaticFlags)
+						GameObjectUtility.SetStaticEditorFlags(materialGO, visStaticFlags);
 				}
-
-				// mesh.isReadable = false;
-				mesh.UploadMeshData(true);
-				meshFilter.mesh = mesh;
-				GameObjectUtility.SetStaticEditorFlags(materialGO, staticFlags);
 			}
 
-			GameObject collisionGO = new GameObject("collision");
-			collisionGO.transform.parent = mapGO.transform;
+			if (collision == CollisionMode.ConvexBrushes) {
+				GameObject collisionGO = new GameObject("collision");
+				collisionGO.transform.parent = mapGO.transform;
 
-			var convexes = GetBSPConvexes(data);
-			var idx = 0;
-			foreach (var convex in convexes) {
-				string convexName = "convex" + idx;
-				GameObject convexGO = new GameObject(convexName);
-				convexGO.transform.parent = collisionGO.transform;
-				Mesh mesh = TrianglesToMesh(convex, Vector2.one);
-				ctx.AddObjectToAsset(convexName, mesh);
-				var collider = convexGO.AddComponent(typeof(MeshCollider)) as MeshCollider;
-				collider.convex = true;
+				var convexes = GetBSPConvexes(data);
+				var idx = 0;
+				foreach (var convex in convexes) {
+					string convexName = "convex" + idx;
+					GameObject convexGO = new GameObject(convexName);
+					convexGO.transform.parent = collisionGO.transform;
+					Mesh mesh = TrianglesToMesh(convex, Vector2.one);
+					ctx.AddObjectToAsset(convexName, mesh);
+					var collider = convexGO.AddComponent(typeof(MeshCollider)) as MeshCollider;
+					collider.convex = true;
+					collider.sharedMesh = mesh;
+					idx++;
+				}
+			} else if (collision == CollisionMode.ConcaveRoot) {
+				List<TriInfo> concave = new();
+				foreach (var kvp in triangles) {
+					if (kvp.Key == "common/noclip")
+						continue;
+					foreach (var tri in kvp.Value)
+						concave.Add(tri);
+				}
+				Mesh mesh = TrianglesToMesh(concave, Vector2.one);
+				ctx.AddObjectToAsset("concave", mesh);
+				var collider = mapGO.AddComponent(typeof(MeshCollider)) as MeshCollider;
+				collider.convex = false;
 				collider.sharedMesh = mesh;
-				idx++;
 			}
+
 			ctx.AddObjectToAsset("main obj", mapGO);
 			ctx.SetMainObject(mapGO);
 		}
@@ -406,6 +468,20 @@ namespace KDCVRCTools {
 			public Vector2 bu;
 			public Vector3 c;
 			public Vector2 cu;
+		}
+
+		public enum CollisionMode {
+			/// Collisions are handled using one convex mesh collider per brush.
+			/// This generates a lot of Mesh objects, but is great for physics broadphase and produces dependable collisions.
+			/// TLDR: Fast and good. If you want collisions, use this whenever possible.
+			ConvexBrushes,
+			/// Collisions are handled using a concave (triangle-soup) mesh collider attached to the root.
+			/// This collider includes faces which the BSP collider included, but which are nodraw. (`common/noclip` is specifically removed by name.)
+			/// This collision mode is not recommended for world geometry due to being clip-prone by nature and essentially ruining physics broadphase.
+			/// However, it may be of use in props, where interactability is the bigger concern.
+			ConcaveRoot,
+			/// Collisions are not generated.
+			None
 		}
 	}
 }
