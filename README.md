@@ -9,7 +9,6 @@ Includes:
 * `kvbsp`: Using Quake 2 BSP import.
 	* Still subject to severe workflow changes, so not yet stabilized.
 * `kvresearch`: 'Research' package used to understand Udon + things that aren't stable enough for `kvtools`.
-* `KVToolsTB`: TrenchBroom config for `kvbsp`.
 * `kvtools`: Non-asset world design utilities (precompiled Udon and proxy assets)
 * `kvworkarounds`: Personal workarounds for SDK issues.
 * `mdbook`: <https://20kdc.github.io/vrc-stuff/>

@@ -114,6 +114,8 @@ namespace KDCVRCBSP {
 						foreach (string v in trivial) {
 							string compProfileFrom = FileUtil.GetPhysicalPath("Packages/t20kdc.vrc-bsp/TrenchBroom~/KVToolsTB/" + v);
 							string compProfileTo = Path.Join(trenchBroomConfigDetail, v);
+							if (v == "CompilationProfiles.cfg" && File.Exists(compProfileTo))
+								continue;
 							File.WriteAllText(compProfileTo, File.ReadAllText(compProfileFrom).Replace("TOOL_QBSP", qbspPath), new System.Text.UTF8Encoding(false));
 						}
 					} catch (Exception ex) {
@@ -152,8 +154,8 @@ namespace KDCVRCBSP {
 				WWLabel("4. Press Run/Compile Map, and hit Compile");
 				WWLabel("5. Return to Unity, and you should have the room as a prefab!");
 				WWLabel("Key notes:");
-				WWLabel("To add textures, you need to add them both in the workspace config and as a PNG");
-				WWLabel("You can have different workspace configs for various different purposes");
+				WWLabel("READ THE README!!!");
+				WWLabel("It gives a much better explanation of how everything works than this text can.");
 			} else {
 				WWLabel("Unknown wizard step! How'd you manage that? Press (Reset Wizard).");
 			}

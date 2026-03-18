@@ -4,24 +4,22 @@ This Quake 2 BSP importer allows creating static world geometry with, i.e. Trenc
 
 The basic idea is that:
 
-1. Copy package's `TrenchBroom~/KVToolsTB/CompilationProfiles-example.cfg` to `TrenchBroom~/KVToolsTB/CompilationProfiles.cfg`; you'll need to adjust this later.
-2. Symlink `.TrenchBroom/games/KVToolsTB` to the `TrenchBroom~/KVToolsTB` directory of the repository
-	* Or, if you absolutely must avoid symlinks, copy from `TrenchBroom~/KVToolsTB` to `.TrenchBroom/games/KVToolsTB`
-	* For different Unity projects, it may be wise to use separate 'games'.
-3. TrenchBroom will now show the 'game' `KVToolsTB` on startup.
-4. **TODO figure out clean setup workflow**
-5. `qroot/baseq2` (where `qroot` is a 'global workspace'; TrenchBroom doesn't handle multi-game arrangements well) to the `Assets/baseq2` directory of the repository
-6. Each individual project is a 'mod' you symlink from `qroot`
+1. Install the package and look at `Setup.asset` in Unity, which automates the following:
+	1. Install `TrenchBroom~/KVToolsTB` to inside TrenchBroom's user directory (Linux: `$HOME/.TrenchBroom/games/KVToolsTB`)
+	2. Adjust `CompilationProfiles.cfg` to point at ericw-tools QBSP.
+	3. Copy `TrenchBroom~/KDCBSPGameRoot` to `Assets/` of your Unity project.
+		* Note that your game root may _actually_ be anywhere; KDCBSP intentionally does not care about this. This style is used for easy onboarding, but more experienced users may find it prudent to treat different projects as 'mods' on a single game root that exists outside of any Unity project, using symlinking.
+			* Regardless of this, `Assets/KDCBSPGameRoot/DefaultWorkspaceConfig.asset` is the hardcoded default workspace config.
+2. Add images to the game root textures tree to add materials in TrenchBroom
+3. Add entries to the workspace config to add materials in Unity
+4. BSP files (compiled using the relevant button in TrenchBroom) are imported as prefabs.
+	* There are plenty of options for customizing the import depending on the situation.
 
-Note the `KVToolsTB/CompilationProfiles-example.cfg` file. This is a hastily kludged compilation profile; adjust as you need/wish.
-
-With `kvtools`, the resulting `.bsp` file can be directly imported in Unity. This requires a "KDCBSP Workspace Config" (creatable as an asset) to map materials and set world scale.
-
-Some particular notes:
+## Detailed Notes
 
 * You need a dummy entity in each world 'cavity' you care about (at least one) so the map compiler knows the inside and outside.
 	* `info_player_start` is provided for this purpose.
-* Lightmapping is still handled by Unity, so don't bother running the Q2BSP `light`.
+* Lightmapping and occlusion is not imported; `light` and `vis` are unused.
 * **Entities are not really supported, but the BSP compiler may have 'built-in' entities. See <https://ericw-tools.readthedocs.io/en/latest/qbsp.html#compiler-internal-bmodels>.**
 * On some versions, `func_detail_illusionary` defaults to `"_mirrorinside" "1"`. _**Make sure to explicitly change it to 0, or it'll horribly break light baking!!!**_
 * If the Unity material is None, triangles will not be created. This is one of the two useful ways to use `common/sky` (the other being a skybox material, perhaps with a custom shader with emission).
