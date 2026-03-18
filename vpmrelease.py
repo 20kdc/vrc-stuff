@@ -26,6 +26,8 @@ assert isinstance(pkg_name, str)
 # VRC Creator Companion is less resilient than ALCOM, names are blank if nothing's given here
 assert isinstance(pkg_display_name, str)
 assert isinstance(pkg_version, str)
+assert isinstance(pkg_json["author"], dict)
+assert isinstance(pkg_json["author"]["name"], str)
 
 vpm_json = read_json("vpm/index.json")
 

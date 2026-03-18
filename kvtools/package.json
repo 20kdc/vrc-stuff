@@ -2,6 +2,7 @@
 	"name": "t20kdc.vrc-tools",
 	"displayName": "20kdc VRC Tools",
 	"version": "0.1.0",
+	"author": {"name": "20kdc"},
 	"description": "Editor-only C# code containing utilities for building VRChat worlds.",
 	"license": "Unlicense"
 }
