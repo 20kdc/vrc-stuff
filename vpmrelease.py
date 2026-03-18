@@ -22,8 +22,11 @@ def read_json(path):
 pkg_path = sys.argv[1]
 pkg_json = read_json(pkg_path + "/package.json")
 pkg_name = pkg_json["name"]
+pkg_display_name = pkg_json["displayName"]
 pkg_version = pkg_json["version"]
 assert isinstance(pkg_name, str)
+# VRC Creator Companion is less resilient than ALCOM, names are blank if nothing's given here
+assert isinstance(pkg_display_name, str)
 
 vpm_json = read_json("vpm/index.json")
 pkg_zip_name = pkg_name + "-" + pkg_version + ".zip"

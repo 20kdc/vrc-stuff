@@ -6,6 +6,7 @@
 			"versions": {
 				"1.0.0": {
 					"name": "t20kdc.vrc-workarounds",
+					"displayName": "20kdc VRC Workarounds",
 					"version": "1.0.0",
 					"description": "Editor-only C# code working around VRChat SDK issues. Does not replace befuddledlabs's LinuxVRChatSDKPatch; should be used in addition to it. Intended to be reasonably safe to drop into a project with no other consequences than workarounds for bugs.",
 					"license": "Unlicense",
@@ -18,6 +19,7 @@
 			"versions": {
 				"0.1.0": {
 					"name": "t20kdc.vrc-bsp",
+					"displayName": "20kdc Quake 2 BSP Importer",
 					"version": "0.1.0",
 					"description": "Using Quake 2 BSP compilers to build VRChat worlds.",
 					"license": "Unlicense",
@@ -30,6 +32,7 @@
 			"versions": {
 				"0.1.0": {
 					"name": "t20kdc.vrc-tools",
+					"displayName": "20kdc VRC Tools",
 					"version": "0.1.0",
 					"description": "Editor-only C# code containing utilities for building VRChat worlds.",
 					"license": "Unlicense",
