@@ -9,8 +9,9 @@ Includes:
 * `kvassets`: Assets for 20kdc worlds.
 * `kvresearch`: 'Research' package used to understand Udon + things that aren't stable enough for `kvtools`.
 * `kvtools`: Non-asset world design utilities.
-	* Q2BSP import, precompiled Udon support, domain reloading workarounds.
+	* Q2BSP import, precompiled Udon support
 * `KVToolsTB`: TrenchBroom config for `kvtools` Q2BSP.
+* `kvworkarounds`: Personal workarounds for SDK issues.
 * `mdbook`: <https://20kdc.github.io/vrc-stuff/>
 * `udon`: Udon manipulation libraries in Rust.
 * `vpm`: VPM repository.

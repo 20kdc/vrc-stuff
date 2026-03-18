@@ -2,5 +2,17 @@
 	"name": "20kdc VRChat Assets Etc.",
 	"author": "20kdc",
 	"packages": {
+		"t20kdc.vrc-workarounds": {
+			"versions": {
+				"1.0.0": {
+					"name": "t20kdc.vrc-workarounds",
+					"version": "1.0.0",
+					"description": "Editor-only C# code working around VRChat SDK issues. Does not replace befuddledlabs's LinuxVRChatSDKPatch; should be used in addition to it. Intended to be reasonably safe to drop into a project with no other consequences than workarounds for bugs.",
+					"license": "Unlicense",
+					"zipSHA256": "e750f09215a386c70b89430fc7b5ac55cb47cef6c9915a1feadb5a3897495184",
+					"url": "https://raw.githubusercontent.com/20kdc/vrc-stuff/refs/heads/main/vpm/t20kdc.vrc-workarounds-1.0.0.zip"
+				}
+			}
+		}
 	}
 }

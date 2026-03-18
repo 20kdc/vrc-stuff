@@ -13,7 +13,7 @@ using VRC.Udon.ProgramSources;
  * Contains 'domain reloading disabled' workarounds.
  * Also see: https://feedback.vrchat.com/sdk-bug-reports/p/udonsharp-watchlog-causing-extreme-long-reloading-domain-time-and-editor-stutter
  */
-namespace KDCVRCTools {
+namespace KDCVRCWorkarounds {
 	public class KDCVRCDomainReloadingWorkarounds {
 		[InitializeOnLoadMethod]
 		private static void DoSetup() {
