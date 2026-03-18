@@ -4,13 +4,13 @@ Monorepo for 20kdc VRChat projects.
 
 Includes:
 
-* `baseq2`: For `kvtools` Q2BSP support.
 * `kip32`: Compiling C (via RISC-V) to Udon (and beyond?)
 * `kvassets`: Assets for 20kdc worlds.
+* `kvbsp`: Using Quake 2 BSP import.
+	* Still subject to severe workflow changes, so not yet stabilized.
 * `kvresearch`: 'Research' package used to understand Udon + things that aren't stable enough for `kvtools`.
-* `kvtools`: Non-asset world design utilities.
-	* Q2BSP import, precompiled Udon support
-* `KVToolsTB`: TrenchBroom config for `kvtools` Q2BSP.
+* `KVToolsTB`: TrenchBroom config for `kvbsp`.
+* `kvtools`: Non-asset world design utilities (precompiled Udon and proxy assets)
 * `kvworkarounds`: Personal workarounds for SDK issues.
 * `mdbook`: <https://20kdc.github.io/vrc-stuff/>
 * `udon`: Udon manipulation libraries in Rust.

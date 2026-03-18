@@ -6,7 +6,7 @@ using UnityEngine.Rendering;
 using UnityEditor;
 using UnityEditor.AssetImporters;
 
-namespace KDCVRCTools {
+namespace KDCVRCBSP {
 	[CreateAssetMenu(menuName = "KDCVRCTools/KDCBSP Workspace Config", fileName = "kdcbspWorkspaceConfig")]
 	public class KDCBSPWorkspaceConfig : ScriptableObject {
 

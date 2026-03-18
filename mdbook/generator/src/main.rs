@@ -164,10 +164,18 @@ fn main() {
 
     put_file(
         &mut summary,
-        "kvtools",
+        "vrc-stuff Unity Packages And Their Contents",
         "kvtools.md",
         0,
         include_str!("kvtools.md"),
+    );
+
+    put_file(
+        &mut summary,
+        "'KDCBSP': Quake 2 BSP import for world design",
+        "bsp.md",
+        1,
+        include_str!("../../../kvbsp/README.md"),
     );
 
     put_file(

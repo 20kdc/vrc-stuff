@@ -5,7 +5,7 @@ using UnityEngine;
 using UnityEditor;
 using UnityEditor.AssetImporters;
 
-namespace KDCVRCTools {
+namespace KDCVRCBSP {
 	[ScriptedImporter(1, "bsp")]
 	public class KDCBSPImporter : ScriptedImporter {
 
@@ -15,7 +15,7 @@ namespace KDCVRCTools {
 
 		[Tooltip("Lightmap pack margin.")]
 		[SerializeField]
-		public float lmPackMargin = 0.01f;
+		public float lightmapPackMargin = 0.01f;
 
 		[Tooltip("Enables visuals (as opposed to collision only).")]
 		[SerializeField]
@@ -41,6 +41,12 @@ namespace KDCVRCTools {
 		public CollisionMode collision = CollisionMode.ConvexBrushes;
 
 		public override void OnImportAsset(AssetImportContext ctx) {
+
+			if (workspace == null) {
+				// yes this is modification and Bad but it makes things make more sense really
+				workspace = (KDCBSPWorkspaceConfig) AssetDatabase.LoadAssetAtPath("Assets/KDCBSPGameRoot/DefaultWorkspaceConfig.asset", typeof(KDCBSPWorkspaceConfig));
+			}
+
 			// setup assignments
 			Dictionary<String, KDCBSPWorkspaceConfig.MaterialAssignment> mapping = new();
 			foreach (var v in workspace.materials)
@@ -48,7 +54,7 @@ namespace KDCVRCTools {
 
 			// this
 			UnwrapParam.SetDefaults(out UnwrapParam lightmapSettings);
-			lightmapSettings.packMargin = lmPackMargin;
+			lightmapSettings.packMargin = lightmapPackMargin;
 
 			// actually create map meshes
 			byte[] data = File.ReadAllBytes(ctx.assetPath);
