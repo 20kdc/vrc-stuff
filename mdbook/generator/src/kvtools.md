@@ -23,7 +23,7 @@ It is not a replacement for platform-specific fixes such as <https://github.com/
 
 ## `kvtools`
 
-_`kvtools` is not available via VPM right now. It is likely the BSP importer will be split into a separate package to prevent conflicts between disparate BSP importing techniques._
+_`kvtools` can be installed via the above VPM repo. It isn't yet considered stable and might break compatibility._
 
 It contains:
 
@@ -31,11 +31,16 @@ It contains:
 	* The `kvtools` set uses Unity JSON files with the extension `.udonjson` to represent `SerializedUdonProgramAsset`s for direct use in UdonBehaviour.
 	* This is given as `.unity.json` in the dumper to avoid dumping files made by the dumper.
 	* When writing out from within Unity, `EditorJsonUtility.ToJson` specifically _must_ be used, as otherwise file references are lost.
-* Quake 2 BSP import (see [the chapter](./bsp.md))
 * Proxy assets
 	* _Experimental!_ (I'm not sure if the asset 'importing' technique here has any odd effects.)
 	* Proxy assets prevent Unity from breaking references when the source file is lost.
 	* They are text files with extension `.proxyasset`. Their content is solely a relative path name (`..` may not be supported, so don't try it).
+
+## `kvbsp`
+
+_`kvbsp` can be installed via the above VPM repo. It isn't yet considered stable and might break compatibility._
+
+See [the appropriate chapter](./bsp.md).
 
 ## `kvassets`
 

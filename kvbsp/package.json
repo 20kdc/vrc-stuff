@@ -1,6 +1,6 @@
 {
 	"name": "t20kdc.vrc-bsp",
-	"version": "0.0.2",
+	"version": "0.1.0",
 	"description": "Using Quake 2 BSP compilers to build VRChat worlds.",
 	"license": "Unlicense"
 }

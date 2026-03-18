@@ -13,6 +13,30 @@
 					"url": "https://raw.githubusercontent.com/20kdc/vrc-stuff/refs/heads/main/vpm/t20kdc.vrc-workarounds-1.0.0.zip"
 				}
 			}
+		},
+		"t20kdc.vrc-bsp": {
+			"versions": {
+				"0.1.0": {
+					"name": "t20kdc.vrc-bsp",
+					"version": "0.1.0",
+					"description": "Using Quake 2 BSP compilers to build VRChat worlds.",
+					"license": "Unlicense",
+					"zipSHA256": "788149d0eabc9e52d2a0e2f865dc50bb06d2e5c376da8227e5719ad324b71e4a",
+					"url": "https://raw.githubusercontent.com/20kdc/vrc-stuff/refs/heads/main/vpm/t20kdc.vrc-bsp-0.1.0.zip"
+				}
+			}
+		},
+		"t20kdc.vrc-tools": {
+			"versions": {
+				"0.1.0": {
+					"name": "t20kdc.vrc-tools",
+					"version": "0.1.0",
+					"description": "Editor-only C# code containing utilities for building VRChat worlds.",
+					"license": "Unlicense",
+					"zipSHA256": "06889548b95b1d057d197ec9f375b332db4023244392afa999972495e503f512",
+					"url": "https://raw.githubusercontent.com/20kdc/vrc-stuff/refs/heads/main/vpm/t20kdc.vrc-tools-0.1.0.zip"
+				}
+			}
 		}
 	}
 }
