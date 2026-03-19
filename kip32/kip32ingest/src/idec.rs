@@ -30,6 +30,12 @@ pub enum Sci32MULHType {
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Kip32DIVREMType {
+    DIV,
+    REM,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Sci32ALUType {
     ADD,
     SUB,
@@ -44,9 +50,8 @@ pub enum Sci32ALUType {
     MUL,
     MULH(Sci32MULHType),
     /// Unsigned boolean.
-    DIV(bool),
-    /// Unsigned boolean.
-    REM(bool),
+    /// The structure of this is very careful, to allow the emitter to reuse a lot of code across different paths.
+    DIVREM(Kip32DIVREMType, bool),
 }
 
 impl Sci32ALUType {
@@ -340,10 +345,10 @@ impl Sci32Instr {
                 (Funct3r::V001, 0x02000000) => Sci32ALUType::MULH(Sci32MULHType::MULH),
                 (Funct3r::V010, 0x02000000) => Sci32ALUType::MULH(Sci32MULHType::MULHSU),
                 (Funct3r::V011, 0x02000000) => Sci32ALUType::MULH(Sci32MULHType::MULHU),
-                (Funct3r::V100, 0x02000000) => Sci32ALUType::DIV(false),
-                (Funct3r::V101, 0x02000000) => Sci32ALUType::DIV(true),
-                (Funct3r::V110, 0x02000000) => Sci32ALUType::REM(false),
-                (Funct3r::V111, 0x02000000) => Sci32ALUType::REM(true),
+                (Funct3r::V100, 0x02000000) => Sci32ALUType::DIVREM(Kip32DIVREMType::DIV, false),
+                (Funct3r::V101, 0x02000000) => Sci32ALUType::DIVREM(Kip32DIVREMType::DIV, true),
+                (Funct3r::V110, 0x02000000) => Sci32ALUType::DIVREM(Kip32DIVREMType::REM, false),
+                (Funct3r::V111, 0x02000000) => Sci32ALUType::DIVREM(Kip32DIVREMType::REM, true),
                 // base ISA & fallbacks
                 (Funct3r::V000, 0x40000000) => Sci32ALUType::SUB,
                 (Funct3r::V000, _) => Sci32ALUType::ADD,

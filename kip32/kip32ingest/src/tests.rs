@@ -162,10 +162,26 @@ fn idec_checks() {
             Sci32ALUType::MULH(Sci32MULHType::MULHU),
             true,
         ),
-        (0x02004000u32, Sci32ALUType::DIV(false), true),
-        (0x02005000u32, Sci32ALUType::DIV(true), true),
-        (0x02006000u32, Sci32ALUType::REM(false), true),
-        (0x02007000u32, Sci32ALUType::REM(true), true),
+        (
+            0x02004000u32,
+            Sci32ALUType::DIVREM(Kip32DIVREMType::DIV, false),
+            true,
+        ),
+        (
+            0x02005000u32,
+            Sci32ALUType::DIVREM(Kip32DIVREMType::DIV, true),
+            true,
+        ),
+        (
+            0x02006000u32,
+            Sci32ALUType::DIVREM(Kip32DIVREMType::REM, false),
+            true,
+        ),
+        (
+            0x02007000u32,
+            Sci32ALUType::DIVREM(Kip32DIVREMType::REM, true),
+            true,
+        ),
     ];
     for v in aluchk {
         //  0:     fe010113                addi    sp,sp,31

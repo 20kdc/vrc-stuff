@@ -93,14 +93,14 @@ impl Wrapper {
         self.asm().code.push(UdonInt::Op(&kudoninfo::opcodes::JUMP));
         self.asm().code.push(a);
     }
-    pub fn copy_static(&self, a: &str, b: &str) {
-        uasm_op!(self.asm(), PUSH, a);
-        uasm_op!(self.asm(), PUSH, b);
+    pub fn copy_static(&self, src: &str, dst: &str) {
+        uasm_op!(self.asm(), PUSH, src);
+        uasm_op!(self.asm(), PUSH, dst);
         uasm_op!(self.asm(), COPY);
     }
-    pub fn jump_if_false_static(&self, a: &str, b: &str) {
-        uasm_op!(self.asm(), PUSH, a);
-        uasm_op!(self.asm(), JUMP_IF_FALSE, b);
+    pub fn jump_if_false_static(&self, value: &str, jump: &str) {
+        uasm_op!(self.asm(), PUSH, value);
+        uasm_op!(self.asm(), JUMP_IF_FALSE, jump);
     }
     pub fn jump_if_false_static_ui(&self, a: &str, b: UdonInt) {
         uasm_op!(self.asm(), PUSH, a);
@@ -143,6 +143,10 @@ udon_ext!(
         "SystemInt32.__op_RightShift__SystemInt32_SystemInt32__SystemInt32"
     i32_mul(a b r) =
         "SystemInt32.__op_Multiplication__SystemInt32_SystemInt32__SystemInt32"
+    i32_div(a b r) =
+        "SystemInt32.__op_Division__SystemInt32_SystemInt32__SystemInt32"
+    i32_rem(a b r) =
+        "SystemInt32.__op_Remainder__SystemInt32_SystemInt32__SystemInt32"
     // This extern is risky because it will error on negative numbers.
     // For this reason, it's only used in the indirect jump code.
     u32_fromi32(i r) = "SystemConvert.__ToUInt32__SystemInt32__SystemUInt32"

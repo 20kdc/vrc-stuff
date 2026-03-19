@@ -685,6 +685,52 @@ fn main() -> Result<()> {
                             asm.i32_lt(s1, s2, "_vm_tmp_bool");
                             asm.i32_frombool("_vm_tmp_bool", rd);
                         }
+
+                        // M extension, trivial-ish signed operations first
+                        Sci32ALUType::DIVREM(divrem, false) => {
+                            let divok = code_addr(pc, "_divok");
+
+                            // because we want to use fallthrough if possible, we jump if divisor is not 0.
+                            asm.i32_eq(&s2, &const0, "_vm_tmp_bool");
+                            asm.jump_if_false_static("_vm_tmp_bool", &divok);
+
+                            // if divisor is 0, return appropriate value
+                            // see table 7.1
+                            // also worth mentioning is overflow behaviour
+                            // observe this csi transcript:
+                            // > unchecked(-0x80000000 / -1)
+                            // -2147483648
+                            // note that -2147483648 == -0x80000000 == (-2^31) == defined overflow behaviour
+                            match divrem {
+                                Kip32DIVREMType::DIV => {
+                                    // -1
+                                    asm.copy_static(&constn1, rd);
+                                }
+                                Kip32DIVREMType::REM => {
+                                    // dividend
+                                    asm.copy_static(&s1, rd);
+                                }
+                            }
+                            // ... and jump to next instruction
+                            asm.jump_ui(resolve_jump(&asm, &img, istr.jump));
+
+                            // actual main division/remainder codegen
+                            asm.code_label(&divok, Some(UdonAccess::Elidable)).unwrap();
+                            match divrem {
+                                Kip32DIVREMType::DIV => {
+                                    asm.i32_div(&s1, &s2, rd);
+                                }
+                                Kip32DIVREMType::REM => {
+                                    asm.i32_rem(&s1, &s2, rd);
+                                }
+                            }
+                        }
+
+                        Sci32ALUType::MULH(_mulh) => {
+                            uasm_stop!(asm.asm());
+                            fallthrough_ok = true;
+                        }
+
                         _ => {
                             uasm_stop!(asm.asm());
                             fallthrough_ok = true;
