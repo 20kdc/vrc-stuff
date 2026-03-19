@@ -1,5 +1,6 @@
 #include <kip32.h>
 #include <kip32_udon.h>
+#include "genrefdata.h"
 
 void putchar(int c) {
 	KIP32_SYSCALL1("stdsyscall_putchar", c);
