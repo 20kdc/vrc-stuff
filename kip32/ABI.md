@@ -2,11 +2,13 @@
 
 This describes the format/binary interface of the ELFs read by `kip32ingest`.
 
-To summarize, you're compiling for what is essentially a RV32I microcontroller. Link with `sdk/kip32.ld` linker script.
+To summarize, you're compiling for what is essentially a RV32IM microcontroller. Link with `sdk/kip32.ld` linker script.
 
 ## CPU/Memory
 
-The virtual CPU is the unprivileged set of RV32I, somewhat akin to a `picorv32` core.
+The model CPU is the unprivileged set of RV32IM, somewhat akin to a `picorv32` core with multiply/divide unit.
+
+_Note that non-Udon targets in development or in truly 'turing tarpit' environments might not have the M extension, or may only support specific instructions._
 
 Unlike such a core, there's enforced W^X; the recompilation does not include a 'fallback interpreter'.
 
@@ -159,6 +161,8 @@ Note that extremely niche cases may use special compiler flags to remove these s
 * `syscall_stdsyscall_memmove`: Implements `memmove`. See appropriate C specification.
 
 ## Udon Supplement
+
+The Udon target has ISA extensions: `M`.
 
 The argument registers `a0`-`a7` are directly exposed as public `SystemInt32` fields.
 

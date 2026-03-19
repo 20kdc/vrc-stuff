@@ -119,12 +119,19 @@ udon_ext!(
     obj_equality(a b r) =
         "SystemObject.__op_Equality__SystemObject_SystemObject__SystemBoolean"
 
+    i32i64_mul(a b r) =
+        "SystemMath.__BigMul__SystemInt32_SystemInt32__SystemInt64"
     i64_mul(a b r) =
         "SystemInt64.__op_Multiplication__SystemInt64_SystemInt64__SystemInt64"
     i64_div(a b r) =
         "SystemInt64.__op_Division__SystemInt64_SystemInt64__SystemInt64"
     i64_divrem(a b rem div) =
         "SystemMath.__DivRem__SystemInt64_SystemInt64_SystemInt64Ref__SystemInt64"
+
+    // This never fails, but always performs sign extension.
+    // It can be a useful optimization when performable.
+    i64_fromi32(i r) =
+        "SystemConvert.__ToInt64__SystemInt32__SystemInt64"
 
     i32_eq(a b r) =
         "SystemInt32.__op_Equality__SystemInt32_SystemInt32__SystemBoolean"
@@ -151,6 +158,7 @@ udon_ext!(
         "SystemInt32.__op_RightShift__SystemInt32_SystemInt32__SystemInt32"
     i32_mul(a b r) =
         "SystemInt32.__op_Multiplication__SystemInt32_SystemInt32__SystemInt32"
+    // not only is (_, 0) an error case, but so is (-0x80000000, -1)
     i32_div(a b r) =
         "SystemInt32.__op_Division__SystemInt32_SystemInt32__SystemInt32"
     i32_rem(a b r) =

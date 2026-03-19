@@ -167,6 +167,26 @@ enum LoadPipe {
     },
 }
 
+/// Generates bitcasting an i64 to an i32 via the bcopy system.
+/// Notably, 'upper' can be set to true, which gets the upper rather than lower 32-bits.
+fn gen_i64_bitcast_i32(asm: &Wrapper, vi64: &str, rd: &str, upper: bool) {
+    let const0 = asm.ensure_i32(0);
+    let src_ofs = if upper {
+        asm.ensure_i32(4)
+    } else {
+        const0.clone()
+    };
+    asm.i64array_set("_vm_bcopy_i64", &const0, vi64);
+    asm.bcopy(
+        "_vm_bcopy_i64",
+        &src_ofs,
+        "_vm_bcopy_i32",
+        &const0,
+        &asm.ensure_i32(4),
+    );
+    asm.i32array_get("_vm_bcopy_i32", &const0, rd);
+}
+
 fn main() -> Result<()> {
     let mut arg_parser = lexopt::Parser::from_env();
     let asm = Wrapper::new();
@@ -686,8 +706,37 @@ fn main() -> Result<()> {
                             asm.i32_frombool("_vm_tmp_bool", rd);
                         }
 
-                        // M extension, trivial-ish signed operations first
+                        // M extension
                         Sci32ALUType::DIVREM(divrem, unsigned) => {
+                            let resolved_jmp = resolve_jump(&asm, &img, istr.jump);
+                            if !unsigned {
+                                // so both signed codepaths go through the standard div/rem.
+                                // div DEFINITELY throws overflow exceptions, and rem MIGHT throw them
+                                // I may have gotten a little paranoid at this point
+                                let divnotoverflow = code_addr(pc, "_divnotoverflow");
+
+                                let constn2pln1 = asm.ensure_i32(0x80000000u32 as i32);
+                                asm.i32_eq(&s1, &constn2pln1, "_vm_tmp_bool");
+                                asm.jump_if_false_static("_vm_tmp_bool", &divnotoverflow);
+                                asm.i32_eq(&s2, &constn1, "_vm_tmp_bool");
+                                asm.jump_if_false_static("_vm_tmp_bool", &divnotoverflow);
+
+                                // provide expected overflow results
+                                // see table 7.1
+                                match divrem {
+                                    Kip32DIVREMType::DIV => {
+                                        asm.copy_static(&constn2pln1, rd);
+                                    }
+                                    Kip32DIVREMType::REM => {
+                                        asm.copy_static(&const0, rd);
+                                    }
+                                }
+                                asm.jump_ui(resolved_jmp.clone());
+
+                                // it's not overflow, we're safe... to check if it's div0
+                                asm.code_label(&divnotoverflow, Some(UdonAccess::Elidable))
+                                    .unwrap();
+                            }
                             let divok = code_addr(pc, "_divok");
 
                             // because we want to use fallthrough if possible, we jump if divisor is not 0.
@@ -696,11 +745,6 @@ fn main() -> Result<()> {
 
                             // if divisor is 0, return appropriate value
                             // see table 7.1
-                            // also worth mentioning is overflow behaviour
-                            // observe this csi transcript:
-                            // > unchecked(-0x80000000 / -1)
-                            // -2147483648
-                            // note that -2147483648 == -0x80000000 == (-2^31) == defined overflow behaviour
                             match divrem {
                                 Kip32DIVREMType::DIV => {
                                     // -1
@@ -712,7 +756,7 @@ fn main() -> Result<()> {
                                 }
                             }
                             // ... and jump to next instruction
-                            asm.jump_ui(resolve_jump(&asm, &img, istr.jump));
+                            asm.jump_ui(resolved_jmp);
 
                             // actual main division/remainder codegen
                             asm.code_label(&divok, Some(UdonAccess::Elidable)).unwrap();
@@ -764,25 +808,68 @@ fn main() -> Result<()> {
                                             );
                                         }
                                     }
-                                    // reverse the scuffed drive to get the result out
-                                    asm.i64array_set("_vm_bcopy_i64", &const0, "_vm_tmp_i64_a");
-                                    asm.bcopy(
-                                        "_vm_bcopy_i64",
-                                        &const0,
-                                        "_vm_bcopy_i32",
-                                        &const0,
-                                        &asm.ensure_i32(4),
-                                    );
-                                    asm.i32array_get("_vm_bcopy_i32", &const0, rd);
+                                    gen_i64_bitcast_i32(&asm, "_vm_tmp_i64_a", rd, false);
                                 }
                             }
                         }
 
-                        Sci32ALUType::MULH(_mulh) => {
-                            uasm_stop!(asm.asm());
-                            fallthrough_ok = true;
+                        Sci32ALUType::MULH(mulh) => {
+                            // This remapping is important because there's a fastpath for MULHU.
+                            let (lhs_signed, rhs_signed) = match mulh {
+                                Sci32MULHType::MULH => (true, true),
+                                Sci32MULHType::MULHSU => (true, false),
+                                Sci32MULHType::MULHU => (false, false),
+                            };
+                            match (lhs_signed, rhs_signed) {
+                                (true, true) => {
+                                    // this specific codepath is really simple
+                                    asm.i32i64_mul(&s1, &s2, "_vm_tmp_i64_a");
+                                }
+                                (false, false) => {
+                                    // copy/paste of DIV/REMU logic :(
+                                    asm.i32array_set("_vm_bcopy_i32", &const0, &s1);
+                                    asm.i32array_set("_vm_bcopy_i32", &const1, &const0);
+                                    asm.i32array_set("_vm_bcopy_i32", asm.ensure_i32(2), &s2);
+                                    asm.i32array_set("_vm_bcopy_i32", asm.ensure_i32(3), &const0);
+                                    asm.bcopy(
+                                        "_vm_bcopy_i32",
+                                        &const0,
+                                        "_vm_bcopy_i64",
+                                        &const0,
+                                        &asm.ensure_i32(16),
+                                    );
+                                    asm.i64array_get("_vm_bcopy_i64", &const0, "_vm_tmp_i64_a");
+                                    asm.i64array_get("_vm_bcopy_i64", &const1, "_vm_tmp_i64_b");
+                                    // actual operation
+                                    asm.i64_mul("_vm_tmp_i64_a", "_vm_tmp_i64_b", "_vm_tmp_i64_a");
+                                }
+                                (true, false) => {
+                                    // rs1 is signed, so convert directly
+                                    asm.i64_fromi32(&s1, "_vm_tmp_i64_a");
+                                    // rs2 is unsigned
+                                    asm.i32array_set("_vm_bcopy_i32", &const0, &s2);
+                                    asm.i32array_set("_vm_bcopy_i32", &const1, &const0);
+                                    asm.bcopy(
+                                        "_vm_bcopy_i32",
+                                        &const0,
+                                        "_vm_bcopy_i64",
+                                        &const0,
+                                        &asm.ensure_i32(8),
+                                    );
+                                    asm.i64array_get("_vm_bcopy_i64", &const0, "_vm_tmp_i64_b");
+                                    // actual operation
+                                    asm.i64_mul("_vm_tmp_i64_a", "_vm_tmp_i64_b", "_vm_tmp_i64_a");
+                                }
+                                _ => {
+                                    // NYI?
+                                    uasm_stop!(asm.asm());
+                                }
+                            }
+                            // all codepaths pull the result this way
+                            gen_i64_bitcast_i32(&asm, "_vm_tmp_i64_a", rd, true);
                         }
 
+                        // unrecognized
                         _ => {
                             uasm_stop!(asm.asm());
                             fallthrough_ok = true;

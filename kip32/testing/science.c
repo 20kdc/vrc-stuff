@@ -87,10 +87,16 @@ KIP32_EXPORT int _interact() {
 			hasResult = 1;
 		} else if (caseOpc == GRDC_MULH) {
 			caseOpcStr = "GRDC_MULH  ";
+			resultVal = muldiv_mulh(v1, v2);
+			hasResult = 1;
 		} else if (caseOpc == GRDC_MULHSU) {
 			caseOpcStr = "GRDC_MULHSU";
+			resultVal = muldiv_mulhsu(v1, v2);
+			hasResult = 1;
 		} else if (caseOpc == GRDC_MULHU) {
 			caseOpcStr = "GRDC_MULHU ";
+			resultVal = muldiv_mulhu(v1, v2);
+			hasResult = 1;
 		} else if (caseOpc == GRDC_DIV) {
 			caseOpcStr = "GRDC_DIV   ";
 			resultVal = muldiv_div(v1, v2);
