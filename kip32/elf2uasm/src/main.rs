@@ -445,10 +445,14 @@ fn main() -> Result<()> {
                 asm.jump("_vm_indirect_jump");
                 fallthrough_ok = true;
             }
-            Kip32FIC::I(Sci32Instr::SetRegister { rd, value }) => {
+            Kip32FIC::I(Sci32Instr::SetRegister {
+                rd,
+                value,
+                meta_source: _,
+            }) => {
                 asm.copy_static(&resolve_alur(&asm, value), REGISTERS_W[rd as usize]);
             }
-            Kip32FIC::I(Sci32Instr::NOP) => {
+            Kip32FIC::I(Sci32Instr::NOP(_)) => {
                 // Guarantee we generate at least one instruction.
                 // This used to just write a NOP, but instruction fusion now uses NOPs for jumps, and will fuse NOP-JUMP.
                 fallthrough_ok = false;

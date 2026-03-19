@@ -74,7 +74,7 @@ impl Kip32FusedInstr {
                 rd_value: _,
                 value,
             } => Self {
-                content: Kip32FIC::I(Sci32Instr::NOP),
+                content: Kip32FIC::I(Sci32Instr::NOP(Kip32NOPSource::Fusion)),
                 jump: value,
                 fallthrough_ok: false,
             },
@@ -97,7 +97,7 @@ impl Kip32FusedInstr {
                     fallthrough_ok,
                 },
                 Kip32FusedInstr {
-                    content: Kip32FIC::I(Sci32Instr::NOP),
+                    content: Kip32FIC::I(Sci32Instr::NOP(_)),
                     jump,
                     fallthrough_ok: _,
                 },

@@ -93,6 +93,9 @@ fn idec_imm_test() {
 
 #[test]
 fn idec_checks() {
+    // this should be listed in the order of the RV32/64G Instruction Set Listings
+    // lui: covered by intensive check
+    // auipc: not covered!
     //  250:   eddff0ef                jal     12c <phyto_surrounded>
     assert_eq!(
         crate::Sci32Instr::decode(0x250u32, 0xeddff0efu32),
@@ -102,6 +105,29 @@ fn idec_checks() {
             value: 0x12Cu32
         }
     );
+    // jalr: not covered
+    let branchchk: Vec<(u32, Sci32BranchType)> = vec![
+        (0x00000000u32, Sci32BranchType::BEQ),
+        (0x00001000u32, Sci32BranchType::BNE),
+        (0x00004000u32, Sci32BranchType::BLT),
+        (0x00005000u32, Sci32BranchType::BGE),
+        (0x00006000u32, Sci32BranchType::BLTU),
+        (0x00007000u32, Sci32BranchType::BGEU),
+    ];
+    for v in branchchk {
+        let mut opc = 0x00000063u32;
+        opc |= v.0;
+        assert_eq!(
+            crate::Sci32Instr::decode(0x0u32, opc),
+            Sci32Instr::Branch {
+                rs1: Kip32Reg::Zero,
+                rs2: Kip32Reg::Zero,
+                kind: v.1,
+                value: 0
+            }
+        );
+    }
+    // most load/store: not covered
     //   e4:   fee7ae23                sw      a4,-4(a5)
     assert_eq!(
         crate::Sci32Instr::decode(0xe4u32, 0xfee7ae23u32),
@@ -111,5 +137,58 @@ fn idec_checks() {
             kind: Sci32LSType::Word,
             offset: (-4i32) as u32
         }
-    )
+    );
+    let aluchk: Vec<(u32, Sci32ALUType, bool)> = vec![
+        (0x00000000u32, Sci32ALUType::ADD, false),
+        (0x40000000u32, Sci32ALUType::SUB, true),
+        (0x00001000u32, Sci32ALUType::SLL, false),
+        (0x00002000u32, Sci32ALUType::SLT(false), false),
+        (0x00003000u32, Sci32ALUType::SLT(true), false),
+        (0x00004000u32, Sci32ALUType::XOR, false),
+        (0x00005000u32, Sci32ALUType::SRL, false),
+        (0x40005000u32, Sci32ALUType::SRA, false),
+        (0x00006000u32, Sci32ALUType::OR, false),
+        (0x00007000u32, Sci32ALUType::AND, false),
+    ];
+    for v in aluchk {
+        //  0:     fe010113                addi    sp,sp,31
+        let mut opc_imm = 0x01f10113u32;
+        // synthetic
+        let mut opc = 0x00210133u32;
+        opc_imm |= v.0;
+        opc |= v.0;
+        if !v.2 {
+            assert_eq!(
+                crate::Sci32Instr::decode(0x0u32, opc_imm),
+                Sci32Instr::ALU(Sci32ALUOp {
+                    rd: Kip32Reg::SP,
+                    s1: Sci32ALUSource::Register(Kip32Reg::SP),
+                    s2: Sci32ALUSource::Immediate(31i32 as u32),
+                    kind: v.1
+                })
+            );
+        }
+        assert_eq!(
+            crate::Sci32Instr::decode(0x0u32, opc),
+            Sci32Instr::ALU(Sci32ALUOp {
+                rd: Kip32Reg::SP,
+                s1: Sci32ALUSource::Register(Kip32Reg::SP),
+                s2: Sci32ALUSource::Register(Kip32Reg::SP),
+                kind: v.1
+            })
+        );
+    }
+    // fence/ecall/ebreak
+    assert_eq!(
+        crate::Sci32Instr::decode(0xe4u32, 0x0000000fu32),
+        Sci32Instr::NOP(Kip32NOPSource::FENCE)
+    );
+    assert_eq!(
+        crate::Sci32Instr::decode(0xe4u32, 0x00000073u32),
+        Sci32Instr::ECALL
+    );
+    assert_eq!(
+        crate::Sci32Instr::decode(0xe4u32, 0x00100073u32),
+        Sci32Instr::EBREAK
+    );
 }
