@@ -1,4 +1,5 @@
 #include <stdint.h>
+#include <alloca.h>
 
 #define MICROPY_CONFIG_ROM_LEVEL                (MICROPY_CONFIG_ROM_LEVEL_FULL_FEATURES)
 #define MICROPY_ENABLE_COMPILER                 (1)
@@ -23,8 +24,6 @@
 
 typedef long mp_off_t;
 
-#include <alloca.h>
-
 #define MICROPY_HW_BOARD_NAME "alula"
 #define MICROPY_HW_MCU_NAME "kip32"
 
@@ -36,3 +35,8 @@ extern void raisebat_periodic_timer();
 #define MICROPY_VM_HOOK_RETURN { raisebat_periodic_timer(); }
 
 #define KIP32_PYSTACK_SIZE 1024
+
+extern const struct _mp_obj_type_t mp_udongimmicks_type_Coffee;
+
+#define MICROPY_PORT_BUILTINS \
+	{ MP_ROM_QSTR(MP_QSTR_Coffee), MP_ROM_PTR(&mp_udongimmicks_type_Coffee) },

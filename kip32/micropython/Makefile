@@ -1,6 +1,9 @@
 include ../../py/mkenv.mk
 
 include $(TOP)/py/py.mk
+# this is where you WOULD enable this if you wanted it, but licensing is complicated.
+# plus, zicsr moment
+# include $(TOP)/extmod/extmod.mk
 
 MICROPY_ROM_TEXT_COMPRESSION ?= 0
 
@@ -21,11 +24,14 @@ endif
 CFLAGS += -nostartfiles -T $(KIP32_SDK)/kip32.ld
 
 SRC_C += main.c \
+	modgimmicks.c \
 	shared/readline/readline.c \
 	shared/runtime/pyexec.c \
 	$(BUILD)/_frozen_mpy.c
 
-SRC_QSTR += shared/readline/readline.c shared/runtime/pyexec.c
+SRC_QSTR += modgimmicks.c \
+	shared/readline/readline.c \
+	shared/runtime/pyexec.c
 
 OBJ += $(PY_O)
 OBJ += $(addprefix $(BUILD)/, $(SRC_C:.c=.o))

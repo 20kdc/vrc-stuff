@@ -82,6 +82,9 @@ void KIP32_EXPORT _start() {
 
 		gc_init(micropython_heap, micropython_heap + BAT_HEAP_WORDS);
 		mp_init();
+
+		// add Coffee() class
+
 		debug_puts("MicroPython: we survived MP init, entering REPL\n");
 		while (1) {
 			KIP32_SYSCALL0("stdsyscall_update_yield");
