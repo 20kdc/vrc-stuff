@@ -118,6 +118,14 @@ impl Wrapper {
 udon_ext!(
     obj_equality(a b r) =
         "SystemObject.__op_Equality__SystemObject_SystemObject__SystemBoolean"
+
+    i64_mul(a b r) =
+        "SystemInt64.__op_Multiplication__SystemInt64_SystemInt64__SystemInt64"
+    i64_div(a b r) =
+        "SystemInt64.__op_Division__SystemInt64_SystemInt64__SystemInt64"
+    i64_divrem(a b rem div) =
+        "SystemMath.__DivRem__SystemInt64_SystemInt64_SystemInt64Ref__SystemInt64"
+
     i32_eq(a b r) =
         "SystemInt32.__op_Equality__SystemInt32_SystemInt32__SystemBoolean"
     i32_neq(a b r) =
@@ -147,11 +155,14 @@ udon_ext!(
         "SystemInt32.__op_Division__SystemInt32_SystemInt32__SystemInt32"
     i32_rem(a b r) =
         "SystemInt32.__op_Remainder__SystemInt32_SystemInt32__SystemInt32"
+
     // This extern is risky because it will error on negative numbers.
     // For this reason, it's only used in the indirect jump code.
     u32_fromi32(i r) = "SystemConvert.__ToUInt32__SystemInt32__SystemUInt32"
+
     u32_add(a b r) =
         "SystemUInt32.__op_Addition__SystemUInt32_SystemUInt32__SystemUInt32"
+
     // init, etc.
     base64_decode(i r) =
         "SystemConvert.__FromBase64String__SystemString__SystemByteArray"
@@ -164,12 +175,26 @@ udon_ext!(
     // This thing
     i32_frombool(i r) = "SystemConvert.__ToInt32__SystemBoolean__SystemInt32"
 
+    i64array_create(size r) =
+        "SystemInt64Array.__ctor__SystemInt32__SystemInt64Array"
+    i64array_get(i o r) =
+        "SystemInt64Array.__Get__SystemInt32__SystemInt64"
+    i64array_set(i o v) =
+        "SystemInt64Array.__Set__SystemInt32_SystemInt64__SystemVoid"
+
     i32array_create(size r) =
         "SystemInt32Array.__ctor__SystemInt32__SystemInt32Array"
     i32array_get(i o r) =
         "SystemInt32Array.__Get__SystemInt32__SystemInt32"
     i32array_set(i o v) =
         "SystemInt32Array.__Set__SystemInt32_SystemInt32__SystemVoid"
+
+    u32array_create(size r) =
+        "SystemUInt32Array.__ctor__SystemInt32__SystemUInt32Array"
+    u32array_get(i o r) =
+        "SystemUInt32Array.__Get__SystemInt32__SystemUInt32"
+    u32array_set(i o v) =
+        "SystemUInt32Array.__Set__SystemInt32_SystemUInt32__SystemVoid"
 
     i16array_create(size r) =
         "SystemInt16Array.__ctor__SystemInt32__SystemInt16Array"

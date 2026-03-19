@@ -687,7 +687,7 @@ fn main() -> Result<()> {
                         }
 
                         // M extension, trivial-ish signed operations first
-                        Sci32ALUType::DIVREM(divrem, false) => {
+                        Sci32ALUType::DIVREM(divrem, unsigned) => {
                             let divok = code_addr(pc, "_divok");
 
                             // because we want to use fallthrough if possible, we jump if divisor is not 0.
@@ -716,12 +716,64 @@ fn main() -> Result<()> {
 
                             // actual main division/remainder codegen
                             asm.code_label(&divok, Some(UdonAccess::Elidable)).unwrap();
-                            match divrem {
-                                Kip32DIVREMType::DIV => {
+                            match (unsigned, divrem) {
+                                (false, Kip32DIVREMType::DIV) => {
                                     asm.i32_div(&s1, &s2, rd);
                                 }
-                                Kip32DIVREMType::REM => {
+                                (false, Kip32DIVREMType::REM) => {
                                     asm.i32_rem(&s1, &s2, rd);
+                                }
+                                (true, divrem) => {
+                                    // you'd **think** that unsigned modulo would be a thing
+                                    // it is not, so we have to escalate to 64-bit shenanigans and use Math.DivRem
+                                    // load parameters into the scuffed drive, transfer, and retrieve
+                                    // we load them in as [s1, 0, s2, 0]
+                                    // this is essentially zero-extension done the scuffed way
+                                    // you might be wondering why we don't use System.Convert to get the i64
+                                    // answer: it loves to throw exceptions, and the i32-to-u32 step would throw
+                                    // alternatively, we could upcast now and mask later, but we don't have u64 constants on UASM
+                                    // the tldr of all of this is: trust me. I got us this far, didn't I? this is the best way
+                                    asm.i32array_set("_vm_bcopy_i32", &const0, &s1);
+                                    asm.i32array_set("_vm_bcopy_i32", &const1, &const0);
+                                    asm.i32array_set("_vm_bcopy_i32", asm.ensure_i32(2), &s2);
+                                    asm.i32array_set("_vm_bcopy_i32", asm.ensure_i32(3), &const0);
+                                    asm.bcopy(
+                                        "_vm_bcopy_i32",
+                                        &const0,
+                                        "_vm_bcopy_i64",
+                                        &const0,
+                                        &asm.ensure_i32(16),
+                                    );
+                                    asm.i64array_get("_vm_bcopy_i64", &const0, "_vm_tmp_i64_a");
+                                    asm.i64array_get("_vm_bcopy_i64", &const1, "_vm_tmp_i64_b");
+                                    // perform actual operation
+                                    match divrem {
+                                        Kip32DIVREMType::DIV => {
+                                            asm.i64_div(
+                                                "_vm_tmp_i64_a",
+                                                "_vm_tmp_i64_b",
+                                                "_vm_tmp_i64_a",
+                                            );
+                                        }
+                                        Kip32DIVREMType::REM => {
+                                            asm.i64_divrem(
+                                                "_vm_tmp_i64_a",
+                                                "_vm_tmp_i64_b",
+                                                "_vm_tmp_i64_a",
+                                                "_vm_tmp_i64_c",
+                                            );
+                                        }
+                                    }
+                                    // reverse the scuffed drive to get the result out
+                                    asm.i64array_set("_vm_bcopy_i64", &const0, "_vm_tmp_i64_a");
+                                    asm.bcopy(
+                                        "_vm_bcopy_i64",
+                                        &const0,
+                                        "_vm_bcopy_i32",
+                                        &const0,
+                                        &asm.ensure_i32(4),
+                                    );
+                                    asm.i32array_get("_vm_bcopy_i32", &const0, rd);
                                 }
                             }
                         }

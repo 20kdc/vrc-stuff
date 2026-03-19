@@ -16,10 +16,16 @@ package("builtin_globals", [])
 	var(_vm_tmp_u16, null("SystemUInt16"))
 	var(_vm_tmp_i8, null("SystemSByte"))
 	var(_vm_tmp_i16, null("SystemInt16"))
+	var(_vm_tmp_i64_a, null("SystemInt64"))
+	var(_vm_tmp_i64_b, null("SystemInt64"))
+	var(_vm_tmp_i64_c, null("SystemInt64"))
 	// Scratch buffers for loads, stores, etc.
+	// [2] (mulh/mulu/divu bulk transfer)
+	var(_vm_bcopy_i64, null("SystemInt64Array"))
+	// [4] (mulh/mulu/divu bulk transfer uses 4)
 	var(_vm_bcopy_i32, null("SystemInt32Array"))
-	var(_vm_bcopy_i16, null("SystemInt16Array"))
-	var(_vm_bcopy_i8, null("SystemSByteArray"))
+	var(_vm_bcopy_i16, null("SystemInt16Array")) // [1]
+	var(_vm_bcopy_i8, null("SystemSByteArray")) // [1]
 	var(_vm_initdata_dec, null("SystemByteArray"))
 	// syscalls can use this to check their internal state isn't stale
 	var(_vm_reset_count, int(0))
@@ -55,7 +61,8 @@ public(_vm_reset_and_jump)
 	// note that we only set vm_sp *once* since SDK became reentrant, so vm_initsp no longer exists.
 	copy_static(C(int_c(_vm_equ_initsp)), vm_sp)
 	// create scratch buffers
-	ext(_vmext_i32array_create, [C(int(1)), _vm_bcopy_i32])
+	ext(_vmext_i64array_create, [C(int(2)), _vm_bcopy_i64])
+	ext(_vmext_i32array_create, [C(int(4)), _vm_bcopy_i32])
 	ext(_vmext_i16array_create, [C(int(1)), _vm_bcopy_i16])
 	ext(_vmext_i8array_create, [C(int(1)), _vm_bcopy_i8])
 	// setup like a thunk would. we're called by thunks when the machine hasn't been setup yet

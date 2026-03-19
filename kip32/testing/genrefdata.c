@@ -23,6 +23,17 @@ void write_case(const char * case_type, int (*process)(int, int), int v1, int v2
 	puts(",");
 }
 
+void write_all_cases(int v1, int v2) {
+	write_case("GRDC_MUL   ", muldiv_mul, v1, v2);
+	write_case("GRDC_MULH  ", muldiv_mulh, v1, v2);
+	write_case("GRDC_MULHSU", muldiv_mulhsu, v1, v2);
+	write_case("GRDC_MULHU ", muldiv_mulhu, v1, v2);
+	write_case("GRDC_DIV   ", muldiv_div, v1, v2);
+	write_case("GRDC_DIVU  ", muldiv_divu, v1, v2);
+	write_case("GRDC_REM   ", muldiv_rem, v1, v2);
+	write_case("GRDC_REMU  ", muldiv_remu, v1, v2);
+}
+
 void _start() {
 	puts("/* generated with genrefdata.c */");
 	puts("#define GRDC_END 0");
@@ -46,15 +57,10 @@ void _start() {
 		int d = (i & 0xC0) >> 6;
 		int v1 = (a << 30) | b;
 		int v2 = (c << 30) | d;
-		write_case("GRDC_MUL   ", muldiv_mul, v1, v2);
-		write_case("GRDC_MULH  ", muldiv_mulh, v1, v2);
-		write_case("GRDC_MULHSU", muldiv_mulhsu, v1, v2);
-		write_case("GRDC_MULHU ", muldiv_mulhu, v1, v2);
-		write_case("GRDC_DIV   ", muldiv_div, v1, v2);
-		write_case("GRDC_DIVU  ", muldiv_divu, v1, v2);
-		write_case("GRDC_REM   ", muldiv_rem, v1, v2);
-		write_case("GRDC_REMU  ", muldiv_remu, v1, v2);
+		write_all_cases(v1, v2);
 	}
+	// these cases trigger overflow logic
+	write_all_cases(0x80000000, 0xFFFFFFFF);
 	puts("\tGRDC_END");
 	puts("};");
 	_exit(0);
