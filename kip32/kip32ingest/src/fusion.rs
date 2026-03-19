@@ -87,6 +87,10 @@ impl Kip32FusedInstr {
     }
 
     /// Attempts to fuse B into A.
+    /// Keep in mind the following:
+    /// * B **must** be at the location of A.jump!
+    /// * B will be generated anyway, in case it's jumped directly into.
+    /// * The returned instruction is either self or a replacement for self.
     pub fn try_fuse(self, b: Kip32FusedInstr) -> (bool, Kip32FusedInstr) {
         match (self, b) {
             // -- jump fusion --

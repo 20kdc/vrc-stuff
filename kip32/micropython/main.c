@@ -14,8 +14,13 @@
 
 // 256k heap
 int micropython_heap[0x10000];
+
+// stack figuring-out
 int fresh_reset = 1;
 void * stack_top;
+
+// where allocated stack RAM is 'likely' to begin
+extern char _ebss[];
 
 // enlightenments
 
@@ -64,8 +69,17 @@ void KIP32_EXPORT _start() {
 		debug_puts("MicroPython: init - we're doing update_yield test now\n");
 		KIP32_SYSCALL0("stdsyscall_update_yield");
 		debug_puts("MicroPython: we survived 1st yield. initializing GC/MP\n");
+
 		// this is a pretty damn nasty trick, but it catches autostack
 		stack_top = kip32_udon_sbrk(0);
+
+#if MICROPY_ENABLE_PYSTACK
+		static mp_obj_t pystack[KIP32_PYSTACK_SIZE];
+		mp_pystack_init(pystack, &pystack[KIP32_PYSTACK_SIZE]);
+#endif
+
+		mp_cstack_init_with_top(stack_top, (mp_uint_t) stack_top - (mp_uint_t) _ebss);
+
 		gc_init(micropython_heap, micropython_heap + BAT_HEAP_WORDS);
 		mp_init();
 		debug_puts("MicroPython: we survived MP init, entering REPL\n");
