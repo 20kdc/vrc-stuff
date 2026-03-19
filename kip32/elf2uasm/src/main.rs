@@ -612,6 +612,8 @@ fn main() -> Result<()> {
                     Sci32ALUType::XOR => Some(&asm.i32_xor),
                     Sci32ALUType::OR => Some(&asm.i32_or),
                     Sci32ALUType::AND => Some(&asm.i32_and),
+                    // this is the only M extension op that's trivial like this...
+                    Sci32ALUType::MUL => Some(&asm.i32_mul),
                     _ => None,
                 };
                 if let Some(trivial) = trivial {

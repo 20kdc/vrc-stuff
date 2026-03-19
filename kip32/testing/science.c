@@ -1,15 +1,11 @@
 #include <kip32.h>
 #include <kip32_udon.h>
+#include "testlibc.h"
+#include "muldiv.h"
 #include "genrefdata.h"
 
 void putchar(int c) {
 	KIP32_SYSCALL1("stdsyscall_putchar", c);
-}
-
-void puts(const char * s) {
-	while (*s)
-		putchar(*(s++));
-	putchar(10);
 }
 
 int vi_m1 = -1;
@@ -68,6 +64,50 @@ KIP32_EXPORT int _interact() {
 	TEST("vs8 2", barrier(arr_s8[2]) == 0x10);
 	// -- memory accesses, 8-bit unsigned --
 	TEST("vu8", barrier(vu8) == 0xEE);
+	// -- maths --
+	puts("GRDC testing");
+	int caseNumber = 0;
+	int casesExecuted = 0;
+	const char * grdcVerdict = "fail";
+	while (1) {
+		const char * caseOpcStr = "?";
+		int caseOpc = genrefdata_cases[caseNumber++];
+		if (caseOpc == GRDC_END) {
+			grdcVerdict = "success";
+			break;
+		}
+		int v1 = genrefdata_cases[caseNumber++];
+		int v2 = genrefdata_cases[caseNumber++];
+		int vR = genrefdata_cases[caseNumber++];
+		int hasResult = 0;
+		int resultVal = 0;
+		if (caseOpc == GRDC_MUL) {
+			caseOpcStr = "GRDC_MUL   ";
+			resultVal = muldiv_mul(v1, v2);
+			hasResult = 1;
+		}
+		if (hasResult) {
+			casesExecuted++;
+			if (resultVal != vR) {
+				putsn("GRDC fail: ");
+				puthex(caseOpc);
+				putsn(", ");
+				puthex(v1);
+				putsn(", ");
+				puthex(v2);
+				putsn(", ");
+				puthex(vR);
+				puts(",");
+				break;
+			}
+		}
+	}
+	putsn("GRDC testing complete, @");
+	puthex(caseNumber);
+	putsn(", ");
+	puthex(casesExecuted);
+	putsn(" cases executed, ");
+	puts(grdcVerdict);
 	// -- done --
 	KIP32_UDON_PUSH("C(string(\"test suite complete\"))");
 	KIP32_UDON_EXTERN0("UnityEngineDebug.__Log__SystemObject__SystemVoid");

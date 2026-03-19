@@ -6,10 +6,11 @@ kip32:
 	cargo build
 	cargo test -q
 
-	riscv64-unknown-elf-gcc -mabi=ilp32 -march=rv32i -nostartfiles -nolibc -ffreestanding testing/qemu.S testing/muldiv.S testing/genrefdata.c -o testing/genrefdata.elf
+	riscv64-unknown-elf-gcc -mabi=ilp32 -march=rv32i -nostartfiles -nolibc -ffreestanding testing/qemu.S testing/muldiv.S testing/testlibc.c testing/genrefdata.c -o testing/genrefdata.elf
 
 	sdk/kip32cc -O3 testing/science.c -S -o testing/science.s
-	sdk/kip32cc -O3 testing/science.c testing/muldiv.S -o testing/science.elf -Wl,-Map=testing/science.map
+	sdk/kip32cc -O3 testing/testlibc.c -S -o testing/testlibc.s
+	sdk/kip32cc -O3 testing/science.c testing/testlibc.c testing/muldiv.S -o testing/science.elf -Wl,-Map=testing/science.map
 	sdk/elf2uasm testing/science.elf --ignore-emit-err -o ../kvassets/Assets/science.uasm
 	sdk/elf2uasm testing/science.elf --udonjson -o ../kvassets/Assets/science.udonjson
 	objdump -h -D testing/science.elf > testing/science.lst
