@@ -6,4 +6,7 @@ riscv32-unknown-elf
 -nostartfiles
 -nolibc
 -ffreestanding
--Isdk/include
+-isystem
+sdk/include
+-isystem
+sdk/include_libc

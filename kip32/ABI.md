@@ -161,7 +161,12 @@ These syscalls have fixed _intended_ meanings, and are thus reliable for libc.
 
 Note that extremely niche cases may use special compiler flags to remove these syscalls.
 
-* `syscall_stdsyscall_memmove`: Implements `memmove`. See appropriate C specification.
+* `stdsyscall_putchar`: Takes a single parameter in `a0`, no return value. Writes a single byte of debug output. The value 10/`\n` will flush the debug output implicitly.
+	* Debug output is in an unspecified character set that should be at least compatible with ASCII for alphanumeric characters.
+	* This is a maximum-reliability debug port and should not be used for end-user text unless otherwise specified.
+* `stdsyscall_memmove`: Implements `memmove`. See appropriate C specification.
+* `stdsyscall_sbrk`: Implements `sbrk`, minus effects on `errno` (since `errno`, if it exists, is internal).
+	* This is intended to be used as a primitive to implement the `malloc` interface on top of. Therefore, if you're using a libc's `malloc`/`free`, you should not be using `sbrk` unless you know for a fact it's not calling this interface.
 
 ## Udon Supplement
 

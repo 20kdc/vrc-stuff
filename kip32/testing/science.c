@@ -1,3 +1,4 @@
+#include <stdlib.h>
 #include <kip32.h>
 #include <kip32_udon.h>
 #include "testlibc.h"
@@ -33,7 +34,7 @@ unsigned char vu8 = 0xEE;
 #define TEST_NOT(info, cond) if (cond) { puts(info " FAIL"); } else { puts(info " OK"); }
 
 KIP32_EXPORT int _interact() {
-	puts("science.c : kip32 test program");
+	system("science.c : kip32 test program (replacement libc edition)\n");
 	// -- comparison checks --
 	TEST("signed LT",             vi_m1 < vi_p1);
 	TEST_NOT("signed LTR",        vi_p1 < vi_m1);
