@@ -17,19 +17,7 @@ kip32: kip32-libc
 [working-directory: 'kip32/sdk/libc']
 kip32-libc:
 	rm -f obj/*.o
-	../kip32-udon-gcc -O3 stdlib/abort.S -c -o obj/abort.o
-	../kip32-udon-gcc -O3 stdlib/abs.S -c -o obj/abs.o
-	../kip32-udon-gcc -O3 stdlib/bsearch.c -c -o obj/bsearch.o
-	../kip32-udon-gcc -O3 stdlib/div.c -c -o obj/div.o
-	../kip32-udon-gcc -O3 stdlib/ldiv.c -c -o obj/ldiv.o
-	../kip32-udon-gcc -O3 stdlib/llabs.c -c -o obj/llabs.o
-	../kip32-udon-gcc -O3 stdlib/lldiv.c -c -o obj/lldiv.o
-	../kip32-udon-gcc -O3 stdlib/qsort.c -c -o obj/qsort.o
-	../kip32-udon-gcc -O3 stdlib/system.S -c -o obj/system.o
-	../kip32-udon-gcc -O3 errno.c -c -o obj/errno.o
-	../kip32-udon-gcc -O3 fread.c -c -o obj/fread.o
-	../kip32-udon-gcc -O3 fwrite.c -c -o obj/fwrite.o
-	../kip32-udon-gcc -O3 memmove_syscall.S -c -o obj/memmove_syscall.o
+	../recipe "../kip32-udon-gcc -O3" "-c -o" "" `cat objects.txt`
 	rm -f ../libc.a
 	riscv64-unknown-elf-ar rcs ../libc.a obj/*.o
 

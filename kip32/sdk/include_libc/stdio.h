@@ -26,6 +26,9 @@ typedef struct _FILE {
 	size_t (*write)(const void * __restrict__ ptr, size_t size, struct _FILE * __restrict__ stream);
 } FILE;
 
+/* Constants */
+#define EOF (-1)
+
 /* Not really provided by the libc. */
 extern FILE * stdin;
 extern FILE * stdout;

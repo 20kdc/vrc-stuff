@@ -1,0 +1,24 @@
+#!/bin/sh
+# recipe A B C (IN OUT...)
+# This is basically meant to be a workaround for stuff Just doesn't handle because it's not Make.
+# Specifically, this script runs 'A IN B OUT C' for each IN, OUT pair.
+
+set -e
+
+RECIPE_A="$1"
+RECIPE_B="$2"
+RECIPE_C="$3"
+shift
+shift
+shift
+
+RECIPE_JOBS=""
+
+while [ $# -gt 0 ]; do
+	RECIPE_IN="$1"
+	shift
+	RECIPE_OUT="$1"
+	shift
+	$RECIPE_A "$RECIPE_IN" $RECIPE_B "$RECIPE_OUT" $RECIPE_C
+	RECIPE_JOBS="$RECIPE_JOBS "
+done
