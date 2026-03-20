@@ -177,6 +177,13 @@ udon_ext!(
     // readers (byte-array, offset)
     read_i32(a o r) =
         "SystemBitConverter.__ToInt32__SystemByteArray_SystemInt32__SystemInt32"
+    read_u16(a o r) =
+        "SystemBitConverter.__ToUInt16__SystemByteArray_SystemInt32__SystemUInt16"
+    read_i16(a o r) =
+        "SystemBitConverter.__ToInt16__SystemByteArray_SystemInt32__SystemInt16"
+    // reader unsigned conversions
+    i32_fromu8(i r) = "SystemConvert.__ToInt32__SystemByte__SystemInt32"
+    i32_fromu16(i r) = "SystemConvert.__ToInt32__SystemUInt16__SystemInt32"
     // reader signed conversions
     i32_fromi8(i r) = "SystemConvert.__ToInt32__SystemSByte__SystemInt32"
     i32_fromi16(i r) = "SystemConvert.__ToInt32__SystemInt16__SystemInt32"
@@ -216,6 +223,8 @@ udon_ext!(
 
     u8array_create(size r) =
         "SystemByteArray.__ctor__SystemInt32__SystemByteArray"
+    u8array_get(i o r) =
+        "SystemByteArray.__Get__SystemInt32__SystemByte"
     bytearray_copy(i a o) =
         "SystemByteArray.__CopyTo__SystemArray_SystemInt32__SystemVoid"
 

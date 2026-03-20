@@ -155,8 +155,13 @@ fn asm_syscall(asm: &Wrapper, img: &Sci32Image, name: &str, istr_jump: u32) {
 enum LoadPipe {
     /// 1 extern call; use BitConverter directly
     Word,
-    /// 3 extern calls; set to 0, BlockCopy, get from word array
-    ZeroPad(i32),
+    /// 2 extern calls; get, convert to i32
+    BitConverter {
+        holding_cell_element: &'static str,
+        /// (memory, addr, result) -- also works for u8array_get
+        reader: String,
+        converter: String,
+    },
     /// 3 extern calls; BlockCopy, get from array, convert
     Convert {
         holding_cell: &'static str,
@@ -496,8 +501,16 @@ fn main() -> Result<()> {
                 }
                 let pipe = match kind {
                     Sci32LSType::Word => LoadPipe::Word,
-                    Sci32LSType::Byte(true) => LoadPipe::ZeroPad(1),
-                    Sci32LSType::Half(true) => LoadPipe::ZeroPad(2),
+                    Sci32LSType::Byte(true) => LoadPipe::BitConverter {
+                        holding_cell_element: "_vm_tmp_u8",
+                        reader: asm.u8array_get.clone(),
+                        converter: asm.i32_fromu8.clone(),
+                    },
+                    Sci32LSType::Half(true) => LoadPipe::BitConverter {
+                        holding_cell_element: "_vm_tmp_u16",
+                        reader: asm.read_u16.clone(),
+                        converter: asm.i32_fromu16.clone(),
+                    },
                     Sci32LSType::Byte(false) => LoadPipe::Convert {
                         holding_cell: "_vm_bcopy_i8",
                         type_size: 1,
@@ -505,29 +518,28 @@ fn main() -> Result<()> {
                         array_get: asm.i8array_get.clone(),
                         converter: asm.i32_fromi8.clone(),
                     },
-                    Sci32LSType::Half(false) => LoadPipe::Convert {
-                        holding_cell: "_vm_bcopy_i16",
-                        type_size: 2,
+                    Sci32LSType::Half(false) => LoadPipe::BitConverter {
                         holding_cell_element: "_vm_tmp_i16",
-                        array_get: asm.i16array_get.clone(),
+                        reader: asm.read_i16.clone(),
                         converter: asm.i32_fromi16.clone(),
                     },
                 };
                 match pipe {
                     LoadPipe::Word => asm.read_i32("vm_memory", s_addr, dst),
-                    LoadPipe::ZeroPad(size) => {
-                        // Initialize the target to 0 (the zero-padding).
-                        asm.i32array_set("_vm_bcopy_i32", &const0, &const0);
-                        // Copy in the starting bytes (which are also the low bytes aka what we want).
-                        asm.bcopy(
-                            "vm_memory",
-                            s_addr,
-                            "_vm_bcopy_i32",
-                            &const0,
-                            asm.ensure_i32(size),
-                        );
-                        // Retrieve the result, which has just been zero-padded.
-                        asm.i32array_get("_vm_bcopy_i32", &const0, dst);
+                    LoadPipe::BitConverter {
+                        holding_cell_element,
+                        reader,
+                        converter,
+                    } => {
+                        // Read.
+                        uasm_op!(asm.asm(), PUSH, "vm_memory");
+                        uasm_op!(asm.asm(), PUSH, s_addr);
+                        uasm_op!(asm.asm(), PUSH, holding_cell_element);
+                        uasm_op!(asm.asm(), EXTERN, reader);
+                        // Convert.
+                        uasm_op!(asm.asm(), PUSH, holding_cell_element);
+                        uasm_op!(asm.asm(), PUSH, dst);
+                        uasm_op!(asm.asm(), EXTERN, converter);
                     }
                     LoadPipe::Convert {
                         holding_cell,
