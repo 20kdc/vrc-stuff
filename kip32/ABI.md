@@ -115,6 +115,9 @@ There are three ways of expressing a syscall.
 	* The instruction will be decoded as a regular EBREAK if the address does not result in a valid UTF-8 C string in the `.kip32_metadata` section.
 3. Call-Into-Data syscalls are similar to EBREAK, but are triggered using `JAL ra, string_symbol` (aka `CALL string_symbol`).
 	* This has the benefit of not potentially confusing the instruction decoder.
+	* _**Critically, `ra` is not actually altered.**_
+		* This is 'valid behaviour' insofaras `ra` is a caller-saved register and thus the callee may leave it at any arbitrary value.
+		* Assembly-code thunks depend on this.
 
 Which of these methods to use depends on your goals.
 

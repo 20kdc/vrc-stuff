@@ -37,7 +37,7 @@ Meanwhile, RV32IM has a clear minimal set of instructions a compiler can be told
 	  In other words, you should have a clear method of testing as a native executable.
 	* The `kip32.h` header comes in both on-host and in-Udon variants.
 3. Compile to what is essentially a RV32IM microcontroller. Link with `sdk/kip32.ld` linker script.
-	* The `sdk/kip32cc` script is intended to be a convenient frontend.
+	* The `sdk/kip32-udon-gcc` script is intended to be a convenient frontend.
 	* Alternatively, if you want things like 'an actual libc' you might want i.e:
 		* `picolibc-riscv64-unknown-elf`
 		* `-mabi=ilp32 -march=rv32im -I$(KIP32_SDK)/include -nostartfiles -specs=/usr/lib/picolibc/riscv64-unknown-elf/picolibc.specs`

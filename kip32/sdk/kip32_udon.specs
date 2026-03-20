@@ -1,0 +1,25 @@
+%rename link    kip32_pre_link
+%rename cpp     kip32_pre_cpp
+%rename cc1     kip32_pre_cc1
+%rename cc1plus kip32_pre_cc1plus
+
+%rename startfile kip32_pre_startfile
+%rename endfile kip32_pre_endfile
+
+*kip32_compile_opts:
+-isystem %:getenv(KIP32_SDK /include) %{!ftls-model:-ftls-model=local-exec}
+
+*cpp:
+%(kip32_compile_opts) %(kip32_pre_cpp)
+
+*cc1:
+%(kip32_compile_opts) %(kip32_pre_cc1)
+
+*cc1plus:
+%(kip32_compile_opts) %(kip32_pre_cc1plus)
+
+*link:
+--defsym memcpy=__kip32_syscall_memmove --defsym memmove=__kip32_syscall_memmove -L%:getenv(KIP32_SDK /) %{!T:-Tkip32.ld} %(kip32_pre_link)
+
+*lib:
+--start-group %(libgcc) -lc %{-oslib=*:-l%*} --end-group

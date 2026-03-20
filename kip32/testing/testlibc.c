@@ -1,14 +1,5 @@
 #include "testlibc.h"
 
-int strlen(const char * str) {
-	int res = 0;
-	while (*str) {
-		str++;
-		res++;
-	}
-	return res;
-}
-
 void putsn(const char * text) {
 	while (*text) {
 		putchar(*text);
