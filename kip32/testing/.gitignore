@@ -1,7 +1,5 @@
-science.elf
-science.lst
-science.map
+*.lst
+*.map
 science.s
 testlibc.s
-genrefdata.elf
-libctest.elf
+*.elf
