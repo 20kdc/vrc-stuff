@@ -6,3 +6,5 @@ div_t div(int numer, int denom) {
 		.rem = numer % denom
 	};
 }
+
+ldiv_t ldiv(long numer, long denom) __attribute__((alias("div")));

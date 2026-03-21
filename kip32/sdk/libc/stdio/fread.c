@@ -1,7 +1,16 @@
 #include <stdio.h>
 
 size_t fread(void * __restrict__ ptr, size_t size, size_t nmemb, FILE * __restrict__ stream) {
-	if (size == 0)
+	size_t total = nmemb * size;
+	if (!stream->read || total == 0)
 		return 0;
-	return stream->read(ptr, nmemb * size, stream) / size;
+	if (stream->ungetc != EOF) {
+		*((char *) ptr) = stream->ungetc;
+		stream->ungetc = EOF;
+		total--;
+		if (!total)
+			return size;
+		ptr++;
+	}
+	return stream->read(ptr, total, stream) / size;
 }

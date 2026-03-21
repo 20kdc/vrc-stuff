@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <inttypes.h>
 
 /*
  * Because this works with long long, and because we don't need to do the multiple-symbol-alias thing like with abs, this is written in C.
@@ -7,3 +8,5 @@
 long long llabs(long long j) {
 	return (j < 0) ? -j : j;
 }
+
+intmax_t imaxabs(intmax_t j) __attribute__((alias("llabs")));

@@ -7,6 +7,23 @@
 /* REQUIRED for size_t, NULL per c11_n1570 7.22.{2,3} */
 #include <stddef.h>
 
+#define RAND_MAX 0x7FFFFFFF
+
+/* atof + the strto{d/f/ld} functions are omitted because they involve floating-point */
+
+int atoi(const char * nptr);
+long atol(const char * nptr);
+long long atoll(const char * nptr);
+
+long strtol(const char * __restrict__ nptr, char ** __restrict__ endptr, int base);
+long long strtoll(const char * __restrict__ nptr, char ** __restrict__ endptr, int base);
+unsigned long strtoul(const char * __restrict__ nptr, char ** __restrict__ endptr, int base);
+unsigned long long strtoull(const char * __restrict__ nptr, char ** __restrict__ endptr, int base);
+
+/* 'Random' number generation. */
+int rand();
+void srand(unsigned int seed);
+
 /*
  * On this libc, this writes text to the debug port.
  * A dedicated function could have been used, but this was neater.
@@ -31,7 +48,10 @@ int abs(int j);
 long labs(long j);
 long long llabs(long long j);
 
-/* The various divs. */
+/*
+ * The various divs.
+ * Note that div.c uses function aliasing and thus assumes div_t and ldiv_t are the same struct.
+ */
 
 typedef struct _div_t {
 	int quot;

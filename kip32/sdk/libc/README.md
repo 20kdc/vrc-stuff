@@ -22,8 +22,9 @@ It is likely to _**never**_ support floating-point calculations.
 	* This design allows `fprintf`/`fscanf` to be generic.
 * `system` is used to output debug messages. It calls `stdsyscall_putchar`.
 	* This is technically a valid implementation, because I say that's how the command processor works on this system.
+* `rand` and `srand` are implemented using the `java.util.Random` algorithm.
 * It is expected that when `time.h` is implemented, it will exist in a permanent UTC timezone.
-* Like many libcs before it, the libc is split one-file-per-function so that only necessary objects are linked.
+* Like many libcs before it, the libc is usually split one-file-per-function so that only necessary objects are linked.
 
 ## Headers / Requirements
 
@@ -69,14 +70,14 @@ This leaves the following headers up for implementation:
 
 Of which are in-scope:
 
-* `assert.h` (status: 'DIY handler')
-* `ctype.h` (status: stub)
-* `errno.h` (status: stub-ish)
-* `inttypes.h` (status: missing)
-* `locale.h` (status: complete)
-* `math.h` (status: stub)
+* `assert.h` (status: complete -- intentional 'DIY handler' quirk)
+* `ctype.h` (status: complete)
+* `errno.h` (status: complete)
+* `inttypes.h` (status: complete -- least/fast SCN macros are 'too unknown' so haven't been implemented)
+* `locale.h` (status: complete -- fixed single locale)
+* `math.h` (status: intentional stub)
 * `setjmp.h` (status: complete)
-* `signal.h` (status: stub)
+* `signal.h` (status: intentional stub)
 * `stdio.h` (status: in-progress)
 * `stdlib.h` (status: in-progress)
 * `string.h` (status: in-progress)
