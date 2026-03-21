@@ -58,8 +58,9 @@ public(_vm_reset_and_jump)
 	ext(_vmext_i32_add, [_vm_reset_count, C(int(1)), _vm_reset_count])
 
 	// setup VM settings to match the binary.
-	// note that we only set vm_sp *once* since SDK became reentrant, so vm_initsp no longer exists.
+	// note that we only set vm_sp *on reset* since SDK became reentrant, so vm_initsp no longer exists.
 	copy_static(C(int_c(_vm_equ_initsp)), vm_sp)
+	copy_static(C(int_c(_vm_equ_initgp)), _vm_gp)
 	// create scratch buffers
 	ext(_vmext_i64array_create, [C(int(2)), _vm_bcopy_i64])
 	ext(_vmext_i32array_create, [C(int(4)), _vm_bcopy_i32])

@@ -1,7 +1,7 @@
 #!/bin/sh -e
 # This script is kind of like emcc in spirit, though it is quite limited in execution.
-# It adds the kip32 SDK linker script and include directory.
-# If you need a full C library, you should probably do things manually and just pull in what you need.
+# It adds the kip32 SDK linker script and include directories.
+# If you need a *full* C library, you should probably do things manually and just pull in what you need.
 
 # -- COPY-PASTED HEADER --
 WHERE_AM_I="`readlink -f "$0"`"

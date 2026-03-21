@@ -1,14 +1,15 @@
 #include "testlibc.h"
 
-void putsn(const char * text) {
+int system(const char * text) {
 	while (*text) {
 		putchar(*text);
 		text++;
 	}
+	return 0;
 }
 
 void puts(const char * text) {
-	putsn(text);
+	system(text);
 	putchar(10);
 }
 

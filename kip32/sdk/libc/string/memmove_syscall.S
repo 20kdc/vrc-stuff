@@ -6,14 +6,19 @@
 .align 2
 /* we don't want the syscall to be relaxed, if that's possible */
 .option norelax
-.globl __kip32_syscall_memmove
-.type __kip32_syscall_memmove, @function
+.globl memmove
+.type memmove, @function
+.globl memcpy
+.type memcpy, @function
 
-__kip32_syscall_memmove:
+memmove:
+memcpy:
 	call __kip32_syscall_memmove_syscall
 	ret
 
 .section .kip32_metadata.__kip32_syscall_memmove_syscall, "aS"
+/* truncation errors can occur if this isn't given */
+.align 1
 
 __kip32_syscall_memmove_syscall:
 	.string "syscall:stdsyscall_memmove"

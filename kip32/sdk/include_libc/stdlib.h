@@ -25,8 +25,14 @@ int rand();
 void srand(unsigned int seed);
 
 /*
- * On this libc, this writes text to the debug port.
+ * This calls system to print an error, and then performs an invalid memory access.
+ */
+_Noreturn void abort();
+
+/*
+ * On kip32, this writes text to the debug port.
  * A dedicated function could have been used, but this was neater.
+ * On qemu, this is undefined.
  */
 int system(const char * string);
 

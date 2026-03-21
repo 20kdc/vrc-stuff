@@ -1,9 +1,24 @@
 #include "qemu.h"
 #include "testlibc.h"
 #include <stdlib.h>
+#include <string.h>
+#include <assert.h>
 
 void putchar(int chr) {
 	write(1, &chr, 1);
+}
+
+void __assert_fail(const char * exprtext, const char * file, int line, const char * func) {
+	putsn("assertion failed: ");
+	putsn(exprtext);
+	putsn(" @ ");
+	putsn(file);
+	putsn(":");
+	puthex(line);
+	putsn(" (");
+	putsn(func);
+	puts(")");
+	abort();
 }
 
 #define STRTOL_TEST_S(v, p) \
@@ -22,7 +37,7 @@ void _start() {
 
 	STRTOL_TEST(1234, 10);
 	STRTOL_TEST(1234, 0);
-	STRTOL_TEST(+1234, 0);
+	STRTOL_TEST_S(+1234, 0);
 	STRTOL_TEST(01234, 8);
 	STRTOL_TEST(01234, 0);
 	STRTOL_TEST(0x10000, 16);
@@ -46,16 +61,21 @@ class Main {
 }
 */
 	srand(0);
-	int randTestOk = 1;
-	randTestOk &= rand() == 991999072;
-	randTestOk &= rand() == 1423528248;
-	randTestOk &= rand() == 1033096058;
-	randTestOk &= rand() == 456749246;
-	if (randTestOk) {
-		puts("rand test OK");
-	} else {
-		puts("rand test FAIL");
-	}
+	assert(rand() == 991999072);
+	assert(rand() == 1423528248);
+	assert(rand() == 1033096058);
+	assert(rand() == 456749246);
+
+	puts("performing strlen tests...");
+
+	assert(strlen("") == 0);
+	assert(strlen("a") == 1);
+	assert(strlen("aa") == 2);
+	assert(strlen("aaa") == 3);
+	assert(strlen("aaaa") == 4);
+	assert(strlen("aaaaa") == 5);
+
+	puts("hey, all tests completed!");
 
 	_exit(0);
 }

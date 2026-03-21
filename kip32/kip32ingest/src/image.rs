@@ -339,4 +339,11 @@ impl Sci32Image {
             }
         }
     }
+    /// Finds the initial GP.
+    pub fn initial_gp(&mut self) -> u32 {
+        match self.symbols.get("__global_pointer$") {
+            Some(initial_gp_sym) => initial_gp_sym.st_addr,
+            None => 0,
+        }
+    }
 }

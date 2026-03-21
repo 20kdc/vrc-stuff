@@ -88,11 +88,13 @@ However, on VM reset:
 
 * `sp`/`x2` is set to the end of stack memory (if allocated) or `_stack_start` (if specified).
 	* This only happens here; if the VM leaves SP in the wrong place, it _stays there._ This was done to allow for reentrancy.
+* `gp`/`x3` is set to `__global_pointer$` (if the symbol exists) or `0` (if not).
+	* <https://maskray.me/blog/2021-03-14-the-dark-side-of-riscv-linker-relaxation> is an interesting article; basically, GCC just _decided_ to declare the EABI spec canonical across the Unix ABI as well. In order to prevent issues, it's better to just try and support this.
 * Memory is reset to the initial data image.
 
 Notably:
 
-* Other than `sp`, no registers are _inherently_ reset on VM reset. If reset needs to be detected, a flag may be kept in memory.
+* Other than `sp` and `gp`, no registers are _inherently_ reset on VM reset. If reset needs to be detected, a flag may be kept in memory.
 
 Entrypoints are taken from `.kip32_export` sections.
 
@@ -167,6 +169,36 @@ Note that extremely niche cases may use special compiler flags to remove these s
 * `stdsyscall_memmove`: Implements `memmove`. See appropriate C specification.
 * `stdsyscall_sbrk`: Implements `sbrk`, minus effects on `errno` (since `errno`, if it exists, is internal).
 	* This is intended to be used as a primitive to implement the `malloc` interface on top of. Therefore, if you're using a libc's `malloc`/`free`, you should not be using `sbrk` unless you know for a fact it's not calling this interface.
+
+## Regarding Spec Compliance
+
+KIP32 is _intended to_ be spec-compliant for the processor that it is, much like some minimalist FPGA-grade RISC-V implementations.
+
+That is, given the following assumptions:
+
+1. Without implementing the privileged specification, the EEI is allowed to implement Requested Traps or Fatal Traps however it likes.
+	* Citation: `20191213: 1.6 Exceptions, Traps, and Interrupts` (`How traps are handled and made visible to software running on the hart depends on the enclosing execution environment.`)
+2. The EEI may define memory permissions arbitrarily, though _should_ define some area of memory as 'ordinary' read/write memory.
+	* Citation: `20191213: 1.4 Memory` (`The execution environment determines what portions of the non-vacant address space are accessible for each kind of memory access.`)
+	* Citation: `20191213: 1.4 Memory` (`it is usually expected that some portion will be specified as main memory.`)
+3. Without implementing an instruction fence, the implementation may precache every valid instruction at the 'earliest opportunity', and as there is no instruction that can invalidate this cache, the implementation is allowed to make the cache read-only past that point.
+	* Citation: `20191213: 1.4 Memory` (`avoid reading main memory for instruction fetches ever again`)
+	* Citation: `20191213: "Zifencei" Instruction-Fetch Fence, Version 2.0` (`RISC-V does not guarantee that stores to instruction memory will be made visible to instruction fetches on a RISC-V hart until that hart executes a FENCE.I instruction.`)
+
+And given the following conclusions:
+
+1. Per assumption 1, it follows that following `EBREAK` with a non-executable address word is a permissible method of 'specifying' a desired effect.
+	* A reasonably similar mechanism to the `EBREAK` syscall is used for RISC-V's semihosting ABI.
+2. Per assumptions 1 and 2, it follows that a jump into any memory the EEI does not define as executable memory can cause behaviour defined by the EEI.
+	* It follows that the EEI can choose to define this as undefined behaviour, or can choose to handle it in highly specific ways (i.e. Call-Into-Data).
+3. Per assumption 3, it follows that if this memory is baked-in at design time, the earliest opportunity precedes the actual 'manufacturing' of the implementation, and so the prefetch may be baked-in also.
+	* There are some particularly 'creative' ways to use this from a hardware perspective, but from a software perspective this allows AOT recompilation of sufficiently constrained RISC-V binaries.
+
+Then KIP32 **should** (this is not a formally verified statement) be compliant with:
+
+* `RV32I Base Integer Instruction Set, Version 2.1`
+* `"M" Extension for Integer Multiplication and Division, Version 2.0`
+	* (At least for the Udon target. If any other targets are written, they might not implement `M`.)
 
 ## Udon Supplement
 

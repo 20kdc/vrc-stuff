@@ -40,7 +40,7 @@ const REGISTERS_W: [&'static str; 32] = [
     "_vm_zero_nopwriteshadow",
     "_vm_ra",
     "vm_sp",
-    "_vm_x3",
+    "_vm_gp",
     "_vm_x4",
     "_vm_t0",
     "_vm_t1",
@@ -75,7 +75,7 @@ const REGISTERS_W: [&'static str; 32] = [
 ];
 // keep in sync!!!
 const REGISTERS_R: [&'static str; 32] = [
-    "_vm_zero", "_vm_ra", "vm_sp", "_vm_x3", "_vm_x4", "_vm_t0", "_vm_t1", "_vm_t2",
+    "_vm_zero", "_vm_ra", "vm_sp", "_vm_gp", "_vm_x4", "_vm_t0", "_vm_t1", "_vm_t2",
     // x8/fp
     "_fp", "_s1", // For convenience/sanity, a0-a7 are not marked with any prefix at all.
     "a0", "a1", "a2", "a3", "a4", "a5", // x16
@@ -272,6 +272,7 @@ fn main() -> Result<()> {
 
     // -- it begins --
     let initial_sp = img.initial_sp(auto_stack);
+    let initial_gp = img.initial_gp();
     // So this is a pretty nonsensical value to have here, probably needs explaining.
     // Basically, we calculate indirect jump addresses as vec * 2 to hit the appropriate points in the jump table.
     // And the Udon abort vector is at 0xFFFFFFFC.
@@ -298,6 +299,9 @@ fn main() -> Result<()> {
     asm.ku2()
         .equates
         .insert("_vm_equ_initsp".to_string(), UdonInt::I(initial_sp as i64));
+    asm.ku2()
+        .equates
+        .insert("_vm_equ_initgp".to_string(), UdonInt::I(initial_gp as i64));
     asm.ku2()
         .equates
         .insert("_vm_equ_abort".to_string(), UdonInt::I(abort_vec as i64));
