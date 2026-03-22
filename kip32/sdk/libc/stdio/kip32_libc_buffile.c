@@ -16,9 +16,9 @@ static int libc_buffile_getc(FILE * f) {
 
 static int libc_buffile_putc(int c, FILE * f) {
 	BUFFILE * bf = (BUFFILE *) f;
-	if (bf->pos >= bf->len)
-		return EOF;
-	bf->buf[bf->pos++] = c;
+	/* Note we ignore errors. This is so snprintf/etc. act normal. */
+	if (bf->pos < bf->len)
+		bf->buf[bf->pos++] = c;
 	return c & 0xFF;
 }
 
@@ -34,11 +34,12 @@ static size_t libc_buffile_read(void * restrict ptr, size_t size, FILE * f) {
 
 static size_t libc_buffile_write(const void * restrict ptr, size_t size, FILE * f) {
 	BUFFILE * bf = (BUFFILE *) f;
-	size_t remain = bf->len - bf->pos;
-	if (remain < size)
-		size = remain;
-	memcpy(bf->buf + bf->pos, ptr, size);
-	bf->pos += size;
+	size_t real = bf->len - bf->pos;
+	if (real > size)
+		real = size;
+	memcpy(bf->buf + bf->pos, ptr, real);
+	bf->pos += real;
+	/* Note we ignore errors. This is so snprintf/etc. act normal. */
 	return size;
 }
 

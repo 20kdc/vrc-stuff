@@ -2,6 +2,16 @@ format/fprintf.c obj/fprintf.o
 format/fscanf.c obj/fscanf.o
 format/printf.c obj/printf.o
 format/scanf.c obj/scanf.o
+format/snprintf.c obj/snprintf.o
+format/sprintf.c obj/sprintf.o
+format/sscanf.c obj/sscanf.o
+format/vprintf.c obj/vprintf.o
+format/vscanf.c obj/vscanf.o
+format/vsnprintf.c obj/vsnprintf.o
+format/vsprintf.c obj/vsprintf.o
+format/vsscanf.c obj/vsscanf.o
+format_core/vfprintf.c obj/vfprintf.o
+format_core/vfscanf.c obj/vfscanf.o
 locale/localeconv.c obj/localeconv.o
 locale/setlocale.c obj/setlocale.o
 stdio/clearerr.c obj/clearerr.o

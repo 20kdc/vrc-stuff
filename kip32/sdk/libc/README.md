@@ -94,7 +94,7 @@ Of which are in-scope:
 * `math.h` (status: intentional stub)
 * `setjmp.h` (status: complete)
 * `signal.h` (status: intentional stub)
-* `stdio.h` (status: in-progress -- format/scan functions missing, prototypes for 'application-implemented' functions missing)
+* `stdio.h` (status: in-progress -- format/scan core NYI)
 * `stdlib.h` (status: in-progress -- everything _except_ `malloc` is done)
 * `string.h` (status: in-progress -- stub-ish, really)
 * `time.h` (status: stub-ish)
