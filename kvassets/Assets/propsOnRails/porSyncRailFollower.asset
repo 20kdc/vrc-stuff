@@ -12,8 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4f11136daadff0b44ac2278a314682ab, type: 3}
   m_Name: porSyncRailFollower
   m_EditorClassIdentifier: 
-  serializedUdonProgramAsset: {fileID: 11400000, guid: 4d32c69451dc4d2ca8cc5125aeb4b074,
-    type: 2}
+  serializedUdonProgramAsset: {fileID: 11400000, guid: db47222ba11e3d70c94fda8c1087e05a, type: 2}
   udonAssembly: ".data_start\n\n    .export sync_railIdx\n    .export railsParent\n   
     .export sync_railLerp\n    .sync sync_railIdx, none\n    .sync sync_railLerp,
     none\n    \n    __instance_0: %VRCUdonUdonBehaviour, this\n    __eventName_0:

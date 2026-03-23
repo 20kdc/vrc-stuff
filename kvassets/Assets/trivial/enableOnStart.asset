@@ -12,8 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4f11136daadff0b44ac2278a314682ab, type: 3}
   m_Name: enableOnStart
   m_EditorClassIdentifier: 
-  serializedUdonProgramAsset: {fileID: 11400000, guid: 15d833fa6957ce44388289d459f8ebe4,
-    type: 2}
+  serializedUdonProgramAsset: {fileID: 11400000, guid: b4cf761135a1f22008366387d65e1b68, type: 2}
   udonAssembly: ".data_start\n\n    .export targets\n    .export activeVal\n    \n   
     __index_0: %SystemInt32, null\n    __condition_0: %SystemBoolean, null\n    __instance_1:
     %UnityEngineGameObject, this\n    __value_0: %SystemBoolean, null\n    __instance_2:

@@ -29,13 +29,14 @@ In practice, the kinds of assets to worry about are:
 	* SerializedUdonPrograms
 		* These are _named_ by the source program UUID (good!)
 			* Example: Graph `2c4f4accf9f8ab90f85b18ed34a7222c` has serialized program `Assets/SerializedUdonPrograms/2c4f4accf9f8ab90f85b18ed34a7222c.asset` with UUID `db947642fbcf1517c9bd40f2fb7c1c70`
-		* If an 'accident' happens, the file is regenerated _and usually somehow manages to have the same UUID!_
-			* I believe there's some mechanism going on in Unity to try and 'recover' typical lost-UUID situations by basing the original UUID on the file path, but I'm not sure.
+		* Within a single project, if deleted, the file is regenerated _and usually somehow manages to have the same UUID!_
+			* I believe there's some mechanism going on in Unity to try and 'recover' typical lost-UUID situations, but I'm not sure.
 			* _**Sadly, between projects, it regenerates all the UUIDs :(**_
-				* Can this be worked around?
-		* There are a lot of very good reasons VRChat made it work this way
+				* Workaround found.
+		* There are a lot of very good reasons VRChat made it work this way, but the lack of GUID pinning 'long-term' is a pain.
 		* Sad: VRChat 'signature' system causes these to be **highly volatile.**
 			* These can't safely enter VCS unless `VRCFastCrypto.GenerateSigningKey` 'happens' to generate the same key every time.
+		* Conclusion: Removable. `kvtools` now provides deterministic GUIDs to avoid diff churn
 * Category C: 'Only affects Worlds'
 	* Global Illumination Bake Results
 		* These 'sort of' solve themselves 'to some extent'.
@@ -46,8 +47,25 @@ In practice, the kinds of assets to worry about are:
 	* Solution: Dedicated internal repository for 'hollow' avatar and worlds projects?
 		* This can be used for dealing with other problems also
 
-**TODO: This is all draft stuff r/n**
+## Proxy Assets
 
+Proxy assets are a component of `kvtools`, and prevent Unity from breaking references.
+
+They are text files with extension `.proxyasset`. Their content is solely a relative path name (`..` may not be supported, so don't try it).
+
+An example of their content might be:
+
+`pythonclassroom/ReflectionProbe-7.exr`
+
+They seem to work just fine from within packages (though _why_ this works is unclear).
+
+## Deterministic SerializedUdonProgramAsset GUIDs
+
+This is a `kvtools` feature. It adds `Re-compile + Deterministic GUIDs` next to the `Re-compile All Program Sources` button.
+
+Deterministic GUIDs ensure that SerializedUdonProgramAssets don't cause diff churn by forcing their GUIDs to be derived from their parent source code.
+
+<!--
 ## Solving the `serializedUdonProgramAsset` diff churn problem?
 
 * Obvious brute-force way: Keep them (and hey, why not i.e. bake results?) in a private VCS
@@ -62,40 +80,9 @@ In practice, the kinds of assets to worry about are:
 	* This rules out any solution that requires opt-in from package devs
 	* The brute-force way wins by default
 
-## Proxy Assets
-
-Proxy assets are a component of `kvtools`, and prevent Unity from breaking references.
-
-They are text files with extension `.proxyasset`. Their content is solely a relative path name (`..` may not be supported, so don't try it).
-
-An example of their content might be:
-
-`pythonclassroom/ReflectionProbe-7.exr`
-
-They seem to work just fine from within packages (though _why_ this works is unclear).
-
-## Reverse Import Programs
-
-**EXPERIMENTAL.** A component of `kvtools`.
-
-The objective is to ensure SerializedUdonProgramAssets have fixed UUIDs.
-
-Allow me to introduce, the Importverse! Infinite assets, with an infinite number of fixed UUIDs. And as of now, _they_ are going to take over all SerializedUdonProgramAsset storage.
-And more importantly, all _UUIDs_ for SerializedUdonProgramAsset storage.
-
-Why is the VRChat SDK going to let us do that? It's not, we're tricking it. Here's how it works.
-
-1. Make an empty file with the right name.
-2. Slip the Reverse Import Program into the package and link the UdonProgram to the Reverse Import Program's SUPA while VRCSDK isn't looking.
-3. Once VRCSDK builds the program into the SUPA, it's _written_ into the import cache.
-
-To be clear, this does have a key issue: If Unity deletes the cache and the UdonProgram is not rebuilt, then, well, the UdonProgram won't have been rebuilt.
-
-## Another idea???
-
 * Menu option which rewrites all SerializedUdonProgramAsset asset metadata to have deterministic UUIDs.
 	* XOR some of the original UUID bytes; either inverting them or by some unique mask.
 	* Sketchy, but not that crazy...!
 	* Solely relies on things we 'know for sure' about how VRCSDK performs lookups.
 	* Tie into also running `UdonEditorManager.RecompileAllProgramSources` and put next to it in the menu.
-
+-->

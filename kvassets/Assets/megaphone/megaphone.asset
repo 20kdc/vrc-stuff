@@ -12,8 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4f11136daadff0b44ac2278a314682ab, type: 3}
   m_Name: megaphone
   m_EditorClassIdentifier: 
-  serializedUdonProgramAsset: {fileID: 11400000, guid: f01f1eedce7ce3ce3be29a6ae7928a9d,
-    type: 2}
+  serializedUdonProgramAsset: {fileID: 11400000, guid: a5debc190ec2505f99592c8d41fb5000, type: 2}
   udonAssembly: ".data_start\n\n    .export globalDefaultNear\n    .export megaphoneNear\n   
     .export globalDefaultVoiceGain\n    .export megaphoneVoiceGain\n    .export globalDefaultFar\n   
     .export megaphoneFar\n    .export globalDefaultLowpass\n    .export megaphoneLowpass\n   

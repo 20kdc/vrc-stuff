@@ -12,8 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4f11136daadff0b44ac2278a314682ab, type: 3}
   m_Name: randomBoardStoreScript
   m_EditorClassIdentifier: 
-  serializedUdonProgramAsset: {fileID: 11400000, guid: 7019e59253eb85325a7ce491c03c0b78,
-    type: 2}
+  serializedUdonProgramAsset: {fileID: 11400000, guid: 5603c03b5ceafbf5a9a4da9d911f416f, type: 2}
   udonAssembly: ".data_start\n\n    .export result\n    .export swapPairs\n    .export
     optForce0\n    .export optLogSize\n    \n    __Boolean_0: %SystemBoolean, null\n   
     __instance_0: %SystemStringArray, null\n    __Int32_0: %SystemInt32, null\n   

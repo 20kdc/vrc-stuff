@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4f11136daadff0b44ac2278a314682ab, type: 3}
   m_Name: marbleRendererScript
   m_EditorClassIdentifier: 
-  serializedUdonProgramAsset: {fileID: 11400000, guid: 146c31d4dcbad92a28438b94db33eb2c, type: 2}
+  serializedUdonProgramAsset: {fileID: 11400000, guid: 52ba648702da9580194937c95827bfd0, type: 2}
   udonAssembly: ".data_start\n\n    .export billboardQuad\n    .export backTypes\n   
     .export symTypes\n    .export mTypeIdx\n    .export marbleBackMR\n    .export
     marbleFrontMR\n    .export renderTypes\n    .export mIsSelected\n    .export

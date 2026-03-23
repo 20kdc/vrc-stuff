@@ -12,8 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4f11136daadff0b44ac2278a314682ab, type: 3}
   m_Name: enableInAnyZone
   m_EditorClassIdentifier: 
-  serializedUdonProgramAsset: {fileID: 11400000, guid: 04b33ef5f3fd76f28938b8f1bdff2203,
-    type: 2}
+  serializedUdonProgramAsset: {fileID: 11400000, guid: 9e070a2b471a126739fcf2c8ccd44b30, type: 2}
   udonAssembly: ".data_start\n\n    .export zones\n    .export controlled\n    \n   
     __Boolean_0: %SystemBoolean, null\n    __index_0: %SystemInt32, null\n    __condition_0:
     %SystemBoolean, null\n    __object_0: %SystemObject, null\n    __result_0: %SystemBoolean,

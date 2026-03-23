@@ -12,8 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4f11136daadff0b44ac2278a314682ab, type: 3}
   m_Name: docExample
   m_EditorClassIdentifier: 
-  serializedUdonProgramAsset: {fileID: 11400000, guid: 83b3d2d5d5da7a2fe958ea8caeb03c96,
-    type: 2}
+  serializedUdonProgramAsset: {fileID: 11400000, guid: d6717e211b28f1986abea9bd5d1c1fde, type: 2}
   udonAssembly: ".data_start\n\n    .export floatSmooth\n    .export floatLinear\n   
     .export ofAllTheThingsToWork\n    .sync floatSmooth, smooth\n    .sync floatLinear,
     linear\n    \n    __message_0: %SystemObject, null\n    __EventName_0: %SystemString,
@@ -152,8 +151,7 @@ MonoBehaviour:
       - 
       flowUIDs: []
       nodeValues:
-      - unityObjectValue: {fileID: 2100000, guid: e10ab24bd1c8f7abca1605dfcddbc499,
-          type: 2}
+      - unityObjectValue: {fileID: 2100000, guid: e10ab24bd1c8f7abca1605dfcddbc499, type: 2}
         stringValue: UnityEngine.Material, UnityEngine.CoreModule, Version=0.0.0.0,
           Culture=neutral, PublicKeyToken=null|
       - unityObjectValue: {fileID: 0}

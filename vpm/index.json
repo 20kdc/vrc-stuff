@@ -49,6 +49,18 @@
 					"license": "Unlicense",
 					"zipSHA256": "286353fc7e6c996dbf378bef568706b11ab194d2770a40efdaade942812a3da0",
 					"url": "https://raw.githubusercontent.com/20kdc/vrc-stuff/refs/heads/main/vpm/t20kdc.vrc-tools-0.1.0.zip"
+				},
+				"1.0.0": {
+					"name": "t20kdc.vrc-tools",
+					"displayName": "t20kdc VRC Tools",
+					"version": "1.0.0",
+					"author": {
+						"name": "t20kdc"
+					},
+					"description": "Editor-only C# code containing utilities for building VRChat worlds.",
+					"license": "Unlicense",
+					"zipSHA256": "5a235430501198e3d88096c07d8ca5b0310558f51a6f19737f169d366bc15f7c",
+					"url": "https://raw.githubusercontent.com/20kdc/vrc-stuff/refs/heads/main/vpm/t20kdc.vrc-tools-1.0.0.zip"
 				}
 			}
 		}

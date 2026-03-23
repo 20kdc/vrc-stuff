@@ -12,8 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4f11136daadff0b44ac2278a314682ab, type: 3}
   m_Name: porRailCurve
   m_EditorClassIdentifier: 
-  serializedUdonProgramAsset: {fileID: 11400000, guid: 4ab2ffd777d29241a90b217930623bbb,
-    type: 2}
+  serializedUdonProgramAsset: {fileID: 11400000, guid: ffcd22dfd7acb4ef9875291482346d63, type: 2}
   udonAssembly: ".data_start\n\n    .export railApi_point\n    .export railApi_lerp\n   
     .export railApi_rotation\n    .export pointA\n    .export pointB\n    .export
     pointC\n    .export railsA\n    .export railsC\n    .export railApi_neighbours\n   

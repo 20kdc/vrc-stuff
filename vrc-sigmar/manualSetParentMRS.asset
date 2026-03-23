@@ -12,8 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4f11136daadff0b44ac2278a314682ab, type: 3}
   m_Name: manualSetParentMRS
   m_EditorClassIdentifier: 
-  serializedUdonProgramAsset: {fileID: 11400000, guid: 1db9309b600518b78ae1d87add37d842,
-    type: 2}
+  serializedUdonProgramAsset: {fileID: 11400000, guid: 74dc2497cf0694e06bb770341c3dbc66, type: 2}
   udonAssembly: ".data_start\n\n    .export mTypeIdx\n    .export mIsDimmed\n   
     \n    __instance_0: %VRCUdonUdonBehaviour, this\n    __symbolName_0: %SystemString,
     null\n    __value_0: %SystemObject, null\n    __Type_0: %SystemType, null\n   

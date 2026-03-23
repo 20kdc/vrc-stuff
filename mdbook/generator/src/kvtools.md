@@ -38,12 +38,16 @@ It contains:
 
 * `.udonjson` support for importing and using precompiled Udon programs
 	* The `kvtools` set uses Unity JSON files with the extension `.udonjson` to represent `SerializedUdonProgramAsset`s for direct use in UdonBehaviour.
-	* This is given as `.unity.json` in the dumper to avoid dumping files made by the dumper.
 	* When writing out from within Unity, `EditorJsonUtility.ToJson` specifically _must_ be used, as otherwise file references are lost.
+* Button to setup deterministic SerializedUdonProgramAsset GUIDs
+	* Lives in `VRChat SDK` menus next to the familiar `Re-compile All Program Sources` menu option -- serves as a substitute
+	* Once setup, reduces diff churn for Udon programs stored in VCS
+	* Should be re-run after pulling changes
+	* Should be re-run sometime after a new program is added up to just before commit
 * Proxy assets
-	* _Experimental!_ (I'm not sure if the asset 'importing' technique here has any odd effects.)
 	* Proxy assets prevent Unity from breaking references when the source file is lost.
 	* They are text files with extension `.proxyasset`. Their content is solely a relative path name (`..` may not be supported, so don't try it).
+	* Beware that this could cause latency in file changes or other odd effects. They seem to be functioning reasonably stably.
 
 ## `kvbsp`
 
@@ -66,7 +70,9 @@ Hyper-unstable research tooling package. Used to create the API JSON data used f
 * `VRChat SDK/KDCVRCTools/Dataminer`
 	* This menu option will create `Assets/datamine.txt`. The format of this is _really_ subject to change, more so than the rest of this, even; the format is solely meant to be an interface between it and `datamine2json.py`.
 * `VRChat SDK/KDCVRCTools/Dump Odin`
-	* This transforms `SerializedUdonPrograms` contents into `Library/KDCVRCDumpUdonJSON`, with `.odin.bin` and `.odin.json` files representing the extracted OdinSerializer contents.
+	* This transforms `SerializedUdonPrograms` contents into `Library/KDCVRCDumpUdonJSON`.
+		* `.odin.bin` and `.odin.json` files representing the extracted OdinSerializer contents.
+		* `.udonjson` files are directly output.
 	* _This should arguably be replaced with something more precisely targetted._
 * `datamine2json.py`
 	* This Python program expects `datamine.txt` to exist. It's really meant to be run on a Linux box and isn't particularly ashamed of this. It will create some files:

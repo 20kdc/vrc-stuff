@@ -12,8 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4f11136daadff0b44ac2278a314682ab, type: 3}
   m_Name: uiControlScript
   m_EditorClassIdentifier: 
-  serializedUdonProgramAsset: {fileID: 11400000, guid: 4783304daae47bf8a87a7a8b9b58a9cc,
-    type: 2}
+  serializedUdonProgramAsset: {fileID: 11400000, guid: d6124d2669886e0aea063a8c6900edb3, type: 2}
   udonAssembly: ".data_start\n\n    .export centralGameScript\n    .export boardCodeInput\n   
     .export randomBoardStoreScript\n    .export goTallyArr\n    .export goManual\n   
     \n    __instance_0: %TMProTMP_InputField, null\n    __input_0: %SystemString,

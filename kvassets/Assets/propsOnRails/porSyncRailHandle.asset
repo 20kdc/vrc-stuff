@@ -12,8 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4f11136daadff0b44ac2278a314682ab, type: 3}
   m_Name: porSyncRailHandle
   m_EditorClassIdentifier: 
-  serializedUdonProgramAsset: {fileID: 11400000, guid: 851655776866051968f8d23952335996,
-    type: 2}
+  serializedUdonProgramAsset: {fileID: 11400000, guid: 1aa30802395048dee99fc96a892d30f1, type: 2}
   udonAssembly: ".data_start\n\n    .export refPoint\n    .export porRailFollower\n   
     .export vrcPickupSelf\n    .export setOwner\n    \n    __Boolean_0: %SystemBoolean,
     null\n    __instance_0: %VRCSDKBaseVRCPlayerApi, null\n    __obj_0: %SystemObject,

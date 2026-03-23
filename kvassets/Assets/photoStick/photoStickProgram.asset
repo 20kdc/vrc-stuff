@@ -12,8 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4f11136daadff0b44ac2278a314682ab, type: 3}
   m_Name: photoStickProgram
   m_EditorClassIdentifier: 
-  serializedUdonProgramAsset: {fileID: 11400000, guid: 4beb593f1867ff9ef9aebdc9e157a624,
-    type: 2}
+  serializedUdonProgramAsset: {fileID: 11400000, guid: 0ff33f9efa62f49d5b59ffb922848b89, type: 2}
   udonAssembly: ".data_start\n\n    .export texture\n    .export originalW\n    .export
     originalH\n    .sync open, none\n    \n    __instance_0: %UnityEngineGameObject,
     this\n    __value_0: %SystemBoolean, null\n    __instance_1: %UnityEngineTransform,
