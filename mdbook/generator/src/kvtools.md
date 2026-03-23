@@ -8,6 +8,15 @@ Where VPM versions are available, they may be installed via a VPM repo: `https:/
 
 _As a general rule, frequently-changing/unstable packages will not receive a VPM release._
 
+Naming scheme for display names is: `t` (for sorting) `20kdc` (because 20kdc) followed by:
+
+* General: (no specific prefix, but name should sort before ` VRC `)
+* VRC: ` VRC `
+* World-related: ` World `
+* A specific world: ` World:`
+
+This helps with editor navigation.
+
 ## `kvworkarounds`
 
 _`kvworkarounds` can be installed via the above VPM repo. As a set of workarounds that doesn't provide an API by itself, it is unlikely to break compatibility in a meaningful way._
