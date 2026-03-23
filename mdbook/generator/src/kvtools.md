@@ -32,7 +32,7 @@ It is not a replacement for platform-specific fixes such as <https://github.com/
 
 ## `kvtools`
 
-_`kvtools` can be installed via the above VPM repo. It isn't yet considered stable and might break compatibility._
+_`kvtools` can be installed via the above VPM repo._
 
 It contains:
 
@@ -45,9 +45,10 @@ It contains:
 	* Should be re-run after pulling changes
 	* Should be re-run sometime after a new program is added up to just before commit
 * Proxy assets
-	* Proxy assets prevent Unity from breaking references when the source file is lost.
+	* Proxy assets prevent Unity from breaking references when the source file is lost. (i.e. due to being `.gitignore`'d)
 	* They are text files with extension `.proxyasset`. Their content is solely a relative path name (`..` may not be supported, so don't try it).
-	* Beware that this could cause latency in file changes or other odd effects. They seem to be functioning reasonably stably.
+	* Beware that this could cause latency in file changes or other odd effects.
+	* They seem to be functioning reasonably stably, so I consider their functionality stable.
 
 ## `kvbsp`
 
