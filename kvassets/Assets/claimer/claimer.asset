@@ -12,8 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4f11136daadff0b44ac2278a314682ab, type: 3}
   m_Name: claimer
   m_EditorClassIdentifier: 
-  serializedUdonProgramAsset: {fileID: 11400000, guid: 934025f8ab864912a9f7071ac213e9d3,
-    type: 2}
+  serializedUdonProgramAsset: {fileID: 5022602860645237092, guid: 705c9690b7c856ffa8228e27b8e0a5b2, type: 3}
   udonAssembly: ".data_start\n\n    .export claimable\n    \n    __object_0: %SystemObject,
     null\n    __result_0: %SystemBoolean, null\n    __object_1: %SystemObject, null\n   
     __result_1: %SystemBoolean, null\n    __instance_0: %TMProTMP_Text, null\n   
