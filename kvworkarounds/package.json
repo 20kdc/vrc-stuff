@@ -1,6 +1,6 @@
 {
 	"name": "t20kdc.vrc-workarounds",
-	"displayName": "20kdc VRC Workarounds",
+	"displayName": "t20kdc VRC Workarounds",
 	"version": "1.0.0",
 	"author": {"name": "t20kdc"},
 	"description": "Editor-only C# code working around VRChat SDK issues. Does not replace befuddledlabs's LinuxVRChatSDKPatch; should be used in addition to it. Intended to be reasonably safe to drop into a project with no other consequences than workarounds for bugs.",
