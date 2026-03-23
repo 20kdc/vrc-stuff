@@ -12,8 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4f11136daadff0b44ac2278a314682ab, type: 3}
   m_Name: marbleRendererScript
   m_EditorClassIdentifier: 
-  serializedUdonProgramAsset: {fileID: 11400000, guid: 302d55890d4a55039a3514adc70ec525,
-    type: 2}
+  serializedUdonProgramAsset: {fileID: 11400000, guid: 146c31d4dcbad92a28438b94db33eb2c, type: 2}
   udonAssembly: ".data_start\n\n    .export billboardQuad\n    .export backTypes\n   
     .export symTypes\n    .export mTypeIdx\n    .export marbleBackMR\n    .export
     marbleFrontMR\n    .export renderTypes\n    .export mIsSelected\n    .export
@@ -141,30 +140,30 @@ MonoBehaviour:
     COPY\n        PUSH, __Int32_4\n        PUSH, __Int32_F\n        COPY\n       
     PUSH, __instance_10\n        PUSH, __Int32_4\n        PUSH, __value_8\n       
     EXTERN, \"UnityEngineMaterialArray.__Get__SystemInt32__UnityEngineMaterial\"\n       
-    PUSH, __instance_F\n        PUSH, __value_8\n        EXTERN, \"UnityEngineMeshRenderer.__set_material__UnityEngineMaterial__SystemVoid\"\n       
+    PUSH, __instance_F\n        PUSH, __value_8\n        EXTERN, \"UnityEngineMeshRenderer.__set_sharedMaterial__UnityEngineMaterial__SystemVoid\"\n       
     PUSH, marbleBackMR\n        PUSH, __instance_11\n        COPY\n        PUSH,
     backTypesDim\n        PUSH, __instance_10\n        COPY\n        PUSH, __Int32_4\n       
     PUSH, __Int32_F\n        COPY\n        PUSH, __value_8\n        PUSH, __value_9\n       
-    COPY\n        PUSH, __instance_11\n        PUSH, __value_8\n        EXTERN, \"UnityEngineMeshRenderer.__set_material__UnityEngineMaterial__SystemVoid\"\n       
+    COPY\n        PUSH, __instance_11\n        PUSH, __value_8\n        EXTERN, \"UnityEngineMeshRenderer.__set_sharedMaterial__UnityEngineMaterial__SystemVoid\"\n       
     PUSH, symbolMR\n        PUSH, __instance_12\n        COPY\n        PUSH, symTypesDim\n       
     PUSH, __instance_13\n        COPY\n        PUSH, __Int32_4\n        PUSH, __Int32_10\n       
     COPY\n        PUSH, __instance_13\n        PUSH, __Int32_4\n        PUSH, __value_A\n       
     EXTERN, \"UnityEngineMaterialArray.__Get__SystemInt32__UnityEngineMaterial\"\n       
-    PUSH, __instance_12\n        PUSH, __value_A\n        EXTERN, \"UnityEngineMeshRenderer.__set_material__UnityEngineMaterial__SystemVoid\"\n       
+    PUSH, __instance_12\n        PUSH, __value_A\n        EXTERN, \"UnityEngineMeshRenderer.__set_sharedMaterial__UnityEngineMaterial__SystemVoid\"\n       
     JUMP, 0x000006E4\n        PUSH, marbleFrontMR\n        PUSH, __instance_14\n       
     COPY\n        PUSH, backTypes\n        PUSH, __instance_15\n        COPY\n       
     PUSH, __Int32_4\n        PUSH, __Int32_11\n        COPY\n        PUSH, __instance_15\n       
     PUSH, __Int32_4\n        PUSH, __value_B\n        EXTERN, \"UnityEngineMaterialArray.__Get__SystemInt32__UnityEngineMaterial\"\n       
-    PUSH, __instance_14\n        PUSH, __value_B\n        EXTERN, \"UnityEngineMeshRenderer.__set_material__UnityEngineMaterial__SystemVoid\"\n       
+    PUSH, __instance_14\n        PUSH, __value_B\n        EXTERN, \"UnityEngineMeshRenderer.__set_sharedMaterial__UnityEngineMaterial__SystemVoid\"\n       
     PUSH, marbleBackMR\n        PUSH, __instance_16\n        COPY\n        PUSH,
     backTypes\n        PUSH, __instance_15\n        COPY\n        PUSH, __Int32_4\n       
     PUSH, __Int32_11\n        COPY\n        PUSH, __value_B\n        PUSH, __value_C\n       
-    COPY\n        PUSH, __instance_16\n        PUSH, __value_B\n        EXTERN, \"UnityEngineMeshRenderer.__set_material__UnityEngineMaterial__SystemVoid\"\n       
+    COPY\n        PUSH, __instance_16\n        PUSH, __value_B\n        EXTERN, \"UnityEngineMeshRenderer.__set_sharedMaterial__UnityEngineMaterial__SystemVoid\"\n       
     PUSH, symbolMR\n        PUSH, __instance_17\n        COPY\n        PUSH, symTypes\n       
     PUSH, __instance_18\n        COPY\n        PUSH, __Int32_4\n        PUSH, __Int32_12\n       
     COPY\n        PUSH, __instance_18\n        PUSH, __Int32_4\n        PUSH, __value_D\n       
     EXTERN, \"UnityEngineMaterialArray.__Get__SystemInt32__UnityEngineMaterial\"\n       
-    PUSH, __instance_17\n        PUSH, __value_D\n        EXTERN, \"UnityEngineMeshRenderer.__set_material__UnityEngineMaterial__SystemVoid\"\n       
+    PUSH, __instance_17\n        PUSH, __value_D\n        EXTERN, \"UnityEngineMeshRenderer.__set_sharedMaterial__UnityEngineMaterial__SystemVoid\"\n       
     JUMP, 0xFFFFFFFC\n    \n    .export DidChangeType\n    \n    DidChangeType:\n   
     \n        PUSH, marbleBackMR\n        PUSH, __instance_19\n        COPY\n       
     PUSH, renderTypes\n        PUSH, __instance_1A\n        COPY\n        PUSH, mTypeIdx\n       
@@ -209,32 +208,32 @@ MonoBehaviour:
     __instance_24\n        COPY\n        PUSH, __Int32_17\n        PUSH, __Int32_22\n       
     COPY\n        PUSH, __instance_24\n        PUSH, __Int32_17\n        PUSH, __value_14\n       
     EXTERN, \"UnityEngineMaterialArray.__Get__SystemInt32__UnityEngineMaterial\"\n       
-    PUSH, __instance_23\n        PUSH, __value_14\n        EXTERN, \"UnityEngineMeshRenderer.__set_material__UnityEngineMaterial__SystemVoid\"\n       
+    PUSH, __instance_23\n        PUSH, __value_14\n        EXTERN, \"UnityEngineMeshRenderer.__set_sharedMaterial__UnityEngineMaterial__SystemVoid\"\n       
     PUSH, marbleBackMR\n        PUSH, __instance_25\n        COPY\n        PUSH,
     backTypesDim\n        PUSH, __instance_24\n        COPY\n        PUSH, __Int32_17\n       
     PUSH, __Int32_22\n        COPY\n        PUSH, __value_14\n        PUSH, __value_15\n       
     COPY\n        PUSH, __instance_25\n        PUSH, __value_14\n        EXTERN,
-    \"UnityEngineMeshRenderer.__set_material__UnityEngineMaterial__SystemVoid\"\n       
+    \"UnityEngineMeshRenderer.__set_sharedMaterial__UnityEngineMaterial__SystemVoid\"\n       
     PUSH, symbolMR\n        PUSH, __instance_26\n        COPY\n        PUSH, symTypesDim\n       
     PUSH, __instance_27\n        COPY\n        PUSH, __Int32_17\n        PUSH, __Int32_23\n       
     COPY\n        PUSH, __instance_27\n        PUSH, __Int32_17\n        PUSH, __value_16\n       
     EXTERN, \"UnityEngineMaterialArray.__Get__SystemInt32__UnityEngineMaterial\"\n       
-    PUSH, __instance_26\n        PUSH, __value_16\n        EXTERN, \"UnityEngineMeshRenderer.__set_material__UnityEngineMaterial__SystemVoid\"\n       
+    PUSH, __instance_26\n        PUSH, __value_16\n        EXTERN, \"UnityEngineMeshRenderer.__set_sharedMaterial__UnityEngineMaterial__SystemVoid\"\n       
     JUMP, 0x00000CE4\n        PUSH, marbleFrontMR\n        PUSH, __instance_28\n       
     COPY\n        PUSH, backTypes\n        PUSH, __instance_29\n        COPY\n       
     PUSH, __Int32_17\n        PUSH, __Int32_24\n        COPY\n        PUSH, __instance_29\n       
     PUSH, __Int32_17\n        PUSH, __value_17\n        EXTERN, \"UnityEngineMaterialArray.__Get__SystemInt32__UnityEngineMaterial\"\n       
-    PUSH, __instance_28\n        PUSH, __value_17\n        EXTERN, \"UnityEngineMeshRenderer.__set_material__UnityEngineMaterial__SystemVoid\"\n       
+    PUSH, __instance_28\n        PUSH, __value_17\n        EXTERN, \"UnityEngineMeshRenderer.__set_sharedMaterial__UnityEngineMaterial__SystemVoid\"\n       
     PUSH, marbleBackMR\n        PUSH, __instance_2A\n        COPY\n        PUSH,
     backTypes\n        PUSH, __instance_29\n        COPY\n        PUSH, __Int32_17\n       
     PUSH, __Int32_24\n        COPY\n        PUSH, __value_17\n        PUSH, __value_18\n       
     COPY\n        PUSH, __instance_2A\n        PUSH, __value_17\n        EXTERN,
-    \"UnityEngineMeshRenderer.__set_material__UnityEngineMaterial__SystemVoid\"\n       
+    \"UnityEngineMeshRenderer.__set_sharedMaterial__UnityEngineMaterial__SystemVoid\"\n       
     PUSH, symbolMR\n        PUSH, __instance_2B\n        COPY\n        PUSH, symTypes\n       
     PUSH, __instance_2C\n        COPY\n        PUSH, __Int32_17\n        PUSH, __Int32_25\n       
     COPY\n        PUSH, __instance_2C\n        PUSH, __Int32_17\n        PUSH, __value_19\n       
     EXTERN, \"UnityEngineMaterialArray.__Get__SystemInt32__UnityEngineMaterial\"\n       
-    PUSH, __instance_2B\n        PUSH, __value_19\n        EXTERN, \"UnityEngineMeshRenderer.__set_material__UnityEngineMaterial__SystemVoid\"\n       
+    PUSH, __instance_2B\n        PUSH, __value_19\n        EXTERN, \"UnityEngineMeshRenderer.__set_sharedMaterial__UnityEngineMaterial__SystemVoid\"\n       
     JUMP, 0xFFFFFFFC\n    \n\n.code_end\n"
   assemblyError: 
   graphData:
@@ -250,13 +249,13 @@ MonoBehaviour:
       nodeValues: []
     - fullName: VRCSDKBaseNetworking.__get_LocalPlayer__VRCSDKBaseVRCPlayerApi
       uid: 319c6579-ddf0-4e47-84d1-1c859bf0df4e
-      position: {x: 686.8841, y: -406.49283}
+      position: {x: 680.0895, y: -488.66174}
       nodeUIDs: []
       flowUIDs: []
       nodeValues: []
     - fullName: VRCSDKBaseVRCPlayerApi.__GetTrackingData__VRCSDKBaseVRCPlayerApiTrackingDataType__VRCSDKBaseVRCPlayerApiTrackingData
       uid: ae832a58-8b49-4178-8638-49f068c858ea
-      position: {x: 646.3333, y: -288.99997}
+      position: {x: 639.0895, y: -371.66174}
       nodeUIDs:
       - 319c6579-ddf0-4e47-84d1-1c859bf0df4e|0
       - 
@@ -269,7 +268,7 @@ MonoBehaviour:
           Culture=neutral, PublicKeyToken=null|Head
     - fullName: VRCSDKBaseVRCPlayerApiTrackingData.__get_rotation__UnityEngineQuaternion
       uid: dd87eed2-03d0-4b3d-a863-ee9ed51f646f
-      position: {x: 895, y: -298}
+      position: {x: 888.0895, y: -380.66174}
       nodeUIDs:
       - ae832a58-8b49-4178-8638-49f068c858ea|0
       flowUIDs: []
@@ -279,7 +278,7 @@ MonoBehaviour:
           Culture=neutral, PublicKeyToken=null|{"position":{"x":0.0,"y":0.0,"z":0.0},"rotation":{"x":0.0,"y":0.0,"z":0.0,"w":0.0}}
     - fullName: UnityEngineTransform.__set_rotation__UnityEngineQuaternion__SystemVoid
       uid: 81b36ec2-68fa-4cf3-bde2-fa7fd9d5d1ad
-      position: {x: 1242.6001, y: -372.00006}
+      position: {x: 1236.0895, y: -454.66174}
       nodeUIDs:
       - 242e9c68-abee-4267-99d8-a15e5a0ad290|0
       - dd87eed2-03d0-4b3d-a863-ee9ed51f646f|0
@@ -315,7 +314,7 @@ MonoBehaviour:
         stringValue: System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089|none
     - fullName: Get_Variable
       uid: 242e9c68-abee-4267-99d8-a15e5a0ad290
-      position: {x: 974.50006, y: -381.00006}
+      position: {x: 968.0895, y: -463.66174}
       nodeUIDs:
       - 
       flowUIDs: []
@@ -412,22 +411,9 @@ MonoBehaviour:
       nodeValues:
       - unityObjectValue: {fileID: 0}
         stringValue: 
-    - fullName: UnityEngineMeshRenderer.__set_material__UnityEngineMaterial__SystemVoid
-      uid: 734a3286-ab26-465d-a274-d20729399ae7
-      position: {x: 2753.3555, y: 361}
-      nodeUIDs:
-      - 1f195fb8-2547-4ea5-9972-1e31e6ea41e4|0
-      - b61d5312-961f-4c91-b460-f97bef9980f8|0
-      flowUIDs:
-      - 0fad4a1e-e59a-408f-9765-a780403f4404
-      nodeValues:
-      - unityObjectValue: {fileID: 0}
-        stringValue: 
-      - unityObjectValue: {fileID: 0}
-        stringValue: 
     - fullName: UnityEngineMaterialArray.__Get__SystemInt32__UnityEngineMaterial
       uid: b61d5312-961f-4c91-b460-f97bef9980f8
-      position: {x: 1180.6641, y: 846}
+      position: {x: 1215, y: 1235.9999}
       nodeUIDs:
       - ba37ec88-8e36-4e12-8ac5-7c7dfb54bde7|0
       - 56f46e46-13d6-4493-9c6c-59b9c5107382|0
@@ -439,7 +425,7 @@ MonoBehaviour:
         stringValue: System.Int32, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089|0
     - fullName: UnityEngineMaterialArray.__Get__SystemInt32__UnityEngineMaterial
       uid: e8fa20a0-fdfd-4685-ac5e-6f54a3f0dc3c
-      position: {x: 1198.6667, y: 1111}
+      position: {x: 1222.6552, y: 1343.2024}
       nodeUIDs:
       - 8e1c9d7a-85a3-47f7-a031-d58e03d72bbf|0
       - 56f46e46-13d6-4493-9c6c-59b9c5107382|0
@@ -451,7 +437,7 @@ MonoBehaviour:
         stringValue: System.Int32, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089|0
     - fullName: Get_Variable
       uid: ba37ec88-8e36-4e12-8ac5-7c7dfb54bde7
-      position: {x: 969.66406, y: 859}
+      position: {x: 987, y: 1259}
       nodeUIDs:
       - 
       flowUIDs: []
@@ -462,26 +448,13 @@ MonoBehaviour:
         stringValue: 
     - fullName: Get_Variable
       uid: 8e1c9d7a-85a3-47f7-a031-d58e03d72bbf
-      position: {x: 948.00006, y: 1126.6533}
+      position: {x: 986.65515, y: 1367.2024}
       nodeUIDs:
       - 
       flowUIDs: []
       nodeValues:
       - unityObjectValue: {fileID: 0}
         stringValue: System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089|52f01677-3e41-4faa-89a2-b823ee6085aa
-      - unityObjectValue: {fileID: 0}
-        stringValue: 
-    - fullName: UnityEngineMeshRenderer.__set_material__UnityEngineMaterial__SystemVoid
-      uid: e08f80c0-3aa9-4fcb-9633-4773bae75333
-      position: {x: 2968.7522, y: 187}
-      nodeUIDs:
-      - 4ddeb1f8-0466-435d-96cb-14812f73c6c2|0
-      - d6fbd486-4c86-4caa-a2f9-b5815d6f0e64|0
-      flowUIDs:
-      - 
-      nodeValues:
-      - unityObjectValue: {fileID: 0}
-        stringValue: 
       - unityObjectValue: {fileID: 0}
         stringValue: 
     - fullName: Event_Custom
@@ -603,7 +576,7 @@ MonoBehaviour:
         stringValue: System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089|none
     - fullName: Get_Variable
       uid: 1f195fb8-2547-4ea5-9972-1e31e6ea41e4
-      position: {x: 1955.0002, y: 202}
+      position: {x: 1937.3936, y: 931.3434}
       nodeUIDs:
       - 
       flowUIDs: []
@@ -612,22 +585,9 @@ MonoBehaviour:
         stringValue: System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089|3dcc85af-9f8d-4f16-8088-0d80490a1ec9
       - unityObjectValue: {fileID: 0}
         stringValue: 
-    - fullName: UnityEngineMeshRenderer.__set_material__UnityEngineMaterial__SystemVoid
-      uid: 7272bd78-b087-40a6-9789-986194004bf6
-      position: {x: 2556.3555, y: 361}
-      nodeUIDs:
-      - ca77c75f-ec60-4b4a-90b4-84fabc7c4dc8|0
-      - b61d5312-961f-4c91-b460-f97bef9980f8|0
-      flowUIDs:
-      - 734a3286-ab26-465d-a274-d20729399ae7
-      nodeValues:
-      - unityObjectValue: {fileID: 0}
-        stringValue: 
-      - unityObjectValue: {fileID: 0}
-        stringValue: 
     - fullName: Get_Variable
       uid: ca77c75f-ec60-4b4a-90b4-84fabc7c4dc8
-      position: {x: 1941.8176, y: 364.59003}
+      position: {x: 1937.0002, y: 1062.0001}
       nodeUIDs:
       - 
       flowUIDs: []
@@ -922,7 +882,7 @@ MonoBehaviour:
         stringValue: System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089|none
     - fullName: Get_Variable
       uid: 4ddeb1f8-0466-435d-96cb-14812f73c6c2
-      position: {x: 1954.8176, y: 470.59003}
+      position: {x: 1937.3936, y: 1200.3434}
       nodeUIDs:
       - 
       flowUIDs: []
@@ -1010,7 +970,7 @@ MonoBehaviour:
       nodeValues: []
     - fullName: Branch
       uid: b8d821ad-67dd-4b80-8a58-409db39af4a1
-      position: {x: 1071, y: -164}
+      position: {x: 1064.0895, y: -246.66174}
       nodeUIDs:
       - 186edabf-0df8-4672-ab41-7484a9563c61|0
       flowUIDs:
@@ -1022,7 +982,7 @@ MonoBehaviour:
           PublicKeyToken=b77a5c561934e089|False
     - fullName: Get_Variable
       uid: 652a95d1-42c7-4188-a74d-b757cd5fddc5
-      position: {x: 646, y: -139.66666}
+      position: {x: 639.0895, y: -222.66174}
       nodeUIDs:
       - 
       flowUIDs: []
@@ -1033,7 +993,7 @@ MonoBehaviour:
         stringValue: 
     - fullName: UnityEngineMeshRenderer.__get_enabled__SystemBoolean
       uid: 186edabf-0df8-4672-ab41-7484a9563c61
-      position: {x: 874, y: -131}
+      position: {x: 867.0895, y: -213.66174}
       nodeUIDs:
       - 652a95d1-42c7-4188-a74d-b757cd5fddc5|0
       flowUIDs: []
@@ -1042,7 +1002,7 @@ MonoBehaviour:
         stringValue: 
     - fullName: UnityEngineTransform.__set_localEulerAngles__UnityEngineVector3__SystemVoid
       uid: 1f0a2ff7-9067-4b6f-9ec5-adcd05686c19
-      position: {x: 1263.2377, y: -187.99998}
+      position: {x: 1256.0895, y: -270.66174}
       nodeUIDs:
       - 242e9c68-abee-4267-99d8-a15e5a0ad290|0
       - 
@@ -1078,7 +1038,7 @@ MonoBehaviour:
         stringValue: System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089|none
     - fullName: UnityEngineMaterialArray.__Get__SystemInt32__UnityEngineMaterial
       uid: 52c58b96-9867-492d-a245-12c149c1aa06
-      position: {x: 1184, y: 966.6666}
+      position: {x: 1222.6552, y: 987.20245}
       nodeUIDs:
       - e47e2dc3-53ea-4dcc-bec1-f9428cf0d0a7|0
       - 56f46e46-13d6-4493-9c6c-59b9c5107382|0
@@ -1090,7 +1050,7 @@ MonoBehaviour:
         stringValue: System.Int32, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089|0
     - fullName: Get_Variable
       uid: e47e2dc3-53ea-4dcc-bec1-f9428cf0d0a7
-      position: {x: 969.99994, y: 977}
+      position: {x: 986.65515, y: 999.20245}
       nodeUIDs:
       - 
       flowUIDs: []
@@ -1101,45 +1061,19 @@ MonoBehaviour:
         stringValue: 
     - fullName: Branch
       uid: 050e4342-1df7-47fc-a89f-a32e22ef127b
-      position: {x: 2178, y: 417.5}
+      position: {x: 2186.3936, y: 1085.3434}
       nodeUIDs:
       - e36512c5-5410-4ef0-abbf-61d7b58223fa|0
       flowUIDs:
-      - 79a8d718-2a98-4f40-9c43-23345526c185
-      - 7272bd78-b087-40a6-9789-986194004bf6
+      - 744d0ff9-8fd8-4b3c-b823-3deb33a16ce3
+      - c4b8fc46-f0e8-406c-bad5-1df3f79279cf
       nodeValues:
       - unityObjectValue: {fileID: 0}
         stringValue: System.Boolean, mscorlib, Version=4.0.0.0, Culture=neutral,
           PublicKeyToken=b77a5c561934e089|False
-    - fullName: UnityEngineMeshRenderer.__set_material__UnityEngineMaterial__SystemVoid
-      uid: 9e6b2746-9de4-41d0-9aad-3fb99788c4a7
-      position: {x: 2742.2344, y: 186.91002}
-      nodeUIDs:
-      - 1f195fb8-2547-4ea5-9972-1e31e6ea41e4|0
-      - 52c58b96-9867-492d-a245-12c149c1aa06|0
-      flowUIDs:
-      - e08f80c0-3aa9-4fcb-9633-4773bae75333
-      nodeValues:
-      - unityObjectValue: {fileID: 0}
-        stringValue: 
-      - unityObjectValue: {fileID: 0}
-        stringValue: 
-    - fullName: UnityEngineMeshRenderer.__set_material__UnityEngineMaterial__SystemVoid
-      uid: 79a8d718-2a98-4f40-9c43-23345526c185
-      position: {x: 2556.0002, y: 201.50002}
-      nodeUIDs:
-      - ca77c75f-ec60-4b4a-90b4-84fabc7c4dc8|0
-      - 52c58b96-9867-492d-a245-12c149c1aa06|0
-      flowUIDs:
-      - 9e6b2746-9de4-41d0-9aad-3fb99788c4a7
-      nodeValues:
-      - unityObjectValue: {fileID: 0}
-        stringValue: 
-      - unityObjectValue: {fileID: 0}
-        stringValue: 
     - fullName: Get_Variable
       uid: e36512c5-5410-4ef0-abbf-61d7b58223fa
-      position: {x: 2204.2583, y: 492}
+      position: {x: 2186.3936, y: 1221.3434}
       nodeUIDs:
       - 
       flowUIDs: []
@@ -1173,7 +1107,7 @@ MonoBehaviour:
         stringValue: System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089|none
     - fullName: UnityEngineMaterialArray.__Get__SystemInt32__UnityEngineMaterial
       uid: d6fbd486-4c86-4caa-a2f9-b5815d6f0e64
-      position: {x: 1199, y: 1235}
+      position: {x: 1215, y: 1112}
       nodeUIDs:
       - e49f9d70-d304-4a19-8496-4d76ecff656b|0
       - 56f46e46-13d6-4493-9c6c-59b9c5107382|0
@@ -1185,26 +1119,13 @@ MonoBehaviour:
         stringValue: System.Int32, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089|0
     - fullName: Get_Variable
       uid: e49f9d70-d304-4a19-8496-4d76ecff656b
-      position: {x: 949.00006, y: 1251}
+      position: {x: 991, y: 1112}
       nodeUIDs:
       - 
       flowUIDs: []
       nodeValues:
       - unityObjectValue: {fileID: 0}
         stringValue: System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089|6bb2cd2f-08d8-4658-bfec-e612b5711664
-      - unityObjectValue: {fileID: 0}
-        stringValue: 
-    - fullName: UnityEngineMeshRenderer.__set_material__UnityEngineMaterial__SystemVoid
-      uid: 0fad4a1e-e59a-408f-9765-a780403f4404
-      position: {x: 2982.7673, y: 361}
-      nodeUIDs:
-      - 4ddeb1f8-0466-435d-96cb-14812f73c6c2|0
-      - e8fa20a0-fdfd-4685-ac5e-6f54a3f0dc3c|0
-      flowUIDs:
-      - 
-      nodeValues:
-      - unityObjectValue: {fileID: 0}
-        stringValue: 
       - unityObjectValue: {fileID: 0}
         stringValue: 
     - fullName: UnityEngineMeshRenderer.__GetComponent__SystemType__UnityEngineComponent
@@ -1219,11 +1140,89 @@ MonoBehaviour:
         stringValue: 
       - unityObjectValue: {fileID: 0}
         stringValue: 
+    - fullName: UnityEngineMeshRenderer.__set_sharedMaterial__UnityEngineMaterial__SystemVoid
+      uid: c4b8fc46-f0e8-406c-bad5-1df3f79279cf
+      position: {x: 2477.3936, y: 1090.3434}
+      nodeUIDs:
+      - ca77c75f-ec60-4b4a-90b4-84fabc7c4dc8|0
+      - b61d5312-961f-4c91-b460-f97bef9980f8|0
+      flowUIDs:
+      - 18fab234-184f-4bd7-90c1-27440b0f28b5
+      nodeValues:
+      - unityObjectValue: {fileID: 0}
+        stringValue: 
+      - unityObjectValue: {fileID: 0}
+        stringValue: 
+    - fullName: UnityEngineMeshRenderer.__set_sharedMaterial__UnityEngineMaterial__SystemVoid
+      uid: 18fab234-184f-4bd7-90c1-27440b0f28b5
+      position: {x: 2477, y: 1259}
+      nodeUIDs:
+      - 1f195fb8-2547-4ea5-9972-1e31e6ea41e4|0
+      - b61d5312-961f-4c91-b460-f97bef9980f8|0
+      flowUIDs:
+      - e05697d7-c455-46a2-a374-ec39d41685d6
+      nodeValues:
+      - unityObjectValue: {fileID: 0}
+        stringValue: 
+      - unityObjectValue: {fileID: 0}
+        stringValue: 
+    - fullName: UnityEngineMeshRenderer.__set_sharedMaterial__UnityEngineMaterial__SystemVoid
+      uid: e05697d7-c455-46a2-a374-ec39d41685d6
+      position: {x: 2477, y: 1424.0725}
+      nodeUIDs:
+      - 4ddeb1f8-0466-435d-96cb-14812f73c6c2|0
+      - e8fa20a0-fdfd-4685-ac5e-6f54a3f0dc3c|0
+      flowUIDs:
+      - 
+      nodeValues:
+      - unityObjectValue: {fileID: 0}
+        stringValue: 
+      - unityObjectValue: {fileID: 0}
+        stringValue: 
+    - fullName: UnityEngineMeshRenderer.__set_sharedMaterial__UnityEngineMaterial__SystemVoid
+      uid: 744d0ff9-8fd8-4b3c-b823-3deb33a16ce3
+      position: {x: 2510, y: 593}
+      nodeUIDs:
+      - ca77c75f-ec60-4b4a-90b4-84fabc7c4dc8|0
+      - 52c58b96-9867-492d-a245-12c149c1aa06|0
+      flowUIDs:
+      - 89377504-40f6-4e70-af0a-c7ffe13bb320
+      nodeValues:
+      - unityObjectValue: {fileID: 0}
+        stringValue: 
+      - unityObjectValue: {fileID: 0}
+        stringValue: 
+    - fullName: UnityEngineMeshRenderer.__set_sharedMaterial__UnityEngineMaterial__SystemVoid
+      uid: 13385e91-3c25-4269-83ca-306abf7a1728
+      position: {x: 2510, y: 921.50006}
+      nodeUIDs:
+      - 4ddeb1f8-0466-435d-96cb-14812f73c6c2|0
+      - d6fbd486-4c86-4caa-a2f9-b5815d6f0e64|0
+      flowUIDs:
+      - 
+      nodeValues:
+      - unityObjectValue: {fileID: 0}
+        stringValue: 
+      - unityObjectValue: {fileID: 0}
+        stringValue: 
+    - fullName: UnityEngineMeshRenderer.__set_sharedMaterial__UnityEngineMaterial__SystemVoid
+      uid: 89377504-40f6-4e70-af0a-c7ffe13bb320
+      position: {x: 2510, y: 763}
+      nodeUIDs:
+      - 1f195fb8-2547-4ea5-9972-1e31e6ea41e4|0
+      - 52c58b96-9867-492d-a245-12c149c1aa06|0
+      flowUIDs:
+      - 13385e91-3c25-4269-83ca-306abf7a1728
+      nodeValues:
+      - unityObjectValue: {fileID: 0}
+        stringValue: 
+      - unityObjectValue: {fileID: 0}
+        stringValue: 
     updateOrder: 0
   graphElementData:
   - type: 2
     uid: 5dd64253-b4e7-4195-834a-4eb12a2d511a
-    jsonData: '{"uid":"5dd64253-b4e7-4195-834a-4eb12a2d511a","layout":{"serializedVersion":"2","x":621.0,"y":-465.0,"width":820.0,"height":442.0},"containedElements":["81b36ec2-68fa-4cf3-bde2-fa7fd9d5d1ad","dd87eed2-03d0-4b3d-a863-ee9ed51f646f","ae832a58-8b49-4178-8638-49f068c858ea","319c6579-ddf0-4e47-84d1-1c859bf0df4e","242e9c68-abee-4267-99d8-a15e5a0ad290","b8d821ad-67dd-4b80-8a58-409db39af4a1","652a95d1-42c7-4188-a74d-b757cd5fddc5","186edabf-0df8-4672-ab41-7484a9563c61","1f0a2ff7-9067-4b6f-9ec5-adcd05686c19"],"title":"Billboard
+    jsonData: '{"uid":"5dd64253-b4e7-4195-834a-4eb12a2d511a","layout":{"serializedVersion":"2","x":614.0,"y":-548.0000610351563,"width":950.0,"height":442.0},"containedElements":["81b36ec2-68fa-4cf3-bde2-fa7fd9d5d1ad","dd87eed2-03d0-4b3d-a863-ee9ed51f646f","ae832a58-8b49-4178-8638-49f068c858ea","319c6579-ddf0-4e47-84d1-1c859bf0df4e","242e9c68-abee-4267-99d8-a15e5a0ad290","b8d821ad-67dd-4b80-8a58-409db39af4a1","652a95d1-42c7-4188-a74d-b757cd5fddc5","186edabf-0df8-4672-ab41-7484a9563c61","1f0a2ff7-9067-4b6f-9ec5-adcd05686c19"],"title":"Billboard
       (change methods based on if back rendering is used)","layer":-1,"elementTypeColor":{"r":0.0,"g":0.0,"b":0.0,"a":1.0}}'
   - type: 2
     uid: bf951067-fee1-4330-ae05-866db30f1d94
@@ -1235,14 +1234,18 @@ MonoBehaviour:
       Queries","layer":-1,"elementTypeColor":{"r":0.0,"g":0.0,"b":0.0,"a":1.0}}'
   - type: 2
     uid: a34a99e6-4419-4187-a120-83a436168310
-    jsonData: '{"uid":"a34a99e6-4419-4187-a120-83a436168310","layout":{"serializedVersion":"2","x":923.0000610351563,"y":787.0,"width":477.0,"height":580.0},"containedElements":["8e1c9d7a-85a3-47f7-a031-d58e03d72bbf","ba37ec88-8e36-4e12-8ac5-7c7dfb54bde7","e8fa20a0-fdfd-4685-ac5e-6f54a3f0dc3c","b61d5312-961f-4c91-b460-f97bef9980f8","52c58b96-9867-492d-a245-12c149c1aa06","e47e2dc3-53ea-4dcc-bec1-f9428cf0d0a7","d6fbd486-4c86-4caa-a2f9-b5815d6f0e64","e49f9d70-d304-4a19-8496-4d76ecff656b"],"title":"Material","layer":-1,"elementTypeColor":{"r":0.0,"g":0.0,"b":0.0,"a":1.0}}'
+    jsonData: '{"uid":"a34a99e6-4419-4187-a120-83a436168310","layout":{"serializedVersion":"2","x":962.0,"y":928.0000610351563,"width":447.0,"height":547.0},"containedElements":["8e1c9d7a-85a3-47f7-a031-d58e03d72bbf","ba37ec88-8e36-4e12-8ac5-7c7dfb54bde7","e8fa20a0-fdfd-4685-ac5e-6f54a3f0dc3c","b61d5312-961f-4c91-b460-f97bef9980f8","52c58b96-9867-492d-a245-12c149c1aa06","e47e2dc3-53ea-4dcc-bec1-f9428cf0d0a7","d6fbd486-4c86-4caa-a2f9-b5815d6f0e64","e49f9d70-d304-4a19-8496-4d76ecff656b"],"title":"Material","layer":-1,"elementTypeColor":{"r":0.0,"g":0.0,"b":0.0,"a":1.0}}'
   - type: 2
     uid: c5a0e067-092a-4c66-a325-ca6f70422e2b
-    jsonData: '{"uid":"c5a0e067-092a-4c66-a325-ca6f70422e2b","layout":{"serializedVersion":"2","x":1917.0001220703125,"y":128.0,"width":1231.0,"height":472.0},"containedElements":["fabed128-4702-4e8b-9995-d44f202c8c82","e08f80c0-3aa9-4fcb-9633-4773bae75333","1f195fb8-2547-4ea5-9972-1e31e6ea41e4","7272bd78-b087-40a6-9789-986194004bf6","ca77c75f-ec60-4b4a-90b4-84fabc7c4dc8","4ddeb1f8-0466-435d-96cb-14812f73c6c2","050e4342-1df7-47fc-a89f-a32e22ef127b","734a3286-ab26-465d-a274-d20729399ae7","79a8d718-2a98-4f40-9c43-23345526c185","9e6b2746-9de4-41d0-9aad-3fb99788c4a7","e36512c5-5410-4ef0-abbf-61d7b58223fa","0fad4a1e-e59a-408f-9765-a780403f4404"],"title":"Set
+    jsonData: '{"uid":"c5a0e067-092a-4c66-a325-ca6f70422e2b","layout":{"serializedVersion":"2","x":1912.0001220703125,"y":534.0,"width":829.0,"height":1046.0},"containedElements":["fabed128-4702-4e8b-9995-d44f202c8c82","1f195fb8-2547-4ea5-9972-1e31e6ea41e4","ca77c75f-ec60-4b4a-90b4-84fabc7c4dc8","4ddeb1f8-0466-435d-96cb-14812f73c6c2","050e4342-1df7-47fc-a89f-a32e22ef127b","e36512c5-5410-4ef0-abbf-61d7b58223fa","c4b8fc46-f0e8-406c-bad5-1df3f79279cf","18fab234-184f-4bd7-90c1-27440b0f28b5","e05697d7-c455-46a2-a374-ec39d41685d6","744d0ff9-8fd8-4b3c-b823-3deb33a16ce3","13385e91-3c25-4269-83ca-306abf7a1728","89377504-40f6-4e70-af0a-c7ffe13bb320"],"title":"Set
       Materials","layer":-1,"elementTypeColor":{"r":0.0,"g":0.0,"b":0.0,"a":1.0}}'
   - type: 3
     uid: 457f11ba-0a75-48fd-8f54-81efdfd95d85
     jsonData: '{"uid":"457f11ba-0a75-48fd-8f54-81efdfd95d85","layout":{"serializedVersion":"2","x":1463.5672607421875,"y":20.69996452331543,"width":204.6666259765625,"height":87.53335571289063},"title":"Duplicate
       for bug workaround","layer":0,"elementTypeColor":{"r":0.0,"g":0.0,"b":0.0,"a":0.0}}'
+  - type: 3
+    uid: 74ff7b5d-9b99-4fce-9073-7cf96f370363
+    jsonData: '{"uid":"74ff7b5d-9b99-4fce-9073-7cf96f370363","layout":{"serializedVersion":"2","x":1003.4458618164063,"y":838.0260009765625,"width":496.73974609375,"height":60.665103912353519},"title":"Be
+      wary of node/branch reuse here!","layer":0,"elementTypeColor":{"r":0.0,"g":0.0,"b":0.0,"a":0.0}}'
   version: 1.0.0
   showAssembly: 0
