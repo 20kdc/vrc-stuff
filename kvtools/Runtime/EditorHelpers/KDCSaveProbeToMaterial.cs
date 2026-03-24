@@ -12,27 +12,51 @@ namespace KDCVRCTools {
 		[Tooltip("Material. Must have _Cubemap and _CubemapOrigin properties, which are written to.")]
 		public LazyLoadReference<Material> material;
 		[Tooltip("Projection mode. This sets _PSRPlane, if enabled.")]
-		public PSRAxis projectionMode;
+		public PSRAxis projectionMode = PSRAxis.None;
+		[Tooltip("Used to specify how the below values are interpreted. The values written to the materials are always in global space.")]
+		public PSROffsetCoordinateSystem projectionOffsetSystem = PSROffsetCoordinateSystem.Local;
 		[Tooltip("PSR projection offset (from probe's position). Auto-recalculated into origin/breadth.")]
 		public float projectionOffsetNegative, projectionOffsetPositive;
+
+		/**
+		 * For the PSRAxis, calculates the base, negative, and positive positions.
+		 * This is a good working space for conversions.
+		 */
+		public (float, float, float) CalcPositions() {
+			float globalBase = transform.position.x;
+			if (projectionMode == PSRAxis.Y) {
+				globalBase = transform.position.y;
+			} else if (projectionMode == PSRAxis.Z) {
+				globalBase = transform.position.z;
+			}
+			if (projectionOffsetSystem == PSROffsetCoordinateSystem.Global) {
+				return (globalBase, projectionOffsetNegative, projectionOffsetPositive);
+			} else {
+				return (globalBase, globalBase - projectionOffsetNegative, globalBase + projectionOffsetPositive);
+			}
+		}
 
 		void OnDrawGizmosSelected() {
 			if (projectionMode != PSRAxis.None) {
 				Vector3 primary = new Vector3(1, 0, 0);
+				Vector3 notched = new Vector3(0, transform.position.y, transform.position.z);
 				Vector3 quadA = new Vector3(0, 1, 0);
 				Vector3 quadB = new Vector3(0, 0, 1);
 				if (projectionMode == PSRAxis.Y) {
 					quadA = primary;
 					primary = new Vector3(0, 1, 0);
+					notched = new Vector3(transform.position.x, 0, transform.position.z);
 				} else if (projectionMode == PSRAxis.Z) {
 					quadB = primary;
 					primary = new Vector3(0, 0, 1);
+					notched = new Vector3(transform.position.x, transform.position.y, 0);
 				}
 				quadA *= 0.25f;
 				quadB *= 0.25f;
 				Gizmos.color = new Color(1, 1, 0, 0.75F);
-				Vector3 negPlaneLocus = transform.position - (primary * projectionOffsetNegative);
-				Vector3 posPlaneLocus = transform.position + (primary * projectionOffsetPositive);
+				var (globalBase, calcOffsetNeg, calcOffsetPos) = CalcPositions();
+				Vector3 negPlaneLocus = notched + (primary * calcOffsetNeg);
+				Vector3 posPlaneLocus = notched + (primary * calcOffsetPos);
 				Gizmos.DrawLine(negPlaneLocus, posPlaneLocus);
 				for (int i = 0; i < 2; i++) {
 					Vector3 locus = i == 0 ? negPlaneLocus : posPlaneLocus;
@@ -55,17 +79,13 @@ namespace KDCVRCTools {
 				m.SetTexture("_Cubemap", c.bakedTexture);
 				m.SetVector("_CubemapOrigin", transform.position);
 				if (projectionMode != PSRAxis.None) {
-					float position = transform.position.x;
 					int mode = 0;
 					if (projectionMode == PSRAxis.Y) {
-						position = transform.position.y;
 						mode = 1;
 					} else if (projectionMode == PSRAxis.Z) {
-						position = transform.position.z;
 						mode = 2;
 					}
-					float vNeg = position - projectionOffsetNegative;
-					float vPos = position + projectionOffsetPositive;
+					var (globalBase, vNeg, vPos) = CalcPositions();
 					float origin = (vNeg + vPos) / 2;
 					float breadth = vPos - origin;
 					m.SetInt("_PSRPlane", mode);
@@ -78,6 +98,10 @@ namespace KDCVRCTools {
 
 		public enum PSRAxis {
 			None, X, Y, Z
+		}
+
+		public enum PSROffsetCoordinateSystem {
+			Local, Global
 		}
 	}
 }
