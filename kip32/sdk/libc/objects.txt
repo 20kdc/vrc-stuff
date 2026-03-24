@@ -43,11 +43,16 @@ stdlib/strtoul.c obj/strtoul.o
 stdlib/strtoll.c obj/strtoll.o
 stdlib/strtoull.c obj/strtoull.o
 stdlib/system_putchar.S obj_specific/system_putchar.o
+string/memcmp.c obj/memcmp.o
 string/memmove_syscall.S obj_specific/memmove_syscall.o
 string/memmove_slow.c obj_specific/memmove_slow.o
 string/memset.c obj/memset.o
+string/strcat.c obj/strcat.o
+string/strcmp.c obj/strcmp.o
 string/strcpy.c obj/strcpy.o
 string/strlen.S obj/strlen.o
+string/strncat.c obj/strncat.o
+string/strncmp.c obj/strncmp.o
 string/strncpy.c obj/strncpy.o
 time/clock.c obj/clock.o
 time/time.c obj/time.o
