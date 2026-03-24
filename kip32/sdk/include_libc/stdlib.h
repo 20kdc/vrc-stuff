@@ -20,6 +20,18 @@ long long strtoll(const char * __restrict__ nptr, char ** __restrict__ endptr, i
 unsigned long strtoul(const char * __restrict__ nptr, char ** __restrict__ endptr, int base);
 unsigned long long strtoull(const char * __restrict__ nptr, char ** __restrict__ endptr, int base);
 
+/*
+ * These might have been part of POSIX at some point, but now aren't.
+ * However, they're a useful primitive to keep around.
+ * !!!NYI!!!
+ */
+char * itoa(int value, char * str, int radix);
+char * uitoa(unsigned int value, char * str, int radix);
+char * ltoa(long value, char * str, int radix);
+char * ultoa(unsigned long value, char * str, int radix);
+char * lltoa(long long value, char * str, int radix);
+char * ulltoa(unsigned long long value, char * str, int radix);
+
 /* 'Random' number generation. */
 int rand();
 void srand(unsigned int seed);

@@ -14,6 +14,10 @@ format/vsprintf.c obj/vsprintf.o
 format/vsscanf.c obj/vsscanf.o
 format_core/vfprintf.c obj/vfprintf.o
 format_core/vfscanf.c obj/vfscanf.o
+itoa/itoa.c obj/itoa.o
+itoa/lltoa.c obj/lltoa.o
+itoa/uitoa.c obj/uitoa.o
+itoa/ulltoa.c obj/ulltoa.o
 locale/localeconv.c obj/localeconv.o
 locale/setlocale.c obj/setlocale.o
 stdio/clearerr.c obj/clearerr.o
@@ -38,6 +42,7 @@ stdlib/bsearch.c obj/bsearch.o
 stdlib/div.c obj/div.o
 stdlib/llabs.c obj/llabs.o
 stdlib/lldiv.c obj/lldiv.o
+stdlib/malloc.c obj/malloc.o
 stdlib/qsort.c obj/qsort.o
 stdlib/rand.c obj/rand.o
 stdlib/strtol.c obj/strtol.o
