@@ -5,8 +5,9 @@
 #include "muldiv.h"
 #include "genrefdata.h"
 
-void putchar(int c) {
+int putchar(int c) {
 	KIP32_SYSCALL1("stdsyscall_putchar", c);
+	return c;
 }
 
 int vi_m1 = -1;

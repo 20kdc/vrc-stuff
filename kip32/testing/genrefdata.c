@@ -1,14 +1,15 @@
 #include "muldiv.h"
-#include "qemu.h"
 #include "testlibc.h"
+#include <unistd.h>
 
 /*
  * This program is meant to run in QEMU.
  * It is designed to probe QEMU's interpretation of operations that are 'prone to error', namely multiplication and division.
  */
 
-void putchar(int chr) {
+int putchar(int chr) {
 	write(1, &chr, 1);
+	return chr;
 }
 
 void write_case(const char * case_type, int (*process)(int, int), int v1, int v2) {

@@ -1,11 +1,12 @@
-#include "qemu.h"
+#include <unistd.h>
 #include "testlibc.h"
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
 
-void putchar(int chr) {
+int putchar(int chr) {
 	write(1, &chr, 1);
+	return chr;
 }
 
 void __assert_fail(const char * exprtext, const char * file, int line, const char * func) {
@@ -74,6 +75,12 @@ class Main {
 	assert(strlen("aaa") == 3);
 	assert(strlen("aaaa") == 4);
 	assert(strlen("aaaaa") == 5);
+
+	puts("using sbrk to allocate data...");
+
+	int * newdata = sbrk(4096);
+	assert(newdata);
+	assert(newdata[0] == 0);
 
 	puts("hey, all tests completed!");
 

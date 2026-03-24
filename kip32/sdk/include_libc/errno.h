@@ -9,4 +9,7 @@
 #define ERANGE 34
 #define EILSEQ 84
 
+/* Other (used by i.e. sbrk) */
+#define ENOMEM 12
+
 extern int errno;

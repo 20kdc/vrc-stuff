@@ -5,7 +5,7 @@
 #define putsn system
 
 // caller-defined
-void putchar(int c);
+int putchar(int c);
 
-void puts(const char * text);
+int puts(const char * text);
 void puthex(int v);

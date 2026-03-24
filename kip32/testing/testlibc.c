@@ -8,9 +8,10 @@ int system(const char * text) {
 	return 0;
 }
 
-void puts(const char * text) {
+int puts(const char * text) {
 	system(text);
 	putchar(10);
+	return 1;
 }
 
 void puthex(int v) {

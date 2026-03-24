@@ -68,4 +68,7 @@ string/strxfrm.c obj/strxfrm.o
 time/clock.c obj/clock.o
 time/time.c obj/time.o
 ctype.c obj/ctype.o
+linux_syscalls.S obj_specific/linux_syscalls.o
+sbrk_fake.c obj_specific/sbrk_fake.o
+sbrk_kip32.S obj_specific/sbrk_kip32.o
 setjmp.S obj/setjmp.o
