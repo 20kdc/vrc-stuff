@@ -1,3 +1,5 @@
+errno/strerror.c obj/strerror.o
+errno/errno.c obj/errno.o
 format/fprintf.c obj/fprintf.o
 format/fscanf.c obj/fscanf.o
 format/printf.c obj/printf.o
@@ -53,7 +55,6 @@ string/strchr.c obj/strchr.o
 string/strcmp.c obj/strcmp.o
 string/strcpy.c obj/strcpy.o
 string/strcspn.c obj/strcspn.o
-string/strerror.c obj/strerror.o
 string/strlen.S obj/strlen.o
 string/strncat.c obj/strncat.o
 string/strncmp.c obj/strncmp.o
@@ -67,5 +68,4 @@ string/strxfrm.c obj/strxfrm.o
 time/clock.c obj/clock.o
 time/time.c obj/time.o
 ctype.c obj/ctype.o
-errno.c obj/errno.o
 setjmp.S obj/setjmp.o

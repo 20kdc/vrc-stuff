@@ -18,7 +18,7 @@ char * strncat(char * __restrict__ dest, const char * __restrict__ src, size_t n
 int memcmp(const void * a, const void * b, size_t n);
 int strcmp(const char * a, const char * b);
 int strcoll(const char * a, const char * b);
-int strncmp(const char * a, const char * b, size_t n); /* NYI */
+int strncmp(const char * a, const char * b, size_t n);
 size_t strxfrm(char * __restrict__ s1, const char * __restrict__ s2, size_t n);
 
 void * memchr(const void * s, int c, size_t n);
@@ -31,5 +31,5 @@ char * strstr(const char * haystack, const char * needle);
 char * strtok(char * __restrict__ haystack, const char * __restrict__ needles); /* NYI */
 
 void * memset(void * s, int c, size_t n);
-char * strerror(int errnum); /* NYI */
+char * strerror(int errnum); /* NYI. File in errno/ */
 size_t strlen(const char * s);
