@@ -31,6 +31,7 @@ This is not a general-purpose libc. It can _just about_ survive in QEMU, which i
 * The following routines use 'non-traditional' optimization practices:
 	* `memcpy`/`memmove` have a relatively fast kip32 version (but are still going to be slow on QEMU).
 		* For practical purposes, you should consider these to be _constant-time._ That is, not even `O(N)`. Just `O(1)`.
+	* `memset` takes advantage of the `memcpy` speed.
 	* `strlen`'s implementation favours the Udon environment heavily.
 	* `qsort` is not quicksort, it is binary insertion sort. It allocates size for one element on stack.
 		* This at least does not involve hand-assembled code. You could theoretically drop this into any libc and it should work.

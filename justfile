@@ -30,7 +30,7 @@ kip32-libc:
 	../recipe "../kip32-udon-gcc -O3" "-c -o" "" `cat objects.txt`
 	rm -f ../libcudon.a ../libcqemu.a
 	riscv64-unknown-elf-ar rcs ../libcudon.a obj/*.o obj_specific/system_putchar.o obj_specific/memmove_syscall.o
-	riscv64-unknown-elf-ar rcs ../libcqemu.a obj/*.o
+	riscv64-unknown-elf-ar rcs ../libcqemu.a obj/*.o obj_specific/memmove_slow.o
 	../kip32-libcqemu-gcc -O3 ../../testing/libctest.c ../../testing/qemu.S ../../testing/testlibc.c -o ../../testing/libctest.elf
 
 [working-directory: 'mdbook']
