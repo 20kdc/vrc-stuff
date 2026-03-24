@@ -10,7 +10,11 @@ MICROPY_ROM_TEXT_COMPRESSION ?= 0
 CROSS_COMPILE ?= riscv64-unknown-elf-
 
 CFLAGS += -I. -I$(TOP) -I$(BUILD)
+ifeq ($(AREWECONNECTED), 1)
+CFLAGS += -mabi=ilp32 -march=rv32im -DMICROPY_USE_INTERNAL_ERRNO=1 -specs=$(KIP32_SDK)/kip32_udon.specs
+else
 CFLAGS += -mabi=ilp32 -march=rv32im -I$(KIP32_SDK)/include -specs=/usr/lib/picolibc/riscv64-unknown-elf/picolibc.specs
+endif
 CFLAGS += -Wall -Werror -std=c99
 CSUPEROPT = -Os
 
