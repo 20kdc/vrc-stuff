@@ -53,6 +53,11 @@ It contains:
 	* `Pre-Rendered Cubemap` shader: Pre-rendered cubemap -- ocarina-of-time-style. Good for `MirrorReflection` geometry
 	* `Mobile Two-Plane-Projected Cubemap Reflection` shader: _Presently_ 'Diffuse' shader-based (may be switched to Lightmapped at any time). Provides a simplified 'not quite box projection' model that is effective for 'hero lights'.
 	* `KDC Save Reflection Probe To Material` MonoBehaviour: Use targetting a material with an approriate shader in order to automatically write the cubemap to the material on Play or build. Should be especially useful with `EditorOnly` ReflectionProbes?
+* Menu option `VRChat SDK/KDCVRCTools/Detect Known Issues` to detect common issues, including:
+	* Non-deterministic Udon program GUIDs
+	* Risk of UdonSharp memory leak <https://feedback.vrchat.com/sdk-bug-reports/p/udonsharp-watchlog-causing-extreme-long-reloading-domain-time-and-editor-stutter>
+	* Domain Reloading issues (i.e. do you need to install kvworkarounds)
+	* `EditorSettings.serializeInlineMappingsOnOneLine` being false
 
 ## `kvbsp`
 

@@ -41,7 +41,7 @@ namespace KDCVRCTools {
 			}
 		}
 
-		public static int SetupDeterministicSUPAGUIDsCore() {
+		public static int SetupDeterministicSUPAGUIDsCore(bool dryRun = false, List<string> assetPaths = null) {
 			int modified = 0;
 			string[] programSourceGUIDs = AssetDatabase.FindAssets("t:AbstractUdonProgramSource");
 			var encoding = new UTF8Encoding(false);
@@ -69,6 +69,17 @@ namespace KDCVRCTools {
 
 				try {
 					string transformedGUID = DeterministicSUPAGUIDTransform(guid);
+					AssetDatabase.TryGetGUIDAndLocalFileIdentifier(supa, out string supaGUID, out long _);
+					if (supaGUID == transformedGUID)
+						continue;
+
+					if (dryRun) {
+						if (assetPaths != null)
+							assetPaths.Add(assetPath);
+						modified++;
+						continue;
+					}
+
 					// Target
 					string expectedPathMeta = expectedPath + ".meta";
 					string val = File.ReadAllText(expectedPathMeta, encoding);
@@ -94,6 +105,8 @@ namespace KDCVRCTools {
 					val = val.Substring(0, targettingIndexEnd) + transformedGUID + val.Substring(endTargetIndex);
 
 					File.WriteAllText(expectedPathMeta, val, encoding);
+					if (assetPaths != null)
+						assetPaths.Add(assetPath);
 					modified++;
 				} catch (Exception ex) {
 					Debug.LogError("KDCVRCTools: @ " + guid);
@@ -111,6 +124,62 @@ namespace KDCVRCTools {
 			Debug.Log($"KDCVRCTools: Adjusted {modified} SUPA GUIDs for determinism.");
 			AssetDatabase.Refresh();
 			UdonEditorManager.RecompileAllProgramSources();
+		}
+
+		public static bool DomainReloadingWorkaroundsInstalled() {
+			try {
+				Type workaroundsType = Type.GetType("KDCVRCWorkarounds.KDCVRCDomainReloadingWorkarounds, KDCVRCWorkarounds");
+				return true;
+			} catch (Exception ex) {
+				// do absolutely nothing!
+				Exception ignored = (Exception) ex;
+			}
+			return false;
+		}
+
+		[MenuItem("VRChat SDK/KDCVRCTools/Detect Known Issues")]
+		public static void DetectKnownIssues() {
+			bool foundIssues = false;
+			string info = "";
+			// scan for non-deterministic GUIDs
+			List<string> assetPaths = new();
+			SetupDeterministicSUPAGUIDsCore(true, assetPaths);
+			foreach (string assetPath in assetPaths) {
+				foundIssues = true;
+				info += $"\nProgramSource {assetPath} uses a non-deterministic GUID. This will cause GUID thrashing in version control. Use VRChat SDK/Utilities/Re-compile + Deterministic GUIDs (KDCVRCTools) to fix.";
+			}
+			// check for dodgy editor settings
+			if (!EditorSettings.serializeInlineMappingsOnOneLine) {
+				foundIssues = true;
+				info += $"\nEditorSettings.serializeInlineMappingsOnOneLine is false. This causes issues in version control. Fix in Edit -> Project Settings -> Project -> Editor -> Asset Serialization.";
+			}
+			// stop UdonSharp from breaking everything
+			Type udonSharpSettingsType = Type.GetType("UdonSharpEditor.UdonSharpSettings, UdonSharp.Editor");
+			object udonSharpSettings = udonSharpSettingsType.GetMethod("GetSettings").Invoke(null, null);
+			if (udonSharpSettings != null) {
+				bool val1 = (bool) udonSharpSettingsType.GetField("listenForVRCExceptions").GetValue(udonSharpSettings);
+				int val2 = (int) udonSharpSettingsType.GetField("watcherMode").GetValue(udonSharpSettings);
+				// we don't turn these into issues because they don't affect all users
+				if (val1) {
+					info += "\nUdonSharp is attempting to listen for VRChat exceptions. This can cause hard-to-debug and extremely painful memory leaks for some users. Primary symptom is long Domain Reloading or crashing. Fix in Edit -> Project Settings -> Project -> Udon Sharp -> Debugging -> Listen for client exceptions";
+				}
+				if (val2 != 0) {
+					info += "\nUdonSharp's log watcher is enabled. This can cause hard-to-debug and extremely painful memory leaks for some users. Primary symptom is long Domain Reloading or crashing. Fix in Edit -> Project Settings -> Project -> Udon Sharp -> Debugging -> Output log watch mode";
+				}
+			}
+			// is Domain Reloading disabled?
+			if (EditorSettings.enterPlayModeOptionsEnabled && ((EditorSettings.enterPlayModeOptions & EnterPlayModeOptions.DisableDomainReload) != 0)) {
+				if (!DomainReloadingWorkaroundsInstalled()) {
+					foundIssues = true;
+					info += $"\nProject -> Editor -> Enter Play Mode Settings -> Reload Domain has been disabled and no known workaround package is installed. This will cause issues with Udon Network Events and will cause the existence of PlayerObjects to cause ClientSim to completely fail. Either install KVWorkarounds or find another solution and tell me about it so I can add detection for that.";
+				}
+			}
+			// finish
+			if (foundIssues) {
+				Debug.LogWarning("KDCVRCTools: Issues detected!" + info);
+			} else {
+				Debug.Log("KDCVRCTools: No known issues! Advisories:" + info);
+			}
 		}
 	}
 }
