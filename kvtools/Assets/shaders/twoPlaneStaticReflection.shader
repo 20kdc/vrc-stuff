@@ -10,15 +10,15 @@
 // Performance thoughts:
 // This probably approaches Standard Lite complexity. However, we don't have cubemap-array blending support and don't want it (it sucks anyway as it's hard to control).
 
-Shader "z 20kdc kvassets/Mobile Cube-Plane Reflection Shader" {
+Shader "z 20kdc kvtools/Mobile Two-Plane-Projected Cubemap Reflection" {
 	Properties {
 		_MainTex("Base (RGB) / Smoothness (A)", 2D) = "white" {}
 		_Color("Multiplier", Color) = (1,1,1,1)
 		[Gamma] _Metallic("Metallic", Range(0,1)) = 1.0
 		_Glossiness("(Fallback Only) Smoothness", Range(0,1)) = 1.0
 
-		_PSRCubemap("Reflection Cubemap", Cube) = "" {}
-		_PSRCubemapOrigin("Reflection Cubemap Origin", Vector) = (0.0, 1.0, 0.0, 0.0)
+		_Cubemap("Reflection Cubemap", Cube) = "" {}
+		_CubemapOrigin("Reflection Cubemap Origin", Vector) = (0.0, 1.0, 0.0, 0.0)
 
 		[KeywordEnum(X, Y, Z)] _PSRPlane ("Reflection Plane Axis", int) = 0
 		_PSRPlaneOrigin("Reflection Plane Origin", Float) = 0.0
@@ -54,10 +54,10 @@ Shader "z 20kdc kvassets/Mobile Cube-Plane Reflection Shader" {
 		UNITY_DECLARE_TEX2D(_MainTex);
 		uniform fixed4 _Color;
 
-		UNITY_DECLARE_TEXCUBE(_PSRCubemap);
-		half4 _PSRCubemap_HDR;
+		UNITY_DECLARE_TEXCUBE(_Cubemap);
+		half4 _Cubemap_HDR;
 
-		uniform float4 _PSRCubemapOrigin;
+		uniform float4 _CubemapOrigin;
 		uniform float _PSRPlaneOrigin;
 		uniform float _PSRPlaneBreadth;
 		uniform fixed _Metallic;
@@ -91,10 +91,10 @@ Shader "z 20kdc kvassets/Mobile Cube-Plane Reflection Shader" {
 			// if theDot is positive, we're hitting the negatively-aimed plane
 			half timeToImpact = (distToPlane + (_PSRPlaneBreadth * sign(theDot))) / theDot;
 			float3 oRelImpactPoint = IN.worldPos + (IN.worldRefl * timeToImpact);
-			half3 reflDir = normalize(oRelImpactPoint - _PSRCubemapOrigin);
+			half3 reflDir = normalize(oRelImpactPoint - _CubemapOrigin);
 			// get reflection and reduce according to simulated smoothness
-			half4 reflectionA = UNITY_SAMPLE_TEXCUBE_LOD(_PSRCubemap, reflDir, (1.0 - smoothness) * UNITY_SPECCUBE_LOD_STEPS);
-			half3 reflection = DecodeHDR(reflectionA, _PSRCubemap_HDR);
+			half4 reflectionA = UNITY_SAMPLE_TEXCUBE_LOD(_Cubemap, reflDir, (1.0 - smoothness) * UNITY_SPECCUBE_LOD_STEPS);
+			half3 reflection = DecodeHDR(reflectionA, _Cubemap_HDR);
 
 			// this took way too long to get roughly-consistent with Unity
 			o.Albedo = albedo * (1.0 - _Metallic);

@@ -1,5 +1,5 @@
 {
-    "name": "KDCVRCTools",
+    "name": "KDCVRCTools.Editor",
     "rootNamespace": "",
     "references": [
         "VRC.Udon",

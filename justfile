@@ -12,7 +12,8 @@ kip32: kip32-libc
 	KIP32CC_OVERRIDE_ARCH=rv32i sdk/kip32-udon-gcc -O3 testing/science.c testing/testlibc.c testing/muldiv.S -o testing/science.elf -Wl,-Map=testing/science.map
 	sdk/elf2uasm testing/science.elf --ignore-emit-err -o ../kvassets/Assets/science.uasm
 	sdk/elf2uasm testing/science.elf --udonjson -o ../kvassets/Assets/science.udonjson
-	objdump -h -D testing/science.elf > testing/science.lst
+	# if this gives you an error, you probably need binutils-multiarch
+	objdump -h -D testing/science.elf > testing/science.lst || true
 
 [working-directory: 'kip32/testing']
 kip32-libc-test: kip32-libc
