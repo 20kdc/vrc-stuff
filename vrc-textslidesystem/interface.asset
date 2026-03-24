@@ -12,8 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4f11136daadff0b44ac2278a314682ab, type: 3}
   m_Name: interface
   m_EditorClassIdentifier: 
-  serializedUdonProgramAsset: {fileID: 11400000, guid: 740494e1790602262803fa8c8c817b66,
-    type: 2}
+  serializedUdonProgramAsset: {fileID: 11400000, guid: 2891c834a9305e97fb915e6a74b9f91b, type: 2}
   udonAssembly: ".data_start\n\n    .export text\n    .export slides\n    .export
     slideIndex\n    .export displays\n    .sync whoLastTouched, none\n    .sync text,
     none\n    .sync slides, none\n    .sync slideIndex, none\n    \n    __Int32_0:
