@@ -4,8 +4,9 @@
 Shader "z 20kdc kvtools/Fixed Colour" {
 	Properties {
 		_Color("Render Colour", Color) = (1,1,1,1)
-		[HDR]
-		_EmissionColor("Bake/Emission Colour", Color) = (1,1,1,1)
+		// so passing [HDR] here makes the emission colour darker
+		// for compatibility with Standard Lite, this is how we have to do things
+		_EmissionColor("Bake/Emission Colour", Color) = (1,1,1)
 	}
 	SubShader {
 
@@ -27,7 +28,7 @@ Shader "z 20kdc kvtools/Fixed Colour" {
 			float4 frag_meta2 (v2f_meta i) : SV_Target {
 				UnityMetaInput o;
 				UNITY_INITIALIZE_OUTPUT(UnityMetaInput, o);
-				o.Albedo = float3(1.0, 1.0, 1.0);
+				o.Albedo = float3(0.0, 0.0, 0.0);
 				o.SpecularColor = float3(1.0, 1.0, 1.0);
 				o.Emission = _EmissionColor;
 				return UnityMetaFragment(o);
@@ -74,4 +75,5 @@ Shader "z 20kdc kvtools/Fixed Colour" {
 	}
 
 	FallBack "VRChat/Mobile/Lightmapped"
+	CustomEditor "KDCVRCTools.KVToolsFixedColourShaderGUI"
 }
