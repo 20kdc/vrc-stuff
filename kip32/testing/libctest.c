@@ -25,6 +25,7 @@ void itoa_tests();
 void locale_tests();
 void stdio_tests();
 void stdlib_tests();
+void malloc_tests();
 void string_tests();
 void time_tests();
 void ctype_tests();
@@ -43,6 +44,7 @@ void _start() {
 	TF_RUNMODULE(locale);
 	TF_RUNMODULE(stdio);
 	TF_RUNMODULE(stdlib);
+	TF_RUNMODULE(malloc);
 	TF_RUNMODULE(string);
 	TF_RUNMODULE(time);
 	TF_RUNMODULE(ctype);
@@ -122,24 +124,67 @@ void stdlib_tests() {
 	assert(rand() == 1423528248);
 	assert(rand() == 1033096058);
 	assert(rand() == 456749246);
+}
 
+void malloc_tests() {
 	// -- malloc --
-	void * ptrs[0x10];
-	for (int i = 0; i < 0x10; i++) {
+	// this test rig is meant to produce a lot of reclaims
+	int mallocLoud = 0;
+	void * ptrs[0x40];
+	for (int i = 0; i < 0x40; i++) {
 		ptrs[i] = NULL;
 	}
-	for (int i = 0; i < 0x10000; i++) {
+	for (int i = 0; i < 0x400; i++) {
 		int fop = rand();
-		int sz = fop & 0xFFFFF;
-		int idx = (fop >> 20) & 0xF;
+
+		// make things fuzzy
+		int sz = fop & 0xF;
+		fop >>= 4;
+		// shift up to 24
+		int szB2 = fop & 0xF;
+		fop >>= 4;
+		szB2 += fop & 0x7;
+		fop >>= 3;
+		sz <<= szB2;
+		// make things fuzzier
+		sz += fop & 0xF;
+		fop >>= 4;
+
+		int idx = fop & 0x3F;
+		fop >>= 6;
+
+		int coin = fop & 1;
+		fop >>= 1;
+
+		if (coin)
+			sz = 0;
 		if (!sz) {
+			if (mallocLoud) {
+				putsn(" free ");
+				puthex(idx);
+				putsn("\n");
+			}
 			free(ptrs[idx]);
 			ptrs[idx] = NULL;
 		} else {
+			if (mallocLoud) {
+				putsn(" realloc ");
+				puthex(idx);
+				putsn(" ");
+				puthex(sz);
+				putsn(" = ");
+			}
 			void * res = realloc(ptrs[idx], sz);
+			if (mallocLoud) {
+				puthex((int) res);
+				putsn("\n");
+			}
 			if (res)
 				ptrs[idx] = res;
 		}
+	}
+	for (int i = 0; i < 0x40; i++) {
+		free(ptrs[i]);
 	}
 }
 
