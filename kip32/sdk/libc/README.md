@@ -27,9 +27,10 @@ This is not a general-purpose libc. It can _just about_ survive in QEMU, which i
 * `system` is used to output debug messages. It calls `stdsyscall_putchar`.
 	* This is technically a valid implementation, because I say that's how the command processor works on this system.
 * `rand` and `srand` are implemented using the `java.util.Random` algorithm.
-* `itoa` and friends are... right now _not implemented yet,_ but they are considered 'canon' in this libc.
+* `itoa` and friends are considered 'canon' in this libc.
 	* This has to do with how important they are as utility functions for implementing printf/etc.
 * `strtol` and friends do not check for over/underflow.
+* `aligned_alloc` does not exist, on purpose (it would massively complicate malloc)
 * `SCN*LEAST` and `SCN*FAST` are not implemented because we don't know _exactly_ which type the compiler will use.
 * Anything relating to `[u]intmax_t` is assumed to be `[unsigned] long long`. Symbol aliasing is used here.
 * The following routines use 'non-traditional' optimization practices:
@@ -100,6 +101,6 @@ Of which are in-scope:
 * `setjmp.h` (status: complete)
 * `signal.h` (status: intentional stub)
 * `stdio.h` (status: in-progress -- format/scan core NYI)
-* `stdlib.h` (status: in-progress -- everything _except_ `malloc` is done)
+* `stdlib.h` (status: complete)
 * `string.h` (status: complete)
 * `time.h` (status: stub-ish)

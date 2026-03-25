@@ -49,6 +49,13 @@ char * ulltoa(unsigned long long value, char * str, int radix);
 int rand();
 void srand(unsigned int seed);
 
+/* Memory management functions. */
+/* void * aligned_alloc(size_t alignment, size_t size); -- is not implemented here */
+void * calloc(size_t nmemb, size_t size);
+void free(void * ptr);
+void * malloc(size_t size);
+void * realloc(void * ptr, size_t size);
+
 /*
  * This calls system to print an error, and then performs an invalid memory access.
  */

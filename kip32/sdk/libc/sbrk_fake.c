@@ -13,6 +13,7 @@ static void * data_segment_end = sbrk_storage;
 
 void * sbrk(intptr_t increment) {
 	void * new_end = data_segment_end + increment;
+	void * old_end = data_segment_end;
 	if (new_end != data_segment_end) {
 		uintptr_t storage_start = (uintptr_t) (sbrk_storage);
 		uintptr_t storage_end = (uintptr_t) (sbrk_storage + SBRK_WORDS);
@@ -23,5 +24,5 @@ void * sbrk(intptr_t increment) {
 		}
 		data_segment_end = new_end;
 	}
-	return data_segment_end;
+	return old_end;
 }

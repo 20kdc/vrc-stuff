@@ -122,6 +122,25 @@ void stdlib_tests() {
 	assert(rand() == 1423528248);
 	assert(rand() == 1033096058);
 	assert(rand() == 456749246);
+
+	// -- malloc --
+	void * ptrs[0x10];
+	for (int i = 0; i < 0x10; i++) {
+		ptrs[i] = NULL;
+	}
+	for (int i = 0; i < 0x10000; i++) {
+		int fop = rand();
+		int sz = fop & 0xFFFFF;
+		int idx = (fop >> 20) & 0xF;
+		if (!sz) {
+			free(ptrs[idx]);
+			ptrs[idx] = NULL;
+		} else {
+			void * res = realloc(ptrs[idx], sz);
+			if (res)
+				ptrs[idx] = res;
+		}
+	}
 }
 
 void string_tests() {
