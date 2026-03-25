@@ -9,8 +9,10 @@ typedef struct _KIP32_LIBC_BUFFILE BUFFILE;
 
 static int libc_buffile_getc(FILE * f) {
 	BUFFILE * bf = (BUFFILE *) f;
-	if (bf->pos >= bf->len)
+	if (bf->pos >= bf->len) {
+		f->flags |= __KIP32_LIBC_FILEFLAG_EOF;
 		return EOF;
+	}
 	return bf->buf[bf->pos++];
 }
 
@@ -25,8 +27,10 @@ static int libc_buffile_putc(int c, FILE * f) {
 static size_t libc_buffile_read(void * restrict ptr, size_t size, FILE * f) {
 	BUFFILE * bf = (BUFFILE *) f;
 	size_t remain = bf->len - bf->pos;
-	if (remain < size)
+	if (remain < size) {
+		f->flags |= __KIP32_LIBC_FILEFLAG_EOF;
 		size = remain;
+	}
 	memcpy(ptr, bf->buf + bf->pos, size);
 	bf->pos += size;
 	return size;

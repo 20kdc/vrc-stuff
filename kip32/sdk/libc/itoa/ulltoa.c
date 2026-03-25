@@ -1,6 +1,6 @@
 #include <stdlib.h>
 
-#define ITOA_TYPE unsigned long long
-#define ITOA_SYM ulltoa
+#define UITOA_TYPE unsigned long long
+#define UITOA_SYM ulltoa
 
-#include "itoa.h"
+#include "uitoa.h"

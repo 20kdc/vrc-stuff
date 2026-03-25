@@ -18,6 +18,10 @@ typedef signed long ssize_t;
  * Linux syscall wrappers in linux_syscalls.S ; used by the appropriate compatibility code.
  * These do not update errno.
  */
+#define STDIN_FILENO 0
+#define STDOUT_FILENO 1
+#define STDERR_FILENO 2
+ssize_t read(int fd, const void * buf, size_t sz);
 ssize_t write(int fd, const void * buf, size_t sz);
 void _exit(int v);
 

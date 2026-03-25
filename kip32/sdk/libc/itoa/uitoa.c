@@ -1,8 +1,8 @@
 #include <stdlib.h>
 
-#define ITOA_TYPE unsigned int
-#define ITOA_SYM uitoa
+#define UITOA_TYPE unsigned int
+#define UITOA_SYM uitoa
 
-#include "itoa.h"
+#include "uitoa.h"
 
 char * ultoa(unsigned long value, char * str, int radix) __attribute__((alias("uitoa")));

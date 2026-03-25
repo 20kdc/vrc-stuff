@@ -27,7 +27,8 @@ typedef size_t fpos_t;
  * Note that:
  * 1. All the function pointers here must be set.
  * 2. fget* functions are defined as immediately returning if the EOF flag is set. This is handled automatically in the frontend.
- * 3. ungetc is handled automatically in the frontend.
+ * 3. You are expected to set the EOF/error flags.
+ * 4. ungetc is handled automatically in the frontend.
  *
  * The main goal for implementing FILE in this libc is for the implementation of the scanf and printf series.
  */

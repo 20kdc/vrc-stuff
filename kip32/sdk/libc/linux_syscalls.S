@@ -4,6 +4,12 @@
 
 .text
 
+.globl read
+read:
+	li a7, 63
+	ecall
+	ret
+
 .globl write
 write:
 	li a7, 64

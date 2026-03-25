@@ -31,5 +31,5 @@ char * strstr(const char * haystack, const char * needle);
 char * strtok(char * __restrict__ haystack, const char * __restrict__ needles); /* NYI */
 
 void * memset(void * s, int c, size_t n);
-char * strerror(int errnum); /* NYI. File in errno/ */
+char * strerror(int errnum); /* File in errno/ */
 size_t strlen(const char * s);

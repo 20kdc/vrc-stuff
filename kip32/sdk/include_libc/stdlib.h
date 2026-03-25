@@ -21,10 +21,23 @@ unsigned long strtoul(const char * __restrict__ nptr, char ** __restrict__ endpt
 unsigned long long strtoull(const char * __restrict__ nptr, char ** __restrict__ endptr, int base);
 
 /*
- * These might have been part of POSIX at some point, but now aren't.
- * However, they're a useful primitive to keep around.
- * !!!NYI!!!
+ * These are an 'informal standard' kept around mostly in Microsoft and IBM compilers.
+ * However, they're a useful primitive to keep around for use in the formatting functions.
+ * Beware that a signed hexadecimal conversion won't act like "%x", because "%x" forces unsigned.
  */
+
+/* [negative symbol] + [max size for base 2] + null */
+#define __KIP32_LIBC_ITOA_BUFSIZE_FN(type) ((sizeof(type) * 8) + 2)
+
+#define __KIP32_LIBC_ITOA_BUFSIZE __KIP32_LIBC_ITOA_BUFSIZE_FN(int)
+#define __KIP32_LIBC_UITOA_BUFSIZE __KIP32_LIBC_ITOA_BUFSIZE
+
+#define __KIP32_LIBC_LTOA_BUFSIZE __KIP32_LIBC_ITOA_BUFSIZE_FN(long)
+#define __KIP32_LIBC_ULTOA_BUFSIZE __KIP32_LIBC_LTOA_BUFSIZE
+
+#define __KIP32_LIBC_LLTOA_BUFSIZE __KIP32_LIBC_ITOA_BUFSIZE_FN(long long)
+#define __KIP32_LIBC_ULLTOA_BUFSIZE __KIP32_LIBC_LLTOA_BUFSIZE
+
 char * itoa(int value, char * str, int radix);
 char * uitoa(unsigned int value, char * str, int radix);
 char * ltoa(long value, char * str, int radix);

@@ -1,13 +1,10 @@
 #include <unistd.h>
+#include <errno.h>
+#include <locale.h>
 #include "testlibc.h"
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
-
-int putchar(int chr) {
-	write(1, &chr, 1);
-	return chr;
-}
 
 void __assert_fail(const char * exprtext, const char * file, int line, const char * func) {
 	putsn("assertion failed: ");
@@ -22,19 +19,90 @@ void __assert_fail(const char * exprtext, const char * file, int line, const cha
 	abort();
 }
 
-#define STRTOL_TEST_S(v, p) \
-	if (strtol(#v, NULL, p) != v) { \
-		puts("strtol: " #v " " #p " fail"); \
-	} else { \
-		puts("strtol: " #v " " #p " OK"); \
-	}
+void errno_tests();
+void format_tests();
+void itoa_tests();
+void locale_tests();
+void stdio_tests();
+void stdlib_tests();
+void string_tests();
+void time_tests();
+void ctype_tests();
+void setjmp_tests();
+
+#define TF_RUNMODULE(mod) \
+	puts("running " #mod " tests..."); \
+	mod ## _tests();
+
+void _start() {
+	puts("libctest started!");
+
+	TF_RUNMODULE(errno);
+	TF_RUNMODULE(format);
+	TF_RUNMODULE(itoa);
+	TF_RUNMODULE(locale);
+	TF_RUNMODULE(stdio);
+	TF_RUNMODULE(stdlib);
+	TF_RUNMODULE(string);
+	TF_RUNMODULE(time);
+	TF_RUNMODULE(ctype);
+	TF_RUNMODULE(setjmp);
+
+	puts("using sbrk to allocate data...");
+
+	int * newdata = sbrk(4096);
+	assert(newdata);
+	assert(newdata[0] == 0);
+
+	puts("hey, all tests completed!");
+
+	_exit(0);
+}
+
+void errno_tests() {
+	assert(!strcmp(strerror(ENOMEM), "Out of memory"));
+	assert(!strcmp(strerror(EDOM), "Numerical argument out of domain"));
+	assert(!strcmp(strerror(ERANGE), "Argument out of range"));
+	assert(!strcmp(strerror(EILSEQ), "Invalid or incomplete multibyte or wide character"));
+	assert(!strcmp(strerror(0), "Unknown error number"));
+}
+
+void format_tests() {
+
+}
+
+void itoa_tests() {
+	char itoa_buf[__KIP32_LIBC_ITOA_BUFSIZE];
+#define ITOA_TEST(f, v, r, s) f(v, itoa_buf, r); \
+	if (strcmp(itoa_buf, s)) { system("itoa error "); puts(itoa_buf); } \
+	assert(!strcmp(itoa_buf, s));
+	ITOA_TEST(itoa, 528491, 10, "528491");
+	ITOA_TEST(itoa, -528491, 10, "-528491");
+	ITOA_TEST(itoa, -0xABCD, 16, "-abcd");
+	ITOA_TEST(itoa, 0xABCD, 16, "abcd");
+	/* the really nasty ones */
+	ITOA_TEST(itoa, -0x80000000, 16, "-80000000");
+	ITOA_TEST(uitoa, 0x80000000, 16, "80000000");
+}
+
+void locale_tests() {
+	assert(localeconv());
+	setlocale(LC_ALL, "C");
+}
+
+void stdio_tests() {
+	/* is there even a good way to test this...? this is more format's thing */
+}
+
+void stdlib_tests() {
+
+	// -- strtol --
+
+#define STRTOL_TEST_S(v, p) assert(strtol(#v, NULL, p) == v);
 
 #define STRTOL_TEST(v, p) \
 	STRTOL_TEST_S(v, p) \
 	STRTOL_TEST_S(-v, p)
-
-void _start() {
-	puts("libctest started!");
 
 	STRTOL_TEST(1234, 10);
 	STRTOL_TEST(1234, 0);
@@ -47,25 +115,16 @@ void _start() {
 	STRTOL_TEST(2147483647, 10);
 	STRTOL_TEST_S(-2147483648, 10);
 
-	puts("performing rand tests...");
-/*
-import java.util.Random;
-class Main {
-        public static void main(String[] s) {
-                Random r = new Random();
-                r.setSeed(0);
-                for (int i = 0; i < 4; i++) {
-                        int a = r.nextInt();
-                        System.out.println(a & 0x7FFFFFFF);
-                }
-        }
-}
-*/
+	// -- rand --
+
 	srand(0);
 	assert(rand() == 991999072);
 	assert(rand() == 1423528248);
 	assert(rand() == 1033096058);
 	assert(rand() == 456749246);
+}
+
+void string_tests() {
 
 	puts("performing strlen tests...");
 
@@ -76,13 +135,17 @@ class Main {
 	assert(strlen("aaaa") == 4);
 	assert(strlen("aaaaa") == 5);
 
-	puts("using sbrk to allocate data...");
 
-	int * newdata = sbrk(4096);
-	assert(newdata);
-	assert(newdata[0] == 0);
+}
 
-	puts("hey, all tests completed!");
+void time_tests() {
 
-	_exit(0);
+}
+
+void ctype_tests() {
+
+}
+
+void setjmp_tests() {
+
 }

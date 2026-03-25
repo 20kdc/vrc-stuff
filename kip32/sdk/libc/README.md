@@ -101,5 +101,5 @@ Of which are in-scope:
 * `signal.h` (status: intentional stub)
 * `stdio.h` (status: in-progress -- format/scan core NYI)
 * `stdlib.h` (status: in-progress -- everything _except_ `malloc` is done)
-* `string.h` (status: in-progress -- 5 functions left you probably don't care about, dummy files added for them)
+* `string.h` (status: in-progress -- 4 functions left you probably don't care about, dummy files added for them)
 * `time.h` (status: stub-ish)
