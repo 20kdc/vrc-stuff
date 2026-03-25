@@ -23,12 +23,17 @@ size_t strxfrm(char * __restrict__ s1, const char * __restrict__ s2, size_t n);
 
 void * memchr(const void * s, int c, size_t n);
 char * strchr(const char * s, int c);
-size_t strcspn(const char * haystack, const char * stopchars); /* NYI */
-char * strpbrk(const char * haystack, const char * needles); /* NYI */
+/* length of string before stopchars/nul */
+size_t strcspn(const char * haystack, const char * stopchars);
+/* location in string of any needle (multi-char strchr) */
+char * strpbrk(const char * haystack, const char * needles);
 char * strrchr(const char * s, int c);
-size_t strspn(const char * haystack, const char * runchars); /* NYI */
+/* length of string just containing runchars */
+size_t strspn(const char * haystack, const char * runchars);
+/* find needle in haystack */
 char * strstr(const char * haystack, const char * needle);
-char * strtok(char * __restrict__ haystack, const char * __restrict__ needles); /* NYI */
+/* complicated */
+char * strtok(char * __restrict__ haystack, const char * __restrict__ needles);
 
 void * memset(void * s, int c, size_t n);
 char * strerror(int errnum); /* File in errno/ */

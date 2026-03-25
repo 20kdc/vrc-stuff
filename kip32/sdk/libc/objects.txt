@@ -65,6 +65,7 @@ string/strncat.c obj/strncat.o
 string/strncmp.c obj/strncmp.o
 string/strncpy.c obj/strncpy.o
 string/strpbrk.c obj/strpbrk.o
+string/strpbrk_tbl.c obj/strpbrk_tbl.o
 string/strrchr.c obj/strrchr.o
 string/strspn.c obj/strspn.o
 string/strstr.c obj/strstr.o
