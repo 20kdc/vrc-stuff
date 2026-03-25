@@ -38,8 +38,14 @@ namespace KDCVRCTools {
 		public DataToken BunnyRegular;
 
 		protected override void DrawProgramSourceGUI(UdonBehaviour udonBehaviour, ref bool dirty) {
-			if(GUILayout.Button("Refresh Program"))
+			if(GUILayout.Button("Refresh Program")) {
+				// So it's possible for two of 'the same' program to exist -- Unity doesn't have a clean way to swap assets in-place.
+				// But 'the same' program equals itself!
+				// When this happens, the queue jams. Lovely, right?
+				// So we need to unqueue before we requeue.
+				UdonEditorManager.Instance.CancelQueuedProgramSourceRefresh(this);
 				UdonEditorManager.Instance.QueueAndRefreshProgram(this);
+			}
 			DrawInteractionArea(udonBehaviour);
 			DrawPublicVariables(udonBehaviour, ref dirty);
 			// The disassembly is not only rubbish, but a really bad idea on the kinds of programs where this format would be used.
@@ -48,6 +54,7 @@ namespace KDCVRCTools {
 		}
 
 		protected override void RefreshProgramImpl() {
+			// Debug.Log("refreshing!!!");
 			if (BunnyEditor != null) {
 				UnityEngine.Object.DestroyImmediate(BunnyEditor);
 				BunnyEditor = null;

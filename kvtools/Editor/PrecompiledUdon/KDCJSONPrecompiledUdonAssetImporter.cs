@@ -9,15 +9,12 @@ namespace KDCVRCTools {
 	public class KDCJSONPrecompiledUdonAssetImporter : ScriptedImporter {
 		public override void OnImportAsset(AssetImportContext ctx) {
 			var asset = ScriptableObject.CreateInstance<KDCJSONPrecompiledUdonAsset>();
+			asset.InternalJSON = File.ReadAllText(ctx.assetPath);
 
-			var so = new SerializedObject(asset);
-			so.FindProperty("InternalJSON").stringValue = File.ReadAllText(ctx.assetPath);
-			so.ApplyModifiedProperties();
-
-			/*
-			 * We can't perform RefreshProgram here, but we can queue it up so that it happens when possible.
-			 */
-			UdonEditorManager.Instance.QueueProgramSourceRefresh(asset);
+			// Debug.Log("**actually** imported: " + ctx.assetPath);
+			// So here's 'the deal'. The UEM queue is mostly useless, especially in importers.
+			// But we can use our own queue that actually works.
+			KDCUdonImportQueue.Queue(ctx.assetPath);
 
 			ctx.AddObjectToAsset("KDCVRC: Imported Udon JSON Program", asset);
 			ctx.SetMainObject(asset);

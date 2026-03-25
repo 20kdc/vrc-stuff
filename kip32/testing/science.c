@@ -33,7 +33,7 @@ unsigned char vu8 = 0xEE;
 #define TEST_NOT(info, cond) if (cond) { puts(info " FAIL"); } else { puts(info " OK"); }
 
 KIP32_EXPORT int _interact() {
-	system("science.c : kip32 test program (new stdio edition)\n");
+	system("science.c : kip32 test program (kvtools queuing edition)\n");
 	// -- comparison checks --
 	TEST("signed LT",             vi_m1 < vi_p1);
 	TEST_NOT("signed LTR",        vi_p1 < vi_m1);
