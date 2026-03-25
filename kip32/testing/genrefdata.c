@@ -1,5 +1,4 @@
 #include "muldiv.h"
-#include "tiolib.h"
 #include <unistd.h>
 
 /*
@@ -8,15 +7,7 @@
  */
 
 void write_case(const char * case_type, int (*process)(int, int), int v1, int v2) {
-	putchar('\t');
-	putsn(case_type);
-	putsn(", ");
-	puthex(v1);
-	putsn(", ");
-	puthex(v2);
-	putsn(", ");
-	puthex(process(v1, v2));
-	puts(",");
+	printf("\t%s, 0x%08X, 0x%08X, 0x%08X,\n", case_type, v1, v2, process(v1, v2));
 }
 
 void write_all_cases(int v1, int v2) {

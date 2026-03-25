@@ -19,13 +19,15 @@ This is not a general-purpose libc. It can _just about_ survive in QEMU, which i
 		  Licensing error, or confusing business structure? You decide!
 * Wide character, unicode multi-byte etc. is out of scope
 	* These functions have been defined poorly for decades, nobody uses them unless forced, etc.
-* `__assert_fail` is left intentionally declared but unimplemented.
+* `__assert_fail` should be replacable and uses the 'de-facto standard' API shared between glibc and musl.
 * `FILE` is not opaque, but the structure is incomplete for a full stdio implementation.
 	* Most file functions are left intentionally unimplemented.
 	* Functions that are implemented in the libc only rely on fields in the given structure.
 	* This design allows `vfprintf`/`vfscanf` to be the 'primary' formatting functions, with all other functions just being wrappers.
+	* `__kip32_libc_buffile`, `__kip32_libc_charfile_read`, and `__kip32_libc_charfile_write` are given as utility functions.
 * `system` is used to output debug messages. It calls `stdsyscall_putchar`.
 	* This is technically a valid implementation, because I say that's how the command processor works on this system.
+	* `__kip32_libc_systemout` is a `FILE` that calls `system` for writes and fails reads.
 * `rand` and `srand` are implemented using the `java.util.Random` algorithm.
 * `itoa` and friends are considered 'canon' in this libc.
 	* This has to do with how important they are as utility functions for implementing printf/etc.
@@ -92,7 +94,7 @@ This leaves the following headers up for implementation:
 
 Of which are in-scope:
 
-* `assert.h` (status: complete -- intentional 'DIY handler' quirk)
+* `assert.h` (status: complete)
 * `ctype.h` (status: complete)
 * `errno.h` (status: complete)
 * `inttypes.h` (status: complete -- least/fast SCN macros are 'too unknown' so haven't been implemented)
@@ -100,7 +102,8 @@ Of which are in-scope:
 * `math.h` (status: intentional stub)
 * `setjmp.h` (status: complete)
 * `signal.h` (status: intentional stub)
-* `stdio.h` (status: in-progress -- format/scan core NYI)
+* `stdio.h` (status: in-progress -- scan core NYI)
 * `stdlib.h` (status: complete)
 * `string.h` (status: complete)
 * `time.h` (status: stub-ish)
+

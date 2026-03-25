@@ -2,7 +2,6 @@
 #include <stdio.h>
 #include <kip32.h>
 #include <kip32_udon.h>
-#include "tiolib.h"
 #include "muldiv.h"
 #include "genrefdata.h"
 
@@ -117,27 +116,14 @@ KIP32_EXPORT int _interact() {
 		if (hasResult) {
 			casesExecuted++;
 			if (resultVal != vR) {
-				putsn("GRDC fail: ");
-				puthex(caseOpc);
-				putsn(", ");
-				puthex(v1);
-				putsn(", ");
-				puthex(v2);
-				putsn(", ");
-				puthex(vR);
-				puts(",");
+				printf("GRDC fail: 0x%08x, 0x%08x, 0x%08x, 0x%08x,\n", caseOpc, v1, v2, vR);
 				break;
 			}
 		}
 	}
-	putsn("GRDC testing complete, @");
-	puthex(caseNumber);
-	putsn(", ");
-	puthex(casesExecuted);
-	putsn(" cases executed, ");
-	puts(grdcVerdict);
+	printf("GRDC testing complete, @ %08x, %08x, %s\n", caseNumber, casesExecuted, grdcVerdict);
 	// -- done --
-	KIP32_UDON_PUSH("C(string(\"test suite complete\"))");
+	KIP32_UDON_PUSH("C(string(\"test suite complete, build " __DATE__ " " __TIME__ "\"))");
 	KIP32_UDON_EXTERN0("UnityEngineDebug.__Log__SystemObject__SystemVoid");
 
 	tmp++;

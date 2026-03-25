@@ -1,23 +1,9 @@
 #include <unistd.h>
 #include <errno.h>
 #include <locale.h>
-#include "tiolib.h"
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
-
-void __assert_fail(const char * exprtext, const char * file, int line, const char * func) {
-	putsn("assertion failed: ");
-	putsn(exprtext);
-	putsn(" @ ");
-	putsn(file);
-	putsn(":");
-	puthex(line);
-	putsn(" (");
-	putsn(func);
-	puts(")");
-	abort();
-}
 
 void errno_tests();
 void format_tests();
@@ -92,9 +78,7 @@ void locale_tests() {
 	setlocale(LC_ALL, "C");
 }
 
-void stdio_tests() {
-	/* is there even a good way to test this...? this is more format's thing */
-}
+#include "format_tests.h"
 
 void stdlib_tests() {
 
@@ -160,25 +144,17 @@ void malloc_tests() {
 			sz = 0;
 		if (!sz) {
 			if (mallocLoud) {
-				putsn(" free ");
-				puthex(idx);
-				putsn("\n");
+				printf(" free %i\n", idx);
 			}
 			free(ptrs[idx]);
 			ptrs[idx] = NULL;
 		} else {
 			if (mallocLoud) {
-				putsn(" realloc ");
-				puthex(idx);
-				putsn(" ");
-				puthex(sz);
-				putsn(" = ");
+				printf(" realloc %i %08x = ", idx, sz);
 			}
 			void * res = realloc(ptrs[idx], sz);
-			if (mallocLoud) {
-				puthex((int) res);
-				putsn("\n");
-			}
+			if (mallocLoud)
+				printf("%p\n", res);
 			if (res)
 				ptrs[idx] = res;
 		}
@@ -189,7 +165,6 @@ void malloc_tests() {
 }
 
 void string_tests() {
-
 	puts("performing strlen tests...");
 
 	assert(strlen("") == 0);
@@ -198,8 +173,6 @@ void string_tests() {
 	assert(strlen("aaa") == 3);
 	assert(strlen("aaaa") == 4);
 	assert(strlen("aaaaa") == 5);
-
-
 }
 
 void time_tests() {
@@ -211,5 +184,5 @@ void ctype_tests() {
 }
 
 void setjmp_tests() {
-
+	// assert(0);
 }

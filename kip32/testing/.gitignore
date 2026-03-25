@@ -3,3 +3,4 @@
 science.s
 testlibc.s
 *.elf
+test_weird
