@@ -31,6 +31,8 @@ stdio/fread.c obj/fread.o
 stdio/fwrite.c obj/fwrite.o
 stdio/getchar.c obj/getchar.o
 stdio/kip32_libc_buffile.c obj/kip32_libc_buffile.o
+stdio/kip32_libc_charfile.c obj/kip32_libc_charfile.o
+stdio/kip32_libc_systemout.c obj/kip32_libc_systemout.o
 stdio/putchar.c obj/putchar.o
 stdio/puts.c obj/puts.o
 stdio/ungetc.c obj/ungetc.o

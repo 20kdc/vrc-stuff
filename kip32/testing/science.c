@@ -1,22 +1,12 @@
 #include <stdlib.h>
+#include <stdio.h>
 #include <kip32.h>
 #include <kip32_udon.h>
 #include "tiolib.h"
 #include "muldiv.h"
 #include "genrefdata.h"
 
-int putchar(int c) {
-	KIP32_SYSCALL1("stdsyscall_putchar", c);
-	return c;
-}
-
-int puts(const char * c) {
-	while (*c) {
-		putchar(*c);
-		c++;
-	}
-	return 0;
-}
+FILE * stdout = &__kip32_libc_systemout;
 
 int vi_m1 = -1;
 int vi_p1 = 1;
@@ -43,7 +33,7 @@ unsigned char vu8 = 0xEE;
 #define TEST_NOT(info, cond) if (cond) { puts(info " FAIL"); } else { puts(info " OK"); }
 
 KIP32_EXPORT int _interact() {
-	system("science.c : kip32 test program (replacement libc edition)\n");
+	system("science.c : kip32 test program (new stdio edition)\n");
 	// -- comparison checks --
 	TEST("signed LT",             vi_m1 < vi_p1);
 	TEST_NOT("signed LTR",        vi_p1 < vi_m1);

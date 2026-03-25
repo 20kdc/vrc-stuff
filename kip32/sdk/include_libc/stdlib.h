@@ -64,7 +64,7 @@ _Noreturn void abort();
 /*
  * On kip32, this writes text to the debug port.
  * A dedicated function could have been used, but this was neater.
- * On qemu, this is undefined.
+ * On qemu, this is undefined, but it's assumed to do the same thing.
  */
 int system(const char * string);
 

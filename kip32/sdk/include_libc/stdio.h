@@ -63,6 +63,18 @@ struct _KIP32_LIBC_BUFFILE {
  */
 struct _KIP32_LIBC_BUFFILE __kip32_libc_buffile(char * buffer, size_t pos, size_t len);
 
+/* Mapped to getc/putc. */
+size_t __kip32_libc_charfile_read(void * __restrict__ ptr, size_t size, FILE * __restrict__ stream);
+size_t __kip32_libc_charfile_write(const void * __restrict__ ptr, size_t size, FILE * __restrict__ stream);
+
+/*
+ * Built-in FILE implementation, same 'no application-layer code' caveats as BUFFILE.
+ * Writes via system().
+ * The idea is that you can define stdout and stderr to derive from this for easy printing.
+ * Since system() can't write NUL, this can't be used for binary data.
+ */
+extern FILE __kip32_libc_systemout;
+
 /* Constants */
 #define _IOFBF 0
 #define _IOLBF 1
