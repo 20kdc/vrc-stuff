@@ -1,13 +1,21 @@
 #include <stdlib.h>
 #include <kip32.h>
 #include <kip32_udon.h>
-#include "testlibc.h"
+#include "tiolib.h"
 #include "muldiv.h"
 #include "genrefdata.h"
 
 int putchar(int c) {
 	KIP32_SYSCALL1("stdsyscall_putchar", c);
 	return c;
+}
+
+int puts(const char * c) {
+	while (*c) {
+		putchar(*c);
+		c++;
+	}
+	return 0;
 }
 
 int vi_m1 = -1;

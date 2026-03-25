@@ -1,7 +1,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <locale.h>
-#include "testlibc.h"
+#include "tiolib.h"
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>

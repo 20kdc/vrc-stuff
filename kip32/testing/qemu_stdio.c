@@ -1,4 +1,3 @@
-#include "testlibc.h"
 #include <stdio.h>
 #include <unistd.h>
 
@@ -104,13 +103,3 @@ int system(const char * text) {
 	}
 	return 0;
 }
-
-void puthex(int v) {
-	putchar('0');
-	putchar('x');
-	for (int i = 0; i < 8; i++) {
-		putchar(("0123456789ABCDEF")[(v >> 28) & 0xF]);
-		v <<= 4;
-	}
-}
-

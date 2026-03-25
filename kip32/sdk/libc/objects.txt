@@ -71,6 +71,7 @@ string/strspn.c obj/strspn.o
 string/strstr.c obj/strstr.o
 string/strtok.c obj/strtok.o
 string/strxfrm.c obj/strxfrm.o
+time/asctime.c obj/asctime.o
 time/clock.c obj/clock.o
 time/time.c obj/time.o
 ctype.c obj/ctype.o

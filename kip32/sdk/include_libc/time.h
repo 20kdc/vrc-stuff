@@ -18,6 +18,12 @@ struct timespec {
 	long tv_nsec;
 };
 
+struct tm {
+	int tm_sec, tm_min, tm_hour, tm_mday, tm_mon, tm_year, tm_wday, tm_yday, tm_isdst;
+};
+
 clock_t clock();
 time_t time(time_t * timer);
 int timespec_get(struct timespec * ts, int base); /* NYI */
+char * asctime(const struct tm * timeptr);
+size_t strftime(char * __restrict__ s, size_t maxsize, const char * __restrict__ format, const struct tm * __restrict__ timeptr); /* NYI */
