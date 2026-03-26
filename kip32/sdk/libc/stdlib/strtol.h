@@ -15,7 +15,7 @@ STRTOL_TYPE STRTOL_SYM(const char * __restrict__ nptr, char ** __restrict__ endp
 	if (endptr)
 		*endptr = (char *) nptr;
 	/* Skip initial whitespace */
-	while (isspace(*nptr))
+	while (isspace((unsigned char) *nptr))
 		nptr++;
 	/*
 	 * Adjusts if things are subtraction-based.
