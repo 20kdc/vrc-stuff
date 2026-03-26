@@ -4,20 +4,14 @@
 #include <string.h>
 #include <inttypes.h>
 
-#define LENGTH_FLAGS_L1 1
-#define LENGTH_FLAGS_L2 2
-#define LENGTH_FLAGS_H1 4
-#define LENGTH_FLAGS_H2 8
-#define LENGTH_FLAGS_J 16
-#define LENGTH_FLAGS_Z 32
-#define LENGTH_FLAGS_T 64
-#define LENGTH_FLAGS_LD 128
-#define LENGTH_FLAGS_ALIGN_LEFT 256
-#define LENGTH_FLAGS_FORCE_SIGN 512
-#define LENGTH_FLAGS_SPACE 1024
-#define LENGTH_FLAGS_ALT 2048
-#define LENGTH_FLAGS_PRECISION 4096
-#define LENGTH_FLAGS_ZERO 8192
+#include "lengthflags.h"
+
+#define CONV_FLAGS_ALIGN_LEFT 256
+#define CONV_FLAGS_FORCE_SIGN 512
+#define CONV_FLAGS_SPACE 1024
+#define CONV_FLAGS_ALT 2048
+#define CONV_FLAGS_PRECISION 4096
+#define CONV_FLAGS_ZERO 8192
 
 #define TPUTC(v) { \
 	if (fputc(v, stream) < 0) \
@@ -49,6 +43,7 @@ int vfprintf(FILE * restrict stream, const char * restrict format, va_list arg) 
 		/* we know the % says % */
 		format = q + 1;
 		int lengthFlags = 0;
+		int convFlags = 0;
 		int precision = -1;
 		int fieldWidth = -1;
 		int inInteger = 0;
@@ -108,18 +103,7 @@ int vfprintf(FILE * restrict stream, const char * restrict format, va_list arg) 
 				precision = 8;
 			} else if (chr == 'n') {
 				void * ifo = va_arg(arg, void *);
-				if (lengthFlags & LENGTH_FLAGS_H2) {
-					*((char *) ifo) = (char) total;
-				} else if (lengthFlags & LENGTH_FLAGS_H1) {
-					*((short *) ifo) = (short) total;
-				} else if (lengthFlags & LENGTH_FLAGS_L2) {
-					*((long long *) ifo) = (long long) total;
-				} else if (lengthFlags & LENGTH_FLAGS_J) {
-					*((intmax_t *) ifo) = (intmax_t) total;
- 				} else {
-					/* LD makes no sense here. note L1/Z/T are ignored b/c they resolve to int-ish anyway */
-					*((int *) ifo) = total;
-				}
+				__kip32_libc_lengthflags_write(lengthFlags, ifo, total);
 				break;
 			} else if (chr == 'i' || chr == 'd') {
 				intConvRadix = 10;
@@ -133,43 +117,33 @@ int vfprintf(FILE * restrict stream, const char * restrict format, va_list arg) 
 				intConvRadix = -16;
 				intConvUpper = 1;
 			} else if (chr == '-') { /* flags */
-				lengthFlags |= LENGTH_FLAGS_ALIGN_LEFT;
+				convFlags |= CONV_FLAGS_ALIGN_LEFT;
 			} else if (chr == '+') {
-				lengthFlags |= LENGTH_FLAGS_FORCE_SIGN;
+				convFlags |= CONV_FLAGS_FORCE_SIGN;
 			} else if (chr == ' ') {
-				lengthFlags |= LENGTH_FLAGS_SPACE;
+				convFlags |= CONV_FLAGS_SPACE;
 			} else if (chr == '#') {
-				lengthFlags |= LENGTH_FLAGS_ALT;
-			} else if (chr == 'l') { /* length modifiers */
-				lengthFlags |= (lengthFlags & LENGTH_FLAGS_L1) ? LENGTH_FLAGS_L2 : LENGTH_FLAGS_L1;
-			} else if (chr == 'h') {
-				lengthFlags |= (lengthFlags & LENGTH_FLAGS_H1) ? LENGTH_FLAGS_H2 : LENGTH_FLAGS_H1;
-			} else if (chr == 'j') {
-				lengthFlags |= LENGTH_FLAGS_J;
-			} else if (chr == 'z') {
-				lengthFlags |= LENGTH_FLAGS_Z;
-			} else if (chr == 't') {
-				lengthFlags |= LENGTH_FLAGS_T;
-			} else if (chr == 'L') {
-				lengthFlags |= LENGTH_FLAGS_LD;
+				convFlags |= CONV_FLAGS_ALT;
+			} else if (__kip32_libc_lengthflags_tryconsume(&lengthFlags, chr)) {
+				/* lhjztL */
 			} else if (chr == '.') { /* precision */
-				lengthFlags |= LENGTH_FLAGS_PRECISION;
+				convFlags |= CONV_FLAGS_PRECISION;
 				inIntegerNext = 1;
 				precision = 0;
 			} else if (chr == '*') { /* asterisk */
 				int val = va_arg(arg, int);
-				if (lengthFlags & LENGTH_FLAGS_PRECISION) {
+				if (convFlags & CONV_FLAGS_PRECISION) {
 					precision = val;
 				} else {
 					if (val < 0) {
 						fieldWidth = -val;
-						lengthFlags |= LENGTH_FLAGS_ALIGN_LEFT;
+						convFlags |= CONV_FLAGS_ALIGN_LEFT;
 					} else {
 						fieldWidth = val;
 					}
 				}
 			} else if (chr >= '0' && chr <= '9') { /* decimal digits (precision etc.) */
-				int * theField = (lengthFlags & LENGTH_FLAGS_PRECISION) ? &precision : &fieldWidth;
+				int * theField = (convFlags & CONV_FLAGS_PRECISION) ? &precision : &fieldWidth;
 				if (inInteger || (chr != '0')) {
 					if (*theField == -1) {
 						*theField = 0;
@@ -179,7 +153,7 @@ int vfprintf(FILE * restrict stream, const char * restrict format, va_list arg) 
 					*theField += chr - '0';
 					inIntegerNext = 1;
 				} else {
-					lengthFlags |= LENGTH_FLAGS_ZERO;
+					convFlags |= CONV_FLAGS_ZERO;
 				}
 			} else {
 				/* unknown! */
@@ -236,7 +210,7 @@ int vfprintf(FILE * restrict stream, const char * restrict format, va_list arg) 
 					signAndBase[sabLen++] = '-';
 					/* and gone */
 					cvPtr++;
-				} else if (lengthFlags & LENGTH_FLAGS_FORCE_SIGN) {
+				} else if (convFlags & CONV_FLAGS_FORCE_SIGN) {
 					signAndBase[sabLen++] = '+';
 				}
 				/*
@@ -250,7 +224,7 @@ int vfprintf(FILE * restrict stream, const char * restrict format, va_list arg) 
 				 */
 				cvLen = strlen(cvPtr);
 				/* Alt. flag handling. Uses the 'carved out' space at the start of the buffer. */
-				if (lengthFlags & LENGTH_FLAGS_ALT) {
+				if (convFlags & CONV_FLAGS_ALT) {
 					if (intConvRadix == -16) {
 						if (val != 0) {
 							signAndBase[sabLen++] = '0';
@@ -278,7 +252,7 @@ int vfprintf(FILE * restrict stream, const char * restrict format, va_list arg) 
 			 */
 			if (cvPtr) {
 				/* 0 converts field width into precision, but only if this is an int conversion */
-				if (intConvRadix && (lengthFlags & LENGTH_FLAGS_ZERO)) {
+				if (intConvRadix && (convFlags & CONV_FLAGS_ZERO)) {
 					/* since additional zeroes are generated by precision, this is a safe bet */
 					int expectedPrecision = fieldWidth - sabLen;
 					if (precision < expectedPrecision)
@@ -295,7 +269,7 @@ int vfprintf(FILE * restrict stream, const char * restrict format, va_list arg) 
 				if (fieldWidth > 0) {
 					int w = sabLen + zeroCount + cvLen;
 					if (w < fieldWidth) {
-						if (lengthFlags & LENGTH_FLAGS_ALIGN_LEFT)
+						if (convFlags & CONV_FLAGS_ALIGN_LEFT)
 							rightSpaces = fieldWidth - w;
 						else
 							leftSpaces = fieldWidth - w;

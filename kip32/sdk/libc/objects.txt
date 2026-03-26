@@ -12,6 +12,7 @@ format/vscanf.c obj/vscanf.o
 format/vsnprintf.c obj/vsnprintf.o
 format/vsprintf.c obj/vsprintf.o
 format/vsscanf.c obj/vsscanf.o
+format_core/lengthflags.c obj/lengthflags.o
 format_core/vfprintf.c obj/vfprintf.o
 format_core/vfscanf.c obj/vfscanf.o
 itoa/itoa.c obj/itoa.o

@@ -1,15 +1,9 @@
 #include <stdio.h>
 #include <ctype.h>
 
-#define LENGTH_FLAGS_L1 1
-#define LENGTH_FLAGS_L2 2
-#define LENGTH_FLAGS_H1 4
-#define LENGTH_FLAGS_H2 8
-#define LENGTH_FLAGS_J 16
-#define LENGTH_FLAGS_Z 32
-#define LENGTH_FLAGS_T 64
-#define LENGTH_FLAGS_LD 128
-#define LENGTH_FLAGS_NOASSIGN 256
+#include "lengthflags.h"
+
+#define CONV_FLAGS_NOASSIGN 1
 
 #define TGETC() \
 { \
@@ -27,11 +21,24 @@ int vfscanf(FILE * restrict stream, const char * restrict format, va_list arg) {
 	int result = EOF;
 	size_t pos = 0;
 	while (*format) {
-		unsigned char chr = *format;
+		unsigned char chr = *(format++);
 		int fch;
 		if (chr == '%') {
-			/* NYI */
-			break;
+			int lengthFlags = 0;
+			int convFlags = 0;
+			while (1) {
+				chr = *(format++);
+				if (chr == '%') {
+					goto ordinary;
+				} else if (chr == '*') {
+					convFlags |= CONV_FLAGS_NOASSIGN;
+				} else if (__kip32_libc_lengthflags_tryconsume(&lengthFlags, chr)) {
+					/* lhjztL */
+				} else {
+					/* unknown! */
+					return result;
+				}
+			}
 		} else if (isspace(chr)) {
 			/* whitespace */
 			while (1) {
@@ -44,6 +51,7 @@ int vfscanf(FILE * restrict stream, const char * restrict format, va_list arg) {
 				}
 			}
 		} else {
+			ordinary:
 			/* ordinary */
 			TGETC();
 			if (chr != (char) fch) {
@@ -53,7 +61,6 @@ int vfscanf(FILE * restrict stream, const char * restrict format, va_list arg) {
 				/* consumed successfully */
 			}
 		}
-		format++;
 	}
 	return result;
 }
