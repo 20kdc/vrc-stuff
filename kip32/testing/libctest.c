@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include <setjmp.h>
 
 void errno_tests();
 void format_tests();
@@ -180,5 +181,15 @@ void ctype_tests() {
 }
 
 void setjmp_tests() {
-	// assert(0);
+	jmp_buf a;
+	/* mandatory! compiler is allowed to lose non-volatile vars */
+	volatile int b = 0;
+	if (!setjmp(a)) {
+		puts("inside the setjmp!");
+		b++;
+		longjmp(a, 123);
+	} else {
+		puts("escaped the longjmp and lived!");
+		assert(b);
+	}
 }

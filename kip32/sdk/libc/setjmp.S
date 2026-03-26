@@ -4,10 +4,10 @@
 
 .section .text.setjmp, "ax"
 .align 2
-.globl setjmp
-.type setjmp, @function
+.globl _setjmp
+.type _setjmp, @function
 
-setjmp:
+_setjmp:
 	sw ra,  0x00(a0)
 	sw sp,  0x04(a0)
 	sw s0,  0x08(a0)
