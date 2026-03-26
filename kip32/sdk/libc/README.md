@@ -2,7 +2,7 @@
 
 This is being written out of frustration with the rather large picolibc copyright file (and the issues it causes when TextMeshPro is exposed to it).
 
-It is massively incomplete, and heavily untested, but is 100% public-domain code.
+It is somewhat incomplete, and heavily untested, but is 100% public-domain code.
 
 It is likely to _**never**_ support floating-point calculations.
 
@@ -102,7 +102,7 @@ Of which are in-scope:
 * `math.h` (status: intentional stub)
 * `setjmp.h` (status: complete)
 * `signal.h` (status: intentional stub)
-* `stdio.h` (status: in-progress -- scan core NYI)
+* `stdio.h` (status: scan needs testing, otherwise complete)
 * `stdlib.h` (status: complete)
 * `string.h` (status: complete)
 * `time.h` (status: stub-ish)
