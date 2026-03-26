@@ -1,11 +1,11 @@
 #include <limits.h>
 #include <stdio.h>
 #include <stdint.h>
-#include <ctype.h>
 #include <string.h>
 
 #include "lengthflags.h"
 #include "../string/strpbrk_tbl.h"
+#include "../ctype_i.h"
 
 #define TGETC() \
 { \
@@ -30,13 +30,12 @@ if (fch >= 0) { \
 }
 
 static void skipWS(FILE * stream, size_t * pos) {
-	int fch;
 	/* whitespace */
 	while (1) {
 		int fch = fgetc(stream);
 		if (fch < 0) {
 			break;
-		} else if (!isspace(fch)) {
+		} else if (!ISSPACE(fch)) {
 			ungetc(fch, stream);
 			break;
 		} else {
@@ -57,7 +56,10 @@ int vfscanf(FILE * restrict stream, const char * restrict format, va_list arg) {
 			int fieldNoTerminator = 0;
 			char * fieldPtr = NULL;
 			size_t fieldWidth = SIZE_MAX;
+			/* The field must be exactly fieldWidth in size. */
 			int fieldExact = 0;
+			/* The field must be non-empty. */
+			int fieldNonEmpty = 0;
 			/* unsigned on purpose due to later logic */
 			unsigned intConvRadix = 0;
 			while (1) {
@@ -102,13 +104,14 @@ int vfscanf(FILE * restrict stream, const char * restrict format, va_list arg) {
 					if (!noAssign)
 						fieldPtr = va_arg(arg, char *);
 					for (int i = 0; i < 256; i++)
-						__kip32_libc_strpbrk_flags[i] = !isspace(i);
+						__kip32_libc_strpbrk_flags[i] = !ISSPACE(i);
 					goto fieldEngine;
 				} else if (chr == '[') {
 					/* do setup */
 					skipWS(stream, &pos);
 					if (!noAssign)
 						fieldPtr = va_arg(arg, char *);
+					fieldNonEmpty = 1;
 					/* parse the set... */
 					char setVal = 1;
 					/* this check */
@@ -165,9 +168,6 @@ int vfscanf(FILE * restrict stream, const char * restrict format, va_list arg) {
 				while (fieldIdx < fieldWidth) {
 					TGETC();
 					if (fch < 0) {
-						/* Early EOF not allowed. */
-						if (fieldExact)
-							return result;
 						break;
 					} else if (!__kip32_libc_strpbrk_flags[fch & 0xFF]) {
 						TUNGETC();
@@ -177,6 +177,10 @@ int vfscanf(FILE * restrict stream, const char * restrict format, va_list arg) {
 						fieldPtr[fieldIdx] = fch;
 					fieldIdx++;
 				}
+				if (fieldExact && (fieldIdx != fieldWidth))
+					return result;
+				if (fieldIdx == 0 && fieldNonEmpty)
+					return result;
 				if (fieldPtr && !fieldNoTerminator)
 					fieldPtr[fieldIdx] = 0;
 				if (fieldPtr)
@@ -288,7 +292,7 @@ int vfscanf(FILE * restrict stream, const char * restrict format, va_list arg) {
 			} else {
 				result++;
 			}
-		} else if (isspace(chr)) {
+		} else if (ISSPACE(chr)) {
 			skipWS(stream, &pos);
 		} else {
 			ordinary:

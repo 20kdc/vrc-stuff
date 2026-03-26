@@ -6,6 +6,7 @@ int ungetc(int c, FILE * stream) {
 	if (stream->flags & __KIP32_LIBC_FILEFLAG_UNGETC)
 		return EOF;
 	c &= __KIP32_LIBC_FILEFLAG_UNGETC_CHAR;
-	stream->flags = (stream->flags | __KIP32_LIBC_FILEFLAG_UNGETC | c) & ~ __KIP32_LIBC_FILEFLAG_EOF;
+	stream->flags &= ~(__KIP32_LIBC_FILEFLAG_EOF | __KIP32_LIBC_FILEFLAG_UNGETC_CHAR);
+	stream->flags |= c | __KIP32_LIBC_FILEFLAG_UNGETC;
 	return c;
 }
