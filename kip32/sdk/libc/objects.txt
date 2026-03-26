@@ -76,7 +76,11 @@ string/strtok.c obj/strtok.o
 string/strxfrm.c obj/strxfrm.o
 time/asctime.c obj/asctime.o
 time/clock.c obj/clock.o
+time/ctime.c obj/ctime.o
+time/gmtime.c obj/gmtime.o
+time/kip32_gettimeus_syscall.S obj_specific/kip32_gettimeus_syscall.o
 time/time.c obj/time.o
+time/timespec_get.c obj/timespec_get.o
 assert.c obj/assert.o
 ctype.c obj/ctype.o
 linux_syscalls.S obj_specific/linux_syscalls.o

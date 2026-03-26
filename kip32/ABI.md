@@ -169,6 +169,8 @@ Note that extremely niche cases may use special compiler flags to remove these s
 * `stdsyscall_memmove`: Implements `memmove`. See appropriate C specification.
 * `stdsyscall_sbrk`: Implements `sbrk`, minus effects on `errno` (since `errno`, if it exists, is internal).
 	* This is intended to be used as a primitive to implement the `malloc` interface on top of. Therefore, if you're using a libc's `malloc`/`free`, you should not be using `sbrk` unless you know for a fact it's not calling this interface.
+* `stdsyscall_getutctime`: Returns time since the Unix epoch in microseconds as a 64-bit number.
+	* This means `a0` holds the lower bits and `a1` holds the upper bits.
 
 ## Regarding Spec Compliance
 

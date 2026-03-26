@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
+#include <time.h>
 
 void stdio_tests() {
 	printf("fmt: num %i, %08d, %-8.3x, '%-8.3i', %#xc, %#o\n", 1234, 12, -1, -1, 16, 0755);
@@ -43,4 +44,10 @@ void stdio_tests() {
 	assert(!strcmp(strA, "toki"));
 	assert(!strcmp(strB, "jan"));
 	assert(!strcmp(strC, ""));
+}
+
+void time_tests() {
+	time_t res = 1774564356;
+	struct tm * gtm = gmtime(&res);
+	printf("%04i/%02i/%02i %02i:%02i:%02i -- ID%i WD%i YD%i\n", gtm->tm_year, gtm->tm_mon, gtm->tm_mday, gtm->tm_hour, gtm->tm_min, gtm->tm_sec, gtm->tm_isdst, gtm->tm_wday, gtm->tm_yday);
 }

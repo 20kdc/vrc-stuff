@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include <time.h>
 #include <kip32.h>
 #include <kip32_udon.h>
 #include "muldiv.h"
@@ -122,6 +123,7 @@ KIP32_EXPORT int _interact() {
 		}
 	}
 	printf("GRDC testing complete, @ %08x, %08x, %s\n", caseNumber, casesExecuted, grdcVerdict);
+	printf("The current time is %lli (microseconds), %lli\n", __kip32_gettimeus(), time(NULL));
 	// -- done --
 	KIP32_UDON_PUSH("C(string(\"test suite complete, build " __DATE__ " " __TIME__ "\"))");
 	KIP32_UDON_EXTERN0("UnityEngineDebug.__Log__SystemObject__SystemVoid");

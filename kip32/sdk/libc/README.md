@@ -105,5 +105,5 @@ Of which are in-scope:
 * `stdio.h` (status: scan needs testing, otherwise complete)
 * `stdlib.h` (status: complete)
 * `string.h` (status: complete)
-* `time.h` (status: stub-ish)
+* `time.h` (status: incomplete -- no `mktime` or `strftime`)
 

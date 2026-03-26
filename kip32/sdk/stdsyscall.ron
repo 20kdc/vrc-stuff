@@ -189,6 +189,40 @@ package("syscall_stdsyscall_sbrk", [])
 
 	jump(_syscall_return)
 
+// -- getutctime --
+
+package("stdsyscall_getutctime", [])
+
+	var(stdsyscall_getutctime_time, null("SystemDateTimeOffset"))
+	var(stdsyscall_getutctime_ticks, null("SystemInt64"))
+	var(stdsyscall_getutctime_1000, null("SystemInt64"))
+
+package("syscall_stdsyscall_getutctime", ["stdsyscall_getutctime"])
+	equ(stdsyscall_getutctime_ext_now, EXT("SystemDateTimeOffset.__get_UtcNow__SystemDateTimeOffset"))
+	equ(stdsyscall_getutctime_ext_tounix, EXT("SystemDateTimeOffset.__ToUnixTimeMilliseconds__SystemInt64"))
+	equ(stdsyscall_getutctime_ext_i64mul, EXT("SystemInt64.__op_Multiplication__SystemInt64_SystemInt64__SystemInt64"))
+	equ(stdsyscall_getutctime_ext_geti32, EXT("SystemInt32Array.__Get__SystemInt32__SystemInt32"))
+	equ(stdsyscall_getutctime_ext_seti64, EXT("SystemInt64Array.__Set__SystemInt32_SystemInt64__SystemVoid"))
+	equ(stdsyscall_getutctime_ext_bcopy, EXT("SystemBuffer.__BlockCopy__SystemArray_SystemInt32_SystemArray_SystemInt32_SystemInt32__SystemVoid"))
+	equ(stdsyscall_getutctime_ext_i64fromi32, EXT("SystemConvert.__ToInt64__SystemInt32__SystemInt64"))
+
+	// so for some reason UnixEpoch is unavailable and the subtraction method gives wrong results
+	ext(stdsyscall_getutctime_ext_now, [stdsyscall_getutctime_time])
+	ext(stdsyscall_getutctime_ext_tounix, [stdsyscall_getutctime_time, stdsyscall_getutctime_ticks])
+	// turn milliseconds into microseconds
+	ext(stdsyscall_getutctime_ext_i64fromi32, [C(int(1000)), stdsyscall_getutctime_1000])
+	ext(stdsyscall_getutctime_ext_i64mul, [stdsyscall_getutctime_ticks, stdsyscall_getutctime_1000, stdsyscall_getutctime_ticks])
+
+	ext(stdsyscall_getutctime_ext_seti64, [_vm_bcopy_i64, C(int(0)), stdsyscall_getutctime_ticks])
+
+	// source source_ofs dest dest_ofs bytes
+	ext(stdsyscall_getutctime_ext_bcopy, [_vm_bcopy_i64, C(int(0)), _vm_bcopy_i32, C(int(0)), C(int(8))])
+
+	ext(stdsyscall_getutctime_ext_geti32, [_vm_bcopy_i32, C(int(0)), a0])
+	ext(stdsyscall_getutctime_ext_geti32, [_vm_bcopy_i32, C(int(1)), a1])
+
+	jump(_syscall_return)
+
 // -- update_yield --
 
 // This is a complicated one.

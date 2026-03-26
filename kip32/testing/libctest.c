@@ -175,10 +175,6 @@ void string_tests() {
 	assert(strlen("aaaaa") == 5);
 }
 
-void time_tests() {
-
-}
-
 void ctype_tests() {
 
 }
