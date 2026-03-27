@@ -39,6 +39,8 @@ It contains:
 * `.udonjson` support for importing and using precompiled Udon programs
 	* The `kvtools` set uses Unity JSON files with the extension `.udonjson` to represent `SerializedUdonProgramAsset`s for direct use in UdonBehaviour.
 	* When writing out from within Unity, `EditorJsonUtility.ToJson` specifically _must_ be used, as otherwise file references are lost.
+* `KDC Udon Debug Options` MonoBehaviour -- allows saving Udon errors as 'Udon core dumps'
+	* This is useful for transpiled languages (say, using `.udonjson`) as it provides a means of extracting detailed error information.
 * Button to setup deterministic SerializedUdonProgramAsset GUIDs
 	* Lives in `VRChat SDK` menus next to the familiar `Re-compile All Program Sources` menu option -- serves as a substitute
 	* Once setup, reduces diff churn for Udon programs stored in VCS

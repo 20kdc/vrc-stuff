@@ -47,6 +47,38 @@ pub enum OdinASTEntry {
 #[derive(Clone, Debug, PartialOrd, PartialEq, Serialize, Deserialize)]
 pub struct OdinASTStruct(pub OdinASTType, pub Vec<OdinASTEntry>);
 
+impl OdinASTStruct {
+    /// Returns the entry list if and only if the type signature matches up.
+    /// If count is 0, count is ignored.
+    pub fn unwrap_fixed_type(&self, t: &str, count: usize) -> Result<&[OdinASTEntry], String> {
+        if let Some(v) = &self.0 {
+            if v.eq(t) {
+                if count == 0 || count == self.1.len() {
+                    Ok(&self.1)
+                } else {
+                    Err(format!("{}: expected {} subentries, got {}", t, count, self.1.len()))
+                }
+            } else {
+                Err(format!("{}: got type {}", t, v))
+            }
+        } else {
+            Err(format!("{}: type expected but didn't get one", t))
+        }
+    }
+    /// Unwraps an ISerializable. Type check is skipped, and the array dance is skipped too.
+    pub fn unwrap_iserializable(&self) -> Result<&[OdinASTEntry], String> {
+        if self.1.len() == 1 {
+            if let OdinASTEntry::Array(_, content) = &self.1[0] {
+                Ok(content)
+            } else {
+                Err("ISerializable: expected Array".to_string())
+            }
+        } else {
+            Err("ISerializable: expected one entry".to_string())
+        }
+    }
+}
+
 pub type OdinASTRefMap = BTreeMap<i32, OdinASTStruct>;
 
 /// This state machine converts [OdinEntry] to entries.
@@ -356,15 +388,15 @@ impl OdinASTEntry {
     pub fn get_value_by_name<'s>(
         name: &str,
         entries: &'s [OdinASTEntry],
-    ) -> Option<&'s OdinASTValue> {
+    ) -> Result<&'s OdinASTValue, String> {
         for v in entries {
             if let OdinASTEntry::Value(Some(vname), val) = v {
                 if name.eq(vname) {
-                    return Some(val);
+                    return Ok(val);
                 }
             }
         }
-        None
+        Err(format!("field '{}' missing", name))
     }
 
     /// Shorthand.
@@ -417,6 +449,19 @@ impl OdinASTFile {
             v.write(&mut ctx, &mut vec);
         }
         vec
+    }
+
+    /// Gets the root of a single-value-root file (all files actually encountered seem to be this kind).
+    pub fn get_root_value(&self) -> Option<&OdinASTValue> {
+        if self.root.len() == 1 {
+            if let OdinASTEntry::Value(_, val) = &self.root[0] {
+                Some(val)
+            } else {
+                None
+            }
+        } else {
+            None
+        }
     }
 }
 

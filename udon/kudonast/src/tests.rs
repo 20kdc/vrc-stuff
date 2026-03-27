@@ -1,4 +1,5 @@
 use crate::*;
+use kudonodin::*;
 
 #[test]
 fn crosscheck() {
@@ -11,8 +12,8 @@ fn crosscheck() {
     let file = udonprogram_emit_odin(&udon_program).expect("assemble must succeed");
 
     let true_entries =
-        kudonodin::OdinEntry::read_all_from_slice(true_odin_binary).expect("decode must succeed");
-    let true_file = kudonodin::OdinASTFile::from_entries(true_entries);
+        OdinEntry::read_all_from_slice(true_odin_binary).expect("decode must succeed");
+    let true_file = OdinASTFile::from_entries(true_entries);
 
     let pcfg = ron::ser::PrettyConfig::new().indentor("\t");
 
@@ -24,4 +25,14 @@ fn crosscheck() {
     std::fs::write("crosscheck_out.ron", &output_ron).expect("write 2 should succeed");
 
     assert_eq!(&reference_ron, &output_ron);
+}
+
+#[test]
+fn read_coredump() {
+    let true_odin_binary = include_bytes!("exampleError.odin.bin");
+    let true_entries =
+        OdinEntry::read_all_from_slice(true_odin_binary).expect("decode must succeed");
+    let true_file = OdinASTFile::from_entries(true_entries);
+    let res: UdonCoreDump = OdinSTDeserializable::deserialize(&true_file, true_file.get_root_value().expect("must be root value")).expect("must decode");
+    _ = res;
 }

@@ -67,7 +67,7 @@ namespace KDCVRCTools {
 		}
 
 		private static void DumpProcess(string title, object obj) {
-			string filename = EditorUtility.SaveFilePanel(title, "", "", ".bin");
+			string filename = EditorUtility.SaveFilePanel(title, "", "", "bin");
 			if (filename != "") {
 				byte[] serializedBin = VRC.Udon.Serialization.OdinSerializer.SerializationUtility.SerializeValue(obj, DataFormat.Binary, out var serializedUEOBin);
 				File.WriteAllBytes(filename, serializedBin);

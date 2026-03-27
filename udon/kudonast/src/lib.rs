@@ -414,5 +414,8 @@ pub use uasm_writer::*;
 mod emit_uasm;
 pub use emit_uasm::*;
 
+mod read_odin;
+pub use read_odin::*;
+
 #[cfg(test)]
 mod tests;
