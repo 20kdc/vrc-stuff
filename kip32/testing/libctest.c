@@ -166,6 +166,21 @@ void malloc_tests() {
 }
 
 void string_tests() {
+	puts("performing memset tests...");
+
+	char data[189];
+	for (int j = 0; j < 2; j++) {
+		memset(data, j, 189);
+		for (int i = 0; i < 189; i++) {
+			assert(data[i] == j);
+		}
+	}
+	memset(data + 1, 4, 187);
+	assert(data[0] == 1);
+	assert(data[1] == 4);
+	assert(data[187] == 4);
+	assert(data[188] == 1);
+
 	puts("performing strlen tests...");
 
 	assert(strlen("") == 0);

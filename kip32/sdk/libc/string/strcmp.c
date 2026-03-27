@@ -2,9 +2,9 @@
 
 int strcmp(const char * a, const char * b) {
 	while (1) {
-		char ac = *a;
-		char bc = *b;
-		char diff = ac - bc;
+		signed char ac = *a;
+		signed char bc = *b;
+		signed char diff = ac - bc;
 		if (diff != 0)
 			return diff;
 		if (ac == 0)

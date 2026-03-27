@@ -1,19 +1,30 @@
 #include <string.h>
 
 void * memset(void * s, int c, size_t n) {
-	void * target = s;
-	/* bootstrap up to 8 bytes */
+	/*
+	 * wow my first pass on this was BROKEN huh
+	 * kinda forgot the 'c' parameter
+	 * bootstrap up to 4 chars
+	 */
 	size_t already = 0;
-	if (n >= (sizeof(int) * 2)) {
-		((int *) target)[0] = 0;
-		((int *) target)[1] = 0;
-		already = sizeof(int) * 2;
-	} else if (n >= sizeof(int)) {
-		((int *) target)[0] = 0;
-		already = sizeof(int);
+	if (n > 3) {
+		((char *) s)[0] = c;
+		((char *) s)[1] = c;
+		((char *) s)[2] = c;
+		((char *) s)[3] = c;
+		already = 4;
+	} else if (n > 2) {
+		((char *) s)[0] = c;
+		((char *) s)[1] = c;
+		((char *) s)[2] = c;
+		already = 3;
+	} else if (n > 1) {
+		((char *) s)[0] = c;
+		((char *) s)[1] = c;
+		already = 2;
 	} else if (n > 0) {
-		((char *) target)[0] = 0;
-		already = sizeof(char);
+		((char *) s)[0] = c;
+		already = 1;
 	} else {
 		return s;
 	}
