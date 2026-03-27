@@ -44,7 +44,6 @@ Shader "z 20kdc kvtools/Pre-Rendered Cubemap" {
 			}
 
 			half4 frag(v2f i) : SV_Target {
-				UNITY_SETUP_INSTANCE_ID(i);
 				half3 res = DecodeHDR(UNITY_SAMPLE_TEXCUBE(_Cubemap, normalize(i.worldPos - _CubemapOrigin)), _Cubemap_HDR);
 				return half4(res.rgb * _Color, 1.0);
 			}

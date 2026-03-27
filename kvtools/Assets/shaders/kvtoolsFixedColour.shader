@@ -67,7 +67,6 @@ Shader "z 20kdc kvtools/Fixed Colour" {
 			}
 
 			fixed4 frag(v2f i) : SV_Target {
-				UNITY_SETUP_INSTANCE_ID(i);
 				return fixed4(_Color, 1.0);
 			}
 			ENDCG
