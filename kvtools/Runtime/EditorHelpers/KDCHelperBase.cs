@@ -7,16 +7,16 @@ namespace KDCVRCTools {
 	 * OnPreprocess is intended to be the central 'things happen here' function.
 	 */
 	public abstract class KDCHelperBase : MonoBehaviour, IEditorOnly, IPreprocessCallbackBehaviour {
-		void OnValidate() {
+		public virtual void OnValidate() {
 			hideFlags = HideFlags.DontSaveInBuild;
 			// OnPreprocess();
 		}
 
-		void Reset() {
+		public virtual void Reset() {
 			hideFlags = HideFlags.DontSaveInBuild;
 		}
 
-		void Awake() {
+		public virtual void Awake() {
 			OnPreprocess();
 		}
 

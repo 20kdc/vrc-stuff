@@ -1,22 +1,24 @@
 {
-    "name": "KDCVRCTools.Editor",
-    "rootNamespace": "",
-    "references": [
-        "VRC.Udon",
-        "VRC.Udon.Serialization.OdinSerializer",
-        "VRC.Udon.Editor",
-        "UdonSharp.Editor",
-        "VRC.ClientSim"
-    ],
-    "includePlatforms": [
-        "Editor"
-    ],
-    "excludePlatforms": [],
-    "allowUnsafeCode": false,
-    "overrideReferences": false,
-    "precompiledReferences": [],
-    "autoReferenced": true,
-    "defineConstraints": [],
-    "versionDefines": [],
-    "noEngineReferences": false
+	"name": "KDCVRCTools.Editor",
+	"rootNamespace": "",
+	"references": [
+		"VRC.Udon",
+		"VRC.Udon.Common",
+		"VRC.Udon.Serialization.OdinSerializer",
+		"VRC.Udon.Editor",
+		"UdonSharp.Editor",
+		"VRC.ClientSim",
+		"KDCVRCTools"
+	],
+	"includePlatforms": [
+		"Editor"
+	],
+	"excludePlatforms": [],
+	"allowUnsafeCode": false,
+	"overrideReferences": false,
+	"precompiledReferences": [],
+	"autoReferenced": true,
+	"defineConstraints": [],
+	"versionDefines": [],
+	"noEngineReferences": false
 }
