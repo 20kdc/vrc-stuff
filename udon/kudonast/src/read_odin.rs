@@ -100,15 +100,25 @@ impl OdinSTDeserializableRefType for UdonRawSymbolTable {
 /// Only contains what the coredump stuff cares about for now.
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub struct UdonRawProgram {
+    pub bytecode: Vec<u32>,
     pub entry_points: UdonRawSymbolTable,
     pub symbol_table: UdonRawSymbolTable
 }
 impl OdinSTDeserializableRefType for UdonRawProgram {
     fn deserialize(src: &OdinASTFile, val: &OdinASTStruct) -> Result<Self, String> {
         let content = val.unwrap_fixed_type("VRC.Udon.Common.UdonProgram, VRC.Udon.Common", 0)?;
+        let bytecode: Vec<u8> = odinst_get_field(src, content, "ByteCode")?;
+        let mut bytecode_out: Vec<u32> = Vec::new();
+        for i in 0..(bytecode.len() / 4) {
+            let base = i * 4;
+            let mut vifo: [u8;4] = [0;4];
+            vifo.copy_from_slice(&bytecode[base..base + 4]);
+            bytecode_out.push(u32::from_be_bytes(vifo));
+        }
         let entry_points: UdonRawSymbolTable = odinst_get_field(src, content, "EntryPoints")?;
         let symbol_table: UdonRawSymbolTable = odinst_get_field(src, content, "SymbolTable")?;
         Ok(UdonRawProgram {
+            bytecode: bytecode_out,
             entry_points,
             symbol_table,
         })

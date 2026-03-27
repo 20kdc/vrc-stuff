@@ -248,3 +248,21 @@ Tighter integration may be achieved using:
 
 * `--inc`; see transpiler help for details.
 * See `sdk/stdsyscall.ron` and `sdk/include/kip32_udon.h`.
+
+Finally, for debugging purposes, it's useful to know how to map internal Udon code addresses back to RISC-V addresses without a symbol table.
+
+This can be achieved by iterating through the JUMP instructions at the start of the bytecode.
+
+Viewed as a series of integers, this can be seen as a sequence of pairs of `5` followed by an instruction address, for each 32-bit instruction word starting from address 0.
+
+Viewed as assembly, this tends to read as:
+
+```
+JUMP, _code_00000000
+JUMP, _code_00000004
+JUMP, _code_00000008
+```
+
+And so forth. The labels here show something important (that the addressing starts at zero and is sequential), but hide something else important (that this provides a lookup table).
+
+Once a non-JUMP instruction is reached, the jump table is over; the rest of the contents of the program are still reserved by the transpiler to be "theoretically, anything".

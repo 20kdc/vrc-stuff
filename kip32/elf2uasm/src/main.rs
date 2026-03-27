@@ -370,6 +370,9 @@ fn main() -> Result<()> {
         let pc = (i * 4) as u32;
         uasm_op!(asm.asm(), JUMP, code_addr(pc, ""));
     }
+    // Secret handshake!
+    // Technically, any non-JUMP instruction would work.
+    uasm_op_i!(asm.asm(), ANNOTATION, 0x44657373);
     asm.comment_c("");
 
     asm.comment_c("-- inc_code --");
