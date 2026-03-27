@@ -1,4 +1,5 @@
 #include <string.h>
+#include <setjmp.h>
 #include <kip32.h>
 #include <kip32_udon.h>
 
@@ -13,7 +14,7 @@
 #define BAT_HEAP_WORDS 0x10000
 
 // 256k heap
-int micropython_heap[0x10000];
+int micropython_heap[BAT_HEAP_WORDS];
 
 // stack figuring-out
 int fresh_reset = 1;
@@ -31,17 +32,26 @@ static void debug_puts(const char * str) {
 	}
 }
 
-void * memmove(void * dest, const void * src, size_t n) {
-	intptr_t dest_i = (intptr_t) dest;
-	intptr_t src_i = (intptr_t) src;
-	intptr_t n_i = (intptr_t) n;
-	KIP32_SYSCALL3("stdsyscall_memmove", dest_i, src_i, n_i);
-	return dest;
+// 'magpie' update yield
+
+static jmp_buf magpie_update_yield_buf;
+static int magpie_update_yield_valid = 0;
+
+void KIP32_EXPORT _update() {
+	if (magpie_update_yield_valid)
+		longjmp(magpie_update_yield_buf, 1);
 }
 
-void * memcpy(void * dest, const void * src, size_t n) {
-	return memmove(dest, src, n);
+void magpie_update_yield() {
+	if (!setjmp(magpie_update_yield_buf)) {
+		magpie_update_yield_valid = 1;
+		KIP32_SYSCALL0("builtin_abort");
+	} else {
+		magpie_update_yield_valid = 0;
+	}
 }
+
+// ...
 
 KIP32_UDON_DECL_VAR(raisebat_line_in, "raisebat_line_in");
 KIP32_UDON_DECL_VAR(raisebat_temp0, "raisebat_temp0");
@@ -67,27 +77,34 @@ void KIP32_EXPORT _start() {
 	if (fresh_reset) {
 		fresh_reset = 0;
 		debug_puts("MicroPython: init - we're doing update_yield test now\n");
-		KIP32_SYSCALL0("stdsyscall_update_yield");
+		magpie_update_yield();
 		debug_puts("MicroPython: we survived 1st yield. initializing GC/MP\n");
 
 		// this is a pretty damn nasty trick, but it catches autostack
 		stack_top = kip32_udon_sbrk(0);
+
+		debug_puts("MicroPython: sbrk\n");
 
 #if MICROPY_ENABLE_PYSTACK
 		static mp_obj_t pystack[KIP32_PYSTACK_SIZE];
 		mp_pystack_init(pystack, &pystack[KIP32_PYSTACK_SIZE]);
 #endif
 
+		debug_puts("MicroPython: pystack\n");
+
 		mp_cstack_init_with_top(stack_top, (mp_uint_t) stack_top - (mp_uint_t) _ebss);
 
-		gc_init(micropython_heap, micropython_heap + BAT_HEAP_WORDS);
-		mp_init();
+		debug_puts("MicroPython: cstack\n");
 
-		// add Coffee() class
+		gc_init(micropython_heap, micropython_heap + BAT_HEAP_WORDS);
+
+		debug_puts("MicroPython: GC\n");
+
+		mp_init();
 
 		debug_puts("MicroPython: we survived MP init, entering REPL\n");
 		while (1) {
-			KIP32_SYSCALL0("stdsyscall_update_yield");
+			magpie_update_yield();
 			debug_puts("MicroPython: REPL restart\n");
 			pyexec_friendly_repl();
 		}
@@ -111,7 +128,7 @@ void raisebat_periodic_timer() {
 	static int raisebat_yield_periodic = 0;
 	raisebat_yield_periodic++;
 	if (raisebat_yield_periodic >= 256) {
-		KIP32_SYSCALL0("stdsyscall_update_yield");
+		magpie_update_yield();
 		raisebat_yield_periodic = 0;
 	}
 }
@@ -129,7 +146,7 @@ void nlr_jump_fail(void * val) {
 	KIP32_SYSCALL0("builtin_abort");
 	while (1) {
 		// this is really just to stop GCC complaining, as the syscall will prevent return quite nicely
-		KIP32_SYSCALL0("stdsyscall_update_yield");
+		magpie_update_yield();
 	}
 }
 
@@ -139,7 +156,7 @@ int mp_hal_stdin_rx_chr() {
 		if (KIP32_UDON_IS_VALID(kip32_udon_push_raisebat_line_in()))
 			if (KIP32_UDON_STR_LEN(kip32_udon_push_raisebat_line_in()))
 				break;
-		KIP32_SYSCALL0("stdsyscall_update_yield");
+		magpie_update_yield();
 	}
 	// doing this per-char is theoretically very bad but what can 'ya do
 	KIP32_UDON_STR_TOCHARARRAY(kip32_udon_push_raisebat_line_in(), kip32_udon_push_raisebat_temp0());

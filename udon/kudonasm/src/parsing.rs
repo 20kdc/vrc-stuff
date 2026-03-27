@@ -268,6 +268,8 @@ pub enum KU2Instruction {
     CodeComment(String),
     #[serde(rename = "data_comment")]
     DataComment(String),
+    #[serde(rename = "eof")]
+    EOF,
     // codelabel
     #[serde(rename = "internal")]
     CodeInternal(KU2Symbol),

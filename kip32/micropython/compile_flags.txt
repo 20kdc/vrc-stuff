@@ -3,10 +3,11 @@ clang
 riscv32-unknown-elf
 -mabi=ilp32
 -march=rv32i
--specs=/usr/lib/picolibc/riscv64-unknown-elf/picolibc.specs
+-specs=/home/t20kdc/Documents/repositories/vrc-stuff/kip32/sdk/kip32_udon.specs
 -nostartfiles
 -nolibc
 -I/home/t20kdc/Documents/repositories/vrc-stuff/kip32/sdk/include
+-I/home/t20kdc/Documents/repositories/vrc-stuff/kip32/sdk/include_libc
 -I/usr/lib/picolibc/riscv64-unknown-elf/include
 -I../..
 -I.

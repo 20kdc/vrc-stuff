@@ -223,42 +223,6 @@ package("syscall_stdsyscall_getutctime", ["stdsyscall_getutctime"])
 
 	jump(_syscall_return)
 
-// -- update_yield --
+// update_yield was removed in favour of setjmp, which does the same thing but more flexibly.
 
-// This is a complicated one.
-// By using this, you accept you can't use _update.
-// In return, you gain a limited amount of RTOS-style capability; you can pause your program mid-run.
-// Note that this turns external function calls into basically interrupt handlers.
-// Use with care. In particular, `vm_reset` becomes 'a bit buggy' when this is done.
-
-package("stdsyscall_update_yield", [])
-
-	equ(stdsyscall_update_yield_ext_i32_equality, EXT("SystemInt32.__op_Equality__SystemInt32_SystemInt32__SystemBoolean"))
-	var(stdsyscall_update_yield_reset_count, int(0))
-	var(stdsyscall_update_yield_ra, uint_c(_vm_equ_abort))
-
-public(_update)
-	ext(stdsyscall_update_yield_ext_i32_equality, [_vm_reset_count, stdsyscall_update_yield_reset_count, _vm_tmp_bool])
-	push(_vm_tmp_bool)
-	jump_if_false(stdsyscall_update_yield_reset_handler)
-	// ext(_ecall_ext_log, [C(string("stdsyscall_update_yield CONFIRM"))])
-	// ext(_ecall_ext_log, [stdsyscall_update_yield_ra])
-	// AOK, do it: set indirect jump target, invalidate stored RA, and then resume execution
-	copy_static(stdsyscall_update_yield_ra, vm_indirect_jump_target)
-	copy_static(C(uint_c(_vm_equ_abort)), stdsyscall_update_yield_ra)
-	jump(_vm_indirect_jump)
-
-_(stdsyscall_update_yield_reset_handler)
-	// ext(_ecall_ext_log, [C(string("stdsyscall_update_yield RESET"))])
-	copy_static(C(uint_c(_vm_equ_abort)), stdsyscall_update_yield_ra)
-	copy_static(_vm_reset_count, stdsyscall_update_yield_reset_count)
-	stop
-
-package("syscall_stdsyscall_update_yield", ["stdsyscall_update_yield"])
-
-	copy_static(C(uint_c(_syscall_return_indirect)), stdsyscall_update_yield_ra)
-	copy_static(_vm_reset_count, stdsyscall_update_yield_reset_count)
-	// ext(_ecall_ext_log, [C(string("stdsyscall_update_yield SETUP"))])
-	// ext(_ecall_ext_log, [stdsyscall_update_yield_ra])
-	// ext(_ecall_ext_log, [stdsyscall_update_yield_reset_count])
-	stop
+eof

@@ -24,7 +24,7 @@
 
 typedef long mp_off_t;
 
-#define MICROPY_HW_BOARD_NAME "alula"
+#define MICROPY_HW_BOARD_NAME "magpie-alpha"
 #define MICROPY_HW_MCU_NAME "kip32"
 
 #define MP_STATE_PORT MP_STATE_VM

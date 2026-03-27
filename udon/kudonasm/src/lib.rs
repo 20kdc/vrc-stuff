@@ -488,6 +488,7 @@ impl KU2Context {
                 Some(UdonAccess::Public),
                 code_base_ptr,
             ),
+            KU2Instruction::EOF => Ok(()),
             // -- equate --
             KU2Instruction::EquateInt(sym, operand) => {
                 let value = self.operand_udonint(file, operand)?;

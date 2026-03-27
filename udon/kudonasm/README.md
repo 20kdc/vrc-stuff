@@ -238,6 +238,17 @@ code_comment("Test")
 data_comment("Test")
 ```
 
+### `eof`
+
+This directive does absolutely nothing.
+
+It exists because comments at the end of the file are seen as something that 'should be being parsed' but are ultimately unparsable.
+
+```
+// some comment here
+eof
+```
+
 ## Equate Pseudoinstructions
 
 ### `equ(sym, operand)`
