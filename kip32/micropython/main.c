@@ -320,3 +320,11 @@ void __assert_func(const char *file, int line, const char *func, const char *exp
 }
 
 #endif
+
+int DEBUG_printf(const char * format, ...) {
+	va_list args;
+	va_start(args, format);
+	int r = vfprintf(stderr, format, args);
+	va_end(args);
+	return r;
+}

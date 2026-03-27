@@ -1,4 +1,6 @@
+#include <stdarg.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <alloca.h>
 
 #define MICROPY_CONFIG_ROM_LEVEL                (MICROPY_CONFIG_ROM_LEVEL_FULL_FEATURES)
@@ -29,7 +31,7 @@
 
 typedef long mp_off_t;
 
-#define MICROPY_HW_BOARD_NAME "magpie-alpha2"
+#define MICROPY_HW_BOARD_NAME "magpie"
 #define MICROPY_HW_MCU_NAME "kip32"
 
 #define MP_STATE_PORT MP_STATE_VM
@@ -45,3 +47,5 @@ extern const struct _mp_obj_type_t mp_udongimmicks_type_Coffee;
 
 #define MICROPY_PORT_BUILTINS \
 	{ MP_ROM_QSTR(MP_QSTR_Coffee), MP_ROM_PTR(&mp_udongimmicks_type_Coffee) },
+
+// #define MICROPY_DEBUG_VERBOSE (1)

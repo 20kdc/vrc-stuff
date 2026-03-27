@@ -13,7 +13,7 @@
 
 memmove:
 memcpy:
-	call __kip32_syscall_memmove_syscall
+	jal __kip32_syscall_memmove_syscall
 	ret
 
 .section .kip32_metadata.__kip32_syscall_memmove_syscall, "aS"
