@@ -95,7 +95,7 @@ void KIP32_EXPORT _start() {
 	if (fresh_reset) {
 		fresh_reset = 0;
 		magpie_ticks_base = magpie_cpuclock_base = __kip32_gettimeus();
-		fputs("MicroPython: init - we're doing update_yield test now\n", stderr);
+		fputs("MicroPython: " MICROPY_HW_BOARD_NAME " " __DATE__ " " __TIME__ ": init - testing update_yield\n", stderr);
 		magpie_update_yield();
 		fputs("MicroPython: we survived 1st yield. initializing GC/MP\n", stderr);
 

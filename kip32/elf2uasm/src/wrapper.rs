@@ -223,6 +223,8 @@ udon_ext!(
 
     u8array_create(size r) =
         "SystemByteArray.__ctor__SystemInt32__SystemByteArray"
+    u8array_clone(i r) =
+        "SystemByteArray.__Clone__SystemObject"
     u8array_get(i o r) =
         "SystemByteArray.__Get__SystemInt32__SystemByte"
     bytearray_copy(i a o) =

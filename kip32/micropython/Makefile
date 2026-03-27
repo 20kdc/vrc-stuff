@@ -60,9 +60,9 @@ $(BUILD)/_frozen_mpy.c: $(TOP)/tests/frozen/frozentest.mpy $(BUILD)/genhdr/qstrd
 
 ifneq ($(QEMU), 1)
 $(BUILD)/firmware.udonjson: $(BUILD)/firmware.elf terminal.ron $(KIP32_SDK)/stdsyscall.ron
-	$(KIP32_SDK)/elf2uasm -o $@ $(BUILD)/firmware.elf --udonjson --inc terminal.ron
+	$(KIP32_SDK)/elf2uasm -o $@ $(BUILD)/firmware.elf --udonjson --udonjson-opt --inc terminal.ron
 $(BUILD)/firmware.uasm: $(BUILD)/firmware.elf terminal.ron $(KIP32_SDK)/stdsyscall.ron
-	$(KIP32_SDK)/elf2uasm -o $@ $(BUILD)/firmware.elf --ignore-emit-err --inc terminal.ron
+	$(KIP32_SDK)/elf2uasm -o $@ $(BUILD)/firmware.elf --udonjson-opt --omit-data --ignore-emit-err --inc terminal.ron
 endif
 
 $(BUILD)/firmware.elf: $(OBJ)

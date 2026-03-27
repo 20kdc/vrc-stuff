@@ -200,17 +200,22 @@ fn main() -> Result<()> {
     let mut inc_files: Vec<String> = Vec::new();
     let mut auto_stack: usize = 0x1000;
     let mut emit_check: bool = true;
+    let mut omit_data: bool = false;
     let mut stdsyscall: bool = true;
     let mut udonjson: bool = false;
+    let mut udonjson_opt: bool = false;
     while let Some(arg) = arg_parser.next().context("arg_parser")? {
         match arg {
             Short('?') | Short('h') | Long("help") => {
+                //        12345678901234567890123456789012345678901234567890123456789012345678901234567890
                 println!("elf2uasm some.elf");
                 println!(" meant to be used with 'microcontroller'-like ELFs");
                 println!(" additional options:");
                 println!(" --out/-o FILE: output .uasm file (default stdout)");
                 println!(" --udonjson: use udonjson format");
                 println!(" --ignore-emit-err: Ignore emit errors (uasm only)");
+                println!(" --omit-data: Omits data. Unrunnable output. (for reference/debug)");
+                println!(" --udonjson-opt: Emit udonjson-only code. UASM unrunnable.");
                 println!(" --no-stdsyscall: By default, stdsyscall.uasm is embedded. Remove it.");
                 println!(" --inc FILE: splice this KU2 .ron into the output");
                 println!("             see udon/kudonasm/README.md");
@@ -224,7 +229,9 @@ fn main() -> Result<()> {
                 _ => return Err(anyhow!("-o/--out expects a filename value")),
             },
             Long("udonjson") => udonjson = true,
+            Long("udonjson-opt") => udonjson_opt = true,
             Long("ignore-emit-err") => emit_check = false,
+            Long("omit-data") => omit_data = true,
             Long("no-stdsyscall") => stdsyscall = false,
             Long("auto-stack") => match arg_parser.next() {
                 Result::Ok(Some(Value(v))) => {
@@ -281,20 +288,50 @@ fn main() -> Result<()> {
     // 2. Conveniently converts into the Udon abort vector
     // We then jump here and it's all AOK.
     let abort_vec = 0x7FFFFFFE;
-    let data = BASE64_STANDARD.encode(&img.initialized_bytes());
+    if udonjson_opt {
+        asm.ku2().equates.insert(
+            "_vmext_initdata_to_initdata_dec".to_string(),
+            UdonInt::Sym(asm.u8array_clone.clone()),
+        );
+        let mut data = img.initialized_bytes();
+        if omit_data {
+            data.clear();
+        }
+        asm.declare_heap(
+            &"_vm_initdata",
+            Some(UdonAccess::Symbol),
+            udontyperef!(SystemByteArray),
+            UdonHeapValue::PrimitiveArray(
+                udontyperef!(SystemByteArray),
+                OdinPrimitiveArray::U8(data),
+            ),
+        )
+        .unwrap();
+    } else {
+        let data = if omit_data {
+            "[data omitted using --omit-data]".to_string()
+        } else {
+            BASE64_STANDARD.encode(&img.initialized_bytes())
+        };
+        // Allows for possible fastpath
+        asm.ku2().equates.insert(
+            "_vmext_initdata_to_initdata_dec".to_string(),
+            UdonInt::Sym(asm.base64_decode.clone()),
+        );
+        asm.declare_heap(
+            &"_vm_initdata",
+            Some(UdonAccess::Symbol),
+            udontyperef!(SystemString),
+            OdinPrimitive::String(data),
+        )
+        .unwrap();
+    }
 
     asm.ku2()
         .install(&mut asm.asm(), "builtin_globals")
         .expect("builtin_globals install should succeed");
 
     let highbit = asm.ensure_i32(0x80000000u32 as i32);
-    asm.declare_heap(
-        &"_vm_initdata",
-        Some(UdonAccess::Symbol),
-        udontyperef!(SystemString),
-        OdinPrimitive::String(data),
-    )
-    .unwrap();
 
     asm.ku2()
         .equates

@@ -73,7 +73,7 @@ public(_vm_reset_and_jump)
 	ext(_vmext_u8array_create, [C(int_c(_vm_equ_image_bytes)), vm_memory])
 	copy_static(vm_memory, _vm_memory_chk)
 	// decode the data and copy it into the start of the memory array
-	ext(_vmext_base64_decode, [_vm_initdata, _vm_initdata_dec])
+	ext(_vmext_initdata_to_initdata_dec, [_vm_initdata, _vm_initdata_dec])
 	ext(_vmext_bytearray_copy, [_vm_initdata_dec, vm_memory, C(int(0))])
 	// clean up
 	copy_static(_null, _vm_initdata_dec)
