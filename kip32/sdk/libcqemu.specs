@@ -7,7 +7,7 @@
 %rename endfile kip32_pre_endfile
 
 *kip32_compile_opts:
--isystem %:getenv(KIP32_SDK /include_libc) %{!ftls-model:-ftls-model=local-exec}
+-D__KIP32_QEMU__ -isystem %:getenv(KIP32_SDK /include) -isystem %:getenv(KIP32_SDK /include_libc) %{!ftls-model:-ftls-model=local-exec}
 
 *cpp:
 %(kip32_compile_opts) %(kip32_pre_cpp)

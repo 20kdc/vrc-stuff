@@ -5,6 +5,9 @@
 #define MICROPY_ENABLE_COMPILER                 (1)
 #define MICROPY_ERROR_REPORTING                 (MICROPY_ERROR_REPORTING_DETAILED)
 
+// necessary for time etc.
+#define MICROPY_LONGINT_IMPL (MICROPY_LONGINT_IMPL_LONGLONG)
+
 #define MICROPY_PY_GC (1)
 #define MICROPY_ENABLE_GC (1)
 #define MICROPY_MODULE_FROZEN (1)
@@ -14,17 +17,19 @@
 #define MICROPY_ENABLE_SCHEDULER (1)
 #define MICROPY_KBD_EXCEPTION (1)
 
-#define MICROPY_PY_IO (0)
-#define MICROPY_PY_UCTYPES (0)
+#define MICROPY_PY_IO (1)
+#define MICROPY_PY_UCTYPES (1)
 
 #define MICROPY_PY_SYS_STDFILES           (0)
 #define MICROPY_PY_SYS_EXIT               (0)
 #define MICROPY_PY_SYS_PATH               (0)
 #define MICROPY_PY_SYS_ARGV               (0)
 
+#define MICROPY_PY_TIME_TIME_TIME_NS (1)
+
 typedef long mp_off_t;
 
-#define MICROPY_HW_BOARD_NAME "magpie-alpha"
+#define MICROPY_HW_BOARD_NAME "magpie-alpha2"
 #define MICROPY_HW_MCU_NAME "kip32"
 
 #define MP_STATE_PORT MP_STATE_VM

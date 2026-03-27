@@ -7,6 +7,11 @@
 /* Exported symbols are put into a specific section. */
 #define KIP32_EXPORT __attribute__((section(".kip32_export")))
 
+/*
+ * Because platform defines are global, they have __ around them.
+ * But if you include kip32.h then you opted into this.
+ */
+#ifndef __KIP32_QEMU__
 /* We're subtly trying to tell the compiler to remove these memory accesses. */
 #define KIP32_SYSCALL_CORE(name, e0, v0, e1, v1, e2, v2, e3, v3, e4, v4, e5, v5, e6, v6, e7, v7) \
 { \
@@ -44,6 +49,12 @@
 	(void) (v6 e6 KIP32_SYSCALL_a6); \
 	(void) (v7 e7 KIP32_SYSCALL_a7); \
 }
+#else
+#define KIP32_NO_SYSCALLS
+void __kip32_no_syscalls_error();
+#define KIP32_SYSCALL_CORE(name, e0, v0, e1, v1, e2, v2, e3, v3, e4, v4, e5, v5, e6, v6, e7, v7) \
+{ __kip32_no_syscalls_error(); }
+#endif
 
 /* -- COMMON -- */
 

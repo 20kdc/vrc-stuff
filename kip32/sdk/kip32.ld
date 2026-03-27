@@ -18,32 +18,31 @@ SECTIONS {
 		*(.text)
 		*(.text.*)
 	}
+	/* -- executable instruction barrier -- */
 	.init : {
 		. = ALIGN(4);
-		*(.srodata)
-		*(.srodata.*)
-		*(.rodata)
-		*(.rodata.*)
+		*(.srodata .srodata.*)
+		*(.rodata .rodata.* .gnu.linkonce.r.* .rodata1)
 		/* put this here just so it's... somewhere idk */
-		*(.eh_frame)
-		*(.eh_frame.*)
+		*(.eh_frame .eh_frame.*)
 		. = ALIGN(4);
 		_sidata = .; /* Having _sidata and _ebss around is useful for syncing static data. */
-		*(.sdata)
-		*(.sdata.*)
-		*(.data)
-		*(.data.*)
+		*(.sdata .sdata.* .gnu.linkonce.s.*)
+		*(.sdata2 .sdata2.* .gnu.linkonce.s2.*)
+		*(.data .data.* .gnu.linkonce.d.*)
 	}
 	.end : {
 		. = ALIGN(4);
 		/* uninitialized data */
-		*(.bss)
-		*(.bss.*)
-		*(.sbss)
-		*(.sbss.*)
+		*(.dynsbss)
+		*(.sbss .sbss.* .gnu.linkonce.sb.*)
+		*(.scommon)
+		*(.dynbss)
+		*(.bss .bss.* .gnu.linkonce.b.*)
 		*(COMMON)
 		. = ALIGN(4);
-		_ebss = .; /* See above. */
+		/* _ebss used to be provided, but it's useful for qemu for the riscv-unknown-elf linker script to be completely unaltered, and it doesn't provide it. */
+		_end = .;
 	}
 	.kip32_metadata : {
 		. = ALIGN(4);

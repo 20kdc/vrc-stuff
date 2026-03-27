@@ -21,3 +21,9 @@ _exit:
 	li a7, 93
 	ecall
 	ret
+
+.globl clock_gettime64
+clock_gettime64:
+	li a7, 403
+	ecall
+	ret

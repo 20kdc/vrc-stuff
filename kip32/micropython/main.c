@@ -1,7 +1,10 @@
 #include <string.h>
 #include <setjmp.h>
+#include <stdio.h>
+#include <unistd.h>
 #include <kip32.h>
 #include <kip32_udon.h>
+#include <time.h>
 
 #include "py/builtin.h"
 #include "py/compile.h"
@@ -21,21 +24,26 @@ int fresh_reset = 1;
 void * stack_top;
 
 // where allocated stack RAM is 'likely' to begin
-extern char _ebss[];
+extern char _end[];
 
 // enlightenments
 
-static void debug_puts(const char * str) {
-	while (*str) {
-		int v = *str++;
-		KIP32_SYSCALL1("stdsyscall_putchar", v);
-	}
+FILE * stderr = &__kip32_libc_systemout;
+
+#ifdef __KIP32_QEMU__
+int system(const char * string) {
+	write(2, string, strlen(string));
+	return -1;
 }
+#endif
 
 // 'magpie' update yield
 
 static jmp_buf magpie_update_yield_buf;
 static int magpie_update_yield_valid = 0;
+static uint64_t magpie_cpuclock;
+static long long magpie_cpuclock_base;
+static long long magpie_ticks_base;
 
 void KIP32_EXPORT _update() {
 	if (magpie_update_yield_valid)
@@ -44,9 +52,15 @@ void KIP32_EXPORT _update() {
 
 void magpie_update_yield() {
 	if (!setjmp(magpie_update_yield_buf)) {
+		magpie_cpuclock += __kip32_gettimeus() - magpie_cpuclock_base;
 		magpie_update_yield_valid = 1;
+#ifndef KIP32_NO_SYSCALLS
 		KIP32_SYSCALL0("builtin_abort");
+#else
+		_update();
+#endif
 	} else {
+		magpie_cpuclock_base = __kip32_gettimeus();
 		magpie_update_yield_valid = 0;
 	}
 }
@@ -65,10 +79,14 @@ KIP32_UDON_DECL_VAR(raisebat_ub_type, "C(type(\"VRCUdonCommonInterfacesIUdonEven
 // conout driver core
 
 void raisebat_conout_putchar(int v) {
+#ifndef KIP32_NO_SYSCALLS
 	KIP32_UDON_UCS2_CHR(v & 0xFF, kip32_udon_push_raisebat_temp0());
 	KIP32_UDON_EXTERN3("UnityEngineTransform.__GetComponent__SystemType__UnityEngineComponent", kip32_udon_push_raisebat_target(), kip32_udon_push_raisebat_ub_type(), kip32_udon_push_raisebat_temp1());
 	KIP32_UDON_EXTERN3("VRCUdonCommonInterfacesIUdonEventReceiver.__SetProgramVariable__SystemString_SystemObject__SystemVoid", kip32_udon_push_raisebat_temp1(), kip32_udon_push_raisebat_cpu_char_string(), kip32_udon_push_raisebat_temp0());
 	KIP32_UDON_EXTERN2("VRCUdonCommonInterfacesIUdonEventReceiver.__SendCustomEvent__SystemString__SystemVoid", kip32_udon_push_raisebat_temp1(), kip32_udon_push_raisebat__cpu_char_string());
+#else
+	fputc(v, stderr);
+#endif
 }
 
 // main loop
@@ -76,48 +94,87 @@ void raisebat_conout_putchar(int v) {
 void KIP32_EXPORT _start() {
 	if (fresh_reset) {
 		fresh_reset = 0;
-		debug_puts("MicroPython: init - we're doing update_yield test now\n");
+		magpie_ticks_base = magpie_cpuclock_base = __kip32_gettimeus();
+		fputs("MicroPython: init - we're doing update_yield test now\n", stderr);
 		magpie_update_yield();
-		debug_puts("MicroPython: we survived 1st yield. initializing GC/MP\n");
+		fputs("MicroPython: we survived 1st yield. initializing GC/MP\n", stderr);
 
+#ifndef __KIP32_QEMU__
 		// this is a pretty damn nasty trick, but it catches autostack
-		stack_top = kip32_udon_sbrk(0);
+		stack_top = sbrk(0);
+#else
+		// this is an even nastier trick, mirroring mp_cstack_init_with_sp_here
+		stack_top = alloca(4);
+#endif
+		// somehow this works on QEMU too soooo
+		size_t stack_size = (size_t) stack_top - (size_t) _end;
 
-		debug_puts("MicroPython: sbrk\n");
+		fprintf(stderr, "MicroPython: iSP = %p, 0x%08zx stack bytes available\n", stack_top, stack_size);
 
 #if MICROPY_ENABLE_PYSTACK
 		static mp_obj_t pystack[KIP32_PYSTACK_SIZE];
 		mp_pystack_init(pystack, &pystack[KIP32_PYSTACK_SIZE]);
 #endif
 
-		debug_puts("MicroPython: pystack\n");
+		fputs("MicroPython: pystack go\n", stderr);
 
-		mp_cstack_init_with_top(stack_top, (mp_uint_t) stack_top - (mp_uint_t) _ebss);
+		mp_cstack_init_with_top(stack_top, stack_size);
 
-		debug_puts("MicroPython: cstack\n");
+		fputs("MicroPython: cstack go\n", stderr);
 
 		gc_init(micropython_heap, micropython_heap + BAT_HEAP_WORDS);
 
-		debug_puts("MicroPython: GC\n");
+		fputs("MicroPython: GC go\n", stderr);
 
 		mp_init();
 
-		debug_puts("MicroPython: we survived MP init, entering REPL\n");
+		fputs("MicroPython: we survived MP init, entering REPL\n", stderr);
 		while (1) {
 			magpie_update_yield();
-			debug_puts("MicroPython: REPL restart\n");
+			fputs("MicroPython: REPL restart\n", stderr);
 			pyexec_friendly_repl();
 		}
 	}
 }
 
-// handlers
+// time
 
 mp_uint_t mp_hal_ticks_ms() {
-	// would be nice to do something with SystemDateTime here
-	// we don't have the time, though
-	return 0;
+	return (mp_uint_t) ((__kip32_gettimeus() - magpie_ticks_base) / 1000);
 }
+
+mp_uint_t mp_hal_ticks_us() {
+	return (mp_uint_t) (__kip32_gettimeus() - magpie_ticks_base);
+}
+
+mp_uint_t mp_hal_ticks_cpu() {
+	return (mp_uint_t) magpie_cpuclock;
+}
+
+uint64_t mp_hal_time_ns() {
+	return (uint64_t) (__kip32_gettimeus() * 1000);
+}
+
+mp_obj_t mp_time_time_get() {
+	return mp_obj_new_int_from_ll(__kip32_gettimeus() / 1000000LL);
+}
+
+static void mp_hal_delay_until(unsigned long long end) {
+	while (((unsigned long long) __kip32_gettimeus()) < end) {
+		mp_handle_pending(MP_HANDLE_PENDING_CALLBACKS_AND_EXCEPTIONS);
+		magpie_update_yield();
+	}
+}
+
+void mp_hal_delay_us(mp_uint_t us) {
+	mp_hal_delay_until(__kip32_gettimeus() + us);
+}
+
+void mp_hal_delay_ms(mp_uint_t ms) {
+	mp_hal_delay_until(__kip32_gettimeus() + (ms * 1000));
+}
+
+// handlers
 
 void KIP32_EXPORT raisebat_break() {
 	mp_sched_keyboard_interrupt();
@@ -137,13 +194,23 @@ mp_lexer_t *mp_lexer_new_from_file(qstr filename) {
 	mp_raise_OSError(MP_ENOENT);
 }
 
+// 'VFS stuff' {
 mp_import_stat_t mp_import_stat(const char *path) {
 	return MP_IMPORT_STAT_NO_EXIST;
 }
 
+mp_obj_t mp_builtin_open(size_t n_args, const mp_obj_t *args, mp_map_t *kwargs) {
+    return mp_const_none;
+}
+MP_DEFINE_CONST_FUN_OBJ_KW(mp_builtin_open_obj, 1, mp_builtin_open);
+// }
 
 void nlr_jump_fail(void * val) {
+#ifdef __KIP32_QEMU__
+	_exit(1);
+#else
 	KIP32_SYSCALL0("builtin_abort");
+#endif
 	while (1) {
 		// this is really just to stop GCC complaining, as the syscall will prevent return quite nicely
 		magpie_update_yield();
@@ -151,11 +218,17 @@ void nlr_jump_fail(void * val) {
 }
 
 int mp_hal_stdin_rx_chr() {
+#ifdef __KIP32_QEMU__
+	char c = 0;
+	while (read(0, &c, 1) != 1);
+	return c & 0xFF;
+#else
 	// string coming in from raisebat_line_in
 	while (1) {
 		if (KIP32_UDON_IS_VALID(kip32_udon_push_raisebat_line_in()))
 			if (KIP32_UDON_STR_LEN(kip32_udon_push_raisebat_line_in()))
 				break;
+		mp_handle_pending(MP_HANDLE_PENDING_CALLBACKS_AND_EXCEPTIONS);
 		magpie_update_yield();
 	}
 	// doing this per-char is theoretically very bad but what can 'ya do
@@ -165,6 +238,7 @@ int mp_hal_stdin_rx_chr() {
 	if (c >= 0x100)
 		c = 0xFF;
 	return c;
+#endif
 }
 
 void mp_hal_stdout_tx_strn_cooked(const char *str, size_t len) {
@@ -231,9 +305,12 @@ void __assert_fail(const char *expr, const char *file, int line, const char *fun
 	mp_hal_stdout_tx_strn_cooked(func, strlen(func));
 	mp_hal_stdout_tx_strn_cooked(" ", 1);
 	mp_hal_stdout_tx_strn_cooked(expr, strlen(expr));
-	int ch = '\n';
-	KIP32_SYSCALL1("stdsyscall_putchar", ch);
+	mp_hal_stdout_tx_strn_cooked("\n", 1);
+#ifdef __KIP32_QEMU__
+	_exit(1);
+#else
 	KIP32_SYSCALL0("builtin_abort");
+#endif
 }
 
 #ifndef NDEBUG

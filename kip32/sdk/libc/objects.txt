@@ -78,6 +78,7 @@ time/asctime.c obj/asctime.o
 time/clock.c obj/clock.o
 time/ctime.c obj/ctime.o
 time/gmtime.c obj/gmtime.o
+time/kip32_gettimeus_clock_gettime64.c obj_specific/kip32_gettimeus_clock_gettime64.o
 time/kip32_gettimeus_syscall.S obj_specific/kip32_gettimeus_syscall.o
 time/time.c obj/time.o
 time/timespec_get.c obj/timespec_get.o

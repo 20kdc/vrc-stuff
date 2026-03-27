@@ -171,8 +171,3 @@ KIP32_INLINE(void) kip32_udon_chararray_get_internal(int i) {
 	kip32_udon_push_a0(), \
 	kip32_udon_system_convert_i32_internal() \
 )
-
-KIP32_INLINE(void *) kip32_udon_sbrk(intptr_t val) { \
-	KIP32_SYSCALL1("stdsyscall_sbrk", val); \
-	return (void *) val; \
-}

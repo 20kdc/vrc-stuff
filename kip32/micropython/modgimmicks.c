@@ -22,7 +22,9 @@ MP_DEFINE_CONST_OBJ_TYPE(
 	make_new, coffee_make_new
 	);
 static mp_obj_t coffee_make_new(const mp_obj_type_t * type_in, size_t n_args, size_t n_kw, const mp_obj_t * args) {
+#ifndef KIP32_NO_SYSCALLS
 	KIP32_UDON_EXTERN3("UnityEngineTransform.__GetComponent__SystemType__UnityEngineComponent", kip32_udon_push_raisebat_target(), kip32_udon_push_raisebat_ub_type(), kip32_udon_push_raisebat_temp1());
 	KIP32_UDON_EXTERN2("VRCUdonCommonInterfacesIUdonEventReceiver.__SendCustomEvent__SystemString__SystemVoid", kip32_udon_push_raisebat_temp1(), kip32_udon_push_coffee_invoke());
+#endif
 	return mp_obj_malloc(mp_obj_base_t, type_in);
 }

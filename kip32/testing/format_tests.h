@@ -46,8 +46,15 @@ void stdio_tests() {
 	assert(!strcmp(strC, ""));
 }
 
+static void time_dump_time(time_t res) {
+	struct tm * gtm = gmtime(&res);
+	printf("%04i/%02i/%02i %02i:%02i:%02i -- ID%i WD%i YD%i\n", gtm->tm_year + 1900, gtm->tm_mon, gtm->tm_mday, gtm->tm_hour, gtm->tm_min, gtm->tm_sec, gtm->tm_isdst, gtm->tm_wday, gtm->tm_yday);
+}
+
 void time_tests() {
 	time_t res = 1774564356;
-	struct tm * gtm = gmtime(&res);
-	printf("%04i/%02i/%02i %02i:%02i:%02i -- ID%i WD%i YD%i\n", gtm->tm_year, gtm->tm_mon, gtm->tm_mday, gtm->tm_hour, gtm->tm_min, gtm->tm_sec, gtm->tm_isdst, gtm->tm_wday, gtm->tm_yday);
+	time_dump_time(res);
+	struct timespec ts;
+	timespec_get(&ts, TIME_UTC);
+	time_dump_time(ts.tv_sec);
 }

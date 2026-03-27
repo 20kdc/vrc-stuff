@@ -29,7 +29,7 @@ kip32-libc:
 	../recipe "../kip32-udon-gcc -g -O3" "-c -o" "" `cat objects.txt`
 	rm -f ../libcudon.a ../libcqemu.a
 	riscv64-unknown-elf-ar rcs ../libcudon.a obj/*.o obj_specific/system_putchar.o obj_specific/memmove_syscall.o obj_specific/kip32_gettimeus_syscall.o obj_specific/sbrk_kip32.o
-	riscv64-unknown-elf-ar rcs ../libcqemu.a obj/*.o obj_specific/memmove_slow.o obj_specific/linux_syscalls.o obj_specific/sbrk_fake.o
+	riscv64-unknown-elf-ar rcs ../libcqemu.a obj/*.o obj_specific/memmove_slow.o obj_specific/linux_syscalls.o obj_specific/kip32_gettimeus_clock_gettime64.o obj_specific/sbrk_fake.o
 	../kip32-libcqemu-gcc -g -O3 ../../testing/libctest.c ../../testing/qemu_stdio.c -o ../../testing/libctest.elf
 
 [working-directory: 'kip32/testing']
