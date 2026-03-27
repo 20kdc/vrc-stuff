@@ -224,16 +224,22 @@ void gc_collect(void) {
 	gc_dump_info(&mp_plat_print);
 }
 
-#ifndef NDEBUG
-// this is baaaaad
-void MP_WEAK __assert_func(const char *file, int line, const char *func, const char *expr) {
+void __assert_fail(const char *expr, const char *file, int line, const char *func) {
 	mp_hal_stdout_tx_strn_cooked("ASSERT ", 7);
 	mp_hal_stdout_tx_strn_cooked(file, strlen(file));
 	mp_hal_stdout_tx_strn_cooked(" ", 1);
 	mp_hal_stdout_tx_strn_cooked(func, strlen(func));
 	mp_hal_stdout_tx_strn_cooked(" ", 1);
 	mp_hal_stdout_tx_strn_cooked(expr, strlen(expr));
-	KIP32_SYSCALL1("stdsyscall_putchar", '\n');
+	int ch = '\n';
+	KIP32_SYSCALL1("stdsyscall_putchar", ch);
 	KIP32_SYSCALL0("builtin_abort");
 }
+
+#ifndef NDEBUG
+// this is baaaaad
+void __assert_func(const char *file, int line, const char *func, const char *expr) {
+	__assert_fail(expr, file, line, func);
+}
+
 #endif

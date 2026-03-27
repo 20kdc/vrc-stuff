@@ -6,7 +6,7 @@ It is somewhat incomplete, and heavily untested, but is 100% public-domain code.
 
 It is likely to _**never**_ support floating-point calculations.
 
-It can (somehow) compile and run MicroPython (likely owing to it using very few libc functions).
+It can (somehow) compile MicroPython (likely owing to it using very few libc functions). (I thought I saw it running, but it might have been an outdated build owing to Udon program refresh quirks that I hadn't yet addressed.)
 
 ## Quirks
 

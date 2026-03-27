@@ -189,6 +189,12 @@ void string_tests() {
 	assert(strlen("aaa") == 3);
 	assert(strlen("aaaa") == 4);
 	assert(strlen("aaaaa") == 5);
+
+	puts("performing strchr tests...");
+
+	const char * teststr = "abc\200def\200ghi";
+	assert(strchr(teststr, 0x80) == teststr + 3);
+	assert(strrchr(teststr, 0x80) == teststr + 7);
 }
 
 void ctype_tests() {

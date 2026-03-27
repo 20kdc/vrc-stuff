@@ -20,14 +20,19 @@ SECTIONS {
 	}
 	.init : {
 		. = ALIGN(4);
+		*(.srodata)
+		*(.srodata.*)
 		*(.rodata)
 		*(.rodata.*)
+		/* put this here just so it's... somewhere idk */
+		*(.eh_frame)
+		*(.eh_frame.*)
 		. = ALIGN(4);
 		_sidata = .; /* Having _sidata and _ebss around is useful for syncing static data. */
-		*(.data)
-		*(.data.*)
 		*(.sdata)
 		*(.sdata.*)
+		*(.data)
+		*(.data.*)
 	}
 	.end : {
 		. = ALIGN(4);

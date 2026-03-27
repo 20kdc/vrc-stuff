@@ -4,7 +4,7 @@ char * strrchr(const char * s, int c) {
 	char c2 = (char) c;
     char * res = NULL;
 	while (1) {
-		unsigned char c3 = *s;
+		char c3 = *s;
 		if (c2 == c3)
 			res = (char *) s;
 		if (!c3)

@@ -17,13 +17,16 @@ else
 CFLAGS += -mabi=ilp32 -march=rv32im -I$(KIP32_SDK)/include -specs=/usr/lib/picolibc/riscv64-unknown-elf/picolibc.specs
 endif
 
+CFLAGS += -Wl,-Map=$(BUILD)/firmware.map
+
 CFLAGS += -Wall -Werror -std=c99
 CSUPEROPT = -Os
 
 ifeq ($(DEBUG), 1)
 CFLAGS += -Og
 else
-CFLAGS += -Os -DNDEBUG
+CFLAGS += -Os
+CFLAGS += -DNDEBUG
 CFLAGS += -fdata-sections -ffunction-sections
 endif
 
