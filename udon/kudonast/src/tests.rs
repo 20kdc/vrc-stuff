@@ -1,5 +1,4 @@
 use crate::*;
-use kudonodin::*;
 
 #[test]
 fn crosscheck() {
@@ -33,6 +32,10 @@ fn read_coredump() {
     let true_entries =
         OdinEntry::read_all_from_slice(true_odin_binary).expect("decode must succeed");
     let true_file = OdinASTFile::from_entries(true_entries);
-    let res: UdonCoreDump = OdinSTDeserializable::deserialize(&true_file, true_file.get_root_value().expect("must be root value")).expect("must decode");
+    let res: UdonCoreDump = OdinSTDeserializable::deserialize(
+        &true_file,
+        true_file.get_root_value().expect("must be root value"),
+    )
+    .expect("must decode");
     _ = res;
 }

@@ -63,7 +63,7 @@ impl OdinSTDeserializableRefType for UdonRawHeap {
 pub struct UdonRawSymbol {
     pub name: String,
     pub ty: Option<String>,
-    pub address: u32
+    pub address: u32,
 }
 impl OdinSTDeserializableRefType for UdonRawSymbol {
     fn deserialize(src: &OdinASTFile, val: &OdinASTStruct) -> Result<Self, String> {
@@ -74,7 +74,7 @@ impl OdinSTDeserializableRefType for UdonRawSymbol {
         Ok(UdonRawSymbol {
             name,
             ty: ty.map(|v| v.0),
-            address
+            address,
         })
     }
 }
@@ -82,8 +82,9 @@ impl OdinSTDeserializableRefType for UdonRawSymbol {
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub struct UdonRawSymbolTable {
     pub symbols: Vec<UdonRawSymbol>,
-    pub exported_symbols: Vec<String>
+    pub exported_symbols: Vec<String>,
 }
+
 impl OdinSTDeserializableRefType for UdonRawSymbolTable {
     fn deserialize(src: &OdinASTFile, val: &OdinASTStruct) -> Result<Self, String> {
         let content = val.unwrap_iserializable()?;
@@ -96,13 +97,26 @@ impl OdinSTDeserializableRefType for UdonRawSymbolTable {
     }
 }
 
+impl UdonRawSymbolTable {
+    /// Maps a symbol to an address.
+    /// Includes non-exported symbols.
+    pub fn sym_to_addr(&self, s: &str) -> Option<u32> {
+        for v in &self.symbols {
+            if v.name.eq(s) {
+                return Some(v.address);
+            }
+        }
+        None
+    }
+}
+
 /// Raw Udon program.
 /// Only contains what the coredump stuff cares about for now.
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub struct UdonRawProgram {
     pub bytecode: Vec<u32>,
     pub entry_points: UdonRawSymbolTable,
-    pub symbol_table: UdonRawSymbolTable
+    pub symbol_table: UdonRawSymbolTable,
 }
 impl OdinSTDeserializableRefType for UdonRawProgram {
     fn deserialize(src: &OdinASTFile, val: &OdinASTStruct) -> Result<Self, String> {
@@ -111,7 +125,7 @@ impl OdinSTDeserializableRefType for UdonRawProgram {
         let mut bytecode_out: Vec<u32> = Vec::new();
         for i in 0..(bytecode.len() / 4) {
             let base = i * 4;
-            let mut vifo: [u8;4] = [0;4];
+            let mut vifo: [u8; 4] = [0; 4];
             vifo.copy_from_slice(&bytecode[base..base + 4]);
             bytecode_out.push(u32::from_be_bytes(vifo));
         }

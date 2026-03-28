@@ -23,6 +23,8 @@ namespace KDCVRCTools {
 			IUdonVM vm = KDCUdonHookedVM.GetUdonVM(ub);
 			if (vm != null) {
 				var (stackItems, stackSize) = KDCUdonHookedVM.GetUdonStack(vm);
+				string dumpButtonText = "Dump Heap";
+				string dumpDialogText = "Udon Heap Dump...";
 				if (targetUDO.ErrorPC != 0xFFFFFFFC) {
 					EditorGUILayout.LabelField("Error:");
 					var ex = targetUDO.ErrorException;
@@ -34,15 +36,8 @@ namespace KDCVRCTools {
 					}
 					EditorGUILayout.IntField("PC", (int) targetUDO.ErrorPC);
 					EditorGUILayout.TextField("...", UdonRationalizePC(vm, targetUDO.ErrorPC));
-					if (GUILayout.Button("Dump Error To File")) {
-						uint[] cleanStack = null;
-						if (stackItems != null) {
-							cleanStack = new uint[stackSize];
-							for (int i = 0; i < stackSize; i++)
-								cleanStack[i] = stackItems[i];
-						}
-						DumpProcess("Udon Error Dump...", new KDCUdonCoreDump(vm.RetrieveProgram(), targetUDO.ErrorPC, vm.InspectHeap(), cleanStack));
-					}
+					dumpButtonText = "Dump Error To File";
+					dumpDialogText = "Udon Error Dump...";
 					EditorGUI.indentLevel--;
 				} else if (ub.HasError) {
 					EditorGUILayout.LabelField("Unhooked error! Heap dump is available, but no program counter or exception info.");
@@ -59,8 +54,9 @@ namespace KDCVRCTools {
 					EditorGUI.indentLevel--;
 				}
 				// dump heap
-				if (GUILayout.Button("Dump Heap"))
-					DumpProcess("Udon Heap Dump...", vm.InspectHeap());
+				// note this does the exact same thing
+				if (GUILayout.Button(dumpButtonText))
+					DumpProcess(dumpDialogText, KDCUdonCoreDump.CoreDump(vm, targetUDO.ErrorPC));
 			} else {
 				GUILayout.Label("UdonBehaviour has no VM; not in play mode?", EditorStyles.wordWrappedLabel);
 			}

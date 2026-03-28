@@ -9,5 +9,7 @@ license = "Unlicense"
 resolver = "2"
 members = [
     "kip32ingest",
-    "elf2uasm"
+    "elf2uasm",
+    "kip32corestub",
+    "elf2uasm_lib"
 ]

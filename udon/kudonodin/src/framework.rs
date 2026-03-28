@@ -9,7 +9,11 @@ pub trait OdinSTDeserializable: Sized {
 }
 
 /// Shorthand to deserialize a field.
-pub fn odinst_get_field<V: OdinSTDeserializable>(src: &OdinASTFile, content: &[OdinASTEntry], name: &str) -> Result<V, String> {
+pub fn odinst_get_field<V: OdinSTDeserializable>(
+    src: &OdinASTFile,
+    content: &[OdinASTEntry],
+    name: &str,
+) -> Result<V, String> {
     let val = OdinASTEntry::get_value_by_name(name, content)?;
     V::deserialize(src, val).map_err(|v| format!("{}: {}", name, v))
 }
@@ -67,13 +71,7 @@ serializable_int_impl!(
 );
 serializable_int_impl!(i64, OdinIntType::Long, "System.Int64[], mscorlib", U64, u64);
 serializable_int_impl!(u32, OdinIntType::Int, "System.UInt32[], mscorlib", U32, u32);
-serializable_int_impl!(
-    i32,
-    OdinIntType::UInt,
-    "System.Int32[], mscorlib",
-    U32,
-    u32
-);
+serializable_int_impl!(i32, OdinIntType::UInt, "System.Int32[], mscorlib", U32, u32);
 serializable_int_impl!(
     u16,
     OdinIntType::UShort,
@@ -211,11 +209,15 @@ pub struct OdinSTStrongBox<V>(pub String, pub V);
 impl<V: OdinSTDeserializable> OdinSTDeserializableRefType for OdinSTStrongBox<V> {
     fn deserialize(src: &OdinASTFile, val: &OdinASTStruct) -> Result<Self, String> {
         if let Some(type_name) = &val.0 {
-            let ty2 = type_name.strip_prefix("System.Runtime.CompilerServices.StrongBox`1[[")
+            let ty2 = type_name
+                .strip_prefix("System.Runtime.CompilerServices.StrongBox`1[[")
                 .and_then(|v| v.strip_suffix("]], System.Core"));
             if let Some(ty2) = ty2 {
                 let val = OdinASTEntry::get_value_by_name("Value", &val.1)?;
-                Ok(Self(ty2.to_string(), V::deserialize(src, val).map_err(|v| format!("StrongBox.Value: {}", v))?))
+                Ok(Self(
+                    ty2.to_string(),
+                    V::deserialize(src, val).map_err(|v| format!("StrongBox.Value: {}", v))?,
+                ))
             } else {
                 Err(format!("{} is not a StrongBox", type_name))
             }

@@ -1,0 +1,15 @@
+[package]
+name = "kip32corestub"
+publish.workspace = true
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+lexopt = "0.3.1"
+gdbstub = "0.7.10"
+gdbstub_arch = "0.3.3"
+kudonodin = { path = "../../udon/kudonodin" }
+kudonast = { path = "../../udon/kudonast" }
+elf2uasm_lib = { path = "../elf2uasm_lib" }

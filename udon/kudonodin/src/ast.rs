@@ -56,7 +56,12 @@ impl OdinASTStruct {
                 if count == 0 || count == self.1.len() {
                     Ok(&self.1)
                 } else {
-                    Err(format!("{}: expected {} subentries, got {}", t, count, self.1.len()))
+                    Err(format!(
+                        "{}: expected {} subentries, got {}",
+                        t,
+                        count,
+                        self.1.len()
+                    ))
                 }
             } else {
                 Err(format!("{}: got type {}", t, v))

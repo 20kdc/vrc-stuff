@@ -61,6 +61,9 @@ Special sections are announced by the prefix `.kip32_` followed by a set of `_`-
 		* Null padding is simply read as a series of empty strings, which are ignored.
 	* The **last metadata section** (which should typically be the only one) is considered '_the_' metadata section; metadata _strings_ are well-defined, but they cannot be indexed by address.
 		* The distinction between 'last metadata section' is to catch a hypothetical Sufficiently Clever Compiler which might attempt to merge suffixes.
+* `.kip32_discard`: Similar to `.kip32_metadata`, but without the semantics.
+
+In addition, all sections with the prefix `.debug` automatically get the `.kip32_discard` treatment.
 
 There are also these special symbols:
 

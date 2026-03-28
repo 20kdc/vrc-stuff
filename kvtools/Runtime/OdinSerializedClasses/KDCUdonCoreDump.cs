@@ -24,5 +24,16 @@ namespace KDCVRCTools {
 			this.heap = heap;
 			this.stack = stack;
 		}
+
+		public static KDCUdonCoreDump CoreDump(IUdonVM vm, uint pc) {
+			var (stackItems, stackSize) = KDCUdonHookedVM.GetUdonStack(vm);
+			uint[] cleanStack = null;
+			if (stackItems != null) {
+				cleanStack = new uint[stackSize];
+				for (int i = 0; i < stackSize; i++)
+					cleanStack[i] = stackItems[i];
+			}
+			return new KDCUdonCoreDump(vm.RetrieveProgram(), pc, vm.InspectHeap(), cleanStack);
+		}
 	}
 }

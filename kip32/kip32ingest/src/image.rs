@@ -163,7 +163,9 @@ impl Sci32Image {
     fn parse_tags(section_name: &str) -> BTreeSet<String> {
         // determine tags
         let mut section_tags = BTreeSet::new();
-        if let Some(taglist) = section_name.strip_prefix(".kip32_") {
+        if section_name.starts_with(".debug") {
+            section_tags.insert("discard".to_string());
+        } else if let Some(taglist) = section_name.strip_prefix(".kip32_") {
             for tag in taglist.split("_") {
                 section_tags.insert(tag.to_string());
             }
@@ -231,6 +233,8 @@ impl Sci32Image {
                         ptr = ptr.wrapping_add(len as u32);
                     }
                 }
+            } else if section.sh_name_tags.contains("discard") {
+                // like metadata, this bypasses blitting
             } else if (section.sh_flags & SHF_ALLOC) != 0 {
                 // This section is blittable.
                 let end_addr = (section.sh_addr as usize) + (section.sh_size as usize);

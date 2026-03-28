@@ -1,0 +1,11 @@
+[package]
+name = "elf2uasm_lib"
+publish.workspace = true
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+kudonast = { path = "../../udon/kudonast" }
+kudoninfo = { path = "../../udon/kudoninfo" }

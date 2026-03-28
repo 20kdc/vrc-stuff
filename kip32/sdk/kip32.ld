@@ -1,13 +1,5 @@
 . = 0;
 SECTIONS {
-	/DISCARD/ : {
-		*(.comment)
-		*(.symtab)
-		*(.strtab)
-		*(.shstrtab)
-		*(.riscv.attributes)
-		*(.debug*)
-	}
 	.kip32_export : {
 		. = ALIGN(4);
 		KEEP(*(.kip32_export))
@@ -52,8 +44,8 @@ SECTIONS {
 		/* checklinkermap might generate alignment if this is not set, which causes it to become ALLOC (bad) */
 		. = ALIGN(4);
 	}
-	/* If this section is marked ALLOC, check your linker map with -M and adjust this file as necessary */
-	.checklinkermap : {
-		*(*)
-	}
+	/*
+	 * Used to be exhaustive about deleting or moving sections, but this causes issues with debugging metadata.
+	 * Check objdump -h, okay?
+	 */
 }

@@ -50,6 +50,18 @@ Meanwhile, RV32IM has a clear minimal set of instructions a compiler can be told
 	* You can use the `udonjson` output format in order to use constants not supported by Udon Assembly.
 5. Udon Assembly doesn't play as well as it could with import on the no-auto-import configuration.
 	* For this reason, you may have to manually delete the SerializedUdonProgram file to get it to recompile.
+	* Use `udonjson` to avoid this.
+6. For debugging, you have multiple choices (ideally use whatever fits):
+	* You can debug an in-Unity Udon error, including inspection of all RISC-V variables, by:
+		1. Attaching the `kvtools` Udon debug options component onto the offending GameObject.
+			* This is safe to 'leave on' unless it conflicts with some other middleware you're using.
+		2. Causing the error to happen.
+		3. Press `Dump Error To File`, save the file somewhere.
+		4. Run `kip32corestub`, passing it the file. This will give you a 'GDB stub' you can target with GDB, or typical embedded debugging tools (that inevitably wrap GDB).
+	* You can use the QEMU variant of the libc to build simple command-line applications for testing and debugging.
+		* The QEMU variant of the libc makes the arguably tenuous assumption you have access to a working Linux userland-emulating (not `-system-`) QEMU.
+			* This may be awkward on some Windows variants.
+	* You can write and build applications outside KIP32 entirely that share the 'difficult' code with the KIP32 version.
 
 ## Future extensions?
 
@@ -67,3 +79,13 @@ Still, the issues with constants don't actually severely interfere with RISC-V d
 In fact, as it turns out, there are so many flaws in Udon's handling of numeric types that you basically should use as high-precision a type as you dare _whenever possible,_ just so you don't have to AND off bits, just so that `System.Convert` won't come knocking with an exception.
 
 RV32IM only performs type conversions during loads and stores. It is no coincidence that the load/store code is the most painful part of the recompiler.
+
+## Structure
+
+* `kip32ingest`: Reads RISC-V code, handles ELF reading, instruction fusion, ABI things.
+* `elf2uasm`: Converts a RISC-V ELF into Udon Assembly (or `.udonjson` but that was added later)
+* `elf2uasm_lib`: This is where stuff that `elf2uasm` and `udongdb` need to both know is stored.
+* `udongdb`: Intended to allow examining a kip32 Udon coredump using 'standard' GDB.
+* `micropython`: Contains the MicroPython port code.
+* `sdk`: Contains 'SDK' code, such as the libc.
+* `testing`: Contains test code to confirm things work.

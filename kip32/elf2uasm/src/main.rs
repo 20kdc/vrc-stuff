@@ -10,12 +10,10 @@ use kudonasm::*;
 use kudonast::*;
 use kudonodin::*;
 
+use elf2uasm_lib::*;
+
 mod wrapper;
 use wrapper::*;
-
-fn code_addr(pc: u32, sfx: &str) -> String {
-    format!("_code_{:08X}{}", pc, sfx)
-}
 
 /// Resolves a fixed jump.
 fn resolve_jump(asm: &Wrapper, img: &Sci32Image, to: u32) -> UdonInt {
@@ -29,59 +27,6 @@ fn resolve_jump(asm: &Wrapper, img: &Sci32Image, to: u32) -> UdonInt {
         UdonInt::I(0xFFFFFFFC)
     }
 }
-
-// To implement x0 properly:
-// 1. `idec` tries to NOP and generally remove x0 writes as much as possible
-// 2. Reads from `x0` are transformed into reads from a constant, while writes to `x0` are transformed into writes to a dummy.
-// Registers marked with _ are not exported.
-// REGISTERS_W has heap indices autocreated; REGISTERS_R does not.
-// Except X0, they should match.
-const REGISTERS_W: [&'static str; 32] = [
-    "_vm_zero_nopwriteshadow",
-    "_vm_ra",
-    "vm_sp",
-    "_vm_gp",
-    "_vm_x4",
-    "_vm_t0",
-    "_vm_t1",
-    "_vm_t2",
-    // x8/fp
-    "_fp",
-    "_s1",
-    // For convenience/sanity, a0-a7 are not marked with any prefix at all.
-    "a0",
-    "a1",
-    "a2",
-    "a3",
-    "a4",
-    "a5", // x16
-    "a6",
-    "a7",
-    "_vm_s2",
-    "_vm_s3",
-    "_vm_s4",
-    "_vm_s5",
-    "_vm_s6",
-    "_vm_s7",
-    // x24
-    "_vm_s8",
-    "_vm_s9",
-    "_vm_s10",
-    "_vm_s11",
-    "_vm_t3",
-    "_vm_t4",
-    "_vm_t5",
-    "_vm_t6",
-];
-// keep in sync!!!
-const REGISTERS_R: [&'static str; 32] = [
-    "_vm_zero", "_vm_ra", "vm_sp", "_vm_gp", "_vm_x4", "_vm_t0", "_vm_t1", "_vm_t2",
-    // x8/fp
-    "_fp", "_s1", // For convenience/sanity, a0-a7 are not marked with any prefix at all.
-    "a0", "a1", "a2", "a3", "a4", "a5", // x16
-    "a6", "a7", "_vm_s2", "_vm_s3", "_vm_s4", "_vm_s5", "_vm_s6", "_vm_s7", // x24
-    "_vm_s8", "_vm_s9", "_vm_s10", "_vm_s11", "_vm_t3", "_vm_t4", "_vm_t5", "_vm_t6",
-];
 
 fn resolve_alur(asm: &Wrapper, value: Sci32ALUSource) -> String {
     match value {
@@ -365,14 +310,7 @@ fn main() -> Result<()> {
     let const0 = asm.ensure_i32(0);
     let const1 = asm.ensure_i32(1);
 
-    asm.comment_c("-- JUMP TABLE (MUST BE AT START OF CODE) --");
-    for i in 0..img.instructions {
-        let pc = (i * 4) as u32;
-        uasm_op!(asm.asm(), JUMP, code_addr(pc, ""));
-    }
-    // Secret handshake!
-    // Technically, any non-JUMP instruction would work.
-    uasm_op_i!(asm.asm(), ANNOTATION, 0x44657373);
+    jump_table_gen(&mut asm.asm.borrow_mut(), img.instructions);
     asm.comment_c("");
 
     asm.comment_c("-- inc_code --");
@@ -474,7 +412,7 @@ fn main() -> Result<()> {
         }
         let istr = Kip32FusedInstr::read_fuse(&img, pc);
         asm.comment_c(&format!("{:?}", istr.content));
-        asm.code_label(&code_addr(pc, ""), Some(UdonAccess::Symbol))
+        asm.code_label(&code_addr(pc, ""), Some(UdonAccess::Elidable))
             .unwrap();
 
         // We add a jump unless this is true.
