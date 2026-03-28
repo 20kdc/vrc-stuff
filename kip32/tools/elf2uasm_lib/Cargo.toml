@@ -7,5 +7,5 @@ authors.workspace = true
 license.workspace = true
 
 [dependencies]
-kudonast = { path = "../../udon/kudonast" }
-kudoninfo = { path = "../../udon/kudoninfo" }
+kudonast = { path = "../../../udon/kudonast" }
+kudoninfo = { path = "../../../udon/kudoninfo" }

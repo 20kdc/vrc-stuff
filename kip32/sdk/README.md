@@ -4,16 +4,18 @@ The kip32 SDK is a setup-in-place package containing most things necessary to wr
 
 ## Requirements
 
-You need a 'sufficiently prepared' Unix-like terminal.
+TLDR: You need a 'sufficiently' Unix-like system with Rust and `riscv64-unknown-elf-gcc`.
 
-If you're on Windows, get MSYS2 <https://www.msys2.org/>, and these packages:
+If you're on Windows, get MSYS2 <https://www.msys2.org/>, **run it in `MSYS2 MINGW64` mode**, and install these packages:
 
 ```
 pacman -S mingw-w64-x86_64-riscv64-unknown-elf-gcc
-pacman -S mingw-w64-x86_64-riscv64-unknown-elf-binutils
-pacman -S gdb-multiarch
 pacman -S rust
+# optional:
+pacman -S gdb-multiarch
 ```
+
+_The packages may be installed from the default UCRT64 mode, but they won't be usable until you switch._
 
 _It may also be helpful to install a C compiler of your choice for building 'regular' code._
 

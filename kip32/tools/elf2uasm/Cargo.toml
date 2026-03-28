@@ -12,7 +12,7 @@ base64 = "0.22.1"
 lexopt = "0.3.1"
 elf2uasm_lib = { path = "../elf2uasm_lib" }
 kip32ingest = { path = "../kip32ingest" }
-kudonast = { path = "../../udon/kudonast" }
-kudonasm = { path = "../../udon/kudonasm" }
-kudoninfo = { path = "../../udon/kudoninfo" }
-kudonodin = { path = "../../udon/kudonodin" }
+kudonast = { path = "../../../udon/kudonast" }
+kudonasm = { path = "../../../udon/kudonasm" }
+kudoninfo = { path = "../../../udon/kudoninfo" }
+kudonodin = { path = "../../../udon/kudonodin" }
