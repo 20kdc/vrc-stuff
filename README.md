@@ -22,6 +22,8 @@ Includes:
 
 The build script used to be a shell script; it's now managed using <https://github.com/casey/just>.
 
+However, this doesn't really add much cross-platform-ness due to all the other tools involved. In practice, Windows users _will_ need to run scripts in the MSYS2 MINGW64 environment or in WSL. (MSYS2 is tested for `kip32` in particular.)
+
 Shell scripts are still used in some places, though.
 
 The dependencies required depend on what you're working on:

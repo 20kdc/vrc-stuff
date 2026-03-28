@@ -27,17 +27,15 @@ In addition, Linux users in particular may benefit from installing QEMU 'user-sp
 
 Once you have MSYS2 or a sufficiently prepared Unix-like terminal:
 
-Run `./configure` on a Unix-like (only Linux tested) or on MSYS2 (untested, but soon!).
+Run `./configure` on a Unix-like system (only Linux tested) or MSYS2 (tested in a Windows 10 VM).
 
 This script:
 
 * Sets up convenience scripts such as `kip32-udon-gcc`
 * (Re)compiles the libc
-* TODO: Cargo-compile `elf2uasm` and `kip32corestub` and copy them into the SDK directory.
-	* The goal here is that we should have a clear path to the existence of pre-configured SDK releases.
-* TODO: Once the details of a Rust SDK are figured out, the SDK should contain that.
+* Compiles kip32's tools
 
-The result is a ready-to-use environment.
+The result is a ready-to-use environment for compiling C code to Udon behaviours, either as Udon Assembly or as `.udonjson` files.
 
 ## Usage
 
