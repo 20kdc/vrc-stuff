@@ -59,8 +59,7 @@ SECTIONS {
 	.kip32_metadata : {
 		. = ALIGN(4);
 		/* metadata */
-		*(.kip32_metadata)
-		*(.kip32_metadata.*)
+		KEEP(*(.kip32_metadata .kip32_metadata.*))
 		/* checklinkermap might generate alignment if this is not set, which causes it to become ALLOC (bad) */
 		. = ALIGN(4);
 	}

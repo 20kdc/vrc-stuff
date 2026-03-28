@@ -8,6 +8,14 @@ And then I realized, most of the issues don't apply if the user trusts their own
 
 It can compile to Udon Assembly or to `udonjson` (see `kvtools`).
 
+## What do I need?
+
+See the [SDK README](./sdk/README.md).
+
+In the terminal (on either Linux or Windows MSYS2), you can then `cd` into `kip32/sdk` and run `./configure`.
+
+If this works, you're good.
+
 ## Why would you want to do that?
 
 Writing complex logic in C/Rust/etc. targetting VRChat.
