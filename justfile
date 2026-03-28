@@ -1,7 +1,7 @@
 build: udon kip32 mdbook
 
 [working-directory: 'kip32']
-kip32: kip32-libc
+kip32: kip32-sdk
 	cargo fmt
 	cargo build
 	cargo test -q
@@ -15,22 +15,18 @@ kip32: kip32-libc
 	objdump -h -D testing/science.elf > testing/science.lst || true
 
 [working-directory: 'kip32/testing']
-kip32-libc-test: kip32-libc
+kip32-libc-test: kip32-sdk
 	./libctest.elf
 
 [working-directory: 'kip32/testing']
-kip32-libc-test-gdb: kip32-libc
+kip32-libc-test-gdb: kip32-sdk
 	echo '> gdb-multiarch -ex "target remote localhost:8192"'
 	qemu-riscv32-static -g 8192 ./libctest.elf
 
-[working-directory: 'kip32/sdk/libc']
-kip32-libc:
-	rm -f obj/*.o obj_specific/*.o
-	../recipe "../kip32-udon-gcc -g -O3" "-c -o" "" `cat objects.txt`
-	rm -f ../libcudon.a ../libcqemu.a
-	riscv64-unknown-elf-ar rcs ../libcudon.a obj/*.o obj_specific/system_putchar.o obj_specific/memmove_syscall.o obj_specific/kip32_gettimeus_syscall.o obj_specific/sbrk_kip32.o
-	riscv64-unknown-elf-ar rcs ../libcqemu.a obj/*.o obj_specific/memmove_slow.o obj_specific/linux_syscalls.o obj_specific/kip32_gettimeus_clock_gettime64.o obj_specific/sbrk_fake.o
-	../kip32-libcqemu-gcc -g -O3 ../../testing/libctest.c ../../testing/qemu_stdio.c -o ../../testing/libctest.elf
+[working-directory: 'kip32/sdk']
+kip32-sdk:
+	./configure
+	./kip32-libcqemu-gcc -g -O3 ../testing/libctest.c ../testing/qemu_stdio.c -o ../testing/libctest.elf
 
 [working-directory: 'kip32/testing']
 libc-host-weird:

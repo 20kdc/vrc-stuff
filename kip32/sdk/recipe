@@ -12,6 +12,8 @@ shift
 shift
 shift
 
+echo -n "["
+
 RECIPE_JOBS=""
 
 while [ $# -gt 0 ]; do
@@ -21,4 +23,7 @@ while [ $# -gt 0 ]; do
 	shift
 	$RECIPE_A "$RECIPE_IN" $RECIPE_B "$RECIPE_OUT" $RECIPE_C
 	RECIPE_JOBS="$RECIPE_JOBS "
+	echo -n "."
 done
+
+echo "]"

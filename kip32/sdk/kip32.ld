@@ -1,5 +1,18 @@
 . = 0;
 SECTIONS {
+	/DISCARD/ : {
+		/*
+		 * destructors
+		 * we wish to **aggressively** lose these particular sections
+		 */
+		*(.fini_array .dtors .dtors.*)
+	}
+	.null : {
+		/*
+		 * We leave an unrecognized opcode here to catch calls to null pointers.
+		 */
+		LONG(0x00000000)
+	}
 	.kip32_export : {
 		. = ALIGN(4);
 		KEEP(*(.kip32_export))
@@ -22,6 +35,13 @@ SECTIONS {
 		*(.sdata .sdata.* .gnu.linkonce.s.*)
 		*(.sdata2 .sdata2.* .gnu.linkonce.s2.*)
 		*(.data .data.* .gnu.linkonce.d.*)
+
+		/* constructors ; not presently used, but... */
+		__init_array_start = .;
+		KEEP(*(.preinit_array))
+		KEEP(*(SORT_BY_INIT_PRIORITY(.init_array.*) SORT_BY_INIT_PRIORITY(.ctors.*)))
+		KEEP(*(.init_array .ctors))
+		__init_array_end = .;
 	}
 	.end : {
 		. = ALIGN(4);

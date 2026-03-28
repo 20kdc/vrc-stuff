@@ -1,0 +1,78 @@
+#!/bin/sh -e
+# kip32 SDK setup script -- run on a Unix-like or MSYS2
+
+# -- COPY-PASTED HEADER --
+if [ "$KIP32_SDK" = "" ]; then
+	WHERE_AM_I="`readlink -f "$0"`"
+	export KIP32_SDK="`dirname "$WHERE_AM_I"`"
+fi
+# ------------------------
+
+echo "kip32 SDK: $KIP32_SDK"
+
+# -- STEP 1: SCRIPT SETUP --
+
+write_tab() {
+	printf "\t"
+}
+
+# comment
+write_header() {
+	echo "#!/bin/sh -e"
+	echo "# $1"
+	echo
+	echo "# -- COPY-PASTED HEADER --"
+	echo 'if [ "$KIP32_SDK" = "" ]; then'
+	write_tab
+	echo 'WHERE_AM_I="`readlink -f "$0"`"'
+	write_tab
+	echo 'export KIP32_SDK="`dirname "$WHERE_AM_I"`"'
+	echo "fi"
+	echo "# ------------------------"
+	echo
+}
+
+# tool, specs, comment
+write_gccthunk() {
+	write_header "$3"
+	echo "# this option exists so that science.c can avoid using M-extension instructions during most tests"
+	echo 'if [ "$KIP32CC_OVERRIDE_ARCH" != "" ]; then'
+	write_tab
+	echo 'KIP32CC_ARCH="$KIP32CC_OVERRIDE_ARCH"'
+	echo 'else'
+	write_tab
+	echo 'KIP32CC_ARCH="rv32im"'
+	echo 'fi'
+	echo
+	echo 'exec riscv64-unknown-elf-'"$1"' -mabi=ilp32 "-march=$KIP32CC_ARCH" -ffreestanding -specs="$KIP32_SDK/'"$2"'.specs" "$@"'
+}
+
+# base, specs, comment
+put_gccthunks() {
+	write_gccthunk gcc "$2" "$3" > "kip32-$1-gcc"
+	write_gccthunk g++ "$2" "$3" > "kip32-$1-g++"
+	chmod +x "kip32-$1-gcc" "kip32-$1-g++"
+}
+
+put_gccthunks libcqemu libcqemu "This is useful for testing the libc (or for testing code tightly coupled to the libc)."
+put_gccthunks udon kip32_udon "Kind of like emcc in spirit. Adds kip32 SDK linker script, specs, include dirs, libc."
+
+# -- STEP 2: COMPILE LIBC --
+
+compile_libc() {
+	set -e
+	cd libc
+	rm -f obj/*.o obj_specific/*.o ../libcudon.a ../libcqemu.a
+	echo -n "Compiling libc "
+	../recipe "../kip32-udon-gcc -g -O3" "-c -o" "" `cat objects.txt`
+	riscv64-unknown-elf-ar rcs ../libcudon.a obj/*.o \
+		obj_specific/system_putchar.o obj_specific/memmove_syscall.o obj_specific/kip32_gettimeus_syscall.o obj_specific/sbrk_kip32.o
+	riscv64-unknown-elf-ar rcs ../libcqemu.a obj/*.o \
+		obj_specific/memmove_slow.o obj_specific/linux_syscalls.o obj_specific/kip32_gettimeus_clock_gettime64.o obj_specific/sbrk_fake.o
+}
+
+compile_libc
+
+# -- STEP 3: CONGRATULATIONS --
+
+echo " ... SDK setup complete! o pali pona! :3"

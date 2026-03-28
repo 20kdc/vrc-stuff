@@ -84,8 +84,9 @@ RV32IM only performs type conversions during loads and stores. It is no coincide
 
 * `kip32ingest`: Reads RISC-V code, handles ELF reading, instruction fusion, ABI things.
 * `elf2uasm`: Converts a RISC-V ELF into Udon Assembly (or `.udonjson` but that was added later)
-* `elf2uasm_lib`: This is where stuff that `elf2uasm` and `udongdb` need to both know is stored.
-* `udongdb`: Intended to allow examining a kip32 Udon coredump using 'standard' GDB.
+* `elf2uasm_lib`: This is where stuff that `elf2uasm` and `kip32corestub` need to both know is stored.
+* `kip32corestub`: Program intended to allow examining a kip32 Udon coredump using i.e. `gdb-multiarch`.
+	* This program relies heavily on <https://github.com/daniel5151/gdbstub>.
 * `micropython`: Contains the MicroPython port code.
 * `sdk`: Contains 'SDK' code, such as the libc.
 * `testing`: Contains test code to confirm things work.

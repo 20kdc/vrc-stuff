@@ -163,9 +163,7 @@ impl Sci32Image {
     fn parse_tags(section_name: &str) -> BTreeSet<String> {
         // determine tags
         let mut section_tags = BTreeSet::new();
-        if section_name.starts_with(".debug") {
-            section_tags.insert("discard".to_string());
-        } else if let Some(taglist) = section_name.strip_prefix(".kip32_") {
+        if let Some(taglist) = section_name.strip_prefix(".kip32_") {
             for tag in taglist.split("_") {
                 section_tags.insert(tag.to_string());
             }
