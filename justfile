@@ -55,3 +55,11 @@ kip32-idec:
 [working-directory: 'kvtools/Editor']
 datamine2json:
 	./datamine2json.py
+
+clean:
+	cd kip32/sdk ; ./clean
+	cargo clean --manifest-path mdbook/generator/Cargo.toml
+	cargo clean --manifest-path udon/Cargo.toml
+
+kip32-sdk-src-package: clean
+	zip kip32-sdk-src-package.zip -r kip32/sdk kip32/tools udon

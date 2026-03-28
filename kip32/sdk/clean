@@ -1,0 +1,4 @@
+#!/bin/sh
+# Undoes configure's hard work.
+rm -f bin/* env.sh *.a libc/obj/* libc/obj/obj_specific/*
+cargo clean --manifest-path ../tools/Cargo.toml
