@@ -11,12 +11,17 @@ The basic idea is that:
 		* Note that your game root may _actually_ be anywhere; KDCBSP intentionally does not care about this. This style is used for easy onboarding, but more experienced users may find it prudent to treat different projects as 'mods' on a single game root that exists outside of any Unity project, using symlinking.
 			* Regardless of this, `Assets/KDCBSPGameRoot/DefaultWorkspaceConfig.asset` is the hardcoded default workspace config.
 2. Add images to the game root textures tree to add materials in TrenchBroom
-3. Add entries to the workspace config to add materials in Unity
+3. Add materials to the same tree to add materials in Unity.
+	* More precise configuration can be added by creating KDCBSP material config files of the same name.
 4. BSP files (compiled using the relevant button in TrenchBroom) are imported as prefabs.
 	* There are plenty of options for customizing the import depending on the situation.
 
 ## Detailed Notes
 
+* KDCBSP finds materials relative to the materials path in each included (i.e. accounting for parents/etc.) KDCBSP workspace file.
+	* Given the input texture name `dev/32` and the default config, it looks at:
+		1. `KDCBSPGameRoot/baseq2/textures/dev/32.asset` (for KDCBSP texture config)
+		2. `KDCBSPGameRoot/baseq2/textures/dev/32.mat` (for Unity material; this is ignored if a texture config is found)
 * You need a dummy entity in each world 'cavity' you care about (at least one) so the map compiler knows the inside and outside.
 	* `info_player_start` is provided for this purpose.
 * Lightmapping and occlusion is not imported; `light` and `vis` are unused.

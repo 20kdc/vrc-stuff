@@ -99,6 +99,33 @@ namespace KDCVRCBSP {
 
 		// -- Windings --
 
+		/// Transforms triangles into a mesh.
+		public static Mesh TrianglesToMesh(List<TriInfo> triangles, Vector2 uvMul) {
+			var vertices = new Vector3[triangles.Count * 3];
+			var uvs = new Vector2[triangles.Count * 3];
+			var indices = new int[triangles.Count * 3];
+			int idx = 0;
+			foreach (var v in triangles) {
+				vertices[idx] = v.a;
+				uvs[idx] = v.au * uvMul;
+				indices[idx] = idx;
+				idx++;
+				vertices[idx] = v.b;
+				uvs[idx] = v.bu * uvMul;
+				indices[idx] = idx;
+				idx++;
+				vertices[idx] = v.c;
+				uvs[idx] = v.cu * uvMul;
+				indices[idx] = idx;
+				idx++;
+			}
+			Mesh res = new Mesh { vertices = vertices, uv = uvs, triangles = indices };
+			res.RecalculateNormals();
+			res.RecalculateTangents();
+			res.Optimize();
+			return res;
+		}
+
 		/// Adds this face's triangles.
 		public void FaceToTriangles(Face f, List<TriInfo> targetList) {
 			var uvSrc = GetTexInfoOrFallback(f.texInfo);

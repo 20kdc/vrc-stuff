@@ -11,9 +11,9 @@ namespace KDCVRCBSP {
 	[ScriptedImporter(1, "bsp")]
 	public class KDCBSPImporter : ScriptedImporter {
 
-		[Tooltip("Maps Quake 2 material names to Unity materials.")]
+		[Tooltip("Maps Quake 2 material names to Unity materials, among other things.")]
 		[SerializeField]
-		public KDCBSPWorkspaceConfig workspace;
+		public KDCBSPAbstractWorkspaceConfig workspace;
 
 		[Tooltip("Lightmap pack margin.")]
 		[SerializeField]
@@ -30,13 +30,11 @@ namespace KDCVRCBSP {
 
 		[Tooltip("These static flags are used on mesh renderers if there is no template prefab or if visOverrideStaticFlags is set.")]
 		[SerializeField]
-		public StaticEditorFlags visStaticFlags = StaticEditorFlags.OccluderStatic | StaticEditorFlags.OccludeeStatic | StaticEditorFlags.ContributeGI | StaticEditorFlags.BatchingStatic | StaticEditorFlags.ReflectionProbeStatic;
+		public StaticEditorFlags visStaticFlags = StaticEditorFlags.OccludeeStatic | StaticEditorFlags.ContributeGI | StaticEditorFlags.BatchingStatic | StaticEditorFlags.ReflectionProbeStatic;
 
-		/// If set, this overrides the material renderer template.
-		/// This is useful if making a case-specific prop using existing materials.
-		[Tooltip("If set, this forcibly replaces the prefab used to render materials, even if the workspace specifies its own prefab.\nThis is useful if quickly making a dynamic prop using a static-focused setup.")]
+		[Tooltip("If set, this replaces the prefab used to render materials. This cannot override materials with custom code which ignore the flag.")]
 		[SerializeField]
-		public LazyLoadReference<GameObject> visOverrideRendererTemplate = null;
+		public LazyLoadReference<GameObject> rendererTemplate = null;
 
 		[Tooltip("Controls if/how collision is generated.")]
 		[SerializeField]
@@ -46,20 +44,30 @@ namespace KDCVRCBSP {
 
 			if (workspace == null) {
 				// yes this is modification and Bad but it makes things make more sense really
-				workspace = (KDCBSPWorkspaceConfig) AssetDatabase.LoadAssetAtPath("Assets/KDCBSPGameRoot/DefaultWorkspaceConfig.asset", typeof(KDCBSPWorkspaceConfig));
+				workspace = (KDCBSPAbstractWorkspaceConfig) AssetDatabase.LoadAssetAtPath("Assets/KDCBSPGameRoot/DefaultWorkspaceConfig.asset", typeof(KDCBSPWorkspaceConfig));
 			}
 
-			// setup assignments
-			Dictionary<String, KDCBSPWorkspaceConfig.MaterialAssignment> mapping = new();
-			foreach (var v in workspace.materials)
-				mapping[v.name] = v;
+			KDCBSPIntermediate data = KDCBSPIntermediate.Load(File.ReadAllBytes(ctx.assetPath), workspace.WorldScale);
+
+			List<KDCBSPAbstractWorkspaceConfig> searchOrder = new();
+			searchOrder.Add(workspace);
+			workspace.BuildSearchOrder(ctx, searchOrder);
 
 			// this
 			UnwrapParam.SetDefaults(out UnwrapParam lightmapSettings);
 			lightmapSettings.packMargin = lightmapPackMargin;
 
+			KDCBSPImportContext importContext = new KDCBSPImportContext {
+				importer = this,
+				lightmapSettings = lightmapSettings,
+				workspace = workspace,
+				searchOrder = searchOrder,
+				bsp = data,
+				assetImportContext = ctx,
+				materialCache = new()
+			};
+
 			// actually create map meshes
-			KDCBSPIntermediate data = KDCBSPIntermediate.Load(File.ReadAllBytes(ctx.assetPath), workspace.worldScale);
 			GameObject mapGO = new GameObject("map");
 
 			// we always get this -- we may need it for concave evaluation or for visuals or both
@@ -70,48 +78,14 @@ namespace KDCVRCBSP {
 				visualsGO.transform.parent = mapGO.transform;
 
 				foreach (var kvp in triangles) {
-					var assignment = workspace.fallbackMaterial;
-
-					if (mapping.ContainsKey(kvp.Key))
-						assignment = mapping[kvp.Key];
-
-					if (!assignment.material.isSet)
+					var assignment = importContext.LookupMaterial(kvp.Key);
+					if (assignment == null)
 						continue;
 
-					LazyLoadReference<GameObject> rendererTemplate = visOverrideRendererTemplate.isSet ? visOverrideRendererTemplate : assignment.rendererTemplate;
+					var materialGO = assignment.BuildVisualObject(importContext, kvp.Key, "mesh " + kvp.Key, kvp.Value, visualsGO);
+					if (materialGO == null)
+						continue;
 
-					GameObject materialGO;
-
-					if (rendererTemplate.isSet) {
-						materialGO = (GameObject) UnityEngine.Object.Instantiate(rendererTemplate.asset, Vector3.zero, Quaternion.identity, visualsGO.transform);
-						materialGO.name = kvp.Key;
-					} else {
-						materialGO = new GameObject(kvp.Key);
-						materialGO.transform.parent = visualsGO.transform;
-						GameObjectUtility.SetStaticEditorFlags(materialGO, visStaticFlags);
-					}
-
-					Mesh mesh = TrianglesToMesh(kvp.Value, Vector2.one / new Vector2(assignment.width, assignment.height));
-
-					Unwrapping.GenerateSecondaryUVSet(mesh, lightmapSettings);
-
-					ctx.AddObjectToAsset("mesh " + kvp.Key, mesh);
-
-					var meshFilter = materialGO.GetComponent<MeshFilter>();
-					if (meshFilter == null)
-						meshFilter = materialGO.AddComponent<MeshFilter>();
-
-					var meshRender = materialGO.GetComponent<MeshRenderer>();
-					if (meshRender == null)
-						meshRender = materialGO.AddComponent<MeshRenderer>();
-
-					var materialsList = new List<Material>();
-					materialsList.Add(assignment.material.asset);
-					meshRender.SetSharedMaterials(materialsList);
-
-					// mesh.isReadable = false;
-					mesh.UploadMeshData(true);
-					meshFilter.mesh = mesh;
 					if (visOverrideStaticFlags)
 						GameObjectUtility.SetStaticEditorFlags(materialGO, visStaticFlags);
 				}
@@ -121,28 +95,62 @@ namespace KDCVRCBSP {
 				GameObject collisionGO = new GameObject("collision");
 				collisionGO.transform.parent = mapGO.transform;
 
-				var convexes = GetBSPConvexes(data, 0);
+				var model = data.models[0];
+				List<List<TriInfo>> res = new();
 				var idx = 0;
-				foreach (var convex in convexes) {
+				foreach (var b in model.brushes) {
 					string convexName = "convex" + idx;
+					idx++;
+					// figure out primary side {
+					KDCBSPAbstractMaterialConfig bPrimary = null;
+					float bPrimaryWeight = float.MinValue;
+					foreach (var bSide in b.sides) {
+						var assignment = importContext.LookupMaterial(data.GetTexInfoOrFallback(bSide.texInfo).tex);
+						if (assignment == null)
+							continue;
+						float weight = assignment.GetCollisionConvexPriority(bSide.plane.normal);
+						if (weight > bPrimaryWeight) {
+							bPrimary = assignment;
+							bPrimaryWeight = weight;
+						}
+					}
+					bool collisionEnable = bPrimary != null ? bPrimary.collisionEnable : true;
+					PhysicMaterial collisionMaterial = bPrimary != null ? bPrimary.collisionMaterial.asset : null;
+					// }
+					if (!collisionEnable)
+						continue;
+					// CONTENTS_CURRENT_0
+					// We use this as a 'secret handshake' to implement the 'noclip' brush.
+					// Noclip brushes are solid (so block vis), but don't create collision.
+					if ((b.contents & 0x40000) != 0)
+						continue;
+					// CONTENTS_SOLID | CONTENTS_PLAYERCLIP
+					if ((b.contents & (1 | 0x10000)) == 0)
+						continue;
+					List<TriInfo> convexMesh = new();
+					foreach (var face in data.BrushToFaces(b, workspace.WorldScale)) {
+						data.FaceToTriangles(face, convexMesh);
+					}
 					GameObject convexGO = new GameObject(convexName);
 					convexGO.transform.parent = collisionGO.transform;
-					Mesh mesh = TrianglesToMesh(convex, Vector2.one);
+					Mesh mesh = KDCBSPIntermediate.TrianglesToMesh(convexMesh, Vector2.one);
 					ctx.AddObjectToAsset(convexName, mesh);
 					var collider = convexGO.AddComponent(typeof(MeshCollider)) as MeshCollider;
 					collider.convex = true;
+					collider.sharedMaterial = collisionMaterial;
 					collider.sharedMesh = mesh;
-					idx++;
 				}
 			} else if (collision == CollisionMode.ConcaveRoot) {
 				List<TriInfo> concave = new();
 				foreach (var kvp in triangles) {
-					if (kvp.Key == "common/noclip")
-						continue;
+					var assignment = importContext.LookupMaterial(kvp.Key);
+					if (assignment != null)
+						if (!assignment.collisionEnable)
+							continue;
 					foreach (var tri in kvp.Value)
 						concave.Add(tri);
 				}
-				Mesh mesh = TrianglesToMesh(concave, Vector2.one);
+				Mesh mesh = KDCBSPIntermediate.TrianglesToMesh(concave, Vector2.one);
 				ctx.AddObjectToAsset("concave", mesh);
 				var collider = mapGO.AddComponent(typeof(MeshCollider)) as MeshCollider;
 				collider.convex = false;
@@ -151,34 +159,6 @@ namespace KDCVRCBSP {
 
 			ctx.AddObjectToAsset("main obj", mapGO);
 			ctx.SetMainObject(mapGO);
-		}
-
-		// -- Unity Interface --
-
-		public Mesh TrianglesToMesh(List<TriInfo> triangles, Vector2 uvMul) {
-			var vertices = new Vector3[triangles.Count * 3];
-			var uvs = new Vector2[triangles.Count * 3];
-			var indices = new int[triangles.Count * 3];
-			int idx = 0;
-			foreach (var v in triangles) {
-				vertices[idx] = v.a;
-				uvs[idx] = v.au * uvMul;
-				indices[idx] = idx;
-				idx++;
-				vertices[idx] = v.b;
-				uvs[idx] = v.bu * uvMul;
-				indices[idx] = idx;
-				idx++;
-				vertices[idx] = v.c;
-				uvs[idx] = v.cu * uvMul;
-				indices[idx] = idx;
-				idx++;
-			}
-			Mesh res = new Mesh { vertices = vertices, uv = uvs, triangles = indices };
-			res.RecalculateNormals();
-			res.RecalculateTangents();
-			res.Optimize();
-			return res;
 		}
 
 		// -- Primary Geometry Converters --
@@ -202,27 +182,6 @@ namespace KDCVRCBSP {
 				bsp.FaceToTriangles(face, targetList);
 			}
 			return tri;
-		}
-
-		public List<List<TriInfo>> GetBSPConvexes(KDCBSPIntermediate bsp, int modelIdx) {
-			var model = bsp.models[modelIdx];
-			List<List<TriInfo>> res = new();
-			foreach (var b in model.brushes) {
-				// CONTENTS_CURRENT_0
-				// We use this as a 'secret handshake' to implement the 'noclip' brush.
-				// Noclip brushes are solid (so block vis), but don't create collision.
-				if ((b.contents & 0x40000) != 0)
-					continue;
-				// CONTENTS_SOLID | CONTENTS_PLAYERCLIP
-				if ((b.contents & (1 | 0x10000)) == 0)
-					continue;
-				List<TriInfo> convexMesh = new();
-				foreach (var face in bsp.BrushToFaces(b, workspace.worldScale)) {
-					bsp.FaceToTriangles(face, convexMesh);
-				}
-				res.Add(convexMesh);
-			}
-			return res;
 		}
 
 		// -- Control Enums --
