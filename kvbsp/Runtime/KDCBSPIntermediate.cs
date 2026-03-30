@@ -211,7 +211,7 @@ namespace KDCVRCBSP {
 		public void SetupBrushEntityOrigins() {
 			for (int i = 0; i < entities.Count; i++) {
 				var entity = entities[i];
-				if (entity["kdcbsp_autoorigin"] != "1")
+				if (entity["_kdcbsp_autoorigin"] != "1")
 					continue;
 				if (entity.model < 0 && entity.model > models.Length)
 					continue;

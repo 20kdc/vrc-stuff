@@ -49,12 +49,17 @@ namespace KDCVRCBSP {
 
 			GameObject mapGO = CreateEntity(importContext, data.Worldspawn, "worldspawn ", null);
 
-			int eid = 0;
-
+			Dictionary<string, int> entCounters = new();
 			foreach (var entity in data.entities) {
 				if (entity.IsWorldspawn)
 					continue;
-				CreateEntity(importContext, entity, entity.classname + " " + (eid++), mapGO);
+				// use per-classname counters to increase resilience
+				if (!entCounters.ContainsKey(entity.classname))
+					entCounters[entity.classname] = 0;
+				int eid = entCounters[entity.classname];
+				entCounters[entity.classname] = eid + 1;
+				// ...
+				CreateEntity(importContext, entity, entity.classname + " " + eid, mapGO);
 			}
 
 			ctx.AddObjectToAsset("main obj", mapGO);

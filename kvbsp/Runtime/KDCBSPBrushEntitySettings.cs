@@ -89,14 +89,16 @@ namespace KDCVRCBSP {
 					mod = FlagMod.Off;
 				// -1 is unmodified, and setting it would overwrite any other modification
 			}
-			ParseFloat("kdcbsp_lightmap_pack_margin", ref lightmapPackMargin);
-			ParseBool("kdcbsp_visuals", ref visuals);
-			ParseFlagMod("kdcbsp_contribute_gi", ref contributeGI);
-			ParseFlagMod("kdcbsp_lightmaps", ref lightmaps);
-			ParseFlagMod("kdcbsp_occluder_static", ref occluderStatic);
-			ParseFlagMod("kdcbsp_occludee_static", ref occludeeStatic);
-			ParseFlagMod("kdcbsp_batching_static", ref batchingStatic);
-			ParseFlagMod("kdcbsp_reflection_probe_static", ref reflectionProbeStatic);
+			ParseFloat("_kdcbsp_lightmap_pack_margin", ref lightmapPackMargin);
+			ParseFloat("_kdcbsp_lightmap_scale", ref lightmapScale);
+			ParseBool("_kdcbsp_visuals", ref visuals);
+			ParseBool("_kdcbsp_collision_trigger", ref collisionIsTrigger);
+			ParseFlagMod("_kdcbsp_contribute_gi", ref contributeGI);
+			ParseFlagMod("_kdcbsp_lightmaps", ref lightmaps);
+			ParseFlagMod("_kdcbsp_occluder_static", ref occluderStatic);
+			ParseFlagMod("_kdcbsp_occludee_static", ref occludeeStatic);
+			ParseFlagMod("_kdcbsp_batching_static", ref batchingStatic);
+			ParseFlagMod("_kdcbsp_reflection_probe_static", ref reflectionProbeStatic);
 		}
 
 		/// Applies the settings in this instance to the given collider.
@@ -106,7 +108,7 @@ namespace KDCVRCBSP {
 
 		/// Flag modifier. Used to proxy staticflags without UnityEditor
 		public enum FlagMod {
-			Unmodified,
+			FromPrefab,
 			Off,
 			On
 		}

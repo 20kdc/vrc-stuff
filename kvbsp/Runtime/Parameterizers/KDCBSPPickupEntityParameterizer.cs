@@ -10,9 +10,17 @@ namespace KDCVRCBSP {
 	 * Entity parameterizer for func_pickup.
 	 */
 	public class KDCBSPPickupEntityParameterizer : KDCBSPEntityParameterizer {
+		bool kinematic;
+		public override void EntityParameterize(KDCBSPIntermediate bsp, ref KDCBSPIntermediate.Entity entity, string uniqueName) {
+			kinematic = (entity["kinematic"] == "1");
+			bool gravity = (entity["gravity"] == "1");
+			GetComponent<Rigidbody>().isKinematic = kinematic;
+			GetComponent<Rigidbody>().useGravity = gravity;
+		}
+
 		public override KDCBSPBrushEntitySettings EntityGetBrushSettings(bool isWorldspawn, KDCBSPBrushEntitySettings worldspawnCompilation, KDCBSPBrushEntitySettings brushEntityCompilation) {
 			brushEntityCompilation.collision = KDCBSPBrushEntitySettings.CollisionMode.SingleConvexRoot;
-			brushEntityCompilation.collisionIsTrigger = true;
+			brushEntityCompilation.collisionIsTrigger = kinematic;
 			return brushEntityCompilation;
 		}
 	}

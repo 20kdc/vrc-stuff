@@ -58,6 +58,12 @@ namespace KDCVRCBSP {
 		}
 
 		public override void OnInspectorGUI() {
+			// discovery
+			string trenchBroomConfigGames = Path.Join(trenchBroomConfig, "games");
+			string trenchBroomConfigDetail = Path.Join(trenchBroomConfigGames, "KVToolsTB");
+			string trenchBroomConfigCompilationProfiles = Path.Join(trenchBroomConfigDetail, "CompilationProfiles.cfg");
+			bool compilationProfilesAlreadyExist = File.Exists(trenchBroomConfigCompilationProfiles);
+
 			if (wizardStep == 0) {
 				WWLabel("Hey! Welcome to the t20kdc.vrc-bsp setup wizard!");
 				WWLabel("This is designed to try and help get you up and running as quickly as possible.");
@@ -90,10 +96,17 @@ namespace KDCVRCBSP {
 				if (GUILayout.Button("Link")) {
 					Application.OpenURL("https://github.com/ericwa/ericw-tools/releases");
 				}
-				qbspPath = EditorGUILayout.TextField("ericw-tools qbsp Path", qbspPath);
-				if (!File.Exists(qbspPath)) {
-					EditorGUILayout.HelpBox("The QBSP executable doesn't exist.", MessageType.Error);
+				if (!compilationProfilesAlreadyExist) {
+					qbspPath = EditorGUILayout.TextField("ericw-tools qbsp Path", qbspPath);
+					if (!File.Exists(qbspPath)) {
+						EditorGUILayout.HelpBox("The QBSP executable doesn't exist.", MessageType.Error);
+					} else {
+						if (GUILayout.Button("Continue.")) {
+							wizardStep = 2;
+						}
+					}
 				} else {
+					EditorGUILayout.HelpBox("The CompilationProfiles.cfg file already exists, and won't be overwritten, so you don't need to find qbsp.", MessageType.Info);
 					if (GUILayout.Button("Continue.")) {
 						wizardStep = 2;
 					}
@@ -101,22 +114,20 @@ namespace KDCVRCBSP {
 			} else if (wizardStep == 2) {
 				WWLabel("The game definition will now be installed into your TrenchBroom configuration.");
 				if (GUILayout.Button("Continue (copy/update game definition)")) {
-					string trenchBroomConfigGames = Path.Join(trenchBroomConfig, "games");
 					try {
 						Directory.CreateDirectory(trenchBroomConfigGames);
 					} catch (Exception ex) {
 						Debug.LogException(ex);
 					}
 					try {
-						string trenchBroomConfigDetail = Path.Join(trenchBroomConfigGames, "KVToolsTB");
 						Directory.CreateDirectory(trenchBroomConfigDetail);
 						string[] trivial = {"CompilationProfiles.cfg", "GameConfig.cfg", "kvtoolstb.fgd"};
 						foreach (string v in trivial) {
-							string compProfileFrom = FileUtil.GetPhysicalPath("Packages/t20kdc.vrc-bsp/TrenchBroom~/KVToolsTB/" + v);
-							string compProfileTo = Path.Join(trenchBroomConfigDetail, v);
-							if (v == "CompilationProfiles.cfg" && File.Exists(compProfileTo))
+							string fileFrom = FileUtil.GetPhysicalPath("Packages/t20kdc.vrc-bsp/TrenchBroom~/KVToolsTB/" + v);
+							string fileTo = Path.Join(trenchBroomConfigDetail, v);
+							if (v == "CompilationProfiles.cfg" && compilationProfilesAlreadyExist)
 								continue;
-							File.WriteAllText(compProfileTo, File.ReadAllText(compProfileFrom).Replace("TOOL_QBSP", qbspPath), new System.Text.UTF8Encoding(false));
+							File.WriteAllText(fileTo, File.ReadAllText(fileFrom).Replace("TOOL_QBSP", qbspPath), new System.Text.UTF8Encoding(false));
 						}
 					} catch (Exception ex) {
 						Debug.LogException(ex);

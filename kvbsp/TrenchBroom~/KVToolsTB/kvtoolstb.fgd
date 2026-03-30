@@ -13,13 +13,25 @@
 @SolidClass base(func_group) = func_detail_fence : "See ericw-tools docs" []
 
 @baseclass base(func_group) = BrushClass [
-	kdcbsp_autoorigin(integer) : "If set to 1, KDCBSP will automatically set origin to the centre of the AABB." : 0
-	kdcbsp_contribute_gi(integer): "Overrides static flag." : -1
-	kdcbsp_lightmaps(integer): "Overrides ReceiveGI." : -1
-	kdcbsp_occluder_static(integer): "Overrides static flag." : -1
-	kdcbsp_occludee_static(integer): "Overrides static flag." : -1
-	kdcbsp_batching_static(integer): "Overrides static flag." : -1
-	kdcbsp_reflection_probe_static(integer): "Overrides static flag." : -1
+	// Intermediate
+	_kdcbsp_autoorigin(integer) : "If set to 1, KDCBSP will automatically set origin to the centre of the AABB." : 0
+
+	// BrushEntitySettings
+	_kdcbsp_lightmap_pack_margin(float) : "Lightmap pack margin." : 0.01
+	_kdcbsp_lightmap_scale(float) : "Lightmap scale." : 1.0
+	_kdcbsp_visuals(integer): "If 0, this won't show." : 1
+	_kdcbsp_collision_trigger(integer): "Collider 'is trigger' flag." : 0
+
+	// 'static flag' block
+	_kdcbsp_contribute_gi(integer): "Overrides static flag." : -1
+	_kdcbsp_lightmaps(integer): "Overrides ReceiveGI." : -1
+	_kdcbsp_occluder_static(integer): "Overrides static flag." : -1
+	_kdcbsp_occludee_static(integer): "Overrides static flag." : -1
+	_kdcbsp_batching_static(integer): "Overrides static flag." : -1
+	_kdcbsp_reflection_probe_static(integer): "Overrides static flag." : -1
 ]
 
-@SolidClass base(BrushClass) = func_pickup : "VRC Pickup. Use kdcbsp_autoorigin or use an origin brush!" []
+@SolidClass base(BrushClass) = func_pickup : "VRC Pickup. Use kdcbsp_autoorigin or use an origin brush!" [
+	kinematic(integer): "Kinematic" : 0
+	gravity(integer): "Has Gravity" : 0
+]

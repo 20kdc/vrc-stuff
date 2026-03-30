@@ -11,7 +11,7 @@ GameObject:
   - component: {fileID: 1794492205801601022}
   - component: {fileID: 4313257146808955108}
   - component: {fileID: 959086852685182125}
-  - component: {fileID: 2871733422870710080}
+  - component: {fileID: 2244328755692350533}
   m_Layer: 0
   m_Name: func_pickup
   m_TagString: Untagged
@@ -94,7 +94,7 @@ MonoBehaviour:
   pickupable: 1
   proximity: 2
   version: 1
---- !u!114 &2871733422870710080
+--- !u!114 &2244328755692350533
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
