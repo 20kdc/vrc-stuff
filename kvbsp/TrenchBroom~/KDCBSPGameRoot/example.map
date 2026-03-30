@@ -67,9 +67,9 @@
 // entity 2
 {
 "classname" "func_pickup"
-"kdcbsp_autoorigin" "1"
-"kdcbsp_contribute_gi" "1"
-"kdcbsp_lightmaps" "1"
+"_kdcbsp_autoorigin" "1"
+"kinematic" "0"
+"gravity" "1"
 // brush 0
 {
 ( -101.85640646055101 -74.14359353944897 32 ) ( -85.85640646055101 -101.85640646055103 32 ) ( -85.85640646055101 -101.85640646055103 0 ) dev/32 [ 0.49999999999999983 -0.8660254037844387 0 18.717968 ] [ 0 0 -1 0 ] 270 1 1
@@ -83,9 +83,9 @@
 // entity 3
 {
 "classname" "func_pickup"
-"kdcbsp_autoorigin" "1"
-"kdcbsp_lightmaps" "1"
-"kdcbsp_contribute_gi" "1"
+"_kdcbsp_autoorigin" "1"
+"kinematic" "0"
+"gravity" "1"
 // brush 0
 {
 ( -99.59591794226542 -52.68629150101523 64 ) ( -91.31370849898475 -83.59591794226544 64 ) ( -91.31370849898475 -83.59591794226544 32 ) dev/32 [ 0.25881904510252063 -0.9659258262890684 0 -25.113728 ] [ 0 0 -1 0 ] 0 1 1
@@ -99,9 +99,9 @@
 // entity 4
 {
 "classname" "func_pickup"
-"kdcbsp_autoorigin" "1"
-"kdcbsp_lightmaps" "1"
-"kdcbsp_contribute_gi" "1"
+"_kdcbsp_autoorigin" "1"
+"kinematic" "0"
+"gravity" "1"
 // brush 0
 {
 ( -91.31370849898471 -20.404082057734556 32 ) ( -99.59591794226544 -51.31370849898473 32 ) ( -99.59591794226544 -51.31370849898473 0 ) dev/32 [ -0.258819045102523 -0.9659258262890675 0 -11.342556 ] [ 0 0 -1 0 ] 90 1 1
@@ -115,8 +115,6 @@
 // entity 5
 {
 "classname" "func_pickup"
-"kdcbsp_contribute_gi" "1"
-"kdcbsp_lightmaps" "1"
 // brush 0
 {
 ( -68 -4 36 ) ( -68 4 28 ) ( -68 4 36 ) common/origin [ 0 -1 0 0 ] [ 0 0 -1 28 ] 270 1 1
