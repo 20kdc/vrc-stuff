@@ -100,7 +100,7 @@ namespace KDCVRCBSP {
 			if (compSettings == null || entity.model < 0 || entity.model >= importContext.bsp.models.Length) {
 				if (custom != null) {
 					custom.EntityPostProcess();
-					Object.DestroyImmediate(custom);
+					UnityEngine.Object.DestroyImmediate(custom);
 				}
 				return entGO;
 			}
@@ -258,7 +258,7 @@ namespace KDCVRCBSP {
 
 			if (custom != null) {
 				custom.EntityPostProcess();
-				Object.DestroyImmediate(custom);
+				UnityEngine.Object.DestroyImmediate(custom);
 			}
 
 			return entGO;
