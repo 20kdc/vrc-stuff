@@ -18,15 +18,17 @@ The basic idea is that:
 
 ## Detailed Notes
 
-* KDCBSP finds materials relative to the materials path in each included (i.e. accounting for parents/etc.) KDCBSP workspace file.
+* KDCBSP finds materials and entity prefabs relative to the paths of each included (i.e. accounting for parents/etc.) KDCBSP workspace file.
 	* Given the input texture name `dev/32` and the default config, it looks at:
 		1. `KDCBSPGameRoot/baseq2/textures/dev/32.asset` (for KDCBSP texture config)
 		2. `KDCBSPGameRoot/baseq2/textures/dev/32.mat` (for Unity material; this is ignored if a texture config is found)
 * You need a dummy entity in each world 'cavity' you care about (at least one) so the map compiler knows the inside and outside.
 	* `info_player_start` is provided for this purpose.
 * Lightmapping and occlusion is not imported; `light` and `vis` are unused.
-* **Entities are not really supported, but the BSP compiler may have 'built-in' entities. See <https://ericw-tools.readthedocs.io/en/latest/qbsp.html#compiler-internal-bmodels>.**
-* On some versions, `func_detail_illusionary` defaults to `"_mirrorinside" "1"`. _**Make sure to explicitly change it to 0, or it'll horribly break light baking!!!**_
+* Brush entities come in various flavours!
+	* BSP-compiler-internal: See <https://ericw-tools.readthedocs.io/en/latest/qbsp.html#compiler-internal-bmodels>.
+		* On some versions, `func_detail_illusionary` defaults to `"_mirrorinside" "1"`. _**Make sure to explicitly change it to 0, or it'll horribly break light baking!!!**_
+	* Prefabs: So there's a whole _process_ here.
 * If the Unity material is None, triangles will not be created. This is one of the two useful ways to use `common/sky` (the other being a skybox material, perhaps with a custom shader with emission).
 * Special materials (note: The meanings are primarily assigned using `ericw-tools` metadata `.wal_json` files):
 	* If looking for `skip` / `caulk`: These are Q1 and Q3 names of `common/nodraw`.
@@ -50,4 +52,19 @@ The basic idea is that:
 	* This separation may be necessary to split larger maps into individual lightmaps.
 	* This separation is required for occlusion culling, whether trigger-based or Unity occlusion.
 	* Technically, it carries `SOLID | CURRENT_0` contents flags (`CURRENT_0` is used as a marker by the importer to mean 'not actually solid'), and `NODRAW` face flags.
+
+## Brush Entity Compilation Settings
+
+`KDCBSPImporter.CreateEntity` is essentially 'everything of importance after loading the file'.
+
+Everything in the importer is expressed as creating an entity, including the base world geometry (the `worldspawn` entity).
+
+'Point' entities are mainly user-controlled; see the `KDCBSPEntityParameterizer` interface if you want to mess with that.
+
+A key point in all this is `KDCBSPBrushEntitySettings`. This controls a _lot_ of details of brush entity compilation, so it's pretty important to know what gets to alter it.
+
+1. First, the worldspawn and brush entity templates are taken from the import settings.
+2. They are either given to KDCBSPEntityParameterizer (if one exists) to pick and edit, or one is chosen based on which is obviously correct (if not).
+3. Then, entity overrides (`kdcbsp_` keys other than `kdcbsp_autoorigin`) are executed.
+
 

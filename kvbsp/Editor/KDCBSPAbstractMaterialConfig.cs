@@ -25,7 +25,7 @@ namespace KDCVRCBSP {
 		/// Builds a material's 'visual'. This is a GameObject, which is returned.
 		/// If the importer wishes to override static flags, that's done after BuildVisualObject.
 		/// 'data' may be modified as you wish.
-		public abstract GameObject BuildVisualObject(KDCBSPImportContext ctx, string materialName, string meshAssetName, List<KDCBSPIntermediate.TriInfo> data, GameObject visualsGO);
+		public abstract GameObject BuildVisualObject(KDCBSPImportContext ctx, string materialName, string meshAssetName, List<KDCBSPIntermediate.TriInfo> data, GameObject visualsGO, KDCBSPBrushEntitySettings brushEntitySettings);
 
 		/// Calculates the collision convex priority for a given normal.
 		/// This is used when deciding which material config to use for physics materials/etc.
@@ -39,7 +39,7 @@ namespace KDCVRCBSP {
 			/// Implements retrieving the material information.
 			public abstract (Material, Vector2) GetMaterial(KDCBSPImportContext ctx, string materialName, string meshAssetName);
 
-			public override GameObject BuildVisualObject(KDCBSPImportContext ctx, string materialName, string meshAssetName, List<KDCBSPIntermediate.TriInfo> data, GameObject visualsGO) {
+			public override GameObject BuildVisualObject(KDCBSPImportContext ctx, string materialName, string meshAssetName, List<KDCBSPIntermediate.TriInfo> data, GameObject visualsGO, KDCBSPBrushEntitySettings brushEntitySettings) {
 
 				var (material, size) = GetMaterial(ctx, materialName, meshAssetName);
 
@@ -48,8 +48,8 @@ namespace KDCVRCBSP {
 
 				GameObject materialGO;
 
-				if (ctx.importer.rendererTemplate.isSet) {
-					materialGO = (GameObject) UnityEngine.Object.Instantiate(ctx.importer.rendererTemplate.asset, Vector3.zero, Quaternion.identity, visualsGO.transform);
+				if (brushEntitySettings.rendererTemplate.isSet) {
+					materialGO = (GameObject) UnityEngine.Object.Instantiate(brushEntitySettings.rendererTemplate.asset, Vector3.zero, Quaternion.identity, visualsGO.transform);
 					materialGO.name = materialName;
 				} else {
 					materialGO = new GameObject(materialName);
@@ -58,7 +58,7 @@ namespace KDCVRCBSP {
 
 				Mesh mesh = KDCBSPIntermediate.TrianglesToMesh(data, Vector2.one / size);
 
-				Unwrapping.GenerateSecondaryUVSet(mesh, ctx.lightmapSettings);
+				Unwrapping.GenerateSecondaryUVSet(mesh, KDCBSPImporter.BrushEntitySettingsToUnwrapParam(brushEntitySettings));
 
 				ctx.assetImportContext.AddObjectToAsset(meshAssetName, mesh);
 

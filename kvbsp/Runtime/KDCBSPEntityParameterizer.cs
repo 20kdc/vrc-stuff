@@ -12,22 +12,23 @@ namespace KDCVRCBSP {
 	public abstract class KDCBSPEntityParameterizer : MonoBehaviour, IEditorOnly {
 		/// This is called first.
 		/// Note the 'ref' on the entity. This can be used to tweak settings that can't really be easily tweaked from elsewhere, like static flags.
+		/// If you are going to call DestroyImmediate, CALL IT HERE! This is the only situation where we check.
 		public virtual void EntityParameterize(KDCBSPIntermediate bsp, ref KDCBSPIntermediate.Entity entity, string uniqueName) {
 			// do nothing
 		}
 
 		/// Returns the brush entity compile settings for this brush entity.
-		public virtual KDCBSPBrushEntitySettings EntityGetBrushSettings(KDCBSPBrushEntitySettings defaultSettings) {
-			return defaultSettings;
+		/// The passed instances are already cloned and can thus be freely modified.
+		public virtual KDCBSPBrushEntitySettings EntityGetBrushSettings(bool isWorldspawn, KDCBSPBrushEntitySettings worldspawnCompilation, KDCBSPBrushEntitySettings brushEntityCompilation) {
+			return isWorldspawn ? worldspawnCompilation : brushEntityCompilation;
 		}
 
 		public virtual LayerMask EntityConvexBrushLayer(LayerMask myLayer, KDCBSPIntermediate.Brush brush) {
 			return EntityConvexBrushLayerWrapper(null, myLayer, brush);
 		}
 
-		/// If this is true, then the configured worldspawn static flags are used for this entity's visuals.
-		/// Otherwise, it copies the gameobject's static flags, modified by the entity switches.
-		public virtual bool EntityUseWorldspawnStaticFlags => false;
+		/// If this is true, then this entity is compiled 'like worldspawn' (using worldspawn's settings).
+		public virtual bool EntityCompileLikeWorldspawn => false;
 
 		/// Implements default logic if custom == null.
 		public static LayerMask EntityConvexBrushLayerWrapper(KDCBSPEntityParameterizer custom, LayerMask myLayer, KDCBSPIntermediate.Brush brush) {
@@ -57,6 +58,8 @@ namespace KDCVRCBSP {
 		}
 
 		/// This is called last.
+		/// **AFTER THIS IS CALLED, THE MONOBEHAVIOUR IS DESTROYED!!!**
+		/// THIS IS YOUR LAST CHANCE TO RUN CODE!!!
 		public virtual void EntityPostProcess() {
 		}
 	}

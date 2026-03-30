@@ -32,13 +32,6 @@ namespace KDCVRCBSP {
 			// -1 means not a brush model.
 			public int model;
 
-			// UnityEditor-less proxies
-			public FlagMod contributeGI;
-			public FlagMod occluderStatic;
-			public FlagMod occludeeStatic;
-			public FlagMod batchingStatic;
-			public FlagMod reflectionProbeStatic;
-
 			public bool IsWorldspawn => classname == "worldspawn";
 
 			public string this[string key] {
@@ -78,20 +71,6 @@ namespace KDCVRCBSP {
 								if (float.TryParse(s3[2], out var z))
 									origin = TransformPosition(x, y, z, worldScale);
 				}
-
-				void ParseFlagMod(string s, ref FlagMod mod) {
-					if (s == "1")
-						mod = FlagMod.On;
-					else if (s == "0")
-						mod = FlagMod.Off;
-					else if (s == "-1")
-						mod = FlagMod.Unmodified;
-				}
-				ParseFlagMod("kdcbsp_contribute_gi", ref contributeGI);
-				ParseFlagMod("kdcbsp_occluder_static", ref occluderStatic);
-				ParseFlagMod("kdcbsp_occludee_static", ref occludeeStatic);
-				ParseFlagMod("kdcbsp_batching_static", ref batchingStatic);
-				ParseFlagMod("kdcbsp_reflection_probe_static", ref reflectionProbeStatic);
 			}
 
 			/// Transforms a position accounting for internal translation/rotation.
@@ -109,13 +88,6 @@ namespace KDCVRCBSP {
 					ti[i] = tri;
 				}
 			}
-		}
-
-		/// Flag modifier. Used to proxy staticflags without UnityEditor
-		public enum FlagMod {
-			Unmodified,
-			Off,
-			On
 		}
 
 		public struct TexInfo {

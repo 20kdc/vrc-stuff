@@ -6,7 +6,7 @@ using UnityEditor;
 using UnityEditor.AssetImporters;
 
 using TriInfo = KDCVRCBSP.KDCBSPIntermediate.TriInfo;
-using FlagMod = KDCVRCBSP.KDCBSPIntermediate.FlagMod;
+using FlagMod = KDCVRCBSP.KDCBSPBrushEntitySettings.FlagMod;
 using CollisionMode = KDCVRCBSP.KDCBSPBrushEntitySettings.CollisionMode;
 
 namespace KDCVRCBSP {
@@ -17,23 +17,8 @@ namespace KDCVRCBSP {
 		[SerializeField]
 		public KDCBSPAbstractWorkspaceConfig workspace;
 
-		[Tooltip("Lightmap pack margin.")]
-		[SerializeField]
-		public float lightmapPackMargin = 0.01f;
-
-		[Tooltip("Enables visuals (as opposed to collision only).")]
-		[SerializeField]
-		public bool visuals = true;
-
-		[Tooltip("These static flags are set on worldspawn.")]
-		[SerializeField]
-		public StaticEditorFlags worldspawnStaticFlags = StaticEditorFlags.OccludeeStatic | StaticEditorFlags.ContributeGI | StaticEditorFlags.BatchingStatic | StaticEditorFlags.ReflectionProbeStatic;
-
-		[Tooltip("If set, this replaces the prefab used to render materials. This cannot override materials with custom code which ignore the flag.")]
-		[SerializeField]
-		public LazyLoadReference<GameObject> rendererTemplate = null;
-
-		public KDCBSPBrushEntitySettings brushCompilation = new();
+		public KDCBSPBrushEntitySettings worldspawnCompilation = new();
+		public KDCBSPBrushEntitySettings brushEntityCompilation = new();
 
 		public override void OnImportAsset(AssetImportContext ctx) {
 			if (workspace == null) {
@@ -52,12 +37,8 @@ namespace KDCVRCBSP {
 				searchOrder.Add(builtInWorkspace);
 
 			// this
-			UnwrapParam.SetDefaults(out UnwrapParam lightmapSettings);
-			lightmapSettings.packMargin = lightmapPackMargin;
-
 			KDCBSPImportContext importContext = new KDCBSPImportContext {
 				importer = this,
-				lightmapSettings = lightmapSettings,
 				workspace = workspace,
 				searchOrder = searchOrder,
 				bsp = data,
@@ -103,25 +84,31 @@ namespace KDCVRCBSP {
 				entGO.name = uniqueName;
 			// Find the entity parameterizer.
 			var custom = entGO.GetComponent<KDCBSPEntityParameterizer>();
-			var compSettings = brushCompilation;
 
 			var assetPrefix = uniqueName + " ";
 
+			KDCBSPBrushEntitySettings compSettings;
 			if (custom != null) {
 				custom.EntityParameterize(importContext.bsp, ref entity, uniqueName);
-				compSettings = custom.EntityGetBrushSettings(compSettings);
+				if (custom == null)
+					return null;
+				compSettings = custom.EntityGetBrushSettings(entity.IsWorldspawn, (KDCBSPBrushEntitySettings) worldspawnCompilation.Clone(), (KDCBSPBrushEntitySettings) brushEntityCompilation.Clone());
+			} else {
+				compSettings = (KDCBSPBrushEntitySettings) (entity.IsWorldspawn ? worldspawnCompilation : brushEntityCompilation).Clone();
 			}
 
 			if (compSettings == null || entity.model < 0 || entity.model >= importContext.bsp.models.Length) {
-				if (custom != null)
+				if (custom != null) {
 					custom.EntityPostProcess();
+					Object.DestroyImmediate(custom);
+				}
 				return entGO;
 			}
 
+			compSettings.ParseEntityOverrides(entity);
+
 			// Figure out what static flags we want.
 			StaticEditorFlags visStaticFlags = GameObjectUtility.GetStaticEditorFlags(entGO);
-			if ((custom != null && custom.EntityUseWorldspawnStaticFlags) || entity.IsWorldspawn)
-				visStaticFlags = worldspawnStaticFlags;
 
 			void ModSEF(ref StaticEditorFlags sef, FlagMod mod, StaticEditorFlags v) {
 				if (mod == FlagMod.On)
@@ -129,11 +116,11 @@ namespace KDCVRCBSP {
 				else if (mod == FlagMod.Off)
 					sef &= ~v;
 			}
-			ModSEF(ref visStaticFlags, entity.contributeGI, StaticEditorFlags.ContributeGI);
-			ModSEF(ref visStaticFlags, entity.occluderStatic, StaticEditorFlags.OccluderStatic);
-			ModSEF(ref visStaticFlags, entity.occludeeStatic, StaticEditorFlags.OccludeeStatic);
-			ModSEF(ref visStaticFlags, entity.batchingStatic, StaticEditorFlags.BatchingStatic);
-			ModSEF(ref visStaticFlags, entity.reflectionProbeStatic, StaticEditorFlags.ReflectionProbeStatic);
+			ModSEF(ref visStaticFlags, compSettings.contributeGI, StaticEditorFlags.ContributeGI);
+			ModSEF(ref visStaticFlags, compSettings.occluderStatic, StaticEditorFlags.OccluderStatic);
+			ModSEF(ref visStaticFlags, compSettings.occludeeStatic, StaticEditorFlags.OccludeeStatic);
+			ModSEF(ref visStaticFlags, compSettings.batchingStatic, StaticEditorFlags.BatchingStatic);
+			ModSEF(ref visStaticFlags, compSettings.reflectionProbeStatic, StaticEditorFlags.ReflectionProbeStatic);
 
 			var model = importContext.bsp.models[entity.model];
 			// we always get this -- we may need it for concave evaluation or for visuals or both
@@ -142,7 +129,7 @@ namespace KDCVRCBSP {
 			foreach (var kvp in triangles)
 				entity.InternalTransformFixup(kvp.Value);
 
-			if (visuals) {
+			if (compSettings.visuals) {
 				GameObject visualsGO = new GameObject("visuals");
 
 				foreach (var kvp in triangles) {
@@ -150,11 +137,15 @@ namespace KDCVRCBSP {
 					if (assignment == null)
 						continue;
 
-					var materialGO = assignment.BuildVisualObject(importContext, kvp.Key, assetPrefix + "mesh " + kvp.Key, kvp.Value, visualsGO);
+					var materialGO = assignment.BuildVisualObject(importContext, kvp.Key, assetPrefix + "mesh " + kvp.Key, kvp.Value, visualsGO, compSettings);
 					if (materialGO == null)
 						continue;
 
 					GameObjectUtility.SetStaticEditorFlags(materialGO, visStaticFlags);
+
+					var meshRenderer = materialGO.GetComponent<MeshRenderer>();
+					if (meshRenderer != null)
+						BrushEntitySettingsToRenderer(compSettings, meshRenderer);
 				}
 
 				visualsGO.transform.parent = entGO.transform;
@@ -265,10 +256,26 @@ namespace KDCVRCBSP {
 				compSettings.ApplyColliderSettings(collider);
 			}
 
-			if (custom != null)
+			if (custom != null) {
 				custom.EntityPostProcess();
+				Object.DestroyImmediate(custom);
+			}
 
 			return entGO;
+		}
+
+		public static UnwrapParam BrushEntitySettingsToUnwrapParam(KDCBSPBrushEntitySettings compSettings) {
+			UnwrapParam.SetDefaults(out UnwrapParam lightmapSettings);
+			lightmapSettings.packMargin = compSettings.lightmapPackMargin;
+			return lightmapSettings;
+		}
+
+		public static void BrushEntitySettingsToRenderer(KDCBSPBrushEntitySettings compSettings, MeshRenderer meshRenderer) {
+			if (compSettings.lightmaps == FlagMod.Off)
+				meshRenderer.receiveGI = ReceiveGI.LightProbes;
+			else if (compSettings.lightmaps == FlagMod.On)
+				meshRenderer.receiveGI = ReceiveGI.Lightmaps;
+			meshRenderer.scaleInLightmap = compSettings.lightmapScale;
 		}
 
 		public (KDCBSPAbstractMaterialConfig, float) FindPrimarySide(KDCBSPImportContext importContext, KDCBSPIntermediate.Brush brush) {

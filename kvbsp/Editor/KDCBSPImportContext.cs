@@ -14,7 +14,6 @@ namespace KDCVRCBSP {
 		public const string KVBSP_BASE = "Packages/t20kdc.vrc-bsp/";
 
 		public KDCBSPImporter importer;
-		public UnwrapParam lightmapSettings;
 		public KDCBSPAbstractWorkspaceConfig workspace;
 		public List<KDCBSPAbstractWorkspaceConfig> searchOrder;
 		public KDCBSPIntermediate bsp;
