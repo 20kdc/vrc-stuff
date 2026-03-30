@@ -54,7 +54,6 @@ namespace KDCVRCBSP {
 				} else {
 					materialGO = new GameObject(materialName);
 					materialGO.transform.parent = visualsGO.transform;
-					GameObjectUtility.SetStaticEditorFlags(materialGO, ctx.importer.visStaticFlags);
 				}
 
 				Mesh mesh = KDCBSPIntermediate.TrianglesToMesh(data, Vector2.one / size);
@@ -78,8 +77,6 @@ namespace KDCVRCBSP {
 				// mesh.isReadable = false;
 				mesh.UploadMeshData(true);
 				meshFilter.mesh = mesh;
-				if (ctx.importer.visOverrideStaticFlags)
-					GameObjectUtility.SetStaticEditorFlags(materialGO, ctx.importer.visStaticFlags);
 				return materialGO;
 			}
 

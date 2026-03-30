@@ -11,6 +11,8 @@ namespace KDCVRCBSP {
 	 * Contains import context info.
 	 */
 	public struct KDCBSPImportContext {
+		public const string KVBSP_BASE = "Packages/t20kdc.vrc-bsp/";
+
 		public KDCBSPImporter importer;
 		public UnwrapParam lightmapSettings;
 		public KDCBSPAbstractWorkspaceConfig workspace;
@@ -18,6 +20,7 @@ namespace KDCVRCBSP {
 		public KDCBSPIntermediate bsp;
 		public AssetImportContext assetImportContext;
 		public Dictionary<String, KDCBSPAbstractMaterialConfig> materialCache;
+		public Dictionary<String, GameObject> entityCache;
 
 		public KDCBSPAbstractMaterialConfig LookupMaterial(string material) {
 			if (materialCache.ContainsKey(material))
@@ -32,6 +35,22 @@ namespace KDCVRCBSP {
 			}
 			res = workspace.FallbackMaterial(assetImportContext);
 			materialCache[material] = res;
+			return res;
+		}
+
+		public GameObject LookupEntity(string entity) {
+			if (entityCache.ContainsKey(entity))
+				return entityCache[entity];
+			GameObject res;
+			foreach (var cfg in searchOrder) {
+				res = cfg.LookupEntity(assetImportContext, entity);
+				if (res != null) {
+					entityCache[entity] = res;
+					return res;
+				}
+			}
+			res = workspace.FallbackEntity(assetImportContext);
+			entityCache[entity] = res;
 			return res;
 		}
 

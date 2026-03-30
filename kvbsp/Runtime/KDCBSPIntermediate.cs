@@ -2,8 +2,6 @@ using System;
 using System.IO;
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEditor;
-using UnityEditor.AssetImporters;
 
 namespace KDCVRCBSP {
 	/**
@@ -23,7 +21,101 @@ namespace KDCVRCBSP {
 		public Model[] models;
 
 		public struct Entity {
-			List<(string, string)> pairs;
+			public List<(string, string)> pairs;
+			// Auto-parsed early
+			public string classname;
+			public string targetname;
+			public Vector3 origin;
+			// This is how much to translate BSP positions by.
+			// This accounts for things like auto-origin.
+			public Vector3 internalTranslation;
+			// -1 means not a brush model.
+			public int model;
+
+			// UnityEditor-less proxies
+			public FlagMod contributeGI;
+			public FlagMod occluderStatic;
+			public FlagMod occludeeStatic;
+			public FlagMod batchingStatic;
+			public FlagMod reflectionProbeStatic;
+
+			public bool IsWorldspawn => classname == "worldspawn";
+
+			public string this[string key] {
+				get {
+					foreach (var (tkey, tvalue) in pairs)
+						if (key == tkey)
+							return tvalue;
+					return "";
+				}
+			}
+
+			public void FillCore(float worldScale) {
+				string detectedClassname = this["classname"];
+				if (detectedClassname == "") {
+					classname = "info_unknown";
+				} else {
+					classname = detectedClassname;
+				}
+
+				targetname = this["targetname"];
+
+				string detectedModel = this["model"];
+				if (detectedModel.StartsWith("*")) {
+					if (int.TryParse(detectedModel.Substring(1), out var result)) {
+						model = result;
+					}
+				} else {
+					model = IsWorldspawn ? 0 : -1;
+				}
+
+				string detectedOrigin = this["origin"];
+				if (detectedOrigin != "") {
+					string[] s3 = detectedOrigin.Split(' ');
+					if (s3.Length == 3)
+						if (float.TryParse(s3[0], out var x))
+							if (float.TryParse(s3[1], out var y))
+								if (float.TryParse(s3[2], out var z))
+									origin = TransformPosition(x, y, z, worldScale);
+				}
+
+				void ParseFlagMod(string s, ref FlagMod mod) {
+					if (s == "1")
+						mod = FlagMod.On;
+					else if (s == "0")
+						mod = FlagMod.Off;
+					else if (s == "-1")
+						mod = FlagMod.Unmodified;
+				}
+				ParseFlagMod("kdcbsp_contribute_gi", ref contributeGI);
+				ParseFlagMod("kdcbsp_occluder_static", ref occluderStatic);
+				ParseFlagMod("kdcbsp_occludee_static", ref occludeeStatic);
+				ParseFlagMod("kdcbsp_batching_static", ref batchingStatic);
+				ParseFlagMod("kdcbsp_reflection_probe_static", ref reflectionProbeStatic);
+			}
+
+			/// Transforms a position accounting for internal translation/rotation.
+			public Vector3 InternalTransformFixupPos(Vector3 src) {
+				return src + internalTranslation;
+			}
+
+			/// Transforms a position accounting for internal translation/rotation.
+			public void InternalTransformFixup(List<TriInfo> ti) {
+				for (int i = 0; i < ti.Count; i++) {
+					TriInfo tri = ti[i];
+					tri.a = InternalTransformFixupPos(tri.a);
+					tri.b = InternalTransformFixupPos(tri.b);
+					tri.c = InternalTransformFixupPos(tri.c);
+					ti[i] = tri;
+				}
+			}
+		}
+
+		/// Flag modifier. Used to proxy staticflags without UnityEditor
+		public enum FlagMod {
+			Unmodified,
+			Off,
+			On
 		}
 
 		public struct TexInfo {
@@ -37,11 +129,8 @@ namespace KDCVRCBSP {
 
 		public struct Model {
 			public Vector3 mins, maxs, origin;
-			public int headNode;
 			public Face[] faces;
 			// If explicit UV-mapped face support is required, add 'UVFace' struct and appropriate array here.
-			/// For now, Q2Loader is copying the same brushes array to all models.
-			/// This is subject to being fixed.
 			public Brush[] brushes;
 		}
 
@@ -79,10 +168,107 @@ namespace KDCVRCBSP {
 
 		/// Just a proxy for KDCBSPQ2Loader right now.
 		public static KDCBSPIntermediate Load(byte[] bsp, float worldScale) {
-			return KDCBSPQ2Loader.Load(bsp, worldScale);
+			if (bsp.Length < 4)
+				throw new Exception("Not even long enough for the magic number!");
+
+			if (bsp[0] == (byte) 'I') {
+				return KDCBSPQ2Loader.Load(bsp, worldScale, false);
+			} else if (bsp[0] == (byte) 'Q') {
+				return KDCBSPQ2Loader.Load(bsp, worldScale, true);
+			} else {
+				throw new Exception("Doesn't look like a Quake 2 BSP file");
+			}
+		}
+
+		// -- Loader Assist --
+
+		public List<(string, bool)> TokenizeEntities(string entityLump) {
+			char[] whitespace = new char[33];
+			for (int i = 0; i < 33; i++)
+				whitespace[i] = (char) i;
+			List<(string, bool)> tokens = new();
+			while (entityLump.Length >= 0) {
+				entityLump = entityLump.TrimStart(whitespace);
+				if (entityLump.Length == 0)
+					break;
+				if (entityLump.StartsWith('"')) {
+					int endPoint = entityLump.IndexOf('\"', 1);
+					string token = entityLump.Substring(1, endPoint - 1);
+					tokens.Add((token, true));
+					entityLump = entityLump.Substring(endPoint + 1);
+				} else {
+					int endPoint = entityLump.IndexOfAny(whitespace);
+					if (endPoint == -1) {
+						tokens.Add((entityLump, false));
+						break;
+					} else {
+						tokens.Add((entityLump.Substring(0, endPoint), false));
+						entityLump = entityLump.Substring(endPoint);
+					}
+				}
+			}
+			return tokens;
+		}
+
+		public void ParseEntities(string entityLump, float worldScale) {
+			List<(string, bool)> tokens = TokenizeEntities(entityLump);
+			// We try to be extremely permissive.
+			List<(string, string)> currentEntity = new();
+			string key = null;
+			foreach (var (text, quoted) in tokens) {
+				if (quoted) {
+					if (key != null) {
+						currentEntity.Add((key, text));
+						key = null;
+					} else {
+						key = text;
+					}
+				} else if (text == "{") {
+					key = null;
+					currentEntity = new();
+				} else if (text == "}") {
+					Entity entData = new Entity {
+						pairs = currentEntity
+					};
+					entData.FillCore(worldScale);
+					entities.Add(entData);
+				}
+			}
+		}
+
+		public void SetupBrushEntityOrigins() {
+			for (int i = 0; i < entities.Count; i++) {
+				var entity = entities[i];
+				if (entity["kdcbsp_autoorigin"] != "1")
+					continue;
+				if (entity.model < 0 && entity.model > models.Length)
+					continue;
+				var mdl = models[entity.model];
+				var oldOrigin = entity.origin;
+				entity.origin = (mdl.mins + mdl.maxs) / 2;
+				entity.internalTranslation = oldOrigin - entity.origin;
+				entities[i] = entity;
+			}
 		}
 
 		// -- High-level Getters --
+
+		public Entity Worldspawn {
+			get {
+				foreach (Entity e in entities)
+					if (e.IsWorldspawn)
+						return e;
+				// Synthetic worldspawn
+				List<(string, string)> keys = new();
+				keys.Add(("classname", "worldspawn"));
+				Entity synthetic = new Entity {
+					pairs = keys
+				};
+				// since it's synthetic, we can use a fake worldScale here
+				synthetic.FillCore(64.0f);
+				return synthetic;
+			}
+		}
 
 		/// Gets TexInfo or a fake one.
 		/// This is useful because nodraw faces don't necessarily have valid TexInfos.

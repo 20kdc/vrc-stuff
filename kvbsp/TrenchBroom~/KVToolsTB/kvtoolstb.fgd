@@ -7,11 +7,19 @@
 @SolidClass = func_group : "See ericw-tools docs" [
 	_mirrorinside(integer) : "Creates mirrored polygons on the inside. See ericw-tools docs. For Unity use, leave unset or zero." : 0
 ]
-
 @SolidClass base(func_group) = func_detail : "See ericw-tools docs" []
-
 @SolidClass base(func_group) = func_detail_illusionary : "See ericw-tools docs. SET _mirrorinside 0 EXPLICITLY!!!" []
-
 @SolidClass base(func_group) = func_detail_wall : "See ericw-tools docs" []
-
 @SolidClass base(func_group) = func_detail_fence : "See ericw-tools docs" []
+
+@baseclass base(func_group) = BrushClass [
+	kdcbsp_autoorigin(integer) : "If set to 1, KDCBSP will automatically set origin to the centre of the AABB." : 0
+	kdcbsp_contribute_gi(integer): "Overrides static flag." : -1
+	kdcbsp_lightmaps(integer): "Overrides ReceiveGI." : -1
+	kdcbsp_occluder_static(integer): "Overrides static flag." : -1
+	kdcbsp_occludee_static(integer): "Overrides static flag." : -1
+	kdcbsp_batching_static(integer): "Overrides static flag." : -1
+	kdcbsp_reflection_probe_static(integer): "Overrides static flag." : -1
+]
+
+@SolidClass base(BrushClass) = func_pickup : "VRC Pickup. Use kdcbsp_autoorigin or use an origin brush!" []

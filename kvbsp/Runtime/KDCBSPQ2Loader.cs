@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Text;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEditor;
@@ -11,8 +12,14 @@ namespace KDCVRCBSP {
 	 * This contains all the binary format details, and 'skips over' certain parts of the format.
 	 */
 	public static class KDCBSPQ2Loader {
-		public static KDCBSPIntermediate Load(byte[] bsp, float worldScale) {
+		public static KDCBSPIntermediate Load(byte[] bsp, float worldScale, bool qbism) {
 			KDCBSPIntermediate res = new();
+
+			int entsOffset = BitConverter.ToInt32(bsp, 8);
+			int entsLength = BitConverter.ToInt32(bsp, 12);
+			// We bet on treating NUL as whitespace.
+			string entitiesLump = new UTF8Encoding(false).GetString(bsp, entsOffset, entsLength);
+			res.ParseEntities(entitiesLump, worldScale);
 
 			Plane[] planes;
 			foreach ((int idx, int pos) in StructArray(bsp, 1, 20, out planes)) {
@@ -53,10 +60,17 @@ namespace KDCVRCBSP {
 			}
 
 			KDCBSPIntermediate.Face[] faces;
-			foreach ((int idx, int pos) in StructArray(bsp, 6, 20, out faces)) {
-				int firstEdge = BitConverter.ToInt32(bsp, pos + 4);
-				int numEdges = (int) BitConverter.ToUInt16(bsp, pos + 8);
-				int texInfo = (int) BitConverter.ToUInt16(bsp, pos + 10);
+			foreach ((int idx, int pos) in StructArray(bsp, 6, qbism ? 28 : 20, out faces)) {
+				int firstEdge, numEdges, texInfo;
+				if (!qbism) {
+					firstEdge = BitConverter.ToInt32(bsp, pos + 4);
+					numEdges = (int) BitConverter.ToUInt16(bsp, pos + 8);
+					texInfo = (int) BitConverter.ToUInt16(bsp, pos + 10);
+				} else {
+					firstEdge = BitConverter.ToInt32(bsp, pos + 8);
+					numEdges = BitConverter.ToInt32(bsp, pos + 12);
+					texInfo = BitConverter.ToInt32(bsp, pos + 16);
+				}
 				Vector3[] winding = new Vector3[numEdges];
 				for (int i = 0; i < numEdges; i++) {
 					// has to be mapped using surfedges - see https://github.com/id-Software/Quake-2-Tools/blob/master/bsp/qbsp3/writebsp.c#L213
@@ -64,8 +78,15 @@ namespace KDCVRCBSP {
 					int sebVal = BitConverter.ToInt32(bsp, seb);
 					int edgeIdx = sebVal < 0 ? -sebVal : sebVal;
 					int edgeVtx = sebVal < 0 ? 1 : 0;
-					int edgeVtxOfs = GetStructOfs(bsp, 11, edgeIdx, 4) + (edgeVtx * 2); // edges[edgeIdx][edgeVtx]
-					winding[i] = vertexes[(int) BitConverter.ToUInt16(bsp, edgeVtxOfs)];
+					int vertex;
+					if (!qbism) {
+						int edgeVtxOfs = GetStructOfs(bsp, 11, edgeIdx, 4) + (edgeVtx * 2); // edges[edgeIdx][edgeVtx]
+						vertex = (int) BitConverter.ToUInt16(bsp, edgeVtxOfs);
+					} else {
+						int edgeVtxOfs = GetStructOfs(bsp, 11, edgeIdx, 8) + (edgeVtx * 4);
+						vertex = BitConverter.ToInt32(bsp, edgeVtxOfs);
+					}
+					winding[i] = vertexes[vertex];
 				}
 				faces[idx] = new KDCBSPIntermediate.Face {
 					texInfo = texInfo,
@@ -80,11 +101,19 @@ namespace KDCVRCBSP {
 				int contents = BitConverter.ToInt32(bsp, pos + 8);
 				KDCBSPIntermediate.BrushSide[] brushSides = new KDCBSPIntermediate.BrushSide[numSides];
 				for (int j = 0; j < numSides; j++) {
-					int sidePos = GetStructOfs(bsp, 15, j + firstSide, 4);
-					brushSides[j] = new KDCBSPIntermediate.BrushSide {
-						plane = planes[(int) BitConverter.ToUInt16(bsp, sidePos)],
-						texInfo = (int) BitConverter.ToUInt16(bsp, sidePos + 2)
-					};
+					if (!qbism) {
+						int sidePos = GetStructOfs(bsp, 15, j + firstSide, 4);
+						brushSides[j] = new KDCBSPIntermediate.BrushSide {
+							plane = planes[(int) BitConverter.ToUInt16(bsp, sidePos)],
+							texInfo = (int) BitConverter.ToUInt16(bsp, sidePos + 2)
+						};
+					} else {
+						int sidePos = GetStructOfs(bsp, 15, j + firstSide, 8);
+						brushSides[j] = new KDCBSPIntermediate.BrushSide {
+							plane = planes[BitConverter.ToInt32(bsp, sidePos)],
+							texInfo = BitConverter.ToInt32(bsp, sidePos + 4)
+						};
+					}
 				}
 				brushes[idx] = new KDCBSPIntermediate.Brush {
 					contents = contents,
@@ -92,7 +121,8 @@ namespace KDCVRCBSP {
 				};
 			}
 
-			// Despite lump order, models *must* be last.
+			// Despite lump order, models *must* be processed last.
+			// This is because we have to assemble lots of details out of everything else in the file.
 
 			foreach ((int idx, int pos) in StructArray(bsp, 13, 48, out res.models)) {
 				int firstFace = BitConverter.ToInt32(bsp, pos + 40);
@@ -100,17 +130,73 @@ namespace KDCVRCBSP {
 				KDCBSPIntermediate.Face[] modelFaces = new KDCBSPIntermediate.Face[numFaces];
 				for (int i = 0; i < numFaces; i++)
 					modelFaces[i] = faces[firstFace + i];
+				int headNode = BitConverter.ToInt32(bsp, pos + 36);
+				HashSet<int> brushNumSet = new();
+				if (!qbism)
+					CollectBrushes(bsp, brushNumSet, headNode);
+				else
+					CollectBrushesQbism(bsp, brushNumSet, headNode);
+				List<int> brushNums = new();
+				foreach (int i in brushNumSet)
+					brushNums.Add(i);
+				brushNums.Sort();
+				KDCBSPIntermediate.Brush[] modelBrushes = new KDCBSPIntermediate.Brush[brushNums.Count];
+				for (int i = 0; i < modelBrushes.Length; i++)
+					modelBrushes[i] = brushes[brushNums[i]];
 				res.models[idx] = new KDCBSPIntermediate.Model {
 					mins = GetPosition(bsp, pos + 0, worldScale),
 					maxs = GetPosition(bsp, pos + 12, worldScale),
 					origin = GetPosition(bsp, pos + 24, worldScale),
-					headNode = BitConverter.ToInt32(bsp, pos + 36),
 					faces = modelFaces,
-					brushes = brushes
+					brushes = modelBrushes
 				};
 			}
 
+			res.SetupBrushEntityOrigins();
+
 			return res;
+		}
+
+		// -- This --
+		private static void CollectBrushes(byte[] bsp, HashSet<int> brushNumSet, int node) {
+			if (node < 0) {
+				// dleaf_t 4 + 2 + 2 + (3 * 2) + (3 * 2) + 2 + 2 + 2 + 2
+				int leafOfs = GetStructOfs(bsp, 8, -(node + 1), 28);
+				int firstLeafBrush = (int) BitConverter.ToUInt16(bsp, leafOfs + 24);
+				int numLeafBrushes = (int) BitConverter.ToUInt16(bsp, leafOfs + 26);
+				for (int i = 0; i < numLeafBrushes; i++) {
+					int leafBrushOfs = GetStructOfs(bsp, 10, firstLeafBrush + i, 2);
+					int leafBrush = (int) BitConverter.ToUInt16(bsp, leafBrushOfs);
+					brushNumSet.Add(leafBrush);
+				}
+			} else {
+				// dnode_t 4 + (4 * 2) + (3 * 2) + (3 * 2) + 2 + 2
+				int nodeOfs = GetStructOfs(bsp, 4, node, 28);
+				int childA = BitConverter.ToInt32(bsp, nodeOfs + 4);
+				int childB = BitConverter.ToInt32(bsp, nodeOfs + 8);
+				CollectBrushes(bsp, brushNumSet, childA);
+				CollectBrushes(bsp, brushNumSet, childB);
+			}
+		}
+		private static void CollectBrushesQbism(byte[] bsp, HashSet<int> brushNumSet, int node) {
+			if (node < 0) {
+				// dleaf_tx 4 + 4 + 4 + (3 * 4) + (3 * 4) + 4 + 4 + 4 + 4
+				int leafOfs = GetStructOfs(bsp, 8, -(node + 1), 52);
+				int firstLeafBrush = BitConverter.ToInt32(bsp, leafOfs + 44);
+				int numLeafBrushes = BitConverter.ToInt32(bsp, leafOfs + 48);
+				for (int i = 0; i < numLeafBrushes; i++) {
+					int leafBrushOfs = GetStructOfs(bsp, 10, firstLeafBrush + i, 4);
+					int leafBrush = BitConverter.ToInt32(bsp, leafBrushOfs);
+					brushNumSet.Add(leafBrush);
+				}
+			} else {
+				// dnode_tx 4 + 8 + (3 * 4) + (3 * 4) + 4 + 4
+				int nodeOfs = GetStructOfs(bsp, 4, node, 44);
+				int childA = BitConverter.ToInt32(bsp, nodeOfs + 4);
+				int childB = BitConverter.ToInt32(bsp, nodeOfs + 8);
+				CollectBrushesQbism(bsp, brushNumSet, childA);
+				CollectBrushesQbism(bsp, brushNumSet, childB);
+			}
 		}
 
 		// -- Geometry --
