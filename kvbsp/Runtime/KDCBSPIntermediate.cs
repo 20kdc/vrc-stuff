@@ -43,6 +43,36 @@ namespace KDCVRCBSP {
 				}
 			}
 
+			public Vector3 GetVector3Position(string key, Vector3 defaultVal, float worldScale) {
+				string[] s3 = this[key].Split(' ');
+				if (s3.Length == 3)
+					if (float.TryParse(s3[0], out var x))
+						if (float.TryParse(s3[1], out var y))
+							if (float.TryParse(s3[2], out var z))
+								return TransformPosition(x, y, z, worldScale);
+				return defaultVal;
+			}
+
+			public bool GetBool(string key, bool defaultVal) {
+				if (this[key] == "1")
+					return true;
+				if (this[key] == "0")
+					return false;
+				return defaultVal;
+			}
+
+			public int GetInt(string key, int defaultVal) {
+				if (int.TryParse(this[key], out var val))
+					return val;
+				return defaultVal;
+			}
+
+			public float GetFloat(string key, float defaultVal) {
+				if (float.TryParse(this[key], out var val))
+					return val;
+				return defaultVal;
+			}
+
 			public void FillCore(float worldScale) {
 				string detectedClassname = this["classname"];
 				if (detectedClassname == "") {
@@ -62,15 +92,7 @@ namespace KDCVRCBSP {
 					model = IsWorldspawn ? 0 : -1;
 				}
 
-				string detectedOrigin = this["origin"];
-				if (detectedOrigin != "") {
-					string[] s3 = detectedOrigin.Split(' ');
-					if (s3.Length == 3)
-						if (float.TryParse(s3[0], out var x))
-							if (float.TryParse(s3[1], out var y))
-								if (float.TryParse(s3[2], out var z))
-									origin = TransformPosition(x, y, z, worldScale);
-				}
+				origin = GetVector3Position("origin", Vector3.zero, worldScale);
 			}
 
 			/// Transforms a position accounting for internal translation/rotation.

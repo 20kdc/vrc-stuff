@@ -32,6 +32,6 @@
 ]
 
 @SolidClass base(BrushClass) = func_pickup : "VRC Pickup. Use kdcbsp_autoorigin or use an origin brush!" [
-	kinematic(integer): "Kinematic" : 0
+	kinematic(integer): "Kinematic" : 1
 	gravity(integer): "Has Gravity" : 0
 ]

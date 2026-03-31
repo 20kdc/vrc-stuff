@@ -56,7 +56,13 @@ namespace KDCVRCBSP {
 					materialGO.transform.parent = visualsGO.transform;
 				}
 
-				Mesh mesh = KDCBSPIntermediate.TrianglesToMesh(data, Vector2.one / size);
+				var uvMul = Vector2.one / size;
+				// This
+				if ((!float.IsFinite(uvMul.x)) || (!float.IsFinite(uvMul.y))) {
+					Debug.LogWarning($"Fixing non-finite uvMul in material {materialName} mesh asset {meshAssetName} to prevent lightmapper freeze.\nPlease setup a KDCBSPMaterialConfig with an explicit size!");
+					uvMul = Vector2.one;
+				}
+				Mesh mesh = KDCBSPIntermediate.TrianglesToMesh(data, uvMul);
 
 				Unwrapping.GenerateSecondaryUVSet(mesh, KDCBSPImporter.BrushEntitySettingsToUnwrapParam(brushEntitySettings));
 

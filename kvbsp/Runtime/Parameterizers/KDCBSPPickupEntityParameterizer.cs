@@ -12,8 +12,8 @@ namespace KDCVRCBSP {
 	public class KDCBSPPickupEntityParameterizer : KDCBSPEntityParameterizer {
 		bool kinematic;
 		public override void EntityParameterize(KDCBSPIntermediate bsp, ref KDCBSPIntermediate.Entity entity, string uniqueName) {
-			kinematic = (entity["kinematic"] == "1");
-			bool gravity = (entity["gravity"] == "1");
+			kinematic = entity.GetBool("kinematic", true);
+			bool gravity = entity.GetBool("gravity", false);
 			GetComponent<Rigidbody>().isKinematic = kinematic;
 			GetComponent<Rigidbody>().useGravity = gravity;
 		}

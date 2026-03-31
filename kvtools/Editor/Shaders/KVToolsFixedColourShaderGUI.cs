@@ -20,12 +20,12 @@ namespace KDCVRCTools {
 			EditorGUI.BeginChangeCheck();
 
 			EditorGUI.showMixedValue = renderColour.hasMixedValue;
-			EditorGUILayout.ColorField(RenderText, renderColour.colorValue, true, false, false);
+			renderColour.colorValue = EditorGUILayout.ColorField(RenderText, renderColour.colorValue, true, false, false);
 			EditorGUI.showMixedValue = false;
 
 			if (materialEditor.EmissionEnabledProperty()) {
 				EditorGUI.showMixedValue = emissionColour.hasMixedValue;
-				EditorGUILayout.ColorField(EmissionText, emissionColour.colorValue, true, false, true);
+				renderColour.colorValue = EditorGUILayout.ColorField(EmissionText, emissionColour.colorValue, true, false, true);
 				EditorGUI.showMixedValue = false;
 				materialEditor.LightmapEmissionFlagsProperty(MaterialEditor.kMiniTextureFieldLabelIndentLevel, true);
 			}

@@ -13,3 +13,5 @@
 *.prt.meta
 *.json.meta
 *.log.meta
+*.pts
+*.pts.meta
