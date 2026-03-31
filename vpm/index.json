@@ -33,6 +33,18 @@
 					"license": "Unlicense",
 					"zipSHA256": "2c24541dc580847089d0d3ae3483235b77f370c91a1a27426c47bf33f2ad46d6",
 					"url": "https://raw.githubusercontent.com/20kdc/vrc-stuff/refs/heads/main/vpm/t20kdc.vrc-bsp-0.1.0.zip"
+				},
+				"0.2.0": {
+					"name": "t20kdc.vrc-bsp",
+					"displayName": "t20kdc Quake 2 BSP Importer",
+					"version": "0.2.0",
+					"author": {
+						"name": "t20kdc"
+					},
+					"description": "Using Quake 2 BSP compilers to build VRChat worlds.",
+					"license": "Unlicense",
+					"zipSHA256": "a0faf0ce2de14f32200103e984cc50d11971e1f743b66a47802542973f38cca3",
+					"url": "https://raw.githubusercontent.com/20kdc/vrc-stuff/refs/heads/main/vpm/t20kdc.vrc-bsp-0.2.0.zip"
 				}
 			}
 		},
@@ -73,6 +85,18 @@
 					"license": "Unlicense",
 					"zipSHA256": "c9c01b7a9f553bf67e671b48be5b216a2cac3f1df37e9755213f0ecff4673829",
 					"url": "https://raw.githubusercontent.com/20kdc/vrc-stuff/refs/heads/main/vpm/t20kdc.vrc-tools-1.1.0.zip"
+				},
+				"1.1.1": {
+					"name": "t20kdc.vrc-tools",
+					"displayName": "t20kdc VRC Tools",
+					"version": "1.1.1",
+					"author": {
+						"name": "t20kdc"
+					},
+					"description": "Contains (stable) utilities for building VRChat worlds.",
+					"license": "Unlicense",
+					"zipSHA256": "ae82bc26c2e97442c38f3c23f9cd66a4e1025ac3f15f2340145dacdb0ec41ea3",
+					"url": "https://raw.githubusercontent.com/20kdc/vrc-stuff/refs/heads/main/vpm/t20kdc.vrc-tools-1.1.1.zip"
 				}
 			}
 		}

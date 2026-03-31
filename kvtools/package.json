@@ -1,7 +1,7 @@
 {
 	"name": "t20kdc.vrc-tools",
 	"displayName": "t20kdc VRC Tools",
-	"version": "1.1.0",
+	"version": "1.1.1",
 	"author": {"name": "t20kdc"},
 	"description": "Contains (stable) utilities for building VRChat worlds.",
 	"license": "Unlicense"
