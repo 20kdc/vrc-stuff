@@ -27,7 +27,7 @@ Instead, there's a number of cases to follow when encoding them:
 There's also a number of 'quirks':
 
 * While some code will tell you `VRC.Udon.UdonBehaviour` is replaced with `VRC.Udon.Common.Interfaces.IUdonEventReceiver`, the answer is much more complicated than that.
-	* TLDR: `IUdonEventReceiver` is the real type.
+	* TLDR: `IUdonEventReceiver` is the real type for Udon externs. **`VRCUdonUdonBehaviour` is still the real type for object fields.**
 	* Basically, the SDK3 assemblies can't have `UdonBehaviour` because it lives in end-user-visible code, which is further down the dependency ladder. So they typically use `IUdonEventReceiver` as their proxy type. That is to say, these APIs really are referring to `IUdonEventReceiver`.
 	* But, Udon-targetting languages would prefer you thought it was called `UdonBehaviour`. For this reason they use various approaches to hack in this specific type alias.
 * As UdonSharp code helpfully points out, `SystemCollectionsGenericListT` and `SystemCollectionsGenericIEnumerableT` specifically are shortened to remove `SystemCollectionsGeneric`.

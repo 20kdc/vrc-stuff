@@ -532,11 +532,10 @@ impl KU2Context {
                 self.assemble_op(file, &kudoninfo::opcodes::PUSH, &[b])?;
                 self.assemble_op(file, &kudoninfo::opcodes::COPY, &[])
             }
-            KU2Instruction::Ext(id, params) => {
+            KU2Instruction::Ext(operand, params) => {
                 for param in params {
                     self.assemble_op(file, &kudoninfo::opcodes::PUSH, &[param])?;
                 }
-                let operand = KU2Operand::Sym(id.clone());
                 self.assemble_op(file, &kudoninfo::opcodes::EXTERN, &[&operand])
             }
         }

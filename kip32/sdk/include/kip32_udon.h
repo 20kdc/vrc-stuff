@@ -6,6 +6,19 @@
 #include <kip32.h>
 #endif
 
+// Declares global assembly.
+#define KIP32_UDON_GLOBALASM(id, code) KIP32_METADATA(id, "udon_asm:" code)
+// Declares a specific assembly thing.
+#define KIP32_UDON_ASM0(code) KIP32_SYSCALL0("builtin_asm:" code)
+#define KIP32_UDON_ASM1(code, a0) KIP32_SYSCALL1("builtin_asm:" code, a0)
+#define KIP32_UDON_ASM2(code, a0, a1) KIP32_SYSCALL2("builtin_asm:" code, a0, a1)
+#define KIP32_UDON_ASM3(code, a0, a1, a2) KIP32_SYSCALL3("builtin_asm:" code, a0, a1, a2)
+#define KIP32_UDON_ASM4(code, a0, a1, a2, a3) KIP32_SYSCALL4("builtin_asm:" code, a0, a1, a2, a3)
+#define KIP32_UDON_ASM5(code, a0, a1, a2, a3, a4) KIP32_SYSCALL5("builtin_asm:" code, a0, a1, a2, a3, a4)
+#define KIP32_UDON_ASM6(code, a0, a1, a2, a3, a4, a5) KIP32_SYSCALL6("builtin_asm:" code, a0, a1, a2, a3, a4, a5)
+#define KIP32_UDON_ASM7(code, a0, a1, a2, a3, a4, a5, a6) KIP32_SYSCALL7("builtin_asm:" code, a0, a1, a2, a3, a4, a5, a6)
+#define KIP32_UDON_ASM8(code, a0, a1, a2, a3, a4, a5, a6, a7) KIP32_SYSCALL8("builtin_asm:" code, a0, a1, a2, a3, a4, a5, a6, a7)
+
 #define KIP32_UDON_EXTPFX "builtin_extern_"
 #define KIP32_UDON_EXTERN0(ext) KIP32_SYSCALL0(KIP32_UDON_EXTPFX ext)
 #define KIP32_UDON_PUSH(ku2) KIP32_SYSCALL0("builtin_push_" ku2)

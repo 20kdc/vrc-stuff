@@ -312,7 +312,7 @@ pub enum KU2Instruction {
     #[serde(rename = "copy_static")]
     CopyStatic(KU2Operand, KU2Operand),
     #[serde(rename = "ext")]
-    Ext(KU2Symbol, Vec<KU2Operand>),
+    Ext(KU2Operand, Vec<KU2Operand>),
 }
 
 #[cfg(test)]

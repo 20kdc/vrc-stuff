@@ -178,6 +178,7 @@ namespace KDCVRCTools {
 					DiscoverTypes(tuple.Item2);
 			// special marker types
 			DiscoverTypes(typeof(VRC.Udon.Common.UdonGameObjectComponentHeapReference));
+			DiscoverTypes(typeof(VRC.Udon.UdonBehaviour));
 			// complete
 			AddRecordsType();
 

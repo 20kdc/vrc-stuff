@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4f11136daadff0b44ac2278a314682ab, type: 3}
   m_Name: intentionalError
   m_EditorClassIdentifier: 
-  serializedUdonProgramAsset: {fileID: 11400000, guid: f98d297d9f010271c99fc66ad83e3c82, type: 2}
+  serializedUdonProgramAsset: {fileID: 11400000, guid: 0e54bda8be8e3cf309c8a9da4a18c4e4, type: 2}
   udonAssembly: ".data_start\n\n    \n    __message_0: %SystemObject, null\n    __instance_0:
     %UnityEngineGameObject, this\n    __var_0: %SystemObject, null\n\n.data_end\n\n.code_start\n\n   
     .export _interact\n    \n    _interact:\n    \n        PUSH, __var_0\n       

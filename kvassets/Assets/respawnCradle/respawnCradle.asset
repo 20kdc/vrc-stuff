@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4f11136daadff0b44ac2278a314682ab, type: 3}
   m_Name: respawnCradle
   m_EditorClassIdentifier: 
-  serializedUdonProgramAsset: {fileID: 11400000, guid: af744f3cccd1d2063aea3518504caa1c, type: 2}
+  serializedUdonProgramAsset: {fileID: 11400000, guid: c00e73b0cc18f2789be9f300d4d5353c, type: 2}
   udonAssembly: ".data_start\n\n    .export target\n    \n    __instance_0: %VRCSDK3ComponentsVRCObjectSync,
     null\n    target: %VRCSDK3ComponentsVRCObjectSync, null\n\n.data_end\n\n.code_start\n\n   
     .export _interact\n    \n    _interact:\n    \n        PUSH, target\n       

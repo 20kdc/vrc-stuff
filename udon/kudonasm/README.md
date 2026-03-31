@@ -109,18 +109,21 @@ There is also an 'honourable mention' to symbols declared as `local()`, which de
 
 As a quick reference listing, the instructions of Udon are:
 
-* `nop`, `pop`, `copy`: No operands (solely uses stack).
-* `push(v)`, `annotation(v)`, `jump_indirect(v)`: Each has an operand with `data` affinity.
-* `jump_if_false(target)`, `jump(target)`: Operand with `error` affinity (as jumping to data space makes little sense)
-* `extern(ext_slot)`: Operand with `extern` affinity.
+* `nop`, `pop`, `copy`: No operands (solely uses stack; pop pops 1 index, copy 2).
+* `push(v)`: Data index operand (the index is pushed).
+* `annotation(v)`: Arbitrary operand, no stack effects.
+* `jump_indirect(v)`: Data index operand, no stack effects.)
+* `jump_if_false(target)`, `jump(target)`: Code position operand. `jump_if_false` pops an index, `jump` does not.
+* `extern(ext_slot)`: Data index operand. Pops however many indexes the extern wants.
 
 There are also 'macroinstructions':
 
 * `stop`: No operands, shorthand for `jump(0xFFFFFFFC)`, jumping to the conventional stop address.
 * `copy_static(src, dst)`: Shorthand for `push(src)`, `push(dst)`, `copy`
 	* Example: `copy_static(C(uint(1234)), some_uint)`
-* `ext(id, [param...])`: Shorthand for `push(param)` on each parameter, followed by `extern(SYM(id))`.
-	* Note the implication that `id` is always a symbol/equate.
+* `ext(id, [param...])`: Shorthand for `push(param)` on each parameter, followed by `extern(id)`.
+	* `id` used to be locked to being an equate due to legacy reasons. It now isn't.
+	* An example might be: `ext(EXT("UnityEngineTransform.__GetComponent__SystemType__UnityEngineComponent"), [transform, C(type("VRCUdonCommonInterfacesIUdonEventReceiver")), behaviour])`
 
 ## Declarations
 
@@ -160,7 +163,7 @@ sync(Wobbliness, linear)
 
 ### `update_order(order_val)`
 
-Sets the update order. The operand is evaluted with `error` affinity, as strings make no sense here.
+Sets the update order. The operand here should be considered as if it was inside `int_c`; it doesn't relate to a code position or data index.
 
 ```
 update_order(0)

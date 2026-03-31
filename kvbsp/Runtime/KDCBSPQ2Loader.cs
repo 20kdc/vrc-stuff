@@ -3,8 +3,6 @@ using System.IO;
 using System.Text;
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEditor;
-using UnityEditor.AssetImporters;
 
 namespace KDCVRCBSP {
 	/**

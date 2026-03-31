@@ -2,8 +2,6 @@
 
 @baseclass size(-24 -24 -16, 24 24 112) color(0 255 0) = PlayerClass []
 
-@PointClass base(PlayerClass) = info_player_start : "Player" []
-
 @SolidClass = func_group : "See ericw-tools docs" [
 	_mirrorinside(integer) : "Creates mirrored polygons on the inside. See ericw-tools docs. For Unity use, leave unset or zero." : 0
 ]
@@ -30,6 +28,12 @@
 	_kdcbsp_batching_static(integer): "Overrides static flag." : -1
 	_kdcbsp_reflection_probe_static(integer): "Overrides static flag." : -1
 ]
+
+// Actually-defined classes start here.
+
+@PointClass base(PlayerClass) = info_player_start : "Player" []
+
+@PointClass = info_null : "Generic target." []
 
 @SolidClass base(BrushClass) = func_pickup : "VRC Pickup. Use kdcbsp_autoorigin or use an origin brush!" [
 	kinematic(integer): "Kinematic" : 1

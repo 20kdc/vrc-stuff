@@ -222,6 +222,8 @@ Undefined jumps to negative or extremely high addresses should be 'reasonably sa
 
 Regarding syscall implementation, the `--inc` flag allows adding `kudonasm` assembly (KU2) to the result.
 
+'Global' KU2 assembly (like `--inc`) may also be added via loose metadata strings prefixed with `udon_asm:`.
+
 If possible, KU2 is transpilable into Udon Assembly. Certain KU2 features don't result in 'clean' Udon Assembly, and certain KU2 features _can't_ be transpiled. Work with caution.
 
 **The transpiled code keeps the Udon stack clean -- therefore, values may safely be left on the Udon stack between syscalls.**
