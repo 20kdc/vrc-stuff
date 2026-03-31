@@ -25,7 +25,7 @@ namespace KDCVRCTools {
 
 			if (materialEditor.EmissionEnabledProperty()) {
 				EditorGUI.showMixedValue = emissionColour.hasMixedValue;
-				renderColour.colorValue = EditorGUILayout.ColorField(EmissionText, emissionColour.colorValue, true, false, true);
+				emissionColour.colorValue = EditorGUILayout.ColorField(EmissionText, emissionColour.colorValue, true, false, true);
 				EditorGUI.showMixedValue = false;
 				materialEditor.LightmapEmissionFlagsProperty(MaterialEditor.kMiniTextureFieldLabelIndentLevel, true);
 			}
