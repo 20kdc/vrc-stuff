@@ -289,7 +289,6 @@ void * realloc(void * ptr, size_t size) {
 		assert(ptrBlk != heapEnd);
 		size_t desiredWords = BYTES_TO_WORDS(size);
 		size_t existingWords = baContentLen(ptrBlk);
-		int ok = 0;
 		if (existingWords < desiredWords) {
 			/* look at the next block, and if not in use... */
 			block_t * nextBlock = baGetNext(ptrBlk);

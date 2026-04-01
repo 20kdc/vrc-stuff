@@ -102,7 +102,7 @@ Of which are in-scope:
 * `math.h` (status: intentional stub)
 * `setjmp.h` (status: complete)
 * `signal.h` (status: intentional stub)
-* `stdio.h` (status: scan needs testing, otherwise complete)
+* `stdio.h` (status: complete)
 * `stdlib.h` (status: complete)
 * `string.h` (status: complete)
 * `time.h` (status: incomplete -- no `mktime` or `strftime`)
