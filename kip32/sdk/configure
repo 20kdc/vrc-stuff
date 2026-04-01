@@ -89,13 +89,12 @@ compile_frontend
 compile_libc() {
 	set -e
 	cd libc
-	rm -f obj/*.o obj_specific/*.o ../libcudon.a ../libcqemu.a
+	rm -f obj/*.o obj_specific/*.o obj_kip32/*.o obj_qemu/*.o ../libcudon.a ../libcqemu.a
 	echo -n "Compiling libc "
 	../recipe "../bin/kip32-udon-gcc -g -O3" "-c -o" "" `cat objects.txt`
-	riscv64-unknown-elf-ar rcs ../libcudon.a obj/*.o \
-		obj_specific/system_putchar.o obj_specific/memmove_syscall.o obj_specific/kip32_gettimeus_syscall.o obj_specific/sbrk_kip32.o
-	riscv64-unknown-elf-ar rcs ../libcqemu.a obj/*.o \
-		obj_specific/memmove_slow.o obj_specific/linux_syscalls.o obj_specific/kip32_gettimeus_clock_gettime64.o obj_specific/sbrk_fake.o
+	riscv64-unknown-elf-ar rcs ../libcudon.a obj/*.o obj_kip32/*.o
+	riscv64-unknown-elf-ar rcs ../libcqemu.a obj/*.o obj_qemu/*.o \
+		obj_specific/memmove_slow.o
 }
 
 compile_libc
