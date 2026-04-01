@@ -35,11 +35,11 @@ fn resolve_alur(asm: &Wrapper, value: Sci32ALUSource) -> String {
     }
 }
 
+/// Note that the fallthrough jump code is generated after this if necessary.
 fn asm_syscall(asm: &Wrapper, img: &Sci32Image, name: &str, istr_jump: u32) {
     let jmp = resolve_jump(&asm, &img, istr_jump);
     if let Some(sfx) = name.strip_prefix("builtin_extern_") {
         uasm_op!(asm.asm(), EXTERN, asm.asm().ensure_string(sfx, true));
-        asm.jump_ui(jmp);
         return;
     } else if let Some(sfx) = name.strip_prefix("builtin_push_") {
         if let Result::Ok(v) = kudonasm_parse_operand(sfx) {
@@ -47,7 +47,6 @@ fn asm_syscall(asm: &Wrapper, img: &Sci32Image, name: &str, istr_jump: u32) {
             if let Result::Ok(r) = ui {
                 uasm_op!(asm.asm(), PUSH);
                 asm.asm().code.push(r);
-                asm.jump_ui(jmp);
                 return;
             }
         }
@@ -88,7 +87,12 @@ fn asm_syscall(asm: &Wrapper, img: &Sci32Image, name: &str, istr_jump: u32) {
             "Code looked like it referred to syscall '{}', but it didn't exist.",
             name
         );
-        uasm_stop!(asm.asm());
+        uasm_op!(
+            asm.asm(),
+            EXTERN,
+            asm.asm()
+                .ensure_string(&format!("Kip32.MissingSyscall {}", name), true)
+        );
     }
 }
 
@@ -881,8 +885,6 @@ fn main() -> Result<()> {
             }
             Kip32FIC::NametableSyscall(name) => {
                 asm_syscall(&asm, &img, &name, istr.jump);
-                // Nametable syscalls rely on the package content to force a jump.
-                fallthrough_ok = true;
             }
             // unrecognized, break, etc.
             _ => {

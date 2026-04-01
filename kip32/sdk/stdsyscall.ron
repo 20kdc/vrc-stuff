@@ -21,6 +21,7 @@ package("inc_code", ["ecall", "ecall_end"])
 
 // The new mechanism is based on the package/snippet mechanism:
 // package("syscall_example", [])
+//     // note that a return jump instruction is automatically appended if necessary
 //     // return method 1: direct
 //     jump(_syscall_return) // return to calling code (local equate)
 //     // return method 2: indirect
@@ -44,7 +45,6 @@ local(was_false)
 
 _(was_false)
 	copy_static(C(int(0)), a0)
-	jump(_syscall_return)
 
 // -- is_valid --
 // pops anything index, checks for non-null
@@ -68,7 +68,6 @@ local(was_false)
 
 _(was_false)
 	copy_static(C(int(1)), a0)
-	jump(_syscall_return)
 
 // -- dynextern --
 
@@ -79,7 +78,6 @@ package("stdsyscall_dynextern", [])
 package("syscall_stdsyscall_dynextern", ["stdsyscall_dynextern"])
 
 	extern(_ecall_dynextern)
-	jump(_syscall_return)
 
 // -- copy --
 
@@ -136,7 +134,6 @@ _(not_newline)
 	ext(_ecall_ext_tochar, [a0, _ecall_logchar])
 	ext(_ecall_ext_char2str, [_ecall_logchar, _ecall_logcharstr])
 	ext(_ecall_ext_stradd, [_ecall_logmsg, _ecall_logcharstr, _ecall_logmsg])
-	jump(_syscall_return)
 
 // -- memmove --
 
@@ -147,8 +144,6 @@ package("syscall_stdsyscall_memmove", [])
 	equ(_ecall_ext_memmove, EXT("SystemBuffer.__BlockCopy__SystemArray_SystemInt32_SystemArray_SystemInt32_SystemInt32__SystemVoid"))
 
 	ext(_ecall_ext_memmove, [vm_memory, a1, vm_memory, a0, a2])
-
-	jump(_syscall_return)
 
 // -- sbrk --
 
@@ -187,8 +182,6 @@ package("syscall_stdsyscall_sbrk", [])
 	// say after me: 'the memory was always this size'
 	copy_static(vm_memory, _vm_memory_chk)
 
-	jump(_syscall_return)
-
 // -- getutctime --
 
 package("stdsyscall_getutctime", [])
@@ -220,8 +213,6 @@ package("syscall_stdsyscall_getutctime", ["stdsyscall_getutctime"])
 
 	ext(stdsyscall_getutctime_ext_geti32, [_vm_bcopy_i32, C(int(0)), a0])
 	ext(stdsyscall_getutctime_ext_geti32, [_vm_bcopy_i32, C(int(1)), a1])
-
-	jump(_syscall_return)
 
 // update_yield was removed in favour of setjmp, which does the same thing but more flexibly.
 
