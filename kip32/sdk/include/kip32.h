@@ -5,9 +5,9 @@
 #include <stdint.h>
 
 /* Exported symbols are put into a specific section. */
-#define KIP32_EXPORT __attribute__((section(".kip32_export")))
+#define KIP32_EXPORT __attribute__((section(".kip32_export"))) __attribute__((used))
 
-#define KIP32_METADATA(name, v) static const char __attribute__((section(".kip32_metadata"))) name[] = v;
+#define KIP32_METADATA(name, v) static const char __attribute__((section(".kip32_metadata"))) __attribute__((used)) name[] = v;
 
 /*
  * Because platform defines are global, they have __ around them.

@@ -1,7 +1,7 @@
 build: udon kip32 mdbook
 
 [working-directory: 'kip32']
-kip32: kip32-sdk
+kip32: kip32-sdk kip32-sdk-examples
 	sdk/bin/kip32-libcqemu-gcc -g -O3 testing/muldiv.S testing/qemu_stdio.c testing/genrefdata.c -o testing/genrefdata.elf
 	KIP32CC_OVERRIDE_ARCH=rv32i sdk/bin/kip32-udon-gcc -O3 testing/science.c -S -o testing/science.s
 	KIP32CC_OVERRIDE_ARCH=rv32i sdk/bin/kip32-udon-gcc -O3 testing/science.c testing/muldiv.S -o testing/science.elf -Wl,-Map=testing/science.map
@@ -29,6 +29,10 @@ kip32-libc-test-gdb: kip32-sdk
 kip32-sdk: kip32-tools
 	./configure
 	./bin/kip32-libcqemu-gcc -g -O3 ../testing/libctest.c ../testing/qemu_stdio.c -o ../testing/libctest.elf
+
+[working-directory: 'kip32/sdk/examples']
+kip32-sdk-examples: kip32-sdk
+	./build
 
 [working-directory: 'kip32/testing']
 libc-host-weird:

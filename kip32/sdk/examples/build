@@ -1,0 +1,11 @@
+#!/bin/sh -e
+. ../env.sh
+
+build_example() {
+	kip32-udon-gcc -g -O3 "$1.c" -o "out/$1.elf"
+	kip32-elf2uasm "out/$1.elf" -o "out/$1.uasm"
+	kip32-elf2uasm "out/$1.elf" --udonjson -o "out/$1.udonjson"
+}
+
+build_example 01_hello
+build_example 02_hello_udon
