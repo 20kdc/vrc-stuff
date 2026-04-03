@@ -1,0 +1,6 @@
+# per-package-target should leave bikeshed hell already
+[build]
+target = "riscv32im-unknown-none-elf"
+
+[target.riscv32im-unknown-none-elf]
+rustflags = ["-C", "link-arg=-Tlink.x"]

@@ -7,10 +7,10 @@ license = "Unlicense"
 
 [workspace]
 resolver = "2"
-members = [
-    "kudonast",
-    "kudonodin",
-    "kudoninfo",
-    "kudon_apijson",
-    "kudonasm"
-, "kudonknife"]
+members = ["example", "kip32"]
+
+[profile.dev]
+panic = "abort"
+
+[profile.release]
+panic = "abort"

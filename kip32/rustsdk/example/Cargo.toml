@@ -1,0 +1,10 @@
+[package]
+name = "example"
+publish.workspace = true
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+kip32 = {path = "../kip32"}

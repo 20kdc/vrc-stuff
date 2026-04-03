@@ -1,5 +1,5 @@
 [package]
-name = "elf2uasm"
+name = "kip32-elf2uasm"
 publish.workspace = true
 version.workspace = true
 edition.workspace = true

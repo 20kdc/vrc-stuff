@@ -1,5 +1,5 @@
 [package]
-name = "kip32corestub"
+name = "kip32-corestub"
 publish.workspace = true
 version.workspace = true
 edition.workspace = true

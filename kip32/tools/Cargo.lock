@@ -81,21 +81,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "elf2uasm"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "base64",
- "elf2uasm_lib",
- "kip32ingest",
- "kudonasm",
- "kudonast",
- "kudoninfo",
- "kudonodin",
- "lexopt",
-]
-
-[[package]]
 name = "elf2uasm_lib"
 version = "0.1.0"
 dependencies = [
@@ -150,13 +135,28 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "078e285eafdfb6c4b434e0d31e8cfcb5115b651496faca5749b88fafd4f23bfd"
 
 [[package]]
-name = "kip32corestub"
+name = "kip32-corestub"
 version = "0.1.0"
 dependencies = [
  "elf2uasm_lib",
  "gdbstub",
  "gdbstub_arch",
  "kudonast",
+ "kudonodin",
+ "lexopt",
+]
+
+[[package]]
+name = "kip32-elf2uasm"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "base64",
+ "elf2uasm_lib",
+ "kip32ingest",
+ "kudonasm",
+ "kudonast",
+ "kudoninfo",
  "kudonodin",
  "lexopt",
 ]

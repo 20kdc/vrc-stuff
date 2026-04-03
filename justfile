@@ -1,7 +1,7 @@
 build: udon kip32 mdbook
 
 [working-directory: 'kip32']
-kip32: kip32-sdk kip32-sdk-examples
+kip32: kip32-sdk kip32-sdk-examples kip32-rust-sdk
 	sdk/bin/kip32-libcqemu-gcc -g -O3 testing/muldiv.S testing/qemu_stdio.c testing/genrefdata.c -o testing/genrefdata.elf
 	KIP32CC_OVERRIDE_ARCH=rv32i sdk/bin/kip32-udon-gcc -O3 testing/science.c -S -o testing/science.s
 	KIP32CC_OVERRIDE_ARCH=rv32i sdk/bin/kip32-udon-gcc -O3 testing/science.c testing/muldiv.S -o testing/science.elf -Wl,-Map=testing/science.map
@@ -9,6 +9,10 @@ kip32: kip32-sdk kip32-sdk-examples
 	sdk/bin/kip32-elf2uasm testing/science.elf --udonjson -o ../kvassets/Assets/science.udonjson
 	# if this gives you an error, you probably need binutils-multiarch
 	objdump -h -D testing/science.elf > testing/science.lst || true
+
+[working-directory: 'kip32/rustsdk']
+kip32-rust-sdk: kip32-tools
+	cargo build
 
 [working-directory: 'kip32/tools']
 kip32-tools:

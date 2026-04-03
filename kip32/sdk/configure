@@ -78,8 +78,8 @@ link_tool() {
 compile_frontend() {
 	set -e
 	cargo build --manifest-path ../tools/Cargo.toml
-	link_tool elf2uasm kip32-elf2uasm
-	link_tool kip32corestub kip32-corestub
+	link_tool kip32-elf2uasm kip32-elf2uasm
+	link_tool kip32-corestub kip32-corestub
 }
 
 compile_frontend
