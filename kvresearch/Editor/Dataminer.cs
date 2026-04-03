@@ -103,10 +103,12 @@ namespace KDCVRCTools {
 			if (res.Contains(target))
 				return;
 			res.Add(target);
+			FindTypeBases(target, res);
 		}
 
 		/// Finds all bases of a type.
 		/// This is done in a reasonably consistent search order.
+		/// Note that, because we cull omitted types, we have to include recursive bases here.
 		public void FindTypeBases(Type t, List<Type> res) {
 			if (t.BaseType != null)
 				FindTypeBasesTarget(t.BaseType, res);

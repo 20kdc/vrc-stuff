@@ -61,7 +61,7 @@ kip32-idec:
 	cargo fmt
 	KIP32_TEST_EXHAUSTIVE=1 cargo test -- --show-output
 
-[working-directory: 'kvtools/Editor']
+[working-directory: 'kvresearch/Editor']
 datamine2json:
 	./datamine2json.py
 

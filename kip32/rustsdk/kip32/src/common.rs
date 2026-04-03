@@ -1,7 +1,7 @@
 /// Core of the bytes concatenator. Note that the maths occurs in the macro.
 pub const fn kip32_bytesconcat_core<const NA: usize, const NB: usize, const NR: usize>(
-    a: [u8; NA],
-    b: [u8; NB],
+    a: &[u8],
+    b: &[u8],
 ) -> [u8; NR] {
     let mut res: [u8; NR] = [0; NR];
     let mut i = 0;
@@ -25,7 +25,7 @@ pub const fn kip32_bytesconcat_core<const NA: usize, const NB: usize, const NR: 
 macro_rules! kip32_bytesconcat {
     ($a:expr, $b:expr) => {
         &$crate::kip32_bytesconcat_core::<{ $a.len() }, { $b.len() }, { ($a.len()) + ($b.len()) }>(
-            *$a, *$b,
+            $a, $b,
         )
     };
 }

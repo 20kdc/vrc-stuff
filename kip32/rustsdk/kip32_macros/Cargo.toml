@@ -10,3 +10,4 @@ license.workspace = true
 proc-macro = true
 
 [dependencies]
+kudon_apijson = { path = "../../../udon/kudon_apijson" }
