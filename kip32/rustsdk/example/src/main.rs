@@ -2,10 +2,10 @@
 #![no_main]
 
 use core::panic::PanicInfo;
-use kip32::kip32_syscall;
+use kip32::{kip32_export, kip32_syscall};
 
-#[unsafe(no_mangle)]
-fn _start() {
+#[kip32_export("_start")]
+fn start() {
     kip32_syscall!(b"TestSyscallDispatch", 1);
     kip32_syscall!(b"TestSyscallDispatchTwo", 1);
 }

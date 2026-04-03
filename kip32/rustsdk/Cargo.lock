@@ -12,3 +12,10 @@ dependencies = [
 [[package]]
 name = "kip32"
 version = "0.1.0"
+dependencies = [
+ "kip32_macros",
+]
+
+[[package]]
+name = "kip32_macros"
+version = "0.1.0"

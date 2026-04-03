@@ -180,6 +180,14 @@ fn main() {
 
     put_file(
         &mut summary,
+        "'kip32': Writing Udon Behaviours in C and Rust",
+        "kip32.md",
+        1,
+        include_str!("kip32_intro.md"),
+    );
+
+    put_file(
+        &mut summary,
         "Version Control Practices",
         "vcs.md",
         1,

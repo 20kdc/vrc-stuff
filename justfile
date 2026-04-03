@@ -12,6 +12,7 @@ kip32: kip32-sdk kip32-sdk-examples kip32-rust-sdk
 
 [working-directory: 'kip32/rustsdk']
 kip32-rust-sdk: kip32-tools
+	cargo fmt
 	cargo build
 
 [working-directory: 'kip32/tools']

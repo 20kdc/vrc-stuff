@@ -7,7 +7,7 @@ license = "Unlicense"
 
 [workspace]
 resolver = "2"
-members = ["example", "kip32"]
+members = ["example", "kip32", "kip32_macros"]
 
 [profile.dev]
 panic = "abort"

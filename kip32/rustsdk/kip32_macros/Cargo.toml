@@ -1,10 +1,12 @@
 [package]
-name = "kip32"
+name = "kip32_macros"
 publish.workspace = true
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
 license.workspace = true
 
+[lib]
+proc-macro = true
+
 [dependencies]
-kip32_macros = {path = "../kip32_macros"}

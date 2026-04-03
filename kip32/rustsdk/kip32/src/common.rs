@@ -1,5 +1,8 @@
 /// Core of the bytes concatenator. Note that the maths occurs in the macro.
-pub const fn kip32_bytesconcat_core<const NA: usize, const NB: usize, const NR: usize>(a: [u8; NA], b: [u8; NB]) -> [u8; NR] {
+pub const fn kip32_bytesconcat_core<const NA: usize, const NB: usize, const NR: usize>(
+    a: [u8; NA],
+    b: [u8; NB],
+) -> [u8; NR] {
     let mut res: [u8; NR] = [0; NR];
     let mut i = 0;
     while i < NA {
@@ -21,8 +24,10 @@ pub const fn kip32_bytesconcat_core<const NA: usize, const NB: usize, const NR: 
 #[macro_export]
 macro_rules! kip32_bytesconcat {
     ($a:expr, $b:expr) => {
-        &$crate::kip32_bytesconcat_core::<{$a.len()}, {$b.len()}, {($a.len()) + ($b.len())}>(*$a, *$b)
-    }
+        &$crate::kip32_bytesconcat_core::<{ $a.len() }, { $b.len() }, { ($a.len()) + ($b.len()) }>(
+            *$a, *$b,
+        )
+    };
 }
 
 /// Metadata has to be aligned for the JAL trick to work.
@@ -39,7 +44,8 @@ macro_rules! kip32_metadata {
         // meanwhile, having global metadata disappear suddenly would be really bad!
         #[used]
         #[unsafe(link_section = ".kip32_metadata")]
-        static $name: $crate::Kip32Metadata<{$crate::kip32_bytesconcat!($content, b"\0").len()}> = $crate::Kip32Metadata(*$crate::kip32_bytesconcat!($content, b"\0"));
+        static $name: $crate::Kip32Metadata<{ $crate::kip32_bytesconcat!($content, b"\0").len() }> =
+            $crate::Kip32Metadata(*$crate::kip32_bytesconcat!($content, b"\0"));
     };
 }
 
