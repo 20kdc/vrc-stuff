@@ -408,6 +408,9 @@ macro_rules! uasm_stop {
 mod odin_symtab;
 pub use odin_symtab::*;
 
+mod odin_synctab;
+pub use odin_synctab::*;
+
 mod emit_odin;
 pub use emit_odin::*;
 

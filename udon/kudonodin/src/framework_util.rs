@@ -1,36 +1,98 @@
 use crate::*;
+use serde::{Deserialize, Serialize};
 
 // -- .NET Types --
 
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
+pub enum OdinSTRefListKind {
+    Array,
+    List,
+}
+
 /// Wrapper for lists of reference types.
-/// Automatically adapts between arrays and lists using the 'don't check' technique.
-pub struct OdinSTRefList<V>(pub Vec<V>);
+/// Automatically adapts between arrays and lists.
+pub struct OdinSTRefList<V> {
+    pub contents: Vec<V>,
+    pub ty: String,
+    pub kind: OdinSTRefListKind,
+}
 
 impl<V: OdinSTDeserializable> OdinSTDeserializableRefType for OdinSTRefList<V> {
     fn deserialize(src: &OdinASTFile, val: &OdinASTStruct) -> Result<Self, String> {
+        let typefull = if let Some(v) = &val.0 {
+            v
+        } else {
+            return Err("List must have a type".to_string());
+        };
         if val.1.len() != 1 {
-            Err("List must have one (Array) entry".to_string())
-        } else if let OdinASTEntry::Array(_, array) = &val.1[0] {
-            let mut res = Vec::new();
-            for (i, v) in array.iter().enumerate() {
-                if let OdinASTEntry::Value(None, v) = v {
-                    res.push(V::deserialize(src, v).map_err(|e| format!("[{}]: {}", i, e))?);
+            return Err("List must have one (Array) entry".to_string());
+        }
+        let mut determine: Option<(String, OdinSTRefListKind)> = None;
+        // try list detect
+        if let Some(pfxrm) = typefull.strip_prefix("System.Collections.Generic.List`1[[") {
+            determine = pfxrm
+                .strip_suffix("]], mscorlib")
+                .map(|v| (v.to_string(), OdinSTRefListKind::List));
+        }
+        // try array detect
+        if determine.is_none() {
+            if let Some(comma) = typefull.rfind(',') {
+                let typepfx = &typefull[..comma];
+                let assembly = &typefull[comma..];
+                if let Some(typename) = typepfx.strip_suffix("[]") {
+                    determine = Some((
+                        format!("{}{}", typename, assembly),
+                        OdinSTRefListKind::Array,
+                    ));
                 }
             }
-            Ok(Self(res))
+        }
+        // done with detect
+        if let Some(determine) = determine {
+            if let OdinASTEntry::Array(_, array) = &val.1[0] {
+                let mut res = Vec::new();
+                for (i, v) in array.iter().enumerate() {
+                    if let OdinASTEntry::Value(None, v) = v {
+                        res.push(V::deserialize(src, v).map_err(|e| format!("[{}]: {}", i, e))?);
+                    }
+                }
+                Ok(Self {
+                    contents: res,
+                    ty: determine.0,
+                    kind: determine.1,
+                })
+            } else {
+                Err("List entry must be Array".to_string())
+            }
         } else {
-            Err("List entry must be Array".to_string())
+            Err("List type unrecognized".to_string())
         }
     }
 }
 
-impl<T: OdinSTDeserializable> OdinSTDeserializable for Option<T> {
-    fn deserialize(src: &OdinASTFile, val: &OdinASTValue) -> Result<Self, String> {
-        if let OdinASTValue::Primitive(OdinPrimitive::Null) = val {
-            Ok(None)
-        } else {
-            Ok(Some(OdinSTDeserializable::deserialize(src, val)?))
-        }
+impl<V: OdinSTSerializable> OdinSTSerializableRefType for OdinSTRefList<V> {
+    fn serialize(&self, builder: &mut OdinASTBuilder) -> OdinASTStruct {
+        let tpx = match self.kind {
+            OdinSTRefListKind::Array => match self.ty.rfind(',') {
+                Some(x) => format!("{}[]{}", &self.ty[..x], &self.ty[x..]),
+                None => format!("{}[]", self.ty),
+            },
+            OdinSTRefListKind::List => {
+                format!("System.Collections.Generic.List`1[[{}]], mscorlib", self.ty)
+            }
+        };
+        let array_content: Vec<OdinASTEntry> = self
+            .contents
+            .iter()
+            .map(|v| OdinASTEntry::Value(None, v.serialize(builder)))
+            .collect();
+        OdinASTStruct(
+            Some(tpx),
+            vec![OdinASTEntry::Array(
+                self.contents.len() as i64,
+                array_content,
+            )],
+        )
     }
 }
 
@@ -84,9 +146,13 @@ impl<V: OdinSTDeserializable> OdinSTDeserializableRefType for OdinSTStrongBox<V>
 impl<V: OdinSTSerializable> OdinSTSerializableRefType for OdinSTStrongBox<V> {
     fn serialize(&self, builder: &mut OdinASTBuilder) -> OdinASTStruct {
         let emitted_val = self.1.serialize(builder);
-        OdinASTStruct(Some(format!("System.Runtime.CompilerServices.StrongBox`1[[{}]], System.Core", self.0)), vec![
-            OdinASTEntry::nval("Value", emitted_val)
-        ])
+        OdinASTStruct(
+            Some(format!(
+                "System.Runtime.CompilerServices.StrongBox`1[[{}]], System.Core",
+                self.0
+            )),
+            vec![OdinASTEntry::nval("Value", emitted_val)],
+        )
     }
 }
 

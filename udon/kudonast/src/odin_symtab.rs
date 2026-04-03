@@ -1,5 +1,5 @@
-use serde::{Serialize, Deserialize};
 use kudonodin::*;
+use serde::{Deserialize, Serialize};
 
 /// Raw Symbol. This pretty directly maps to the UdonSymbol type.
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
@@ -29,10 +29,8 @@ impl OdinSTSerializableRefType for UdonRawSymbol {
         let mut typeval = OdinASTEntry::nval("Type", OdinPrimitive::Null);
         if let Some(ty) = &self.ty {
             typetype = OdinASTEntry::nval("type", "System.RuntimeType, mscorlib");
-            typeval = OdinASTEntry::nval(
-                "Type",
-                OdinASTValue::InternalRef(builder.runtime_type(ty)),
-            );
+            typeval =
+                OdinASTEntry::nval("Type", OdinASTValue::InternalRef(builder.runtime_type(ty)));
         }
         OdinASTStruct(
             Some("VRC.Udon.Common.UdonSymbol, VRC.Udon.Common".to_string()),
@@ -67,43 +65,31 @@ impl OdinSTDeserializableRefType for UdonRawSymbolTable {
         let syms: OdinSTRefList<UdonRawSymbol> = odinst_get_field(src, content, "Symbols")?;
         let exported: OdinSTRefList<String> = odinst_get_field(src, content, "ExportedSymbols")?;
         Ok(Self {
-            symbols: syms.0,
-            exported_symbols: exported.0,
+            symbols: syms.contents,
+            exported_symbols: exported.contents,
         })
     }
 }
 
 impl OdinSTSerializableRefType for UdonRawSymbolTable {
     fn serialize(&self, builder: &mut OdinASTBuilder) -> OdinASTStruct {
-        let symbol_list_ref_id = builder.alloc_refid();
-
-        let mut symbol_vec = Vec::new();
-
-        for v in &self.symbols {
-            symbol_vec.push(OdinASTEntry::Value(None, OdinSTSerializable::serialize(v, builder)));
-        }
-
-        let mut export_vec = Vec::new();
-
-        for v in &self.exported_symbols {
-            export_vec.push(OdinASTEntry::uval(v.as_str()));
-        }
-
-        let symbol_list_struct = OdinASTStruct(Some("System.Collections.Generic.List`1[[VRC.Udon.Common.Interfaces.IUdonSymbol, VRC.Udon.Common]], mscorlib".to_string()), vec![
-            OdinASTEntry::array(symbol_vec)
-        ]);
-        builder
-            .file
-            .refs
-            .insert(symbol_list_ref_id, symbol_list_struct);
-
-        let exports_ref_id = builder.alloc_refid();
-
-        let export_list_struct = OdinASTStruct(
-            Some("System.Collections.Generic.List`1[[System.String, mscorlib]], mscorlib".to_string()),
-            vec![OdinASTEntry::array(export_vec)],
+        let symbol_list = OdinSTSerializable::serialize(
+            &OdinSTRefList {
+                contents: self.symbols.clone(),
+                ty: "VRC.Udon.Common.Interfaces.IUdonSymbol, VRC.Udon.Common".to_string(),
+                kind: OdinSTRefListKind::List,
+            },
+            builder,
         );
-        builder.file.refs.insert(exports_ref_id, export_list_struct);
+
+        let export_list = OdinSTSerializable::serialize(
+            &OdinSTRefList {
+                contents: self.exported_symbols.clone(),
+                ty: "System.String, mscorlib".to_string(),
+                kind: OdinSTRefListKind::List,
+            },
+            builder,
+        );
 
         OdinASTStruct(
             Some("VRC.Udon.Common.UdonSymbolTable, VRC.Udon.Common".to_string()),
@@ -114,12 +100,12 @@ impl OdinSTSerializableRefType for UdonRawSymbolTable {
                         "type",
                         "System.Collections.Generic.List`1[[VRC.Udon.Common.Interfaces.IUdonSymbol, VRC.Udon.Common]], mscorlib",
                     ),
-                    OdinASTEntry::nval("Symbols", OdinASTValue::InternalRef(symbol_list_ref_id)),
+                    OdinASTEntry::nval("Symbols", symbol_list),
                     OdinASTEntry::nval(
                         "type",
                         "System.Collections.Generic.List`1[[System.String, mscorlib]], mscorlib",
                     ),
-                    OdinASTEntry::nval("ExportedSymbols", OdinASTValue::InternalRef(exports_ref_id)),
+                    OdinASTEntry::nval("ExportedSymbols", export_list),
                 ],
             )],
         )

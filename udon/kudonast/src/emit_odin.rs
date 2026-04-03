@@ -1,7 +1,7 @@
 use crate::*;
+use crate::{UdonRawSymbol, UdonRawSymbolTable};
 use json::JsonValue;
 use std::io::Write;
-use crate::{UdonRawSymbolTable, UdonRawSymbol};
 
 pub fn udonheapval_emit_odin_astinsert(
     val: &UdonOdinASTInsert,
@@ -170,7 +170,7 @@ pub fn udonsymboltable_emit_odin(
         rawsymtab.symbols.push(UdonRawSymbol {
             name: v.name.clone(),
             ty: typeval,
-            address: address as u32
+            address: address as u32,
         });
         if is_public {
             export_set.push((v.name.clone(), address));
@@ -217,14 +217,14 @@ pub fn udonsyncmetadata_emit_odin(
                 let prop_list_ref_id = builder.alloc_refid();
                 let prop_ref_id = builder.alloc_refid();
 
-                builder.file.refs.insert(usm_ref_id, OdinASTStruct(Some("VRC.Udon.Common.UdonSyncMetadata, VRC.Udon.Common".to_string()), vec![
-                    OdinASTEntry::Array(2, vec![
-                        OdinASTEntry::nval("type", "System.String, mscorlib"),
-                        OdinASTEntry::nval("Name", kname.as_str()),
-                        OdinASTEntry::nval("type", "System.Collections.Generic.List`1[[VRC.Udon.Common.Interfaces.IUdonSyncProperty, VRC.Udon.Common]], mscorlib"),
-                        OdinASTEntry::nval("Properties", OdinASTValue::InternalRef(prop_list_ref_id)),
-                    ])
-                ]));
+                let propstruct = OdinSTSerializableRefType::serialize(
+                    &UdonRawSyncMetadata(
+                        kname.clone(),
+                        OdinASTValue::InternalRef(prop_list_ref_id),
+                    ),
+                    builder,
+                );
+                builder.file.refs.insert(usm_ref_id, propstruct);
                 symbol_vec.push(OdinASTEntry::Value(
                     None,
                     OdinASTValue::InternalRef(usm_ref_id),
@@ -242,14 +242,9 @@ pub fn udonsyncmetadata_emit_odin(
             }
         };
 
-        builder.file.refs.insert(prop_ref_id, OdinASTStruct(Some("VRC.Udon.Common.UdonSyncProperty, VRC.Udon.Common".to_string()), vec![
-            OdinASTEntry::Array(2, vec![
-                OdinASTEntry::nval("type", "System.String, mscorlib"),
-                OdinASTEntry::nval("Name", kprop.as_str()),
-                OdinASTEntry::nval("type", "VRC.Udon.Common.Interfaces.UdonSyncInterpolationMethod, VRC.Udon.Common"),
-                OdinASTEntry::nval("InterpolationAlgorithm", OdinPrimitive::ULong(*v)),
-            ])
-        ]));
+        let usp = UdonRawSyncProperty(kprop.to_string(), *v);
+        let uspst = OdinSTSerializableRefType::serialize(&usp, builder);
+        builder.file.refs.insert(prop_ref_id, uspst);
     }
 
     while let Some((_, v)) = symbol_prop_list_map.pop_first() {
@@ -266,21 +261,9 @@ pub fn udonsyncmetadata_emit_odin(
         .refs
         .insert(symbol_list_ref_id, symbol_list_struct);
 
-    Ok(OdinASTStruct(
-        Some("VRC.Udon.Common.UdonSyncMetadataTable, VRC.Udon.Common".to_string()),
-        vec![OdinASTEntry::Array(
-            1,
-            vec![
-                OdinASTEntry::nval(
-                    "type",
-                    "System.Collections.Generic.List`1[[VRC.Udon.Common.Interfaces.IUdonSyncMetadata, VRC.Udon.Common]], mscorlib",
-                ),
-                OdinASTEntry::nval(
-                    "SyncMetadata",
-                    OdinASTValue::InternalRef(symbol_list_ref_id),
-                ),
-            ],
-        )],
+    Ok(OdinSTSerializableRefType::serialize(
+        &UdonRawSyncMetadataTable(OdinASTValue::InternalRef(symbol_list_ref_id)),
+        builder,
     ))
 }
 

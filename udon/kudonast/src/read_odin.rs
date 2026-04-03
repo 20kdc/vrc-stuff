@@ -2,10 +2,10 @@
 //! This doesn't have the abstraction that kudonast usually has.
 //! This is useful for ingesting Udon coredumps.
 
+use crate::UdonRawSymbolTable;
 /// Raw Udon heap.
 use kudonodin::*;
 use serde::{Deserialize, Serialize};
-use crate::UdonRawSymbolTable;
 
 /// Raw Udon heap.
 /// Assumes some Odin AST 'elsewhere' for references.

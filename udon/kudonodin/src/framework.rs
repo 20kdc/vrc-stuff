@@ -55,6 +55,16 @@ impl<T: OdinSTSerializableRefType> OdinSTSerializable for T {
     }
 }
 
+impl<T: OdinSTDeserializable> OdinSTDeserializable for Option<T> {
+    fn deserialize(src: &OdinASTFile, val: &OdinASTValue) -> Result<Self, String> {
+        if let OdinASTValue::Primitive(OdinPrimitive::Null) = val {
+            Ok(None)
+        } else {
+            Ok(Some(OdinSTDeserializable::deserialize(src, val)?))
+        }
+    }
+}
+
 // -- Trivial Equivalences (OdinASTValue & OdinPrimitive) --
 
 impl OdinSTDeserializable for OdinASTValue {
@@ -120,9 +130,10 @@ macro_rules! serializable_int_impl {
         impl OdinSTSerializableRefType for Vec<$type> {
             fn serialize(&self, _builder: &mut OdinASTBuilder) -> OdinASTStruct {
                 let v = self.iter().map(|v| *v as $type_pa).collect();
-                OdinASTStruct(Some($arraytype.to_string()), vec![
-                    OdinASTEntry::PrimitiveArray(OdinPrimitiveArray::$pat(v))
-                ])
+                OdinASTStruct(
+                    Some($arraytype.to_string()),
+                    vec![OdinASTEntry::PrimitiveArray(OdinPrimitiveArray::$pat(v))],
+                )
             }
         }
     };
@@ -195,9 +206,10 @@ impl OdinSTDeserializableRefType for Vec<f64> {
 impl OdinSTSerializableRefType for Vec<f64> {
     fn serialize(&self, _builder: &mut OdinASTBuilder) -> OdinASTStruct {
         let v = self.iter().map(|v| v.to_bits()).collect();
-        OdinASTStruct(Some("System.Double[], mscorlib".to_string()), vec![
-            OdinASTEntry::PrimitiveArray(OdinPrimitiveArray::U64(v))
-        ])
+        OdinASTStruct(
+            Some("System.Double[], mscorlib".to_string()),
+            vec![OdinASTEntry::PrimitiveArray(OdinPrimitiveArray::U64(v))],
+        )
     }
 }
 
@@ -239,9 +251,10 @@ impl OdinSTDeserializableRefType for Vec<f32> {
 impl OdinSTSerializableRefType for Vec<f32> {
     fn serialize(&self, _builder: &mut OdinASTBuilder) -> OdinASTStruct {
         let v = self.iter().map(|v| v.to_bits()).collect();
-        OdinASTStruct(Some("System.Double[], mscorlib".to_string()), vec![
-            OdinASTEntry::PrimitiveArray(OdinPrimitiveArray::U32(v))
-        ])
+        OdinASTStruct(
+            Some("System.Double[], mscorlib".to_string()),
+            vec![OdinASTEntry::PrimitiveArray(OdinPrimitiveArray::U32(v))],
+        )
     }
 }
 
@@ -281,9 +294,10 @@ impl OdinSTDeserializableRefType for Vec<bool> {
 impl OdinSTSerializableRefType for Vec<bool> {
     fn serialize(&self, _builder: &mut OdinASTBuilder) -> OdinASTStruct {
         let v = self.iter().map(|v| if *v { 1 } else { 0 }).collect();
-        OdinASTStruct(Some("System.Boolean[], mscorlib".to_string()), vec![
-            OdinASTEntry::PrimitiveArray(OdinPrimitiveArray::U8(v))
-        ])
+        OdinASTStruct(
+            Some("System.Boolean[], mscorlib".to_string()),
+            vec![OdinASTEntry::PrimitiveArray(OdinPrimitiveArray::U8(v))],
+        )
     }
 }
 
@@ -326,9 +340,10 @@ impl OdinSTDeserializableRefType for Vec<OdinSTChar> {
 impl OdinSTSerializableRefType for Vec<OdinSTChar> {
     fn serialize(&self, _builder: &mut OdinASTBuilder) -> OdinASTStruct {
         let v = self.iter().map(|v| v.0).collect();
-        OdinASTStruct(Some("System.Boolean[], mscorlib".to_string()), vec![
-            OdinASTEntry::PrimitiveArray(OdinPrimitiveArray::U16(v))
-        ])
+        OdinASTStruct(
+            Some("System.Boolean[], mscorlib".to_string()),
+            vec![OdinASTEntry::PrimitiveArray(OdinPrimitiveArray::U16(v))],
+        )
     }
 }
 
