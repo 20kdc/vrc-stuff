@@ -5,6 +5,7 @@
 /// Raw Udon heap.
 use kudonodin::*;
 use serde::{Deserialize, Serialize};
+use crate::UdonRawSymbolTable;
 
 /// Raw Udon heap.
 /// Assumes some Odin AST 'elsewhere' for references.
@@ -56,57 +57,6 @@ impl OdinSTDeserializableRefType for UdonRawHeap {
             }
         }
         Ok(UdonRawHeap(vec))
-    }
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize, Default)]
-pub struct UdonRawSymbol {
-    pub name: String,
-    pub ty: Option<String>,
-    pub address: u32,
-}
-impl OdinSTDeserializableRefType for UdonRawSymbol {
-    fn deserialize(src: &OdinASTFile, val: &OdinASTStruct) -> Result<Self, String> {
-        let content = val.unwrap_iserializable()?;
-        let name: String = odinst_get_field(src, content, "Name")?;
-        let ty: Option<OdinSTRuntimeType> = odinst_get_field(src, content, "Type").ok();
-        let address: u32 = odinst_get_field(src, content, "Address")?;
-        Ok(UdonRawSymbol {
-            name,
-            ty: ty.map(|v| v.0),
-            address,
-        })
-    }
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize, Default)]
-pub struct UdonRawSymbolTable {
-    pub symbols: Vec<UdonRawSymbol>,
-    pub exported_symbols: Vec<String>,
-}
-
-impl OdinSTDeserializableRefType for UdonRawSymbolTable {
-    fn deserialize(src: &OdinASTFile, val: &OdinASTStruct) -> Result<Self, String> {
-        let content = val.unwrap_iserializable()?;
-        let syms: OdinSTRefList<UdonRawSymbol> = odinst_get_field(src, content, "Symbols")?;
-        let exported: OdinSTRefList<String> = odinst_get_field(src, content, "ExportedSymbols")?;
-        Ok(Self {
-            symbols: syms.0,
-            exported_symbols: exported.0,
-        })
-    }
-}
-
-impl UdonRawSymbolTable {
-    /// Maps a symbol to an address.
-    /// Includes non-exported symbols.
-    pub fn sym_to_addr(&self, s: &str) -> Option<u32> {
-        for v in &self.symbols {
-            if v.name.eq(s) {
-                return Some(v.address);
-            }
-        }
-        None
     }
 }
 

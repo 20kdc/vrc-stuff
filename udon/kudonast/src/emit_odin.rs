@@ -1,6 +1,7 @@
 use crate::*;
 use json::JsonValue;
 use std::io::Write;
+use crate::{UdonRawSymbolTable, UdonRawSymbol};
 
 pub fn udonheapval_emit_odin_astinsert(
     val: &UdonOdinASTInsert,
@@ -148,9 +149,7 @@ pub fn udonsymboltable_emit_odin(
     symtab: &BTreeMap<String, i64>,
     builder: &mut OdinASTBuilder,
 ) -> Result<OdinASTStruct, String> {
-    let symbol_list_ref_id = builder.alloc_refid();
-
-    let mut symbol_vec = Vec::new();
+    let mut rawsymtab = UdonRawSymbolTable::default();
 
     // These seem to either be sorted or randomized - to make the docExample test work, we'll try to get them sorted correctly
     let mut export_set = Vec::new();
@@ -163,38 +162,16 @@ pub fn udonsymboltable_emit_odin(
             UdonAccess::Symbol => false,
             UdonAccess::Public => true,
         };
-        let symref = builder.alloc_refid();
         let address = v.address.resolve(symtab)?;
-        let mut typetype = OdinASTEntry::nval("type", "System.Object, mscorlib");
-        let mut typeval = OdinASTEntry::nval("Type", OdinPrimitive::Null);
+        let mut typeval = None;
         if let Some(ty) = &v.udon_type {
-            typetype = OdinASTEntry::nval("type", "System.RuntimeType, mscorlib");
-            typeval = OdinASTEntry::nval(
-                "Type",
-                OdinASTValue::InternalRef(builder.runtime_type(&ty.odin_name)),
-            );
+            typeval = Some(ty.odin_name.to_string());
         }
-        builder.file.refs.insert(
-            symref,
-            OdinASTStruct(
-                Some("VRC.Udon.Common.UdonSymbol, VRC.Udon.Common".to_string()),
-                vec![OdinASTEntry::Array(
-                    3,
-                    vec![
-                        OdinASTEntry::nval("type", "System.String, mscorlib"),
-                        OdinASTEntry::nval("Name", v.name.as_str()),
-                        typetype,
-                        typeval,
-                        OdinASTEntry::nval("type", "System.UInt32, mscorlib"),
-                        OdinASTEntry::nval(
-                            "Address",
-                            OdinASTValue::Primitive(OdinPrimitive::UInt(address as u32)),
-                        ),
-                    ],
-                )],
-            ),
-        );
-        symbol_vec.push(OdinASTEntry::Value(None, OdinASTValue::InternalRef(symref)));
+        rawsymtab.symbols.push(UdonRawSymbol {
+            name: v.name.clone(),
+            ty: typeval,
+            address: address as u32
+        });
         if is_public {
             export_set.push((v.name.clone(), address));
         }
@@ -202,46 +179,11 @@ pub fn udonsymboltable_emit_odin(
 
     export_set.sort_by_key(|v| v.1);
 
-    let mut export_vec = Vec::new();
-
     for v in export_set {
-        export_vec.push(OdinASTEntry::uval(v.0.as_str()));
+        rawsymtab.exported_symbols.push(v.0);
     }
 
-    let symbol_list_struct = OdinASTStruct(Some("System.Collections.Generic.List`1[[VRC.Udon.Common.Interfaces.IUdonSymbol, VRC.Udon.Common]], mscorlib".to_string()), vec![
-        OdinASTEntry::array(symbol_vec)
-    ]);
-    builder
-        .file
-        .refs
-        .insert(symbol_list_ref_id, symbol_list_struct);
-
-    let exports_ref_id = builder.alloc_refid();
-
-    let export_list_struct = OdinASTStruct(
-        Some("System.Collections.Generic.List`1[[System.String, mscorlib]], mscorlib".to_string()),
-        vec![OdinASTEntry::array(export_vec)],
-    );
-    builder.file.refs.insert(exports_ref_id, export_list_struct);
-
-    Ok(OdinASTStruct(
-        Some("VRC.Udon.Common.UdonSymbolTable, VRC.Udon.Common".to_string()),
-        vec![OdinASTEntry::Array(
-            2,
-            vec![
-                OdinASTEntry::nval(
-                    "type",
-                    "System.Collections.Generic.List`1[[VRC.Udon.Common.Interfaces.IUdonSymbol, VRC.Udon.Common]], mscorlib",
-                ),
-                OdinASTEntry::nval("Symbols", OdinASTValue::InternalRef(symbol_list_ref_id)),
-                OdinASTEntry::nval(
-                    "type",
-                    "System.Collections.Generic.List`1[[System.String, mscorlib]], mscorlib",
-                ),
-                OdinASTEntry::nval("ExportedSymbols", OdinASTValue::InternalRef(exports_ref_id)),
-            ],
-        )],
-    ))
+    Ok(OdinSTSerializableRefType::serialize(&rawsymtab, builder))
 }
 
 /// Builds the sync metadata.

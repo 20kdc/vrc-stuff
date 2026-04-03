@@ -2,25 +2,70 @@
 
 use crate::*;
 
+// -- Core Traits --
+
 /// Deserializable.
 pub trait OdinSTDeserializable: Sized {
     /// Serializes into the given builder.
     fn deserialize(src: &OdinASTFile, val: &OdinASTValue) -> Result<Self, String>;
 }
 
-/// Shorthand to deserialize a field.
-pub fn odinst_get_field<V: OdinSTDeserializable>(
-    src: &OdinASTFile,
-    content: &[OdinASTEntry],
-    name: &str,
-) -> Result<V, String> {
-    let val = OdinASTEntry::get_value_by_name(name, content)?;
-    V::deserialize(src, val).map_err(|v| format!("{}: {}", name, v))
+/// Serializable.
+/// It is generally a good idea to be careful with ordering here.
+/// OdinSerializer serializes in a depth-first manner.
+pub trait OdinSTSerializable {
+    fn serialize(&self, builder: &mut OdinASTBuilder) -> OdinASTValue;
 }
+
+/// Implements [OdinSTDeserializable] for reference types.
+/// Acts as a convenience layer.
+pub trait OdinSTDeserializableRefType: Sized {
+    fn deserialize(src: &OdinASTFile, val: &OdinASTStruct) -> Result<Self, String>;
+}
+
+/// Implements [OdinSTSerializable] for reference types.
+/// Acts as a convenience layer.
+pub trait OdinSTSerializableRefType {
+    fn serialize(&self, builder: &mut OdinASTBuilder) -> OdinASTStruct;
+}
+
+// -- Fundamental Trait Impls --
+
+impl<T: OdinSTDeserializableRefType> OdinSTDeserializable for T {
+    fn deserialize(src: &OdinASTFile, val: &OdinASTValue) -> Result<Self, String> {
+        if let OdinASTValue::InternalRef(i) = val {
+            if let Some(v) = src.refs.get(i) {
+                OdinSTDeserializableRefType::deserialize(src, v)
+            } else {
+                Err(format!("InternalRef {} missing", i))
+            }
+        } else {
+            Err("InternalRef expected".to_string())
+        }
+    }
+}
+
+impl<T: OdinSTSerializableRefType> OdinSTSerializable for T {
+    fn serialize(&self, builder: &mut OdinASTBuilder) -> OdinASTValue {
+        // We allocate the ID 'at the start of the object', like we would if were writing this in-order.
+        let refid = builder.alloc_refid();
+        let content = OdinSTSerializableRefType::serialize(self, builder);
+        builder.file.refs.insert(refid, content);
+        OdinASTValue::InternalRef(refid)
+    }
+}
+
+// -- Trivial Equivalences (OdinASTValue & OdinPrimitive) --
 
 impl OdinSTDeserializable for OdinASTValue {
     fn deserialize(_src: &OdinASTFile, val: &OdinASTValue) -> Result<Self, String> {
         Ok(val.clone())
+    }
+}
+
+impl OdinSTSerializable for OdinASTValue {
+    fn serialize(&self, _builder: &mut OdinASTBuilder) -> OdinASTValue {
+        self.clone()
     }
 }
 
@@ -33,6 +78,14 @@ impl OdinSTDeserializable for OdinPrimitive {
         }
     }
 }
+
+impl OdinSTSerializable for OdinPrimitive {
+    fn serialize(&self, _builder: &mut OdinASTBuilder) -> OdinASTValue {
+        OdinASTValue::Primitive(self.clone())
+    }
+}
+
+// -- Integers --
 
 macro_rules! serializable_int_impl {
     ($type:ty, $oit:expr, $arraytype:expr, $pat:ident, $type_pa:ty) => {
@@ -49,6 +102,11 @@ macro_rules! serializable_int_impl {
                 }
             }
         }
+        impl OdinSTSerializable for $type {
+            fn serialize(&self, _builder: &mut OdinASTBuilder) -> OdinASTValue {
+                OdinASTValue::Primitive(OdinPrimitive::compose_int($oit, *self as i64))
+            }
+        }
         impl OdinSTDeserializableRefType for Vec<$type> {
             fn deserialize(_src: &OdinASTFile, val: &OdinASTStruct) -> Result<Self, String> {
                 let v = val.unwrap_fixed_type($arraytype, 1)?;
@@ -57,6 +115,14 @@ macro_rules! serializable_int_impl {
                 } else {
                     Err("Expected primitive array".to_string())
                 }
+            }
+        }
+        impl OdinSTSerializableRefType for Vec<$type> {
+            fn serialize(&self, _builder: &mut OdinASTBuilder) -> OdinASTStruct {
+                let v = self.iter().map(|v| *v as $type_pa).collect();
+                OdinASTStruct(Some($arraytype.to_string()), vec![
+                    OdinASTEntry::PrimitiveArray(OdinPrimitiveArray::$pat(v))
+                ])
             }
         }
     };
@@ -89,6 +155,8 @@ serializable_int_impl!(
 serializable_int_impl!(u8, OdinIntType::Byte, "System.Byte[], mscorlib", U8, u8);
 serializable_int_impl!(i8, OdinIntType::SByte, "System.SByte[], mscorlib", U8, u8);
 
+// -- Floats --
+
 impl OdinSTDeserializable for f64 {
     fn deserialize(_src: &OdinASTFile, val: &OdinASTValue) -> Result<Self, String> {
         if let OdinASTValue::Primitive(prim) = val {
@@ -104,6 +172,32 @@ impl OdinSTDeserializable for f64 {
         } else {
             Err("f64: non-primitive".to_string())
         }
+    }
+}
+
+impl OdinSTSerializable for f64 {
+    fn serialize(&self, _builder: &mut OdinASTBuilder) -> OdinASTValue {
+        OdinASTValue::Primitive(OdinPrimitive::Double(*self))
+    }
+}
+
+impl OdinSTDeserializableRefType for Vec<f64> {
+    fn deserialize(_src: &OdinASTFile, val: &OdinASTStruct) -> Result<Self, String> {
+        let v = val.unwrap_fixed_type("System.Double[], mscorlib", 1)?;
+        if let OdinASTEntry::PrimitiveArray(OdinPrimitiveArray::U64(v)) = &v[0] {
+            Ok(v.iter().map(|v| f64::from_bits(*v)).collect())
+        } else {
+            Err("Expected primitive array".to_string())
+        }
+    }
+}
+
+impl OdinSTSerializableRefType for Vec<f64> {
+    fn serialize(&self, _builder: &mut OdinASTBuilder) -> OdinASTStruct {
+        let v = self.iter().map(|v| v.to_bits()).collect();
+        OdinASTStruct(Some("System.Double[], mscorlib".to_string()), vec![
+            OdinASTEntry::PrimitiveArray(OdinPrimitiveArray::U64(v))
+        ])
     }
 }
 
@@ -125,6 +219,121 @@ impl OdinSTDeserializable for f32 {
     }
 }
 
+impl OdinSTSerializable for f32 {
+    fn serialize(&self, _builder: &mut OdinASTBuilder) -> OdinASTValue {
+        OdinASTValue::Primitive(OdinPrimitive::Float(*self))
+    }
+}
+
+impl OdinSTDeserializableRefType for Vec<f32> {
+    fn deserialize(_src: &OdinASTFile, val: &OdinASTStruct) -> Result<Self, String> {
+        let v = val.unwrap_fixed_type("System.Double[], mscorlib", 1)?;
+        if let OdinASTEntry::PrimitiveArray(OdinPrimitiveArray::U32(v)) = &v[0] {
+            Ok(v.iter().map(|v| f32::from_bits(*v)).collect())
+        } else {
+            Err("Expected primitive array".to_string())
+        }
+    }
+}
+
+impl OdinSTSerializableRefType for Vec<f32> {
+    fn serialize(&self, _builder: &mut OdinASTBuilder) -> OdinASTStruct {
+        let v = self.iter().map(|v| v.to_bits()).collect();
+        OdinASTStruct(Some("System.Double[], mscorlib".to_string()), vec![
+            OdinASTEntry::PrimitiveArray(OdinPrimitiveArray::U32(v))
+        ])
+    }
+}
+
+// -- Bool --
+
+impl OdinSTDeserializable for bool {
+    fn deserialize(_src: &OdinASTFile, val: &OdinASTValue) -> Result<Self, String> {
+        if let OdinASTValue::Primitive(prim) = val {
+            if let Some((_, b)) = prim.decompose_int() {
+                Ok(b != 0)
+            } else {
+                Err("bool: incompatible primitive".to_string())
+            }
+        } else {
+            Err("bool: non-primitive".to_string())
+        }
+    }
+}
+
+impl OdinSTSerializable for bool {
+    fn serialize(&self, _builder: &mut OdinASTBuilder) -> OdinASTValue {
+        OdinASTValue::Primitive(OdinPrimitive::Bool(*self))
+    }
+}
+
+impl OdinSTDeserializableRefType for Vec<bool> {
+    fn deserialize(_src: &OdinASTFile, val: &OdinASTStruct) -> Result<Self, String> {
+        let v = val.unwrap_fixed_type("System.Boolean[], mscorlib", 1)?;
+        if let OdinASTEntry::PrimitiveArray(OdinPrimitiveArray::U8(v)) = &v[0] {
+            Ok(v.iter().map(|v| *v != 0).collect())
+        } else {
+            Err("Expected primitive array".to_string())
+        }
+    }
+}
+
+impl OdinSTSerializableRefType for Vec<bool> {
+    fn serialize(&self, _builder: &mut OdinASTBuilder) -> OdinASTStruct {
+        let v = self.iter().map(|v| if *v { 1 } else { 0 }).collect();
+        OdinASTStruct(Some("System.Boolean[], mscorlib".to_string()), vec![
+            OdinASTEntry::PrimitiveArray(OdinPrimitiveArray::U8(v))
+        ])
+    }
+}
+
+// -- Char --
+
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord)]
+pub struct OdinSTChar(pub u16);
+
+impl OdinSTDeserializable for OdinSTChar {
+    fn deserialize(_src: &OdinASTFile, val: &OdinASTValue) -> Result<Self, String> {
+        if let OdinASTValue::Primitive(prim) = val {
+            if let Some((_, b)) = prim.decompose_int() {
+                Ok(OdinSTChar(b as u16))
+            } else {
+                Err("bool: incompatible primitive".to_string())
+            }
+        } else {
+            Err("bool: non-primitive".to_string())
+        }
+    }
+}
+
+impl OdinSTSerializable for OdinSTChar {
+    fn serialize(&self, _builder: &mut OdinASTBuilder) -> OdinASTValue {
+        OdinASTValue::Primitive(OdinPrimitive::Char(self.0))
+    }
+}
+
+impl OdinSTDeserializableRefType for Vec<OdinSTChar> {
+    fn deserialize(_src: &OdinASTFile, val: &OdinASTStruct) -> Result<Self, String> {
+        let v = val.unwrap_fixed_type("System.Boolean[], mscorlib", 1)?;
+        if let OdinASTEntry::PrimitiveArray(OdinPrimitiveArray::U16(v)) = &v[0] {
+            Ok(v.iter().map(|v| OdinSTChar(*v)).collect())
+        } else {
+            Err("Expected primitive array".to_string())
+        }
+    }
+}
+
+impl OdinSTSerializableRefType for Vec<OdinSTChar> {
+    fn serialize(&self, _builder: &mut OdinASTBuilder) -> OdinASTStruct {
+        let v = self.iter().map(|v| v.0).collect();
+        OdinASTStruct(Some("System.Boolean[], mscorlib".to_string()), vec![
+            OdinASTEntry::PrimitiveArray(OdinPrimitiveArray::U16(v))
+        ])
+    }
+}
+
+// -- String --
+
 impl OdinSTDeserializable for String {
     fn deserialize(_src: &OdinASTFile, val: &OdinASTValue) -> Result<Self, String> {
         if let OdinASTValue::Primitive(OdinPrimitive::String(s)) = val {
@@ -135,94 +344,8 @@ impl OdinSTDeserializable for String {
     }
 }
 
-/// Implements the same basic stuff for reference types.
-pub trait OdinSTDeserializableRefType: Sized {
-    fn deserialize(src: &OdinASTFile, val: &OdinASTStruct) -> Result<Self, String>;
-}
-
-impl<T: OdinSTDeserializableRefType> OdinSTDeserializable for T {
-    fn deserialize(src: &OdinASTFile, val: &OdinASTValue) -> Result<Self, String> {
-        if let OdinASTValue::InternalRef(i) = val {
-            if let Some(v) = src.refs.get(i) {
-                OdinSTDeserializableRefType::deserialize(src, v)
-            } else {
-                Err(format!("InternalRef {} missing", i))
-            }
-        } else {
-            Err("InternalRef expected".to_string())
-        }
-    }
-}
-
-impl<T: OdinSTDeserializable> OdinSTDeserializable for Option<T> {
-    fn deserialize(src: &OdinASTFile, val: &OdinASTValue) -> Result<Self, String> {
-        if let OdinASTValue::Primitive(OdinPrimitive::Null) = val {
-            Ok(None)
-        } else {
-            Ok(Some(OdinSTDeserializable::deserialize(src, val)?))
-        }
-    }
-}
-
-/// Wrapper for lists of reference types.
-/// Automatically adapts between arrays and lists using the 'don't check' technique.
-pub struct OdinSTRefList<V>(pub Vec<V>);
-
-impl<V: OdinSTDeserializable> OdinSTDeserializableRefType for OdinSTRefList<V> {
-    fn deserialize(src: &OdinASTFile, val: &OdinASTStruct) -> Result<Self, String> {
-        if val.1.len() != 1 {
-            Err("List must have one (Array) entry".to_string())
-        } else if let OdinASTEntry::Array(_, array) = &val.1[0] {
-            let mut res = Vec::new();
-            for (i, v) in array.iter().enumerate() {
-                if let OdinASTEntry::Value(None, v) = v {
-                    res.push(V::deserialize(src, v).map_err(|e| format!("[{}]: {}", i, e))?);
-                }
-            }
-            Ok(Self(res))
-        } else {
-            Err("List entry must be Array".to_string())
-        }
-    }
-}
-
-/// RuntimeType as a convenient struct.
-pub struct OdinSTRuntimeType(pub String);
-
-impl OdinSTDeserializableRefType for OdinSTRuntimeType {
-    fn deserialize(_src: &OdinASTFile, val: &OdinASTStruct) -> Result<Self, String> {
-        let sct = val.unwrap_fixed_type("System.RuntimeType, mscorlib", 1)?;
-        if let OdinASTEntry::Value(None, OdinASTValue::Primitive(OdinPrimitive::String(ty))) =
-            &sct[0]
-        {
-            Ok(OdinSTRuntimeType(ty.clone()))
-        } else {
-            Err("RuntimeType should just contain an unnamed string".to_string())
-        }
-    }
-}
-
-/// StrongBox as a convenient struct.
-/// Note that V doesn't have any bounds here, because it might be either only serializable or deserializable.
-pub struct OdinSTStrongBox<V>(pub String, pub V);
-
-impl<V: OdinSTDeserializable> OdinSTDeserializableRefType for OdinSTStrongBox<V> {
-    fn deserialize(src: &OdinASTFile, val: &OdinASTStruct) -> Result<Self, String> {
-        if let Some(type_name) = &val.0 {
-            let ty2 = type_name
-                .strip_prefix("System.Runtime.CompilerServices.StrongBox`1[[")
-                .and_then(|v| v.strip_suffix("]], System.Core"));
-            if let Some(ty2) = ty2 {
-                let val = OdinASTEntry::get_value_by_name("Value", &val.1)?;
-                Ok(Self(
-                    ty2.to_string(),
-                    V::deserialize(src, val).map_err(|v| format!("StrongBox.Value: {}", v))?,
-                ))
-            } else {
-                Err(format!("{} is not a StrongBox", type_name))
-            }
-        } else {
-            Err("StrongBox needs type name to fully deserialize".to_string())
-        }
+impl OdinSTSerializable for String {
+    fn serialize(&self, _builder: &mut OdinASTBuilder) -> OdinASTValue {
+        OdinASTValue::Primitive(OdinPrimitive::String(self.clone()))
     }
 }
