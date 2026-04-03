@@ -1,7 +1,11 @@
 use kudonodin::{
-    OdinASTEntry, OdinASTStruct, OdinASTValue, OdinPrimitive, OdinSTSerializableRefType,
+    OdinASTEntry, OdinASTStruct, OdinPrimitive, OdinSTRefList, OdinSTRefListKind,
+    OdinSTSerializable, OdinSTSerializableRefType,
 };
 
+use serde::{Deserialize, Serialize};
+
+#[derive(Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 pub struct UdonRawSyncProperty(pub String, pub u64);
 
 impl OdinSTSerializableRefType for UdonRawSyncProperty {
@@ -24,10 +28,19 @@ impl OdinSTSerializableRefType for UdonRawSyncProperty {
     }
 }
 
-/// This temporarily uses OdinASTValue as a placeholder for the main sync property list.
-pub struct UdonRawSyncMetadata(pub String, pub OdinASTValue);
+#[derive(Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
+pub struct UdonRawSyncMetadata(pub String, pub Vec<UdonRawSyncProperty>);
+
 impl OdinSTSerializableRefType for UdonRawSyncMetadata {
-    fn serialize(&self, _builder: &mut kudonodin::OdinASTBuilder) -> OdinASTStruct {
+    fn serialize(&self, builder: &mut kudonodin::OdinASTBuilder) -> OdinASTStruct {
+        let properties = OdinSTSerializable::serialize(
+            &OdinSTRefList {
+                contents: self.1.clone(),
+                ty: "VRC.Udon.Common.Interfaces.IUdonSyncProperty, VRC.Udon.Common".to_string(),
+                kind: OdinSTRefListKind::List,
+            },
+            builder,
+        );
         OdinASTStruct(
             Some("VRC.Udon.Common.UdonSyncMetadata, VRC.Udon.Common".to_string()),
             vec![OdinASTEntry::Array(
@@ -39,18 +52,26 @@ impl OdinSTSerializableRefType for UdonRawSyncMetadata {
                         "type",
                         "System.Collections.Generic.List`1[[VRC.Udon.Common.Interfaces.IUdonSyncProperty, VRC.Udon.Common]], mscorlib",
                     ),
-                    OdinASTEntry::nval("Properties", self.1.clone()),
+                    OdinASTEntry::nval("Properties", properties),
                 ],
             )],
         )
     }
 }
 
-/// This temporarily uses OdinASTValue as a placeholder for the main IUdonSyncMetadata list.
-pub struct UdonRawSyncMetadataTable(pub OdinASTValue);
+#[derive(Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
+pub struct UdonRawSyncMetadataTable(pub Vec<UdonRawSyncMetadata>);
 
 impl OdinSTSerializableRefType for UdonRawSyncMetadataTable {
-    fn serialize(&self, _builder: &mut kudonodin::OdinASTBuilder) -> OdinASTStruct {
+    fn serialize(&self, builder: &mut kudonodin::OdinASTBuilder) -> OdinASTStruct {
+        let meta = OdinSTSerializable::serialize(
+            &OdinSTRefList {
+                contents: self.0.clone(),
+                ty: "VRC.Udon.Common.Interfaces.IUdonSyncMetadata, VRC.Udon.Common".to_string(),
+                kind: OdinSTRefListKind::List,
+            },
+            builder,
+        );
         OdinASTStruct(
             Some("VRC.Udon.Common.UdonSyncMetadataTable, VRC.Udon.Common".to_string()),
             vec![OdinASTEntry::Array(
@@ -60,7 +81,7 @@ impl OdinSTSerializableRefType for UdonRawSyncMetadataTable {
                         "type",
                         "System.Collections.Generic.List`1[[VRC.Udon.Common.Interfaces.IUdonSyncMetadata, VRC.Udon.Common]], mscorlib",
                     ),
-                    OdinASTEntry::nval("SyncMetadata", self.0.clone()),
+                    OdinASTEntry::nval("SyncMetadata", meta),
                 ],
             )],
         )

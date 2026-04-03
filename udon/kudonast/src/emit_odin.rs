@@ -191,78 +191,40 @@ pub fn udonsyncmetadata_emit_odin(
     table: &Vec<(String, String, u64)>,
     builder: &mut OdinASTBuilder,
 ) -> Result<OdinASTStruct, String> {
-    let symbol_list_ref_id = builder.alloc_refid();
-
     let mut symbol_vec = Vec::new();
 
     // The basic idea is that we keep adding props to lists.
-    // At the end (once all props are confirmed) we insert into the refs table.
-    // (Situations like this are why the Odin AST refs table was built the way it was.)
+    // At the end (once all props are confirmed) we serialize.
+    // Situations like this are why the Odin AST refs table was built the way it was.
+    // However, the code was cumbersome, so now there's this whole chain-of-ASTs thing going on.
+    // This has other problems, but it works.
 
-    let mut symbol_prop_list_map: BTreeMap<String, (i32, Vec<OdinASTEntry>)> = BTreeMap::new();
+    let mut symbol_prop_list_map: BTreeMap<String, Vec<UdonRawSyncProperty>> = BTreeMap::new();
 
     for (kname, kprop, v) in table {
-        // Sort of a 'fill-in-the-blanks'.
-        // We guarantee the prop_ref_id is in the list, and then we actually put the property into it.
-        // Technically if tests weren't being so strict about object order this wouldn't matter.
+        let built = UdonRawSyncProperty(kprop.clone(), *v);
 
-        let prop_ref_id = match symbol_prop_list_map.get_mut(kname) {
+        match symbol_prop_list_map.get_mut(kname) {
             Some(xm) => {
-                let prop_ref_id = builder.alloc_refid();
-                xm.1.push(OdinASTEntry::uval(OdinASTValue::InternalRef(prop_ref_id)));
-                prop_ref_id
+                xm.push(built);
             }
             None => {
-                let usm_ref_id = builder.alloc_refid();
-                let prop_list_ref_id = builder.alloc_refid();
-                let prop_ref_id = builder.alloc_refid();
-
-                let propstruct = OdinSTSerializableRefType::serialize(
-                    &UdonRawSyncMetadata(
-                        kname.clone(),
-                        OdinASTValue::InternalRef(prop_list_ref_id),
-                    ),
-                    builder,
-                );
-                builder.file.refs.insert(usm_ref_id, propstruct);
-                symbol_vec.push(OdinASTEntry::Value(
-                    None,
-                    OdinASTValue::InternalRef(usm_ref_id),
-                ));
-
-                symbol_prop_list_map.insert(
-                    kname.clone(),
-                    (
-                        prop_list_ref_id,
-                        vec![OdinASTEntry::uval(OdinASTValue::InternalRef(prop_ref_id))],
-                    ),
-                );
-
-                prop_ref_id
+                symbol_vec.push(kname.clone());
+                symbol_prop_list_map.insert(kname.clone(), vec![built]);
             }
-        };
-
-        let usp = UdonRawSyncProperty(kprop.to_string(), *v);
-        let uspst = OdinSTSerializableRefType::serialize(&usp, builder);
-        builder.file.refs.insert(prop_ref_id, uspst);
+        }
     }
-
-    while let Some((_, v)) = symbol_prop_list_map.pop_first() {
-        builder.file.refs.insert(v.0, OdinASTStruct(Some("System.Collections.Generic.List`1[[VRC.Udon.Common.Interfaces.IUdonSyncProperty, VRC.Udon.Common]], mscorlib".to_string()), vec![
-            OdinASTEntry::array(v.1)
-        ]));
-    }
-
-    let symbol_list_struct = OdinASTStruct(Some("System.Collections.Generic.List`1[[VRC.Udon.Common.Interfaces.IUdonSyncMetadata, VRC.Udon.Common]], mscorlib".to_string()), vec![
-        OdinASTEntry::array(symbol_vec)
-    ]);
-    builder
-        .file
-        .refs
-        .insert(symbol_list_ref_id, symbol_list_struct);
 
     Ok(OdinSTSerializableRefType::serialize(
-        &UdonRawSyncMetadataTable(OdinASTValue::InternalRef(symbol_list_ref_id)),
+        &UdonRawSyncMetadataTable(
+            symbol_vec
+                .drain(..)
+                .map(|sym_name| {
+                    let res = symbol_prop_list_map.remove(&sym_name).unwrap();
+                    UdonRawSyncMetadata(sym_name, res)
+                })
+                .collect(),
+        ),
         builder,
     ))
 }
