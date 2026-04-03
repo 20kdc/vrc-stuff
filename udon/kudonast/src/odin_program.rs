@@ -188,3 +188,38 @@ impl OdinSTDeserializableRefType for UdonRawProgram {
         })
     }
 }
+
+impl OdinSTSerializableRefType for UdonRawProgram {
+    fn serialize(&self, builder: &mut OdinASTBuilder) -> OdinASTStruct {
+        let mut bytecode_data: Vec<u8> = Vec::with_capacity(self.bytecode.len() * 4);
+
+        for val in &self.bytecode {
+            bytecode_data.extend(val.to_be_bytes().iter());
+        }
+
+        let bytecode: OdinASTValue = OdinSTSerializable::serialize(&bytecode_data, builder);
+
+        let heap: OdinASTValue = OdinSTSerializable::serialize(&self.heap, builder);
+
+        let entrypoints: OdinASTValue = OdinSTSerializable::serialize(&self.entry_points, builder);
+
+        let symboltable: OdinASTValue = OdinSTSerializable::serialize(&self.symbol_table, builder);
+
+        let syncmetadata: OdinASTValue =
+            OdinSTSerializable::serialize(&self.sync_metadata_table, builder);
+
+        OdinASTStruct(
+            Some("VRC.Udon.Common.UdonProgram, VRC.Udon.Common".to_string()),
+            vec![
+                OdinASTEntry::nval("InstructionSetIdentifier", "UDON"),
+                OdinASTEntry::nval("InstructionSetVersion", OdinPrimitive::Int(1)),
+                OdinASTEntry::nval("ByteCode", bytecode),
+                OdinASTEntry::nval("Heap", heap),
+                OdinASTEntry::nval("EntryPoints", entrypoints),
+                OdinASTEntry::nval("SymbolTable", symboltable),
+                OdinASTEntry::nval("SyncMetadataTable", syncmetadata),
+                OdinASTEntry::nval("UpdateOrder", OdinPrimitive::Int(self.update_order)),
+            ],
+        )
+    }
+}
