@@ -644,6 +644,16 @@ impl OdinASTInsert {
             f.1,
         ))
     }
+
+    /// Builds an Insert using a builder setup.
+    pub fn build(f: impl FnOnce(&mut OdinASTBuilder) -> OdinASTValue) -> OdinASTInsert {
+        let mut builder = OdinASTBuilder::default();
+        let val = f(&mut builder);
+        OdinASTInsert {
+            refs: builder.file.refs,
+            root: val,
+        }
+    }
 }
 
 /// Utility for building an Odin AST.
@@ -653,7 +663,6 @@ pub struct OdinASTBuilder {
     /// This folds System.RuntimeType references together.
     pub runtime_type_map: HashMap<String, i32>,
     pub next_refid: i32,
-    pub next_extid: i32,
 }
 
 impl OdinASTBuilder {
@@ -661,13 +670,6 @@ impl OdinASTBuilder {
     pub fn alloc_refid(&mut self) -> i32 {
         let id = self.next_refid;
         self.next_refid += 1;
-        id
-    }
-
-    /// Allocates an external object ID.
-    pub fn alloc_extid(&mut self) -> i32 {
-        let id = self.next_extid;
-        self.next_extid += 1;
         id
     }
 
@@ -698,18 +700,43 @@ impl OdinASTBuilder {
     /// This can be used to, for instance, allow specifying arbitrary Odin-serialized objects via RON.
     /// It's also generally useful if moving data between [OdinASTBuilder] objects.
     /// If an internal reference is missing, this fails with the internal reference number.
-    /// External references are placed at `next_extid` onwards; you can adjust that number afterwards to get a clean external reference sequence.
-    /// (Alternatively, if your external references have already been accounted for, you can just leave the ID at zero.)
+    /// External references have `extid_base` added; it's assumed you're keeping a relevant external reference array if building that.
+    /// (Alternatively, if your external references have already been accounted for, you can just leave it at zero.)
     /// This is useful, for instance, if you have some representation of external references.
     /// (It's outside of this crate's scope, since that would pull in figuring out Unity YAML for what we're doing here.)
-    pub fn include_refs(&mut self, mut refmap: OdinASTRefMap) -> Result<HashMap<i32, i32>, i32> {
+    pub fn include_refs(
+        &mut self,
+        mut refmap: OdinASTRefMap,
+        extid_base: i32,
+    ) -> Result<HashMap<i32, i32>, i32> {
         let mut remap: HashMap<i32, i32> = HashMap::new();
-        for k in refmap.keys() {
+        for (k, v) in &refmap {
+            // IMPORTANT scary trick here!!!
+            // to prevent RuntimeType duplication (which upsets docExample write consistency check), we go REALLY out of our way to catch RuntimeTypes here.
+            // like, *obscenely* out of our way.
+            if let Ok(vto) = v.unwrap_fixed_type("System.RuntimeType, mscorlib", 1) {
+                if let OdinASTEntry::Value(
+                    None,
+                    OdinASTValue::Primitive(OdinPrimitive::String(ctx)),
+                ) = &vto[0]
+                {
+                    if let Some(existing) = self.runtime_type_map.get(ctx) {
+                        // the overwrite that'll happen during remapping should be harmless, if annoying
+                        remap.insert(*k, *existing);
+                    } else {
+                        // we need this to consistently fold
+                        let rid = self.alloc_refid();
+                        remap.insert(*k, rid);
+                        self.runtime_type_map.insert(ctx.clone(), rid);
+                    }
+                    continue;
+                }
+            }
             remap.insert(*k, self.alloc_refid());
         }
         while let Some(mut res) = refmap.pop_first() {
             for v in &mut res.1.1 {
-                v.remap_refs(Some(&remap), self.next_extid)?;
+                v.remap_refs(Some(&remap), extid_base)?;
             }
             self.file.refs.insert(
                 *remap
@@ -725,10 +752,11 @@ impl OdinASTBuilder {
     pub fn include_file(
         &mut self,
         mut file: OdinASTFile,
+        extid_base: i32,
     ) -> Result<(Vec<OdinASTEntry>, HashMap<i32, i32>), i32> {
-        let remap: HashMap<i32, i32> = self.include_refs(file.refs)?;
+        let remap: HashMap<i32, i32> = self.include_refs(file.refs, extid_base)?;
         for v in &mut file.root {
-            v.remap_refs(Some(&remap), self.next_extid)?;
+            v.remap_refs(Some(&remap), extid_base)?;
         }
         Ok((file.root, remap))
     }
@@ -737,9 +765,10 @@ impl OdinASTBuilder {
     pub fn include_insert(
         &mut self,
         mut file: OdinASTInsert,
+        extid_base: i32,
     ) -> Result<(OdinASTValue, HashMap<i32, i32>), i32> {
-        let remap: HashMap<i32, i32> = self.include_refs(file.refs)?;
-        file.root.remap_refs(Some(&remap), self.next_extid)?;
+        let remap: HashMap<i32, i32> = self.include_refs(file.refs, extid_base)?;
+        file.root.remap_refs(Some(&remap), extid_base)?;
         Ok((file.root, remap))
     }
 }

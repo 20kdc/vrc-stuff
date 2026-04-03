@@ -3,65 +3,73 @@ use crate::{UdonRawSymbol, UdonRawSymbolTable};
 use json::JsonValue;
 use std::io::Write;
 
-pub fn udonheapval_emit_odin_astinsert(
-    val: &UdonOdinASTInsert,
-    builder: &mut OdinASTBuilder,
-    unity_obj: &mut Vec<UdonUnityObject>,
-) -> Result<OdinASTValue, String> {
-    let incres = builder
-        .include_insert(val.file.clone())
-        .map_err(|v| format!("OdinASTInsert error: {:?}", v))?;
-    for v in &val.unity_objects {
-        unity_obj.push(v.clone());
-    }
-    builder.next_extid += val.unity_objects.len() as i32;
-    Ok(incres.0)
-}
-
 /// Translates UdonHeapValue to OdinASTValue.
 pub fn udonheapval_emit_odin(
     val: &UdonHeapSlot,
     symtab: &BTreeMap<String, i64>,
-    builder: &mut OdinASTBuilder,
     unity_obj: &mut Vec<UdonUnityObject>,
-) -> Result<(UdonTypeRef, OdinASTValue), String> {
+) -> Result<(String, OdinASTInsert), String> {
     match &val.1 {
-        UdonHeapValue::P(p) => Ok((val.0.clone(), OdinASTValue::Primitive(p.clone()))),
-        UdonHeapValue::PrimitiveArray(ut, p) => {
-            let ref_id = builder.alloc_refid();
-            builder.file.refs.insert(
-                ref_id,
-                OdinASTStruct(
-                    Some(ut.odin_name.to_string()),
-                    vec![OdinASTEntry::PrimitiveArray(p.clone())],
-                ),
-            );
-            Ok((val.0.clone(), OdinASTValue::InternalRef(ref_id)))
-        }
-        UdonHeapValue::OdinASTStruct(p) => Ok((val.0.clone(), OdinASTValue::Struct(p.clone()))),
+        UdonHeapValue::P(p) => Ok((val.0.odin_name.to_string(), p.clone().into())),
+        UdonHeapValue::PrimitiveArray(ut, p) => Ok((
+            val.0.odin_name.to_string(),
+            OdinASTInsert::build(|builder| {
+                let ref_id = builder.alloc_refid();
+                builder.file.refs.insert(
+                    ref_id,
+                    OdinASTStruct(
+                        Some(ut.odin_name.to_string()),
+                        vec![OdinASTEntry::PrimitiveArray(p.clone())],
+                    ),
+                );
+                OdinASTValue::InternalRef(ref_id)
+            }),
+        )),
+        UdonHeapValue::OdinASTStruct(p) => Ok((
+            val.0.odin_name.to_string(),
+            OdinASTValue::Struct(p.clone()).into(),
+        )),
         UdonHeapValue::I(it, v) => Ok((
-            val.0.clone(),
-            OdinASTValue::Primitive(OdinPrimitive::compose_int(*it, v.resolve(symtab)?)),
+            val.0.odin_name.to_string(),
+            OdinASTValue::Primitive(OdinPrimitive::compose_int(*it, v.resolve(symtab)?)).into(),
         )),
         UdonHeapValue::RType(ty) => Ok((
-            val.0.clone(),
-            OdinASTValue::InternalRef(builder.runtime_type(&ty)),
+            "System.Type, mscorlib".to_string(),
+            OdinASTInsert::build(|builder| OdinSTRuntimeType(ty.clone()).serialize(builder)),
         )),
         UdonHeapValue::This => {
             let this_replacement = udontyperef!(VRCUdonCommonUdonGameObjectComponentHeapReference);
-            let ref_id = builder.alloc_refid();
-            let rt = builder.runtime_type(&val.0.odin_name);
-            builder.file.refs.insert(
-                ref_id,
-                OdinASTStruct(
-                    Some(this_replacement.odin_name.to_string()),
-                    vec![OdinASTEntry::uval(OdinASTValue::InternalRef(rt))],
-                ),
-            );
-            Ok((this_replacement, OdinASTValue::InternalRef(ref_id)))
+            Ok((
+                this_replacement.odin_name.to_string(),
+                OdinASTInsert::build(|builder| {
+                    let ref_id = builder.alloc_refid();
+                    let rt = builder.runtime_type(&val.0.odin_name);
+                    builder.file.refs.insert(
+                        ref_id,
+                        OdinASTStruct(
+                            Some(this_replacement.odin_name.to_string()),
+                            vec![OdinASTEntry::uval(OdinASTValue::InternalRef(rt))],
+                        ),
+                    );
+                    OdinASTValue::InternalRef(ref_id)
+                }),
+            ))
         }
         UdonHeapValue::OdinASTInsert(insert) => {
-            udonheapval_emit_odin_astinsert(insert, builder, unity_obj).map(|v| (val.0.clone(), v))
+            let mut subbuilder = OdinASTBuilder::default();
+            let incres = subbuilder
+                .include_insert(insert.file.clone(), unity_obj.len() as i32)
+                .map_err(|v| format!("OdinASTInsert error: {:?}", v))?;
+            for v in &insert.unity_objects {
+                unity_obj.push(v.clone());
+            }
+            Ok((
+                val.0.odin_name.to_string(),
+                OdinASTInsert {
+                    refs: subbuilder.file.refs,
+                    root: incres.0,
+                },
+            ))
         }
     }
 }
@@ -71,12 +79,20 @@ pub fn udonheap_emit_odin(
     min_heap_capacity: Option<u32>,
     heap: &[UdonHeapSlot],
     symtab: &BTreeMap<String, i64>,
-    builder: &mut OdinASTBuilder,
     unity_obj: &mut Vec<UdonUnityObject>,
-) -> Result<OdinASTStruct, String> {
-    let heap_inner_ref_id = builder.alloc_refid();
+) -> Result<UdonRawHeap, String> {
+    let min_heap_capacity = min_heap_capacity.unwrap_or(1);
+    let heap_size = if (heap.len() as u32) < min_heap_capacity {
+        min_heap_capacity
+    } else {
+        heap.len() as u32
+    };
 
-    let mut true_heap_vec: Vec<OdinASTEntry> = Vec::new();
+    let mut true_heap_vec = UdonRawHeap(Vec::with_capacity(heap_size as usize));
+
+    for _ in 0..heap_size {
+        true_heap_vec.0.push(None);
+    }
 
     // Let me just make it totally clear for you.
     // This code? Is nonsense.
@@ -85,58 +101,11 @@ pub fn udonheap_emit_odin(
     // This is not a place of honor.
 
     for (k, v) in heap.iter().enumerate() {
-        let strongbox_ref_id = builder.alloc_refid();
-        let (udon_type, emitted_val) = udonheapval_emit_odin(&v, symtab, builder, unity_obj)?;
-        builder.file.refs.insert(
-            strongbox_ref_id,
-            OdinASTStruct(
-                Some(format!(
-                    "System.Runtime.CompilerServices.StrongBox`1[[{}]], System.Core",
-                    udon_type.odin_name
-                )),
-                vec![OdinASTEntry::nval("Value", emitted_val)],
-            ),
-        );
-        let runtime_type_ref_id = builder.runtime_type(&udon_type.odin_name);
-        true_heap_vec.push(OdinASTEntry::uval(OdinASTStruct(Some("System.ValueTuple`3[[System.UInt32, mscorlib],[System.Runtime.CompilerServices.IStrongBox, System.Core],[System.Type, mscorlib]], mscorlib".to_string()), vec![
-            OdinASTEntry::nval("Item1", OdinPrimitive::UInt(k as u32)),
-            OdinASTEntry::nval("Item2", OdinASTValue::InternalRef(strongbox_ref_id)),
-            OdinASTEntry::nval("Item3", OdinASTValue::InternalRef(runtime_type_ref_id))
-        ])));
+        let (odin_type, emitted_val) = udonheapval_emit_odin(&v, symtab, unity_obj)?;
+        true_heap_vec.0[k] = Some((odin_type, emitted_val));
     }
 
-    // Finish encapsulation
-    let heap_inner_struct = OdinASTStruct(Some("System.Collections.Generic.List`1[[System.ValueTuple`3[[System.UInt32, mscorlib],[System.Runtime.CompilerServices.IStrongBox, System.Core],[System.Type, mscorlib]], mscorlib]], mscorlib".to_string()), vec![
-        OdinASTEntry::array(true_heap_vec)
-    ]);
-
-    builder
-        .file
-        .refs
-        .insert(heap_inner_ref_id, heap_inner_struct);
-
-    let min_heap_capacity = min_heap_capacity.unwrap_or(1);
-    let heap_size = if (heap.len() as u32) < min_heap_capacity {
-        min_heap_capacity
-    } else {
-        heap.len() as u32
-    };
-
-    Ok(OdinASTStruct(
-        Some("VRC.Udon.Common.UdonHeap, VRC.Udon.Common".to_string()),
-        vec![OdinASTEntry::Array(
-            2,
-            vec![
-                OdinASTEntry::nval("type", "System.UInt32, mscorlib"),
-                OdinASTEntry::nval("HeapCapacity", OdinPrimitive::UInt(heap_size)),
-                OdinASTEntry::nval(
-                    "type",
-                    "System.Collections.Generic.List`1[[System.ValueTuple`3[[System.UInt32, mscorlib],[System.Runtime.CompilerServices.IStrongBox, System.Core],[System.Type, mscorlib]], mscorlib]], mscorlib",
-                ),
-                OdinASTEntry::nval("HeapDump", OdinASTValue::InternalRef(heap_inner_ref_id)),
-            ],
-        )],
-    ))
+    Ok(true_heap_vec)
 }
 
 /// Builds the [UdonRawSymbolTable] from the program contents.
@@ -209,13 +178,15 @@ pub fn udonprogram_emit_odin(
 
     let heap_ref_id = builder.alloc_refid();
 
-    let heap_struct = udonheap_emit_odin(
-        program.min_heap_capacity,
-        &program.data,
-        &program.internal_syms,
+    let heap_struct = OdinSTSerializableRefType::serialize(
+        &udonheap_emit_odin(
+            program.min_heap_capacity,
+            &program.data,
+            &program.internal_syms,
+            &mut unity_obj,
+        )?,
         &mut builder,
-        &mut unity_obj,
-    )?;
+    );
     builder.file.refs.insert(heap_ref_id, heap_struct);
 
     let entrypoints_ref_id = builder.alloc_refid();

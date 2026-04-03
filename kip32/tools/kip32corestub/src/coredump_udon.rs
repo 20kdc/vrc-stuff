@@ -1,5 +1,4 @@
 use crate::target::Kip32CoreDump;
-use kudonast::UdonRawHeapValue;
 
 pub fn parse(res: &Vec<u8>) -> Result<Kip32CoreDump, String> {
     let entries = kudonodin::OdinEntry::read_all_from_slice(&res).expect("decode must succeed");
@@ -25,10 +24,9 @@ pub fn parse(res: &Vec<u8>) -> Result<Kip32CoreDump, String> {
             .symbol_table
             .sym_to_addr("vm_indirect_jump_target")
         {
-            if let Some(Some(UdonRawHeapValue::Insert(_, ipc))) = core_dump.heap.0.get(ipc as usize)
-            {
+            if let Some(Some(ipc)) = core_dump.heap.0.get(ipc as usize) {
                 let regval: Result<u32, String> =
-                    kudonodin::OdinSTDeserializable::deserialize_insert(ipc);
+                    kudonodin::OdinSTDeserializable::deserialize_insert(&ipc.1);
                 if let Ok(regval) = regval {
                     workspace.pc = regval;
                 }
@@ -39,10 +37,9 @@ pub fn parse(res: &Vec<u8>) -> Result<Kip32CoreDump, String> {
     // registers
     for (i, reg) in elf2uasm_lib::REGISTERS_R.iter().enumerate() {
         if let Some(reg) = core_dump.program.symbol_table.sym_to_addr(reg) {
-            if let Some(Some(UdonRawHeapValue::Insert(_, reg))) = core_dump.heap.0.get(reg as usize)
-            {
+            if let Some(Some(reg)) = core_dump.heap.0.get(reg as usize) {
                 let regval: Result<i32, String> =
-                    kudonodin::OdinSTDeserializable::deserialize_insert(reg);
+                    kudonodin::OdinSTDeserializable::deserialize_insert(&reg.1);
                 if let Ok(regval) = regval {
                     workspace.x[i] = regval as u32;
                 }
@@ -52,9 +49,9 @@ pub fn parse(res: &Vec<u8>) -> Result<Kip32CoreDump, String> {
 
     // memory
     if let Some(mem) = core_dump.program.symbol_table.sym_to_addr("vm_memory") {
-        if let Some(Some(UdonRawHeapValue::Insert(_, mem))) = core_dump.heap.0.get(mem as usize) {
+        if let Some(Some(mem)) = core_dump.heap.0.get(mem as usize) {
             let memchk: Result<Vec<u8>, String> =
-                kudonodin::OdinSTDeserializable::deserialize_insert(mem);
+                kudonodin::OdinSTDeserializable::deserialize_insert(&mem.1);
             if let Ok(memchk) = memchk {
                 workspace.memory = memchk;
             }

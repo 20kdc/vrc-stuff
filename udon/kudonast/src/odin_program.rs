@@ -1,22 +1,14 @@
 use crate::*;
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum UdonRawHeapValue {
-    /// Almost every value is this.
-    Insert(String, OdinASTInsert),
-    /// Except RuntimeType because it's optimized.
-    RuntimeType(String),
-}
-
 /// Raw Udon heap.
 /// Assumes some Odin AST 'elsewhere' for references.
 /// The OdinASTInsert here is used to try and guarantee we write in canonical order.
 /// Note that OdinASTInserts can be invalid. Run ref compaction on them to detect errors before you serialize, or panics may result.
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
-pub struct UdonRawHeap(pub Vec<Option<UdonRawHeapValue>>);
+pub struct UdonRawHeap(pub Vec<Option<(String, OdinASTInsert)>>);
 
-struct UdonRawHeapTriple(u32, UdonRawHeapValue);
+struct UdonRawHeapTriple(u32, String, OdinASTInsert);
 
 impl OdinSTDeserializable for UdonRawHeapTriple {
     fn deserialize(src: &OdinASTRefMap, val: &OdinASTValue) -> Result<Self, String> {
@@ -24,19 +16,10 @@ impl OdinSTDeserializable for UdonRawHeapTriple {
             let idx_v: u32 = odinst_get_field(src, &s.1, "Item1")?;
             let val_v: OdinSTStrongBox<OdinASTValue> = odinst_get_field(src, &s.1, "Item2")?;
             let type_v: OdinSTRuntimeType = odinst_get_field(src, &s.1, "Item3")?;
-            if type_v.0.eq("System.RuntimeType, mscorlib") {
-                if let Ok(v) = OdinSTDeserializable::deserialize(src, &val_v.1) {
-                    // type inference
-                    let vrt: OdinSTRuntimeType = v;
-                    return Ok(UdonRawHeapTriple(
-                        idx_v,
-                        UdonRawHeapValue::RuntimeType(vrt.0),
-                    ));
-                }
-            }
             Ok(UdonRawHeapTriple(
                 idx_v,
-                UdonRawHeapValue::Insert(val_v.0, OdinASTInsert::extract(src, val_v.1)),
+                type_v.0,
+                OdinASTInsert::extract(src, val_v.1),
             ))
         } else {
             Err("UdonRawHeapTriple should be struct".to_string())
@@ -46,27 +29,16 @@ impl OdinSTDeserializable for UdonRawHeapTriple {
 
 impl OdinSTSerializable for UdonRawHeapTriple {
     fn serialize(&self, builder: &mut OdinASTBuilder) -> OdinASTValue {
-        let strongbox: OdinASTValue = match &self.1 {
-            UdonRawHeapValue::Insert(ty, i) => {
-                OdinSTSerializable::serialize(
-                    &OdinSTStrongBox(ty.clone(), builder.include_insert(i.clone()).expect("please do ref compact when setting up UdonRawHeapValue inserts to check for errors").0),
-                    builder,
-                )
-            }
-            UdonRawHeapValue::RuntimeType(rt) => {
-                OdinSTSerializable::serialize(
-                    &OdinSTStrongBox("System.RuntimeType, mscorlib".to_string(), OdinSTRuntimeType(rt.clone())),
-                    builder,
-                )
-            }
-        };
-        let runtime_type: OdinASTValue = OdinSTSerializable::serialize(
-            &OdinSTRuntimeType(match &self.1 {
-                UdonRawHeapValue::Insert(ty, _) => ty.clone(),
-                UdonRawHeapValue::RuntimeType(_) => "System.RuntimeType, mscorlib".to_string(),
-            }),
+        // carefully fix the order, mmm
+        let strongbox_refid = builder.alloc_refid();
+        let strongbox_struct = OdinSTSerializableRefType::serialize(
+            &OdinSTStrongBox(self.1.clone(), builder.include_insert(self.2.clone(), 0).expect("please do ref compact when setting up UdonRawHeapValue inserts to check for errors").0),
             builder,
         );
+        builder.file.refs.insert(strongbox_refid, strongbox_struct);
+        let strongbox = OdinASTValue::InternalRef(strongbox_refid);
+        let runtime_type: OdinASTValue =
+            OdinSTSerializable::serialize(&OdinSTRuntimeType(self.1.clone()), builder);
         OdinASTValue::Struct(OdinASTStruct(Some("System.ValueTuple`3[[System.UInt32, mscorlib],[System.Runtime.CompilerServices.IStrongBox, System.Core],[System.Type, mscorlib]], mscorlib".to_string()), vec![
             OdinASTEntry::nval("Item1", OdinPrimitive::UInt(self.0)),
             OdinASTEntry::nval("Item2", strongbox),
@@ -95,7 +67,7 @@ impl OdinSTDeserializableRefType for UdonRawHeap {
                         if let OdinASTEntry::Value(_, val) = heap_slot {
                             if let Ok(triple) = UdonRawHeapTriple::deserialize(src, val) {
                                 if triple.0 < heap_capacity {
-                                    vec[triple.0 as usize] = Some(triple.1);
+                                    vec[triple.0 as usize] = Some((triple.1, triple.2));
                                 }
                             }
                         }
@@ -114,7 +86,7 @@ impl OdinSTSerializableRefType for UdonRawHeap {
         let mut true_heap_vec: Vec<OdinASTEntry> = Vec::new();
         for (k, v) in self.0.iter().enumerate() {
             if let Some(v) = v {
-                let rht = UdonRawHeapTriple(k as u32, v.clone());
+                let rht = UdonRawHeapTriple(k as u32, v.0.clone(), v.1.clone());
                 true_heap_vec.push(OdinASTEntry::uval(OdinSTSerializable::serialize(
                     &rht, builder,
                 )));
