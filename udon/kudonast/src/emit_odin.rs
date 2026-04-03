@@ -8,18 +8,14 @@ pub fn udonheapval_emit_odin_astinsert(
     builder: &mut OdinASTBuilder,
     unity_obj: &mut Vec<UdonUnityObject>,
 ) -> Result<OdinASTValue, String> {
-    let mut incres = builder
-        .include(val.file.clone())
+    let incres = builder
+        .include_insert(val.file.clone())
         .map_err(|v| format!("OdinASTInsert error: {:?}", v))?;
     for v in &val.unity_objects {
         unity_obj.push(v.clone());
     }
     builder.next_extid += val.unity_objects.len() as i32;
-    if let Some(OdinASTEntry::Value(_, value)) = incres.0.pop() {
-        Ok(value)
-    } else {
-        Err("OdinASTInsert did not resolve to a single Value entry".to_string())
-    }
+    Ok(incres.0)
 }
 
 /// Translates UdonHeapValue to OdinASTValue.

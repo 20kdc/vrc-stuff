@@ -6,8 +6,13 @@ use crate::*;
 
 /// Deserializable.
 pub trait OdinSTDeserializable: Sized {
-    /// Serializes into the given builder.
-    fn deserialize(src: &OdinASTFile, val: &OdinASTValue) -> Result<Self, String>;
+    /// Deserializes from somewhere in the AST.
+    fn deserialize(src: &OdinASTRefMap, val: &OdinASTValue) -> Result<Self, String>;
+
+    /// Convenience function, do not override. Deserializes from an insert.
+    fn deserialize_insert(insert: &OdinASTInsert) -> Result<Self, String> {
+        Self::deserialize(&insert.refs, &insert.root)
+    }
 }
 
 /// Serializable.
@@ -20,7 +25,7 @@ pub trait OdinSTSerializable {
 /// Implements [OdinSTDeserializable] for reference types.
 /// Acts as a convenience layer.
 pub trait OdinSTDeserializableRefType: Sized {
-    fn deserialize(src: &OdinASTFile, val: &OdinASTStruct) -> Result<Self, String>;
+    fn deserialize(src: &OdinASTRefMap, val: &OdinASTStruct) -> Result<Self, String>;
 }
 
 /// Implements [OdinSTSerializable] for reference types.
@@ -32,9 +37,9 @@ pub trait OdinSTSerializableRefType {
 // -- Fundamental Trait Impls --
 
 impl<T: OdinSTDeserializableRefType> OdinSTDeserializable for T {
-    fn deserialize(src: &OdinASTFile, val: &OdinASTValue) -> Result<Self, String> {
+    fn deserialize(src: &OdinASTRefMap, val: &OdinASTValue) -> Result<Self, String> {
         if let OdinASTValue::InternalRef(i) = val {
-            if let Some(v) = src.refs.get(i) {
+            if let Some(v) = src.get(i) {
                 OdinSTDeserializableRefType::deserialize(src, v)
             } else {
                 Err(format!("InternalRef {} missing", i))
@@ -56,7 +61,7 @@ impl<T: OdinSTSerializableRefType> OdinSTSerializable for T {
 }
 
 impl<T: OdinSTDeserializable> OdinSTDeserializable for Option<T> {
-    fn deserialize(src: &OdinASTFile, val: &OdinASTValue) -> Result<Self, String> {
+    fn deserialize(src: &OdinASTRefMap, val: &OdinASTValue) -> Result<Self, String> {
         if let OdinASTValue::Primitive(OdinPrimitive::Null) = val {
             Ok(None)
         } else {
@@ -68,7 +73,7 @@ impl<T: OdinSTDeserializable> OdinSTDeserializable for Option<T> {
 // -- Trivial Equivalences (OdinASTValue & OdinPrimitive) --
 
 impl OdinSTDeserializable for OdinASTValue {
-    fn deserialize(_src: &OdinASTFile, val: &OdinASTValue) -> Result<Self, String> {
+    fn deserialize(_src: &OdinASTRefMap, val: &OdinASTValue) -> Result<Self, String> {
         Ok(val.clone())
     }
 }
@@ -80,7 +85,7 @@ impl OdinSTSerializable for OdinASTValue {
 }
 
 impl OdinSTDeserializable for OdinPrimitive {
-    fn deserialize(_src: &OdinASTFile, val: &OdinASTValue) -> Result<Self, String> {
+    fn deserialize(_src: &OdinASTRefMap, val: &OdinASTValue) -> Result<Self, String> {
         if let OdinASTValue::Primitive(prim) = val {
             Ok(prim.clone())
         } else {
@@ -100,7 +105,7 @@ impl OdinSTSerializable for OdinPrimitive {
 macro_rules! serializable_int_impl {
     ($type:ty, $oit:expr, $arraytype:expr, $pat:ident, $type_pa:ty) => {
         impl OdinSTDeserializable for $type {
-            fn deserialize(_src: &OdinASTFile, val: &OdinASTValue) -> Result<Self, String> {
+            fn deserialize(_src: &OdinASTRefMap, val: &OdinASTValue) -> Result<Self, String> {
                 if let OdinASTValue::Primitive(prim) = val {
                     if let Some(v) = prim.decompose_int() {
                         Ok(v.1 as $type)
@@ -118,7 +123,7 @@ macro_rules! serializable_int_impl {
             }
         }
         impl OdinSTDeserializableRefType for Vec<$type> {
-            fn deserialize(_src: &OdinASTFile, val: &OdinASTStruct) -> Result<Self, String> {
+            fn deserialize(_src: &OdinASTRefMap, val: &OdinASTStruct) -> Result<Self, String> {
                 let v = val.unwrap_fixed_type($arraytype, 1)?;
                 if let OdinASTEntry::PrimitiveArray(OdinPrimitiveArray::$pat(v)) = &v[0] {
                     Ok(v.iter().map(|v| *v as $type).collect())
@@ -169,7 +174,7 @@ serializable_int_impl!(i8, OdinIntType::SByte, "System.SByte[], mscorlib", U8, u
 // -- Floats --
 
 impl OdinSTDeserializable for f64 {
-    fn deserialize(_src: &OdinASTFile, val: &OdinASTValue) -> Result<Self, String> {
+    fn deserialize(_src: &OdinASTRefMap, val: &OdinASTValue) -> Result<Self, String> {
         if let OdinASTValue::Primitive(prim) = val {
             if let OdinPrimitive::Double(v) = prim {
                 Ok(*v)
@@ -193,7 +198,7 @@ impl OdinSTSerializable for f64 {
 }
 
 impl OdinSTDeserializableRefType for Vec<f64> {
-    fn deserialize(_src: &OdinASTFile, val: &OdinASTStruct) -> Result<Self, String> {
+    fn deserialize(_src: &OdinASTRefMap, val: &OdinASTStruct) -> Result<Self, String> {
         let v = val.unwrap_fixed_type("System.Double[], mscorlib", 1)?;
         if let OdinASTEntry::PrimitiveArray(OdinPrimitiveArray::U64(v)) = &v[0] {
             Ok(v.iter().map(|v| f64::from_bits(*v)).collect())
@@ -214,7 +219,7 @@ impl OdinSTSerializableRefType for Vec<f64> {
 }
 
 impl OdinSTDeserializable for f32 {
-    fn deserialize(_src: &OdinASTFile, val: &OdinASTValue) -> Result<Self, String> {
+    fn deserialize(_src: &OdinASTRefMap, val: &OdinASTValue) -> Result<Self, String> {
         if let OdinASTValue::Primitive(prim) = val {
             if let OdinPrimitive::Double(v) = prim {
                 Ok(*v as f32)
@@ -238,7 +243,7 @@ impl OdinSTSerializable for f32 {
 }
 
 impl OdinSTDeserializableRefType for Vec<f32> {
-    fn deserialize(_src: &OdinASTFile, val: &OdinASTStruct) -> Result<Self, String> {
+    fn deserialize(_src: &OdinASTRefMap, val: &OdinASTStruct) -> Result<Self, String> {
         let v = val.unwrap_fixed_type("System.Double[], mscorlib", 1)?;
         if let OdinASTEntry::PrimitiveArray(OdinPrimitiveArray::U32(v)) = &v[0] {
             Ok(v.iter().map(|v| f32::from_bits(*v)).collect())
@@ -261,7 +266,7 @@ impl OdinSTSerializableRefType for Vec<f32> {
 // -- Bool --
 
 impl OdinSTDeserializable for bool {
-    fn deserialize(_src: &OdinASTFile, val: &OdinASTValue) -> Result<Self, String> {
+    fn deserialize(_src: &OdinASTRefMap, val: &OdinASTValue) -> Result<Self, String> {
         if let OdinASTValue::Primitive(prim) = val {
             if let Some((_, b)) = prim.decompose_int() {
                 Ok(b != 0)
@@ -281,7 +286,7 @@ impl OdinSTSerializable for bool {
 }
 
 impl OdinSTDeserializableRefType for Vec<bool> {
-    fn deserialize(_src: &OdinASTFile, val: &OdinASTStruct) -> Result<Self, String> {
+    fn deserialize(_src: &OdinASTRefMap, val: &OdinASTStruct) -> Result<Self, String> {
         let v = val.unwrap_fixed_type("System.Boolean[], mscorlib", 1)?;
         if let OdinASTEntry::PrimitiveArray(OdinPrimitiveArray::U8(v)) = &v[0] {
             Ok(v.iter().map(|v| *v != 0).collect())
@@ -307,7 +312,7 @@ impl OdinSTSerializableRefType for Vec<bool> {
 pub struct OdinSTChar(pub u16);
 
 impl OdinSTDeserializable for OdinSTChar {
-    fn deserialize(_src: &OdinASTFile, val: &OdinASTValue) -> Result<Self, String> {
+    fn deserialize(_src: &OdinASTRefMap, val: &OdinASTValue) -> Result<Self, String> {
         if let OdinASTValue::Primitive(prim) = val {
             if let Some((_, b)) = prim.decompose_int() {
                 Ok(OdinSTChar(b as u16))
@@ -327,7 +332,7 @@ impl OdinSTSerializable for OdinSTChar {
 }
 
 impl OdinSTDeserializableRefType for Vec<OdinSTChar> {
-    fn deserialize(_src: &OdinASTFile, val: &OdinASTStruct) -> Result<Self, String> {
+    fn deserialize(_src: &OdinASTRefMap, val: &OdinASTStruct) -> Result<Self, String> {
         let v = val.unwrap_fixed_type("System.Boolean[], mscorlib", 1)?;
         if let OdinASTEntry::PrimitiveArray(OdinPrimitiveArray::U16(v)) = &v[0] {
             Ok(v.iter().map(|v| OdinSTChar(*v)).collect())
@@ -350,7 +355,7 @@ impl OdinSTSerializableRefType for Vec<OdinSTChar> {
 // -- String --
 
 impl OdinSTDeserializable for String {
-    fn deserialize(_src: &OdinASTFile, val: &OdinASTValue) -> Result<Self, String> {
+    fn deserialize(_src: &OdinASTRefMap, val: &OdinASTValue) -> Result<Self, String> {
         if let OdinASTValue::Primitive(OdinPrimitive::String(s)) = val {
             Ok(s.clone())
         } else {

@@ -17,7 +17,7 @@ pub struct UdonCoreDump {
 }
 
 impl OdinSTDeserializableRefType for UdonCoreDump {
-    fn deserialize(src: &OdinASTFile, val: &OdinASTStruct) -> Result<Self, String> {
+    fn deserialize(src: &OdinASTRefMap, val: &OdinASTStruct) -> Result<Self, String> {
         let content = val.unwrap_fixed_type("KDCVRCTools.KDCUdonCoreDump, KDCVRCTools", 0)?;
         // let program: UdonProgram = OdinASTEntry::get_value_by_name("program", content).and_then(|v| OdinSTDeserializable::deserialize(src, v));
         let program: UdonRawProgram = odinst_get_field(src, content, "program")?;

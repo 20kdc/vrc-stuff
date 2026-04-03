@@ -1,29 +1,82 @@
 use crate::*;
 use serde::{Deserialize, Serialize};
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum UdonRawHeapValue {
+    /// Almost every value is this.
+    Insert(String, OdinASTInsert),
+    /// Except RuntimeType because it's optimized.
+    RuntimeType(String),
+}
+
 /// Raw Udon heap.
 /// Assumes some Odin AST 'elsewhere' for references.
-/// This arrangement can't be written in 'canonical' order, since it's hiding a bunch of StrongBoxes.
+/// The OdinASTInsert here is used to try and guarantee we write in canonical order.
+/// Note that OdinASTInserts can be invalid. Run ref compaction on them to detect errors before you serialize, or panics may result.
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
-pub struct UdonRawHeap(pub Vec<Option<(String, OdinASTValue)>>);
+pub struct UdonRawHeap(pub Vec<Option<UdonRawHeapValue>>);
 
-struct UdonRawHeapTriple(u32, OdinASTValue, OdinSTRuntimeType);
+struct UdonRawHeapTriple(u32, UdonRawHeapValue);
 
 impl OdinSTDeserializable for UdonRawHeapTriple {
-    fn deserialize(src: &OdinASTFile, val: &OdinASTValue) -> Result<Self, String> {
+    fn deserialize(src: &OdinASTRefMap, val: &OdinASTValue) -> Result<Self, String> {
         if let OdinASTValue::Struct(s) = val {
             let idx_v: u32 = odinst_get_field(src, &s.1, "Item1")?;
             let val_v: OdinSTStrongBox<OdinASTValue> = odinst_get_field(src, &s.1, "Item2")?;
             let type_v: OdinSTRuntimeType = odinst_get_field(src, &s.1, "Item3")?;
-            Ok(UdonRawHeapTriple(idx_v, val_v.1, type_v))
+            if type_v.0.eq("System.RuntimeType, mscorlib") {
+                if let Ok(v) = OdinSTDeserializable::deserialize(src, &val_v.1) {
+                    // type inference
+                    let vrt: OdinSTRuntimeType = v;
+                    return Ok(UdonRawHeapTriple(
+                        idx_v,
+                        UdonRawHeapValue::RuntimeType(vrt.0),
+                    ));
+                }
+            }
+            Ok(UdonRawHeapTriple(
+                idx_v,
+                UdonRawHeapValue::Insert(val_v.0, OdinASTInsert::extract(src, val_v.1)),
+            ))
         } else {
             Err("UdonRawHeapTriple should be struct".to_string())
         }
     }
 }
 
+impl OdinSTSerializable for UdonRawHeapTriple {
+    fn serialize(&self, builder: &mut OdinASTBuilder) -> OdinASTValue {
+        let strongbox: OdinASTValue = match &self.1 {
+            UdonRawHeapValue::Insert(ty, i) => {
+                OdinSTSerializable::serialize(
+                    &OdinSTStrongBox(ty.clone(), builder.include_insert(i.clone()).expect("please do ref compact when setting up UdonRawHeapValue inserts to check for errors").0),
+                    builder,
+                )
+            }
+            UdonRawHeapValue::RuntimeType(rt) => {
+                OdinSTSerializable::serialize(
+                    &OdinSTStrongBox("System.RuntimeType, mscorlib".to_string(), OdinSTRuntimeType(rt.clone())),
+                    builder,
+                )
+            }
+        };
+        let runtime_type: OdinASTValue = OdinSTSerializable::serialize(
+            &OdinSTRuntimeType(match &self.1 {
+                UdonRawHeapValue::Insert(ty, _) => ty.clone(),
+                UdonRawHeapValue::RuntimeType(_) => "System.RuntimeType, mscorlib".to_string(),
+            }),
+            builder,
+        );
+        OdinASTValue::Struct(OdinASTStruct(Some("System.ValueTuple`3[[System.UInt32, mscorlib],[System.Runtime.CompilerServices.IStrongBox, System.Core],[System.Type, mscorlib]], mscorlib".to_string()), vec![
+            OdinASTEntry::nval("Item1", OdinPrimitive::UInt(self.0)),
+            OdinASTEntry::nval("Item2", strongbox),
+            OdinASTEntry::nval("Item3", runtime_type)
+        ]))
+    }
+}
+
 impl OdinSTDeserializableRefType for UdonRawHeap {
-    fn deserialize(src: &OdinASTFile, val: &OdinASTStruct) -> Result<Self, String> {
+    fn deserialize(src: &OdinASTRefMap, val: &OdinASTStruct) -> Result<Self, String> {
         let content = val.unwrap_iserializable()?;
         let heap_capacity: u32 = OdinSTDeserializable::deserialize(
             src,
@@ -36,13 +89,13 @@ impl OdinSTDeserializableRefType for UdonRawHeap {
         if let Ok(OdinASTValue::InternalRef(dump_idx)) =
             OdinASTEntry::get_value_by_name("HeapDump", content)
         {
-            if let Some(dump_content_a) = src.refs.get(dump_idx) {
+            if let Some(dump_content_a) = src.get(dump_idx) {
                 if let Some(OdinASTEntry::Array(_, dump_content)) = dump_content_a.1.get(0) {
                     for heap_slot in dump_content {
                         if let OdinASTEntry::Value(_, val) = heap_slot {
                             if let Ok(triple) = UdonRawHeapTriple::deserialize(src, val) {
                                 if triple.0 < heap_capacity {
-                                    vec[triple.0 as usize] = Some((triple.2.0, triple.1));
+                                    vec[triple.0 as usize] = Some(triple.1);
                                 }
                             }
                         }
@@ -51,6 +104,47 @@ impl OdinSTDeserializableRefType for UdonRawHeap {
             }
         }
         Ok(UdonRawHeap(vec))
+    }
+}
+
+impl OdinSTSerializableRefType for UdonRawHeap {
+    fn serialize(&self, builder: &mut OdinASTBuilder) -> OdinASTStruct {
+        let heap_inner_ref_id = builder.alloc_refid();
+
+        let mut true_heap_vec: Vec<OdinASTEntry> = Vec::new();
+        for (k, v) in self.0.iter().enumerate() {
+            if let Some(v) = v {
+                let rht = UdonRawHeapTriple(k as u32, v.clone());
+                true_heap_vec.push(OdinASTEntry::uval(OdinSTSerializable::serialize(
+                    &rht, builder,
+                )));
+            }
+        }
+        // Finish encapsulation
+        let heap_inner_struct = OdinASTStruct(Some("System.Collections.Generic.List`1[[System.ValueTuple`3[[System.UInt32, mscorlib],[System.Runtime.CompilerServices.IStrongBox, System.Core],[System.Type, mscorlib]], mscorlib]], mscorlib".to_string()), vec![
+            OdinASTEntry::array(true_heap_vec)
+        ]);
+
+        builder
+            .file
+            .refs
+            .insert(heap_inner_ref_id, heap_inner_struct);
+
+        OdinASTStruct(
+            Some("VRC.Udon.Common.UdonHeap, VRC.Udon.Common".to_string()),
+            vec![OdinASTEntry::Array(
+                2,
+                vec![
+                    OdinASTEntry::nval("type", "System.UInt32, mscorlib"),
+                    OdinASTEntry::nval("HeapCapacity", OdinPrimitive::UInt(self.0.len() as u32)),
+                    OdinASTEntry::nval(
+                        "type",
+                        "System.Collections.Generic.List`1[[System.ValueTuple`3[[System.UInt32, mscorlib],[System.Runtime.CompilerServices.IStrongBox, System.Core],[System.Type, mscorlib]], mscorlib]], mscorlib",
+                    ),
+                    OdinASTEntry::nval("HeapDump", OdinASTValue::InternalRef(heap_inner_ref_id)),
+                ],
+            )],
+        )
     }
 }
 
@@ -68,7 +162,7 @@ pub struct UdonRawProgram {
 }
 
 impl OdinSTDeserializableRefType for UdonRawProgram {
-    fn deserialize(src: &OdinASTFile, val: &OdinASTStruct) -> Result<Self, String> {
+    fn deserialize(src: &OdinASTRefMap, val: &OdinASTStruct) -> Result<Self, String> {
         let content = val.unwrap_fixed_type("VRC.Udon.Common.UdonProgram, VRC.Udon.Common", 0)?;
         let bytecode: Vec<u8> = odinst_get_field(src, content, "ByteCode")?;
         let mut bytecode_out: Vec<u32> = Vec::new();

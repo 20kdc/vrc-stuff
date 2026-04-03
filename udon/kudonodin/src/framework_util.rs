@@ -18,7 +18,7 @@ pub struct OdinSTRefList<V> {
 }
 
 impl<V: OdinSTDeserializable> OdinSTDeserializableRefType for OdinSTRefList<V> {
-    fn deserialize(src: &OdinASTFile, val: &OdinASTStruct) -> Result<Self, String> {
+    fn deserialize(src: &OdinASTRefMap, val: &OdinASTStruct) -> Result<Self, String> {
         let typefull = if let Some(v) = &val.0 {
             v
         } else {
@@ -100,7 +100,7 @@ impl<V: OdinSTSerializable> OdinSTSerializableRefType for OdinSTRefList<V> {
 pub struct OdinSTRuntimeType(pub String);
 
 impl OdinSTDeserializableRefType for OdinSTRuntimeType {
-    fn deserialize(_src: &OdinASTFile, val: &OdinASTStruct) -> Result<Self, String> {
+    fn deserialize(_src: &OdinASTRefMap, val: &OdinASTStruct) -> Result<Self, String> {
         let sct = val.unwrap_fixed_type("System.RuntimeType, mscorlib", 1)?;
         if let OdinASTEntry::Value(None, OdinASTValue::Primitive(OdinPrimitive::String(ty))) =
             &sct[0]
@@ -123,7 +123,7 @@ impl OdinSTSerializable for OdinSTRuntimeType {
 pub struct OdinSTStrongBox<V>(pub String, pub V);
 
 impl<V: OdinSTDeserializable> OdinSTDeserializableRefType for OdinSTStrongBox<V> {
-    fn deserialize(src: &OdinASTFile, val: &OdinASTStruct) -> Result<Self, String> {
+    fn deserialize(src: &OdinASTRefMap, val: &OdinASTStruct) -> Result<Self, String> {
         if let Some(type_name) = &val.0 {
             let ty2 = type_name
                 .strip_prefix("System.Runtime.CompilerServices.StrongBox`1[[")
@@ -160,7 +160,7 @@ impl<V: OdinSTSerializable> OdinSTSerializableRefType for OdinSTStrongBox<V> {
 
 /// Shorthand to deserialize a field.
 pub fn odinst_get_field<V: OdinSTDeserializable>(
-    src: &OdinASTFile,
+    src: &OdinASTRefMap,
     content: &[OdinASTEntry],
     name: &str,
 ) -> Result<V, String> {

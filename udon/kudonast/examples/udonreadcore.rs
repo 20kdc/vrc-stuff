@@ -10,7 +10,8 @@ fn main() {
         .get_root_value()
         .expect("file should have a single root");
     let core_dump: kudonast::UdonCoreDump =
-        kudonodin::OdinSTDeserializable::deserialize(&file, root_val).expect("must deserialize");
+        kudonodin::OdinSTDeserializable::deserialize(&file.refs, root_val)
+            .expect("must deserialize");
     let pcfg = ron::ser::PrettyConfig::new().indentor("\t");
     println!(
         "{}",

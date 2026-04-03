@@ -28,7 +28,7 @@ impl OdinSTSerializableRefType for UdonRawSyncProperty {
 }
 
 impl OdinSTDeserializableRefType for UdonRawSyncProperty {
-    fn deserialize(src: &OdinASTFile, val: &OdinASTStruct) -> Result<Self, String> {
+    fn deserialize(src: &OdinASTRefMap, val: &OdinASTStruct) -> Result<Self, String> {
         let content = val.unwrap_iserializable()?;
         Ok(UdonRawSyncProperty(
             odinst_get_field(src, &content, "Name")?,
@@ -69,7 +69,7 @@ impl OdinSTSerializableRefType for UdonRawSyncMetadata {
 }
 
 impl OdinSTDeserializableRefType for UdonRawSyncMetadata {
-    fn deserialize(src: &OdinASTFile, val: &OdinASTStruct) -> Result<Self, String> {
+    fn deserialize(src: &OdinASTRefMap, val: &OdinASTStruct) -> Result<Self, String> {
         let content = val.unwrap_iserializable()?;
         let reflist: OdinSTRefList<UdonRawSyncProperty> =
             odinst_get_field(src, &content, "Properties")?;
@@ -148,7 +148,7 @@ impl OdinSTSerializableRefType for UdonRawSyncMetadataTable {
 }
 
 impl OdinSTDeserializableRefType for UdonRawSyncMetadataTable {
-    fn deserialize(src: &OdinASTFile, val: &OdinASTStruct) -> Result<Self, String> {
+    fn deserialize(src: &OdinASTRefMap, val: &OdinASTStruct) -> Result<Self, String> {
         let content = val.unwrap_iserializable()?;
         let reflist: OdinSTRefList<UdonRawSyncMetadata> =
             odinst_get_field(src, &content, "SyncMetadata")?;

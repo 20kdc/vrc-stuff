@@ -10,7 +10,7 @@ pub struct UdonRawSymbol {
 }
 
 impl OdinSTDeserializableRefType for UdonRawSymbol {
-    fn deserialize(src: &OdinASTFile, val: &OdinASTStruct) -> Result<Self, String> {
+    fn deserialize(src: &OdinASTRefMap, val: &OdinASTStruct) -> Result<Self, String> {
         let content = val.unwrap_iserializable()?;
         let name: String = odinst_get_field(src, content, "Name")?;
         let ty: Option<OdinSTRuntimeType> = odinst_get_field(src, content, "Type").ok();
@@ -60,7 +60,7 @@ pub struct UdonRawSymbolTable {
 }
 
 impl OdinSTDeserializableRefType for UdonRawSymbolTable {
-    fn deserialize(src: &OdinASTFile, val: &OdinASTStruct) -> Result<Self, String> {
+    fn deserialize(src: &OdinASTRefMap, val: &OdinASTStruct) -> Result<Self, String> {
         let content = val.unwrap_iserializable()?;
         let syms: OdinSTRefList<UdonRawSymbol> = odinst_get_field(src, content, "Symbols")?;
         let exported: OdinSTRefList<String> = odinst_get_field(src, content, "ExportedSymbols")?;

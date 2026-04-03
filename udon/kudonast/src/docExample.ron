@@ -32,9 +32,7 @@
 			(
 				file: (
 					refs: {},
-					root: [
-						Value(Some("Value"), ExternalRefIdx(0))
-					],
+					root: ExternalRefIdx(0),
 				),
 				unity_objects: [
 					Ref("e10ab24bd1c8f7abca1605dfcddbc499", 2100000)

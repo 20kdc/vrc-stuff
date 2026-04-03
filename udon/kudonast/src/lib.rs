@@ -78,10 +78,10 @@ pub enum UdonUnityObject {
 /// Used to insert arbitrary data.
 #[derive(Clone, Debug, PartialEq, PartialOrd, Serialize, Deserialize)]
 pub struct UdonOdinASTInsert {
-    /// The OdinASTFile representing this value.
+    /// The [OdinASTInsert] representing this value.
     /// The root entries must solely consist of a single Value entry.
     /// This Value entry will be patched to have the correct name if necessary.
-    pub file: OdinASTFile,
+    pub file: OdinASTInsert,
     pub unity_objects: Vec<UdonUnityObject>,
 }
 

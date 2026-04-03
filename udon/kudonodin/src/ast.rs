@@ -2,7 +2,7 @@
 //! To allow for cross-references, the reference node map is represented as BTreeMap<i32, OdinASTObject>.
 
 use super::*;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 pub type OdinASTType = Option<String>;
 
@@ -30,6 +30,58 @@ impl From<OdinPrimitive> for OdinASTValue {
 impl From<OdinASTStruct> for OdinASTValue {
     fn from(value: OdinASTStruct) -> Self {
         Self::Struct(value)
+    }
+}
+
+impl OdinASTValue {
+    /// Remaps internal and external references.
+    /// If an unexpected internal reference appears, the source ID is returned. (The structure will be left half-transformed.)
+    /// Also adds a fixed number to external indexed references.
+    /// If the internal reference map is missing, then those are not remapped and errors are impossile.
+    pub fn remap_refs(&mut self, map: Option<&HashMap<i32, i32>>, extbump: i32) -> Result<(), i32> {
+        match self {
+            OdinASTValue::InternalRef(v) => {
+                if let Some(map) = map {
+                    if let Some(v2) = map.get(v) {
+                        *v = *v2;
+                        Ok(())
+                    } else {
+                        Err(*v)
+                    }
+                } else {
+                    Ok(())
+                }
+            }
+            OdinASTValue::ExternalRefIdx(idx) => {
+                *idx += extbump;
+                Ok(())
+            }
+            OdinASTValue::Struct(content) => {
+                for v in &mut content.1 {
+                    v.remap_refs(map, extbump)?;
+                }
+                Ok(())
+            }
+            OdinASTValue::Primitive(_) => Ok(()),
+        }
+    }
+
+    /// Marks refs reachable from this OdinASTValue.
+    pub fn mark_reachable(&self, reachable: &mut BTreeSet<i32>, queue: &mut Vec<i32>) {
+        match self {
+            Self::InternalRef(i) => {
+                if reachable.insert(*i) {
+                    queue.push(*i);
+                }
+            }
+            Self::ExternalRefIdx(_) => {}
+            Self::Primitive(_) => {}
+            Self::Struct(content) => {
+                for v in &content.1 {
+                    v.mark_reachable(reachable, queue);
+                }
+            }
+        }
     }
 }
 
@@ -355,35 +407,30 @@ impl OdinASTEntry {
     /// Remaps all internal references.
     /// If an unexpected internal reference appears, the source ID is returned. (The structure will be left half-transformed.)
     /// Also bumps external indexed references.
-    pub fn remap_refs(&mut self, map: &HashMap<i32, i32>, extbump: i32) -> Result<(), i32> {
+    pub fn remap_refs(&mut self, map: Option<&HashMap<i32, i32>>, extbump: i32) -> Result<(), i32> {
         match self {
-            Self::Value(_, content) => match content {
-                OdinASTValue::InternalRef(v) => {
-                    if let Some(v2) = map.get(v) {
-                        *v = *v2;
-                        Ok(())
-                    } else {
-                        Err(*v)
-                    }
-                }
-                OdinASTValue::ExternalRefIdx(idx) => {
-                    *idx += extbump;
-                    Ok(())
-                }
-                OdinASTValue::Struct(content) => {
-                    for v in &mut content.1 {
-                        v.remap_refs(map, extbump)?;
-                    }
-                    Ok(())
-                }
-                OdinASTValue::Primitive(_) => Ok(()),
-            },
+            Self::Value(_, content) => content.remap_refs(map, extbump),
             Self::PrimitiveArray(_) => Ok(()),
             Self::Array(_, content) => {
                 for v in content {
                     v.remap_refs(map, extbump)?;
                 }
                 Ok(())
+            }
+        }
+    }
+
+    /// Marks refs reachable from this OdinASTEntry.
+    pub fn mark_reachable(&self, reachable: &mut BTreeSet<i32>, queue: &mut Vec<i32>) {
+        match self {
+            Self::Value(_, v) => {
+                v.mark_reachable(reachable, queue);
+            }
+            Self::PrimitiveArray(_) => {}
+            Self::Array(_, contents) => {
+                for v in contents {
+                    v.mark_reachable(reachable, queue);
+                }
             }
         }
     }
@@ -468,6 +515,135 @@ impl OdinASTFile {
             None
         }
     }
+
+    /// Compacts and validates internal refs. On failure, the object is useless, so is destroyed.
+    pub fn ref_compact(mut self) -> Result<(Self, HashMap<i32, i32>), i32> {
+        let mut remap: HashMap<i32, i32> = HashMap::new();
+        let mut new_ids = 0;
+        for k in self.refs.keys() {
+            remap.insert(*k, new_ids);
+            new_ids += 1;
+        }
+        let mut new_refs = OdinASTRefMap::new();
+        while let Some(mut res) = self.refs.pop_first() {
+            for v in &mut res.1.1 {
+                v.remap_refs(Some(&remap), 0)?;
+            }
+            new_refs.insert(
+                *remap
+                    .get(&res.0)
+                    .expect("internal consistency (remap table missing refobj)"),
+                res.1,
+            );
+        }
+        for v in &mut self.root {
+            v.remap_refs(Some(&remap), 0)?;
+        }
+        Ok((
+            Self {
+                refs: new_refs,
+                root: self.root,
+            },
+            remap,
+        ))
+    }
+}
+
+/// This is an 'AST insert'.
+/// This is like OdinASTFile, but it's compile-guaranteed to contain a single value.
+#[derive(Clone, Debug, PartialOrd, PartialEq, Serialize, Deserialize)]
+pub struct OdinASTInsert {
+    pub refs: OdinASTRefMap,
+    pub root: OdinASTValue,
+}
+
+impl TryFrom<OdinASTFile> for OdinASTInsert {
+    type Error = ();
+    fn try_from(mut value: OdinASTFile) -> Result<Self, Self::Error> {
+        if value.root.len() == 1 {
+            if let OdinASTEntry::Value(_, val) = value.root.remove(0) {
+                Ok(Self {
+                    refs: value.refs,
+                    root: val,
+                })
+            } else {
+                Err(())
+            }
+        } else {
+            Err(())
+        }
+    }
+}
+
+impl From<OdinASTInsert> for OdinASTFile {
+    fn from(value: OdinASTInsert) -> Self {
+        Self {
+            refs: value.refs,
+            root: vec![OdinASTEntry::Value(None, value.root)],
+        }
+    }
+}
+
+impl From<OdinASTValue> for OdinASTInsert {
+    fn from(value: OdinASTValue) -> Self {
+        Self {
+            refs: OdinASTRefMap::new(),
+            root: value,
+        }
+    }
+}
+
+impl From<OdinPrimitive> for OdinASTInsert {
+    fn from(value: OdinPrimitive) -> Self {
+        Self {
+            refs: OdinASTRefMap::new(),
+            root: OdinASTValue::Primitive(value),
+        }
+    }
+}
+
+impl OdinASTInsert {
+    /// Extracts a 'clean' OdinASTInsert using a mark-and-sweep-ish algorithm.
+    /// Notably, remapping is not performed.
+    pub fn extract(refs: &OdinASTRefMap, val: OdinASTValue) -> Self {
+        let mut reachable: BTreeSet<i32> = BTreeSet::new();
+        let mut queue: Vec<i32> = Vec::new();
+        val.mark_reachable(&mut reachable, &mut queue);
+        while let Some(v) = queue.pop() {
+            if let Some(x) = refs.get(&v) {
+                for e in &x.1 {
+                    e.mark_reachable(&mut reachable, &mut queue);
+                }
+            }
+        }
+        let mut res = OdinASTRefMap::new();
+        for v in reachable {
+            if let Some(x) = refs.get(&v) {
+                res.insert(v, x.clone());
+            }
+        }
+        Self {
+            refs: res,
+            root: val,
+        }
+    }
+
+    /// See [OdinASTFile::ref_compact].
+    pub fn ref_compact(self) -> Result<(Self, HashMap<i32, i32>), i32> {
+        let f = OdinASTFile::ref_compact(OdinASTFile {
+            refs: self.refs,
+            root: vec![],
+        })?;
+        let mut root = self.root;
+        root.remap_refs(Some(&f.1), 0)?;
+        Ok((
+            Self {
+                refs: f.0.refs,
+                root: root,
+            },
+            f.1,
+        ))
+    }
 }
 
 /// Utility for building an Odin AST.
@@ -518,24 +694,22 @@ impl OdinASTBuilder {
         }
     }
 
-    /// Includes another [OdinASTFile] and returns its remapped root entries, along with the remapping table (in case it's needed).
+    /// Includes a [OdinASTRefMap] and returns the remapping table (in case it's needed).
     /// This can be used to, for instance, allow specifying arbitrary Odin-serialized objects via RON.
     /// It's also generally useful if moving data between [OdinASTBuilder] objects.
     /// If an internal reference is missing, this fails with the internal reference number.
     /// External references are placed at `next_extid` onwards; you can adjust that number afterwards to get a clean external reference sequence.
+    /// (Alternatively, if your external references have already been accounted for, you can just leave the ID at zero.)
     /// This is useful, for instance, if you have some representation of external references.
     /// (It's outside of this crate's scope, since that would pull in figuring out Unity YAML for what we're doing here.)
-    pub fn include(
-        &mut self,
-        mut file: OdinASTFile,
-    ) -> Result<(Vec<OdinASTEntry>, HashMap<i32, i32>), i32> {
+    pub fn include_refs(&mut self, mut refmap: OdinASTRefMap) -> Result<HashMap<i32, i32>, i32> {
         let mut remap: HashMap<i32, i32> = HashMap::new();
-        for k in file.refs.keys() {
+        for k in refmap.keys() {
             remap.insert(*k, self.alloc_refid());
         }
-        while let Some(mut res) = file.refs.pop_first() {
+        while let Some(mut res) = refmap.pop_first() {
             for v in &mut res.1.1 {
-                v.remap_refs(&remap, self.next_extid)?;
+                v.remap_refs(Some(&remap), self.next_extid)?;
             }
             self.file.refs.insert(
                 *remap
@@ -544,9 +718,28 @@ impl OdinASTBuilder {
                 res.1,
             );
         }
+        Ok(remap)
+    }
+
+    /// Includes an [OdinASTFile] and returns its remapped root entries, along with the remapping table (in case it's needed).
+    pub fn include_file(
+        &mut self,
+        mut file: OdinASTFile,
+    ) -> Result<(Vec<OdinASTEntry>, HashMap<i32, i32>), i32> {
+        let remap: HashMap<i32, i32> = self.include_refs(file.refs)?;
         for v in &mut file.root {
-            v.remap_refs(&remap, self.next_extid)?;
+            v.remap_refs(Some(&remap), self.next_extid)?;
         }
+        Ok((file.root, remap))
+    }
+
+    /// Includes a [OdinASTInsert] and returns its remapped value, along with the remapping table (in case it's needed).
+    pub fn include_insert(
+        &mut self,
+        mut file: OdinASTInsert,
+    ) -> Result<(OdinASTValue, HashMap<i32, i32>), i32> {
+        let remap: HashMap<i32, i32> = self.include_refs(file.refs)?;
+        file.root.remap_refs(Some(&remap), self.next_extid)?;
         Ok((file.root, remap))
     }
 }
