@@ -121,8 +121,6 @@ impl OdinSTSerializableRefType for UdonRawHeap {
 }
 
 /// Raw Udon program.
-/// This is now pretty much complete, but we can't use it to serialize because UdonRawHeap creates ordering issues by existing.
-/// To fix this, we need a dedicated AST insert type and need to rework UdonRawHeap's value storage to use it.
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub struct UdonRawProgram {
     pub bytecode: Vec<u32>,

@@ -150,97 +150,48 @@ pub fn udonsymboltable_emit_odin(
     Ok(rawsymtab)
 }
 
+/// Links [UdonProgram] into [UdonRawProgram] plus Unity object info. You probably want [udonprogram_emit_udonjson].
+pub fn udonprogram_emit_udonrawprogram(
+    program: &UdonProgram,
+    unity_obj: &mut Vec<UdonUnityObject>,
+) -> Result<UdonRawProgram, String> {
+    let mut bytecode: Vec<u32> = Vec::with_capacity(program.code.len());
+
+    for v in &program.code {
+        let val = v.resolve(&program.internal_syms)?;
+        bytecode.push(val as u32);
+    }
+    Ok(UdonRawProgram {
+        bytecode,
+        heap: udonheap_emit_odin(
+            program.min_heap_capacity,
+            &program.data,
+            &program.internal_syms,
+            unity_obj,
+        )?,
+        entry_points: udonsymboltable_emit_odin(&program.code_syms, &program.internal_syms)?,
+        symbol_table: udonsymboltable_emit_odin(&program.data_syms, &program.internal_syms)?,
+        sync_metadata_table: UdonRawSyncMetadataTable::from_flat(&program.sync_metadata),
+        update_order: program.update_order.resolve(&program.internal_syms)? as i32,
+    })
+}
+
+/// Links [UdonProgram] into [OdinASTFile]. You probably want [udonprogram_emit_udonjson].
 pub fn udonprogram_emit_odin(
     program: &UdonProgram,
 ) -> Result<(OdinASTFile, Vec<UdonUnityObject>), String> {
     let mut builder = OdinASTBuilder::default();
     let mut unity_obj = Vec::new();
 
-    // Allocate these first. They're always consecutive, and it's convenient.
-    let udonprogram_ref_id = builder.alloc_refid();
+    let rawprogram = udonprogram_emit_udonrawprogram(program, &mut unity_obj)?;
 
-    let bytecode_ref_id = builder.alloc_refid();
-
-    let mut bytecode: Vec<u8> = Vec::with_capacity(program.code.len() * 4);
-
-    for v in &program.code {
-        let val = v.resolve(&program.internal_syms)?;
-        bytecode.extend((val as u32).to_be_bytes().iter());
-    }
-
-    let bytecode_struct = OdinASTStruct(
-        Some("System.Byte[], mscorlib".to_string()),
-        vec![OdinASTEntry::PrimitiveArray(OdinPrimitiveArray::U8(
-            bytecode,
-        ))],
-    );
-    builder.file.refs.insert(bytecode_ref_id, bytecode_struct);
-
-    let heap_ref_id = builder.alloc_refid();
-
-    let heap_struct = OdinSTSerializableRefType::serialize(
-        &udonheap_emit_odin(
-            program.min_heap_capacity,
-            &program.data,
-            &program.internal_syms,
-            &mut unity_obj,
-        )?,
-        &mut builder,
-    );
-    builder.file.refs.insert(heap_ref_id, heap_struct);
-
-    let entrypoints_ref_id = builder.alloc_refid();
-    let entrypoints_struct = OdinSTSerializableRefType::serialize(
-        &udonsymboltable_emit_odin(&program.code_syms, &program.internal_syms)?,
-        &mut builder,
-    );
-    builder
-        .file
-        .refs
-        .insert(entrypoints_ref_id, entrypoints_struct);
-
-    let symboltable_ref_id = builder.alloc_refid();
-    let symboltable_struct = OdinSTSerializableRefType::serialize(
-        &udonsymboltable_emit_odin(&program.data_syms, &program.internal_syms)?,
-        &mut builder,
-    );
-    builder
-        .file
-        .refs
-        .insert(symboltable_ref_id, symboltable_struct);
-
-    let syncmetadata_ref_id = builder.alloc_refid();
-    let syncmetadata_struct = OdinSTSerializableRefType::serialize(
-        &UdonRawSyncMetadataTable::from_flat(&program.sync_metadata),
-        &mut builder,
-    );
-    builder
-        .file
-        .refs
-        .insert(syncmetadata_ref_id, syncmetadata_struct);
-
-    // Finish up.
-    builder.file.refs.insert(udonprogram_ref_id, OdinASTStruct(Some("VRC.Udon.Common.UdonProgram, VRC.Udon.Common".to_string()), vec![
-        OdinASTEntry::nval("InstructionSetIdentifier", "UDON"),
-        OdinASTEntry::nval("InstructionSetVersion", OdinPrimitive::Int(1)),
-        OdinASTEntry::nval("ByteCode", OdinASTValue::InternalRef(bytecode_ref_id)),
-        OdinASTEntry::nval("Heap", OdinASTValue::InternalRef(heap_ref_id)),
-        OdinASTEntry::nval("EntryPoints", OdinASTValue::InternalRef(entrypoints_ref_id)),
-        OdinASTEntry::nval("SymbolTable", OdinASTValue::InternalRef(symboltable_ref_id)),
-        OdinASTEntry::nval("SyncMetadataTable", OdinASTValue::InternalRef(syncmetadata_ref_id)),
-        OdinASTEntry::nval("UpdateOrder", OdinPrimitive::Int(program.update_order.resolve(&program.internal_syms)? as i32)),
-    ]));
-
-    builder
-        .file
-        .root
-        .push(OdinASTEntry::uval(OdinASTValue::InternalRef(
-            udonprogram_ref_id,
-        )));
+    let val = OdinSTSerializable::serialize(&rawprogram, &mut builder);
+    builder.file.root.push(OdinASTEntry::uval(val));
 
     Ok((builder.file, unity_obj))
 }
 
+/// Links [UdonProgram] into .udonjson JSON (ready-to-use).
 pub fn udonprogram_emit_udonjson(program: &UdonProgram) -> Result<JsonValue, String> {
     let (stage1_file, unityobjs) = udonprogram_emit_odin(program)?;
     let udon_binary = OdinEntry::write_all_to_bytes(&stage1_file.to_entry_vec());
