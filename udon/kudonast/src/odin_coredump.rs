@@ -1,9 +1,9 @@
-//! This contains a set of 'raw' Odin reading types.
-//! This doesn't have the abstraction that kudonast usually has.
-//! This is useful for ingesting Udon coredumps.
+//! This module is for deserializing 'Udon coredumps' from kvtools.
+//! The heap is presently by-value; this'll probably get resolved when needed.
+//! It seems the Udon VM takes its heap from the IUdonProgram as-is, so the heap inside the dump-provided program will match the heap in the dump.
+//! This makes initial heap values unrecoverable. This is probably fine.
 
 use crate::{UdonRawHeap, UdonRawProgram};
-/// Raw Udon heap.
 use kudonodin::*;
 use serde::{Deserialize, Serialize};
 
@@ -19,7 +19,6 @@ pub struct UdonCoreDump {
 impl OdinSTDeserializableRefType for UdonCoreDump {
     fn deserialize(src: &OdinASTRefMap, val: &OdinASTStruct) -> Result<Self, String> {
         let content = val.unwrap_fixed_type("KDCVRCTools.KDCUdonCoreDump, KDCVRCTools", 0)?;
-        // let program: UdonProgram = OdinASTEntry::get_value_by_name("program", content).and_then(|v| OdinSTDeserializable::deserialize(src, v));
         let program: UdonRawProgram = odinst_get_field(src, content, "program")?;
         let error_pc: u32 = odinst_get_field(src, content, "errorPC")?;
         let heap: UdonRawHeap = odinst_get_field(src, content, "heap")?;

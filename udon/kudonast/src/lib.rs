@@ -416,7 +416,10 @@ pub use odin_symtab::*;
 mod odin_synctab;
 pub use odin_synctab::*;
 
-// main emitter/reader modules
+mod odin_coredump;
+pub use odin_coredump::*;
+
+// main emitter modules
 
 mod emit_odin;
 pub use emit_odin::*;
@@ -426,9 +429,6 @@ pub use uasm_writer::*;
 
 mod emit_uasm;
 pub use emit_uasm::*;
-
-mod read_odin;
-pub use read_odin::*;
 
 // tests
 
