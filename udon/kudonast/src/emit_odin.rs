@@ -143,12 +143,11 @@ pub fn udonheap_emit_odin(
     ))
 }
 
-/// Builds the UdonSymbolTable.
+/// Builds the [UdonRawSymbolTable] from the program contents.
 pub fn udonsymboltable_emit_odin(
     table: &[UdonSymbol],
     symtab: &BTreeMap<String, i64>,
-    builder: &mut OdinASTBuilder,
-) -> Result<OdinASTStruct, String> {
+) -> Result<UdonRawSymbolTable, String> {
     let mut rawsymtab = UdonRawSymbolTable::default();
 
     // These seem to either be sorted or randomized - to make the docExample test work, we'll try to get them sorted correctly
@@ -183,50 +182,7 @@ pub fn udonsymboltable_emit_odin(
         rawsymtab.exported_symbols.push(v.0);
     }
 
-    Ok(OdinSTSerializableRefType::serialize(&rawsymtab, builder))
-}
-
-/// Builds the sync metadata.
-pub fn udonsyncmetadata_emit_odin(
-    table: &Vec<(String, String, u64)>,
-    builder: &mut OdinASTBuilder,
-) -> Result<OdinASTStruct, String> {
-    let mut symbol_vec = Vec::new();
-
-    // The basic idea is that we keep adding props to lists.
-    // At the end (once all props are confirmed) we serialize.
-    // Situations like this are why the Odin AST refs table was built the way it was.
-    // However, the code was cumbersome, so now there's this whole chain-of-ASTs thing going on.
-    // This has other problems, but it works.
-
-    let mut symbol_prop_list_map: BTreeMap<String, Vec<UdonRawSyncProperty>> = BTreeMap::new();
-
-    for (kname, kprop, v) in table {
-        let built = UdonRawSyncProperty(kprop.clone(), *v);
-
-        match symbol_prop_list_map.get_mut(kname) {
-            Some(xm) => {
-                xm.push(built);
-            }
-            None => {
-                symbol_vec.push(kname.clone());
-                symbol_prop_list_map.insert(kname.clone(), vec![built]);
-            }
-        }
-    }
-
-    Ok(OdinSTSerializableRefType::serialize(
-        &UdonRawSyncMetadataTable(
-            symbol_vec
-                .drain(..)
-                .map(|sym_name| {
-                    let res = symbol_prop_list_map.remove(&sym_name).unwrap();
-                    UdonRawSyncMetadata(sym_name, res)
-                })
-                .collect(),
-        ),
-        builder,
-    ))
+    Ok(rawsymtab)
 }
 
 pub fn udonprogram_emit_odin(
@@ -267,23 +223,30 @@ pub fn udonprogram_emit_odin(
     builder.file.refs.insert(heap_ref_id, heap_struct);
 
     let entrypoints_ref_id = builder.alloc_refid();
-    let entrypoints_struct =
-        udonsymboltable_emit_odin(&program.code_syms, &program.internal_syms, &mut builder)?;
+    let entrypoints_struct = OdinSTSerializableRefType::serialize(
+        &udonsymboltable_emit_odin(&program.code_syms, &program.internal_syms)?,
+        &mut builder,
+    );
     builder
         .file
         .refs
         .insert(entrypoints_ref_id, entrypoints_struct);
 
     let symboltable_ref_id = builder.alloc_refid();
-    let symboltable_struct =
-        udonsymboltable_emit_odin(&program.data_syms, &program.internal_syms, &mut builder)?;
+    let symboltable_struct = OdinSTSerializableRefType::serialize(
+        &udonsymboltable_emit_odin(&program.data_syms, &program.internal_syms)?,
+        &mut builder,
+    );
     builder
         .file
         .refs
         .insert(symboltable_ref_id, symboltable_struct);
 
     let syncmetadata_ref_id = builder.alloc_refid();
-    let syncmetadata_struct = udonsyncmetadata_emit_odin(&program.sync_metadata, &mut builder)?;
+    let syncmetadata_struct = OdinSTSerializableRefType::serialize(
+        &UdonRawSyncMetadataTable::from_flat(&program.sync_metadata),
+        &mut builder,
+    );
     builder
         .file
         .refs

@@ -405,11 +405,18 @@ macro_rules! uasm_stop {
     };
 }
 
+// 'raw' Odin parsed structs
+
+mod odin_program;
+pub use odin_program::*;
+
 mod odin_symtab;
 pub use odin_symtab::*;
 
 mod odin_synctab;
 pub use odin_synctab::*;
+
+// main emitter/reader modules
 
 mod emit_odin;
 pub use emit_odin::*;
@@ -422,6 +429,8 @@ pub use emit_uasm::*;
 
 mod read_odin;
 pub use read_odin::*;
+
+// tests
 
 #[cfg(test)]
 mod tests;
