@@ -1,6 +1,6 @@
 pub trait UdonType {}
 
-pub trait UdonCastable<V> {}
+pub trait UdonCastable<V>: UdonType {}
 
 pub mod types {
     use super::{UdonCastable, UdonType};
