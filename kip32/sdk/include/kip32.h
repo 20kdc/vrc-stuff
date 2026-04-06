@@ -38,7 +38,7 @@
 	__asm__ volatile ( \
 		"jal %8\n" \
 		: "=r" (KIP32_SYSCALL_a0), "=r" (KIP32_SYSCALL_a1), "=r" (KIP32_SYSCALL_a2), "=r" (KIP32_SYSCALL_a3), "=r" (KIP32_SYSCALL_a4), "=r" (KIP32_SYSCALL_a5), "=r" (KIP32_SYSCALL_a6), "=r" (KIP32_SYSCALL_a7) \
-		: "s" (syscallname), "r" (KIP32_SYSCALL_a0), "r" (KIP32_SYSCALL_a1), "r" (KIP32_SYSCALL_a2), "r" (KIP32_SYSCALL_a3), "r" (KIP32_SYSCALL_a4), "r" (KIP32_SYSCALL_a5), "r" (KIP32_SYSCALL_a6), "r" (KIP32_SYSCALL_a7), \
+		: "i" (syscallname), "r" (KIP32_SYSCALL_a0), "r" (KIP32_SYSCALL_a1), "r" (KIP32_SYSCALL_a2), "r" (KIP32_SYSCALL_a3), "r" (KIP32_SYSCALL_a4), "r" (KIP32_SYSCALL_a5), "r" (KIP32_SYSCALL_a6), "r" (KIP32_SYSCALL_a7), \
 		  "r" (KIP32_SYSCALL_ra), "r" (KIP32_SYSCALL_t0), "r" (KIP32_SYSCALL_t1), "r" (KIP32_SYSCALL_t2), "r" (KIP32_SYSCALL_t3), "r" (KIP32_SYSCALL_t4), "r" (KIP32_SYSCALL_t5), "r" (KIP32_SYSCALL_t6)  \
 		: \
 	); \
