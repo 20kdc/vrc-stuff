@@ -67,6 +67,12 @@ namespace KDCVRCBSP {
 				return defaultVal;
 			}
 
+			public E GetEnum<E>(string key, E defaultVal) where E : struct {
+				if (Enum.TryParse<E>(this[key], out E res))
+					return res;
+				return defaultVal;
+			}
+
 			public float GetFloat(string key, float defaultVal) {
 				if (float.TryParse(this[key], out var val))
 					return val;

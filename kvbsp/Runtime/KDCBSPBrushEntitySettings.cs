@@ -68,19 +68,6 @@ namespace KDCVRCBSP {
 
 		/// Called in CreateEntity **after** the entity parameterizer has had its say.
 		public void ParseEntityOverrides(KDCBSPIntermediate.Entity entity) {
-			void ParseFloat(string s, ref float mod) {
-				string sv = entity[s];
-				if (float.TryParse(s, out float res))
-					mod = res;
-			}
-			void ParseBool(string s, ref bool mod) {
-				string sv = entity[s];
-				if (sv == "1")
-					mod = true;
-				else if (sv == "0")
-					mod = false;
-				// -1 is unmodified, and setting it would overwrite any other modification
-			}
 			void ParseFlagMod(string s, ref FlagMod mod) {
 				string sv = entity[s];
 				if (sv == "1")
@@ -89,10 +76,11 @@ namespace KDCVRCBSP {
 					mod = FlagMod.Off;
 				// -1 is unmodified, and setting it would overwrite any other modification
 			}
-			ParseFloat("_kdcbsp_lightmap_pack_margin", ref lightmapPackMargin);
-			ParseFloat("_kdcbsp_lightmap_scale", ref lightmapScale);
-			ParseBool("_kdcbsp_visuals", ref visuals);
-			ParseBool("_kdcbsp_collision_trigger", ref collisionIsTrigger);
+			lightmapPackMargin = entity.GetFloat("_kdcbsp_lightmap_pack_margin", lightmapPackMargin);
+			lightmapScale = entity.GetFloat("_kdcbsp_lightmap_scale", lightmapScale);
+			visuals = entity.GetBool("_kdcbsp_visuals", visuals);
+			collision = entity.GetEnum<CollisionMode>("_kdcbsp_collision", collision);
+			collisionIsTrigger = entity.GetBool("_kdcbsp_collision_trigger", collisionIsTrigger);
 			ParseFlagMod("_kdcbsp_contribute_gi", ref contributeGI);
 			ParseFlagMod("_kdcbsp_lightmaps", ref lightmaps);
 			ParseFlagMod("_kdcbsp_occluder_static", ref occluderStatic);
@@ -122,6 +110,7 @@ namespace KDCVRCBSP {
 			return a;
 		}
 
+		/// Since TrenchBroom doesn't display enum choice contents inline, we've chosen to recommend string values here.
 		public enum CollisionMode {
 			/// Collisions are handled using one convex mesh collider per brush.
 			/// This generates a lot of Mesh objects, but is great for physics broadphase and produces dependable collisions.

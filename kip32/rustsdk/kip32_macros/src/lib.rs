@@ -45,6 +45,8 @@ pub fn kip32_internal_udontypes(_ts: TokenStream) -> TokenStream {
     let mut res = TokenStream::new();
     for v in kudon_apijson::type_names() {
         let info = kudon_apijson::type_by_name(&v).unwrap();
+        let derive_ts: TokenStream = "#[derive(Clone, Copy)]".parse().unwrap();
+        res.extend(derive_ts);
         res.extend([
             TokenTree::Ident(Ident::new("pub", Span::call_site())),
             TokenTree::Ident(Ident::new("enum", Span::call_site())),
