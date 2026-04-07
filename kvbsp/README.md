@@ -44,6 +44,10 @@ The basic idea is that:
 	* `common/sky`: More-or-less regular material intended to be setup by mapper. Traditionally reserved for skybox.
 	* `common/trigger`: See `nodraw`. The 'can't walk through it' property is usually resolved by being part of an appropriate brush entity, but these aren't supported. Included only for completeness.
 	* `common/occluder`: This is intended for use on `func_occluder` or `func_occluder_static` geometry.
+		* `VRChat/Mobile/Skybox` is used because it:
+			1. Bakes occlusion properly.
+			2. Displays behind opaque geometry (stays out of your way)
+			3. Is a Mobile material and thus doesn't add warnings to the Android build
 * While most materials act as per 'usual BSP standards', the `common/noclip` material is special. It's `common/nodraw` **without collision.**
 	* This means it:
 		* Still seals leaks like `common/nodraw`, so you can use it at the map's edge (which is the intended purpose)

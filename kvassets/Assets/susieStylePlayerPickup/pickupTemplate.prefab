@@ -92,7 +92,7 @@ MonoBehaviour:
   ThrowVelocityBoostScale: 1
   currentlyHeldBy: {fileID: 0}
   pickupable: 1
-  proximity: 2
+  proximity: 0.125
   version: 1
 --- !u!135 &3752589084971031027
 SphereCollider:
@@ -113,5 +113,5 @@ SphereCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Radius: 0.25
+  m_Radius: 0.0625
   m_Center: {x: 0, y: 0, z: 0}
