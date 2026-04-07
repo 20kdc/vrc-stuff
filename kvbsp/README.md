@@ -25,6 +25,7 @@ The basic idea is that:
 * You need a dummy entity in each world 'cavity' you care about (at least one) so the map compiler knows the inside and outside.
 	* `info_player_start` is provided for this purpose.
 * Lightmapping and occlusion is not imported; `light` and `vis` are unused.
+	* The binary-grid nature of TrenchBroom may assist in aligning everything well to make Unity occlusion play nice. Alternatively, use occlusion portals. Or both.
 * Brush entities come in various flavours!
 	* BSP-compiler-internal: See <https://ericw-tools.readthedocs.io/en/latest/qbsp.html#compiler-internal-bmodels>.
 		* On some versions, `func_detail_illusionary` defaults to `"_mirrorinside" "1"`. _**Make sure to explicitly change it to 0, or it'll horribly break light baking!!!**_
@@ -42,6 +43,7 @@ The basic idea is that:
 	* `common/origin`: Controls brush-model origin. Included only for completeness.
 	* `common/sky`: More-or-less regular material intended to be setup by mapper. Traditionally reserved for skybox.
 	* `common/trigger`: See `nodraw`. The 'can't walk through it' property is usually resolved by being part of an appropriate brush entity, but these aren't supported. Included only for completeness.
+	* `common/occluder`: This is intended for use on `func_occluder` or `func_occluder_static` geometry.
 * While most materials act as per 'usual BSP standards', the `common/noclip` material is special. It's `common/nodraw` **without collision.**
 	* This means it:
 		* Still seals leaks like `common/nodraw`, so you can use it at the map's edge (which is the intended purpose)

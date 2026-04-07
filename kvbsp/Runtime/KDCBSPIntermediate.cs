@@ -26,10 +26,10 @@ namespace KDCVRCBSP {
 			public string classname;
 			public string targetname;
 			public Vector3 origin;
-			// This is how much to translate BSP positions by.
-			// This accounts for things like auto-origin.
+			/// This is how much to translate model positions by to turn them into entity-relative positions.
+			/// This accounts for things like auto-origin.
 			public Vector3 internalTranslation;
-			// -1 means not a brush model.
+			/// -1 means not a brush model.
 			public int model;
 
 			public bool IsWorldspawn => classname == "worldspawn";
@@ -249,6 +249,17 @@ namespace KDCVRCBSP {
 				entity.internalTranslation = oldOrigin - entity.origin;
 				entities[i] = entity;
 			}
+		}
+
+		public void GetEntityBox(Entity entity, out Vector3 centre, out Vector3 size) {
+			centre = Vector3.zero;
+			size = Vector3.zero;
+			if (entity.model < 0 && entity.model > models.Length)
+				return;
+			var mdl = models[entity.model];
+			var bspCentre = (mdl.mins + mdl.maxs) / 2;
+			centre = entity.InternalTransformFixupPos(bspCentre);
+			size = Vector3.Max(mdl.maxs, mdl.mins) - Vector3.Min(mdl.maxs, mdl.mins);
 		}
 
 		// -- High-level Getters --
