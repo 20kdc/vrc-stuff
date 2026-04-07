@@ -15,22 +15,23 @@ namespace KDCVRCBSP {
 
 		[Tooltip("Maps Quake 2 material names to Unity materials, among other things.")]
 		[SerializeField]
-		public KDCBSPAbstractWorkspaceConfig workspace;
+		public LazyLoadReference<KDCBSPAbstractWorkspaceConfig> workspace;
 
 		public KDCBSPBrushEntitySettings worldspawnCompilation = new();
 		public KDCBSPBrushEntitySettings brushEntityCompilation = new();
 
 		public override void OnImportAsset(AssetImportContext ctx) {
-			if (workspace == null) {
+			if (!workspace.isSet) {
 				// yes this is modification and Bad but it makes things make more sense really
 				workspace = (KDCBSPAbstractWorkspaceConfig) AssetDatabase.LoadAssetAtPath("Assets/KDCBSPGameRoot/DefaultWorkspaceConfig.asset", typeof(KDCBSPWorkspaceConfig));
 			}
+			var myWorkspace = KDCBSPImportContext.DependsOnArtifact<KDCBSPAbstractWorkspaceConfig>(ctx, workspace);
 
-			KDCBSPIntermediate data = KDCBSPIntermediate.Load(File.ReadAllBytes(ctx.assetPath), workspace.WorldScale);
+			KDCBSPIntermediate data = KDCBSPIntermediate.Load(File.ReadAllBytes(ctx.assetPath), myWorkspace.WorldScale);
 
 			List<KDCBSPAbstractWorkspaceConfig> searchOrder = new();
-			searchOrder.Add(workspace);
-			workspace.BuildSearchOrder(ctx, searchOrder);
+			searchOrder.Add(myWorkspace);
+			myWorkspace.BuildSearchOrder(ctx, searchOrder);
 
 			var builtInWorkspace = KDCBSPImportContext.DependsOnArtifact<KDCBSPAbstractWorkspaceConfig>(ctx, KDCBSPImportContext.KVBSP_BASE + "Assets/builtinWorkspace.asset");
 			if (builtInWorkspace != null)
@@ -39,7 +40,7 @@ namespace KDCVRCBSP {
 			// this
 			KDCBSPImportContext importContext = new KDCBSPImportContext {
 				importer = this,
-				workspace = workspace,
+				workspace = myWorkspace,
 				searchOrder = searchOrder,
 				bsp = data,
 				assetImportContext = ctx,
@@ -180,7 +181,7 @@ namespace KDCVRCBSP {
 
 					List<TriInfo> convexMesh = new();
 
-					foreach (var face in importContext.bsp.BrushToFaces(b, workspace.WorldScale)) {
+					foreach (var face in importContext.bsp.BrushToFaces(b, importContext.workspace.WorldScale)) {
 						importContext.bsp.FaceToTriangles(face, convexMesh);
 					}
 
@@ -244,7 +245,7 @@ namespace KDCVRCBSP {
 					if (layerMask == 0)
 						continue;
 
-					foreach (var face in importContext.bsp.BrushToFaces(b, workspace.WorldScale))
+					foreach (var face in importContext.bsp.BrushToFaces(b, importContext.workspace.WorldScale))
 						importContext.bsp.FaceToTriangles(face, convexMesh);
 				}
 
