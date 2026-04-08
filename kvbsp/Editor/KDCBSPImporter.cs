@@ -89,24 +89,22 @@ namespace KDCVRCBSP {
 			else
 				entGO.name = uniqueName;
 			// Find the entity parameterizer.
-			var custom = entGO.GetComponent<KDCBSPEntityParameterizer>();
+			var custom = entGO.GetComponents<KDCBSPEntityParameterizer>();
 
 			var assetPrefix = uniqueName + " ";
 
-			KDCBSPBrushEntitySettings compSettings;
-			if (custom != null) {
-				custom.EntityParameterize(importContext.bsp, ref entity, uniqueName);
-				if (custom == null)
-					return null;
-				compSettings = custom.EntityGetBrushSettings(entity.IsWorldspawn, (KDCBSPBrushEntitySettings) worldspawnCompilation.Clone(), (KDCBSPBrushEntitySettings) brushEntityCompilation.Clone());
-			} else {
-				compSettings = (KDCBSPBrushEntitySettings) (entity.IsWorldspawn ? worldspawnCompilation : brushEntityCompilation).Clone();
+			KDCBSPBrushEntitySettings compSettingsWS = (KDCBSPBrushEntitySettings) worldspawnCompilation.Clone();
+			KDCBSPBrushEntitySettings compSettingsBE = (KDCBSPBrushEntitySettings) brushEntityCompilation.Clone();
+			foreach (var c in custom) {
+				c.EntityParameterize(importContext.bsp, ref entity, uniqueName);
+				compSettingsWS = compSettingsBE = c.EntityGetBrushSettings(entity.IsWorldspawn, compSettingsWS, compSettingsBE);
 			}
+			KDCBSPBrushEntitySettings compSettings = entity.IsWorldspawn ? worldspawnCompilation : brushEntityCompilation;
 
 			if (compSettings == null || entity.model < 0 || entity.model >= importContext.bsp.models.Length) {
-				if (custom != null) {
-					custom.EntityPostProcess();
-					UnityEngine.Object.DestroyImmediate(custom);
+				foreach (var c in custom) {
+					c.EntityPostProcess();
+					UnityEngine.Object.DestroyImmediate(c);
 				}
 				return entGO;
 			}
@@ -174,8 +172,9 @@ namespace KDCVRCBSP {
 						continue;
 
 					// figures out contents and such
-					LayerMask layerMask = KDCBSPEntityParameterizer.EntityConvexBrushLayerWrapper(custom, (LayerMask) (1 << entGO.layer), b);
-					int layer = KDCBSPEntityParameterizer.LayerMaskToLayer(layerMask);
+					LayerMask layerMask = BrushContentsLayerMaskParameterized(custom, (LayerMask) (1 << entGO.layer), b);
+
+					int layer = KDCBSPUtilities.LayerMaskToLayer(layerMask);
 					if (layer == -1)
 						continue;
 
@@ -241,7 +240,8 @@ namespace KDCVRCBSP {
 					}
 
 					// figures out contents and such
-					LayerMask layerMask = KDCBSPEntityParameterizer.EntityConvexBrushLayerWrapper(custom, (LayerMask) (1 << entGO.layer), b);
+					LayerMask layerMask = BrushContentsLayerMaskParameterized(custom, (LayerMask) (1 << entGO.layer), b);
+
 					if (layerMask == 0)
 						continue;
 
@@ -262,9 +262,9 @@ namespace KDCVRCBSP {
 				compSettings.ApplyColliderSettings(collider);
 			}
 
-			if (custom != null) {
-				custom.EntityPostProcess();
-				UnityEngine.Object.DestroyImmediate(custom);
+			foreach (var c in custom) {
+				c.EntityPostProcess();
+				UnityEngine.Object.DestroyImmediate(c);
 			}
 
 			return entGO;
@@ -282,6 +282,13 @@ namespace KDCVRCBSP {
 			else if (compSettings.lightmaps == FlagMod.On)
 				meshRenderer.receiveGI = ReceiveGI.Lightmaps;
 			meshRenderer.scaleInLightmap = compSettings.lightmapScale;
+		}
+
+		public static LayerMask BrushContentsLayerMaskParameterized(KDCBSPEntityParameterizer[] custom, LayerMask entityLayer, KDCBSPIntermediate.Brush brush) {
+			LayerMask layerMask = KDCBSPUtilities.BrushContentsLayerMask(entityLayer, brush.contents);
+			foreach (var c in custom)
+				layerMask = c.EntityConvexBrushLayer(entityLayer, layerMask, brush);
+			return layerMask;
 		}
 
 		public (KDCBSPAbstractMaterialConfig, float) FindPrimarySide(KDCBSPImportContext importContext, KDCBSPIntermediate.Brush brush) {
