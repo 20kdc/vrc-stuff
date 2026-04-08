@@ -26,8 +26,24 @@ namespace KDCVRCBSP {
 		[SerializeField]
 		public Vector2 size = Vector2.zero;
 
+		[Tooltip("Sets the (default) shadow receive mode of renderers.")]
+		[SerializeField]
+		public bool receiveShadows = true;
+
+		[Tooltip("Sets the (default) shadow casting mode of renderers.")]
+		[SerializeField]
+		public UnityEngine.Rendering.ShadowCastingMode shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
+
+		[Tooltip("Sets LightProbeUsage.Off to prevent Unity searching for light probes.")]
+		[SerializeField]
+		public bool optForceDisableLightProbes = false;
+
+		[Tooltip("Sets ReflectionProbeUsage.Off to prevent Unity searching for reflection probes.")]
+		[SerializeField]
+		public bool optForceDisableReflectionProbes = false;
+
 		/// Implements retrieving the material information.
-		public override (Material, Vector2) GetMaterial(KDCBSPImportContext ctx, string materialName, string meshAssetName) {
+		public override SimpleMaterialInfo GetMaterial(KDCBSPImportContext ctx, string materialName, string meshAssetName) {
 			var m = KDCBSPImportContext.DependsOnArtifact<Material>(ctx.assetImportContext, material);
 			Vector2 s = size;
 			if (s == Vector2.zero && m != null) {
@@ -37,7 +53,14 @@ namespace KDCVRCBSP {
 					s = new Vector2(tex.width, tex.height);
 				}
 			}
-			return (m, s);
+			return new SimpleMaterialInfo {
+				material = m,
+				size = s,
+				receiveShadows = receiveShadows,
+				shadowCastingMode = shadowCastingMode,
+				optForceDisableLightProbes = optForceDisableLightProbes,
+				optForceDisableReflectionProbes = optForceDisableReflectionProbes
+			};
 		}
 	}
 }

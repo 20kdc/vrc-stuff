@@ -16,6 +16,12 @@ namespace KDCVRCBSP {
 		[SerializeField]
 		public bool collisionEnable = true;
 
+		/// Setup in KDCBSPImporter.SetupBrushRenderer
+		[Tooltip("Multiplier for lightmap scale for this material. If zero, this does NOT turn off ContributeGI, just lightmap generation.")]
+		[SerializeField]
+		public float lightmapScaleMul = 1.0f;
+
+		/// Setup in KDCBSPImporter.CreateEntity
 		/// Sets the physics material.
 		/// By the way, this has to be changed to PhysicsMaterial when Unity updates. For some reason.
 		[Tooltip("Sets the physics material. This only works on convexes if it wins priority, and never works on concave root.")]
@@ -25,6 +31,8 @@ namespace KDCVRCBSP {
 		/// Builds a material's 'visual'. This is a GameObject, which is returned.
 		/// If the importer wishes to override static flags, that's done after BuildVisualObject.
 		/// 'data' may be modified as you wish.
+		/// A key note: If LightProbeUsage or ReflectionProbeUsage is set to off here, they *stay* off.
+		/// This allows the renderer to indicate it doesn't use these features, as an optimization.
 		public abstract GameObject BuildVisualObject(KDCBSPImportContext ctx, string materialName, string meshAssetName, List<KDCBSPIntermediate.TriInfo> data, GameObject visualsGO, KDCBSPBrushEntitySettings brushEntitySettings);
 
 		/// Calculates the collision convex priority for a given normal.
@@ -37,13 +45,13 @@ namespace KDCVRCBSP {
 			public abstract float BaseCollisionConvexPriority { get; }
 
 			/// Implements retrieving the material information.
-			public abstract (Material, Vector2) GetMaterial(KDCBSPImportContext ctx, string materialName, string meshAssetName);
+			public abstract SimpleMaterialInfo GetMaterial(KDCBSPImportContext ctx, string materialName, string meshAssetName);
 
 			public override GameObject BuildVisualObject(KDCBSPImportContext ctx, string materialName, string meshAssetName, List<KDCBSPIntermediate.TriInfo> data, GameObject visualsGO, KDCBSPBrushEntitySettings brushEntitySettings) {
 
-				var (material, size) = GetMaterial(ctx, materialName, meshAssetName);
+				var mInfo = GetMaterial(ctx, materialName, meshAssetName);
 
-				if (material == null)
+				if (mInfo.material == null)
 					return null;
 
 				GameObject materialGO;
@@ -56,7 +64,7 @@ namespace KDCVRCBSP {
 					materialGO.transform.parent = visualsGO.transform;
 				}
 
-				var uvMul = Vector2.one / size;
+				var uvMul = Vector2.one / mInfo.size;
 				// This
 				if ((!float.IsFinite(uvMul.x)) || (!float.IsFinite(uvMul.y))) {
 					Debug.LogWarning($"Fixing non-finite uvMul in material {materialName} mesh asset {meshAssetName} to prevent lightmapper freeze.\nPlease setup a KDCBSPMaterialConfig with an explicit size!");
@@ -77,17 +85,33 @@ namespace KDCVRCBSP {
 					meshRender = materialGO.AddComponent<MeshRenderer>();
 
 				var materialsList = new List<Material>();
-				materialsList.Add(material);
+				materialsList.Add(mInfo.material);
 				meshRender.SetSharedMaterials(materialsList);
 
 				// mesh.isReadable = false;
 				mesh.UploadMeshData(true);
 				meshFilter.mesh = mesh;
+
+				meshRender.receiveShadows = mInfo.receiveShadows;
+				meshRender.shadowCastingMode = mInfo.shadowCastingMode;
+				if (mInfo.optForceDisableLightProbes)
+					meshRender.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off;
+				if (mInfo.optForceDisableReflectionProbes)
+					meshRender.reflectionProbeUsage = UnityEngine.Rendering.ReflectionProbeUsage.Off;
+
 				return materialGO;
 			}
 
 			public override float GetCollisionConvexPriority(Vector3 normal) {
 				return BaseCollisionConvexPriority + normal.y;
+			}
+
+			public struct SimpleMaterialInfo {
+				public Material material;
+				public Vector2 size;
+				public bool receiveShadows;
+				public UnityEngine.Rendering.ShadowCastingMode shadowCastingMode;
+				public bool optForceDisableLightProbes, optForceDisableReflectionProbes;
 			}
 		}
 	}

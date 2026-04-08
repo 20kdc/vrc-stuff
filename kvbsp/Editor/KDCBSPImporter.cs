@@ -48,7 +48,11 @@ namespace KDCVRCBSP {
 				entityCache = new()
 			};
 
-			GameObject mapGO = CreateEntity(importContext, data.Worldspawn, "worldspawn ", null);
+			List<KDCBSPEntityParameterizer> postProcessThese = new();
+
+			GameObject mapGO = CreateEntity(importContext, data.Worldspawn, "worldspawn ", null, postProcessThese);
+			if (mapGO == null)
+				throw new Exception("worldspawn being gone means something has gone horribly wrong, so rather than risking import corruption we choose to bail here");
 
 			Dictionary<string, int> entCounters = new();
 			foreach (var entity in data.entities) {
@@ -60,7 +64,13 @@ namespace KDCVRCBSP {
 				int eid = entCounters[entity.classname];
 				entCounters[entity.classname] = eid + 1;
 				// ...
-				CreateEntity(importContext, entity, entity.classname + " " + eid, mapGO);
+				CreateEntity(importContext, entity, entity.classname + " " + eid, mapGO, postProcessThese);
+			}
+
+			// entity tree is complete, postprocess/link
+			foreach (var c in postProcessThese) {
+				c.EntityPostProcess();
+				UnityEngine.Object.DestroyImmediate(c);
 			}
 
 			ctx.AddObjectToAsset("main obj", mapGO);
@@ -70,7 +80,7 @@ namespace KDCVRCBSP {
 		// -- Primary Entity Converter --
 
 		/// Creates and returns an entity.
-		public GameObject CreateEntity(KDCBSPImportContext importContext, KDCBSPIntermediate.Entity entity, string uniqueName, GameObject parent) {
+		public GameObject CreateEntity(KDCBSPImportContext importContext, KDCBSPIntermediate.Entity entity, string uniqueName, GameObject parent, List<KDCBSPEntityParameterizer> postProcessThese) {
 			// Create the entity prefab.
 			var prefab = importContext.LookupEntity(entity.classname);
 			GameObject entGO;
@@ -97,17 +107,17 @@ namespace KDCVRCBSP {
 			KDCBSPBrushEntitySettings compSettingsBE = (KDCBSPBrushEntitySettings) brushEntityCompilation.Clone();
 			foreach (var c in custom) {
 				c.EntityParameterize(importContext.bsp, ref entity, uniqueName);
+				if (c == null)
+					return null;
 				compSettingsWS = compSettingsBE = c.EntityGetBrushSettings(entity.IsWorldspawn, compSettingsWS, compSettingsBE);
 			}
-			KDCBSPBrushEntitySettings compSettings = entity.IsWorldspawn ? worldspawnCompilation : brushEntityCompilation;
+			KDCBSPBrushEntitySettings compSettings = entity.IsWorldspawn ? compSettingsWS : compSettingsBE;
 
-			if (compSettings == null || entity.model < 0 || entity.model >= importContext.bsp.models.Length) {
-				foreach (var c in custom) {
-					c.EntityPostProcess();
-					UnityEngine.Object.DestroyImmediate(c);
-				}
+			foreach (var c in custom)
+				postProcessThese.Add(c);
+
+			if (compSettings == null || entity.model < 0 || entity.model >= importContext.bsp.models.Length)
 				return entGO;
-			}
 
 			compSettings.ParseEntityOverrides(entity);
 
@@ -149,7 +159,7 @@ namespace KDCVRCBSP {
 
 					var meshRenderer = materialGO.GetComponent<MeshRenderer>();
 					if (meshRenderer != null)
-						BrushEntitySettingsToRenderer(compSettings, meshRenderer);
+						SetupBrushRenderer(compSettings, assignment, meshRenderer);
 				}
 
 				visualsGO.transform.parent = entGO.transform;
@@ -262,11 +272,6 @@ namespace KDCVRCBSP {
 				compSettings.ApplyColliderSettings(collider);
 			}
 
-			foreach (var c in custom) {
-				c.EntityPostProcess();
-				UnityEngine.Object.DestroyImmediate(c);
-			}
-
 			return entGO;
 		}
 
@@ -276,12 +281,18 @@ namespace KDCVRCBSP {
 			return lightmapSettings;
 		}
 
-		public static void BrushEntitySettingsToRenderer(KDCBSPBrushEntitySettings compSettings, MeshRenderer meshRenderer) {
+		public static void SetupBrushRenderer(KDCBSPBrushEntitySettings compSettings, KDCBSPAbstractMaterialConfig materialDetails, MeshRenderer meshRenderer) {
 			if (compSettings.lightmaps == FlagMod.Off)
 				meshRenderer.receiveGI = ReceiveGI.LightProbes;
 			else if (compSettings.lightmaps == FlagMod.On)
 				meshRenderer.receiveGI = ReceiveGI.Lightmaps;
-			meshRenderer.scaleInLightmap = compSettings.lightmapScale;
+			// lightmap generation can be forced off here
+			float res = compSettings.lightmapScale * materialDetails.lightmapScaleMul;
+			if (res <= 0.0f) {
+				meshRenderer.receiveGI = ReceiveGI.LightProbes;
+			} else {
+				meshRenderer.scaleInLightmap = res;
+			}
 		}
 
 		public static LayerMask BrushContentsLayerMaskParameterized(KDCBSPEntityParameterizer[] custom, LayerMask entityLayer, KDCBSPIntermediate.Brush brush) {

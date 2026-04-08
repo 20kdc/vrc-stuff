@@ -16,7 +16,7 @@ namespace KDCVRCBSP {
 		[SerializeField]
 		public float lightmapPackMargin = 0.01f;
 
-		/// Handler at KDCBSPImporter.BrushEntitySettingsToRenderer, KDCBSPImporter.CreateEntity
+		/// Handler at KDCBSPImporter.SetupBrushRenderer, KDCBSPImporter.CreateEntity
 		[Tooltip("Lightmap scale.")]
 		[SerializeField]
 		public float lightmapScale = 1f;
@@ -45,7 +45,7 @@ namespace KDCVRCBSP {
 		[Tooltip("Overrides the Contribute GI static flag.")]
 		[SerializeField]
 		public FlagMod contributeGI;
-		/// Handler at KDCBSPImporter.BrushEntitySettingsToRenderer, KDCBSPImporter.CreateEntity
+		/// Handler at KDCBSPImporter.SetupBrushRenderer, KDCBSPImporter.CreateEntity
 		[Tooltip("Overrides ReceiveGI between lightmaps (on) and light probes (off).")]
 		[SerializeField]
 		public FlagMod lightmaps;
