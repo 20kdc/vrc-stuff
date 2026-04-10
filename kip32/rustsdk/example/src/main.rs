@@ -2,9 +2,9 @@
 #![no_main]
 
 use core::panic::PanicInfo;
-use kip32::{kip32_export, kip32_syscall};
-use kip32::udon::types::SystemString;
 use kip32::udon::UdonValue;
+use kip32::udon::types::SystemString;
+use kip32::{kip32_export, kip32_syscall};
 
 kip32::kip32_udon_val!(Example, SystemString, b"C(\"\")");
 

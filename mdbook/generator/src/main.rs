@@ -16,6 +16,10 @@ fn put_file(summary: &mut String, title: &str, id: &str, level: usize, text: &st
     put_toc(summary, title, id, level);
 }
 
+fn put_img(id: &str, data: &[u8]) {
+    _ = std::fs::write(format!("{}/{}", GENSRCROOT, id), data);
+}
+
 fn header_translate(asm: &str) -> String {
     asm.to_ascii_lowercase()
         .replace(".", "")
@@ -225,6 +229,18 @@ fn main() {
         1,
         include_str!("udon_mangling.md"),
     );
+
+    put_file(
+        &mut summary,
+        "Udon Tips, Tricks, And Quirks",
+        "tipsntricks.md",
+        0,
+        include_str!("tipsntricks.md"),
+    );
+    put_img("quantumVariables.png", include_bytes!("quantumVariables.png"));
+    put_img("staleGet.png", include_bytes!("staleGet.png"));
+    put_img("brokenConvergence.png", include_bytes!("brokenConvergence.png"));
+    put_img("brokenConvergence2.png", include_bytes!("brokenConvergence2.png"));
 
     let mut externs_index = include_str!("externs.md").to_string();
 

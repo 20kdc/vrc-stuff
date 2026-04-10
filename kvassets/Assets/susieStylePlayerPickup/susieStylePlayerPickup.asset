@@ -13,8 +13,8 @@ MonoBehaviour:
   m_Name: susieStylePlayerPickup
   m_EditorClassIdentifier: 
   serializedUdonProgramAsset: {fileID: 11400000, guid: 08244177d9dbdcc119c5d74da19d38fa, type: 2}
-  udonAssembly: ".data_start\n\n    .export setPickupTemplate\n    .export setOwnCanLeaveAfterHeldFor\n   
-    .export setCliThrowMul\n    .export setCliContinuityTime\n    .export setOwnCanBePickedUp\n   
+  udonAssembly: ".data_start\n\n    .export setOwnCanLeaveAfterHeldFor\n    .export
+    setCliThrowMul\n    .export setCliContinuityTime\n    .export setOwnCanBePickedUp\n   
     .export setOwnPosSmoothing\n    .export setOwnDebugForceShowPickups\n    .export
     setOwnForcedGrounding\n    \n    __object_0: %SystemObject, null\n    __result_0:
     %SystemBoolean, null\n    __instance_0: %VRCSDK3ComponentsVRCPickup, null\n   
@@ -101,17 +101,17 @@ MonoBehaviour:
     null\n    __Boolean_1B: %SystemBoolean, null\n    __instance_29: %VRCSDKBaseVRCPlayerApi,
     null\n    __strength_1: %SystemSingle, null\n    __message_4: %SystemObject,
     null\n    __String_5: %SystemString, null\n    __instance_2A: %VRCSDK3ComponentsVRCPickup,
-    null\n    __Single_D: %SystemSingle, null\n    setPickupTemplate: %UnityEngineGameObject,
-    this\n    cliPickup: %VRCSDK3ComponentsVRCPickup, null\n    ownPinned: %SystemBoolean,
-    null\n    cliNextThink: %SystemDouble, null\n    ownTargetPos: %UnityEngineVector3,
-    null\n    ownOldGrav: %SystemSingle, null\n    cliContinuityTime: %SystemSingle,
-    null\n    setOwnCanLeaveAfterHeldFor: %SystemSingle, null\n    ownLeaveCountdown:
-    %SystemSingle, null\n    setCliThrowMul: %SystemSingle, null\n    setCliContinuityTime:
-    %SystemSingle, null\n    ownTargetRot: %UnityEngineQuaternion, null\n    cliHeldLastUpdate:
-    %SystemBoolean, null\n    cliHeldThisUpdate: %SystemBoolean, null\n    setOwnCanBePickedUp:
-    %SystemBoolean, null\n    setOwnPosSmoothing: %SystemSingle, null\n    setOwnDebugForceShowPickups:
-    %SystemBoolean, null\n    playerGroundingCollider: %UnityEngineGameObject, this\n   
-    setOwnForcedGrounding: %SystemBoolean, null\n\n.data_end\n\n.code_start\n\n   
+    null\n    __Single_D: %SystemSingle, null\n    cliPickup: %VRCSDK3ComponentsVRCPickup,
+    null\n    ownPinned: %SystemBoolean, null\n    cliNextThink: %SystemDouble, null\n   
+    ownTargetPos: %UnityEngineVector3, null\n    ownOldGrav: %SystemSingle, null\n   
+    cliContinuityTime: %SystemSingle, null\n    setOwnCanLeaveAfterHeldFor: %SystemSingle,
+    null\n    ownLeaveCountdown: %SystemSingle, null\n    setCliThrowMul: %SystemSingle,
+    null\n    setCliContinuityTime: %SystemSingle, null\n    ownTargetRot: %UnityEngineQuaternion,
+    null\n    cliHeldLastUpdate: %SystemBoolean, null\n    cliHeldThisUpdate: %SystemBoolean,
+    null\n    setOwnCanBePickedUp: %SystemBoolean, null\n    setOwnPosSmoothing:
+    %SystemSingle, null\n    setOwnDebugForceShowPickups: %SystemBoolean, null\n   
+    playerGroundingCollider: %UnityEngineGameObject, this\n    setOwnForcedGrounding:
+    %SystemBoolean, null\n    pickupTemplate: %UnityEngineObject, null\n\n.data_end\n\n.code_start\n\n   
     .export _update\n    \n    _update:\n    \n        PUSH, cliPickup\n        PUSH,
     __object_0\n        COPY\n        PUSH, __object_0\n        PUSH, __result_0\n       
     EXTERN, \"VRCSDKBaseUtilities.__IsValid__SystemObject__SystemBoolean\"\n       
@@ -237,19 +237,19 @@ MonoBehaviour:
     JUMP, 0x00000968\n        JUMP, 0x00000994\n        PUSH, __String_2\n       
     PUSH, __message_2\n        COPY\n        PUSH, __message_2\n        EXTERN, \"UnityEngineDebug.__Log__SystemObject__SystemVoid\"\n       
     JUMP, 0xFFFFFFFC\n    \n    .export _start\n    \n    _start:\n    \n       
-    PUSH, setPickupTemplate\n        PUSH, __original_0\n        COPY\n        PUSH,
+    PUSH, pickupTemplate\n        PUSH, __original_0\n        COPY\n        PUSH,
     __original_0\n        PUSH, __clone_0\n        EXTERN, \"VRCInstantiate.__Instantiate__UnityEngineGameObject__UnityEngineGameObject\"\n       
-    PUSH, setPickupTemplate\n        PUSH, __original_0\n        COPY\n        PUSH,
+    PUSH, pickupTemplate\n        PUSH, __original_0\n        COPY\n        PUSH,
     __clone_0\n        PUSH, __instance_1B\n        COPY\n        PUSH, __clone_0\n       
     PUSH, __instance_1A\n        EXTERN, \"UnityEngineGameObject.__get_transform__UnityEngineTransform\"\n       
     PUSH, __instance_1D\n        PUSH, __instance_1C\n        EXTERN, \"UnityEngineGameObject.__get_transform__UnityEngineTransform\"\n       
     PUSH, __instance_1C\n        PUSH, __p_1\n        EXTERN, \"UnityEngineTransform.__get_parent__UnityEngineTransform\"\n       
     PUSH, __instance_1A\n        PUSH, __p_1\n        EXTERN, \"UnityEngineTransform.__SetParent__UnityEngineTransform__SystemVoid\"\n       
-    PUSH, setPickupTemplate\n        PUSH, __original_0\n        COPY\n        PUSH,
+    PUSH, pickupTemplate\n        PUSH, __original_0\n        COPY\n        PUSH,
     __clone_0\n        PUSH, __instance_1E\n        COPY\n        PUSH, __Type_2\n       
     PUSH, __type_1\n        COPY\n        PUSH, __clone_0\n        PUSH, __type_1\n       
     PUSH, cliPickup\n        EXTERN, \"UnityEngineGameObject.__GetComponent__SystemType__UnityEngineComponent\"\n       
-    PUSH, setPickupTemplate\n        PUSH, __original_0\n        COPY\n        PUSH,
+    PUSH, pickupTemplate\n        PUSH, __original_0\n        COPY\n        PUSH,
     __clone_0\n        PUSH, __instance_20\n        COPY\n        PUSH, __Type_3\n       
     PUSH, __type_2\n        COPY\n        PUSH, __clone_0\n        PUSH, __type_2\n       
     PUSH, __instance_1F\n        EXTERN, \"UnityEngineGameObject.__GetComponent__SystemType__UnityEngineComponent\"\n       
@@ -301,29 +301,6 @@ MonoBehaviour:
     name: 
     description: 
     nodes:
-    - fullName: Variable_UnityEngineGameObject
-      uid: 284aefba-3d15-46a8-983f-7eeac14d1a7c
-      position: {x: 0, y: 0}
-      nodeUIDs:
-      - 
-      - 
-      - 
-      - 
-      - 
-      flowUIDs: []
-      nodeValues:
-      - unityObjectValue: {fileID: 0}
-        stringValue: 
-      - unityObjectValue: {fileID: 0}
-        stringValue: System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089|setPickupTemplate
-      - unityObjectValue: {fileID: 0}
-        stringValue: System.Boolean, mscorlib, Version=4.0.0.0, Culture=neutral,
-          PublicKeyToken=b77a5c561934e089|True
-      - unityObjectValue: {fileID: 0}
-        stringValue: System.Boolean, mscorlib, Version=4.0.0.0, Culture=neutral,
-          PublicKeyToken=b77a5c561934e089|False
-      - unityObjectValue: {fileID: 0}
-        stringValue: System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089|none
     - fullName: Event_Update
       uid: 564a4dab-f172-454a-8d7c-7c9789e1d4e6
       position: {x: -1420.7964, y: -18.388573}
@@ -1622,7 +1599,7 @@ MonoBehaviour:
       uid: d0b099e0-a7b5-4d9f-ba00-43e389e428c8
       position: {x: -1694.4832, y: -656.6899}
       nodeUIDs:
-      - be20be34-392f-436e-80af-14889fe2cb52|0
+      - c3befe26-64f0-4719-83f7-061c95d33cd5|0
       flowUIDs:
       - 68e3661c-7d8a-42ac-9a55-f5996f700973
       nodeValues:
@@ -1648,17 +1625,6 @@ MonoBehaviour:
       nodeValues:
       - unityObjectValue: {fileID: 0}
         stringValue: 
-      - unityObjectValue: {fileID: 0}
-        stringValue: 
-    - fullName: Get_Variable
-      uid: be20be34-392f-436e-80af-14889fe2cb52
-      position: {x: -1702.4832, y: -541.6899}
-      nodeUIDs:
-      - 
-      flowUIDs: []
-      nodeValues:
-      - unityObjectValue: {fileID: 0}
-        stringValue: System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089|284aefba-3d15-46a8-983f-7eeac14d1a7c
       - unityObjectValue: {fileID: 0}
         stringValue: 
     - fullName: UnityEngineGameObject.__get_transform__UnityEngineTransform
@@ -2747,11 +2713,46 @@ MonoBehaviour:
       nodeValues:
       - unityObjectValue: {fileID: 0}
         stringValue: 
+    - fullName: Variable_UnityEngineObject
+      uid: 4bfafff3-2ba4-4642-b076-a569726fbe92
+      position: {x: 0, y: 0}
+      nodeUIDs:
+      - 
+      - 
+      - 
+      - 
+      - 
+      flowUIDs: []
+      nodeValues:
+      - unityObjectValue: {fileID: 1384615753052827763, guid: 026b776b1020d4dd9add402e541f148e, type: 3}
+        stringValue: UnityEngine.GameObject, UnityEngine.CoreModule, Version=0.0.0.0,
+          Culture=neutral, PublicKeyToken=null|
+      - unityObjectValue: {fileID: 0}
+        stringValue: System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089|pickupTemplate
+      - unityObjectValue: {fileID: 0}
+        stringValue: System.Boolean, mscorlib, Version=4.0.0.0, Culture=neutral,
+          PublicKeyToken=b77a5c561934e089|False
+      - unityObjectValue: {fileID: 0}
+        stringValue: System.Boolean, mscorlib, Version=4.0.0.0, Culture=neutral,
+          PublicKeyToken=b77a5c561934e089|False
+      - unityObjectValue: {fileID: 0}
+        stringValue: System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089|none
+    - fullName: Get_Variable
+      uid: c3befe26-64f0-4719-83f7-061c95d33cd5
+      position: {x: -1749.879, y: -536}
+      nodeUIDs:
+      - 
+      flowUIDs: []
+      nodeValues:
+      - unityObjectValue: {fileID: 0}
+        stringValue: System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089|4bfafff3-2ba4-4642-b076-a569726fbe92
+      - unityObjectValue: {fileID: 0}
+        stringValue: 
     updateOrder: 0
   graphElementData:
   - type: 2
     uid: c257fcc6-67c8-4005-a9bc-bfbaa8aa142e
-    jsonData: '{"uid":"c257fcc6-67c8-4005-a9bc-bfbaa8aa142e","layout":{"serializedVersion":"2","x":-1867.0,"y":-764.0,"width":1385.0,"height":567.0},"containedElements":["30955a20-6e30-47fa-9f2f-41bdfd6b9161","d0b099e0-a7b5-4d9f-ba00-43e389e428c8","b8986b57-6686-44be-9fc8-fa607d1f127c","68e3661c-7d8a-42ac-9a55-f5996f700973","be20be34-392f-436e-80af-14889fe2cb52","0b66856a-ff71-4e44-b5ac-e13ea17bb013","9dc0e0a0-298f-4908-862e-dcfd8cf66f1c","ef8e4c41-8a99-4aa4-949e-a14290746a31","b8e47e6e-0628-42d2-816c-19f5bc56b6df","1a811314-23d1-4b50-88cc-7952bfc8f194","e91d10e6-7169-4d0a-b0ce-40751c260ad7","a8753fd5-76d8-4965-bfa2-323aa3a0ee9b","b8cbf68a-8deb-4e2d-a248-9bb241fcbab9","9e634544-94eb-4c86-8e19-723660ad486e","bbce5f48-3950-4a0e-8c4f-35a1775b7070","9dbadccf-f609-45c9-8cb5-5d232350d8ec","f124f4b4-b182-49d1-9bc0-8084236b7c50","4e0118a4-9dda-4cf4-b3af-3072c2ea379e"],"title":"Initialize","layer":-1,"elementTypeColor":{"r":0.0,"g":0.0,"b":0.0,"a":1.0}}'
+    jsonData: '{"uid":"c257fcc6-67c8-4005-a9bc-bfbaa8aa142e","layout":{"serializedVersion":"2","x":-1867.0,"y":-764.0,"width":1419.0,"height":567.0},"containedElements":["30955a20-6e30-47fa-9f2f-41bdfd6b9161","d0b099e0-a7b5-4d9f-ba00-43e389e428c8","b8986b57-6686-44be-9fc8-fa607d1f127c","68e3661c-7d8a-42ac-9a55-f5996f700973","be20be34-392f-436e-80af-14889fe2cb52","0b66856a-ff71-4e44-b5ac-e13ea17bb013","9dc0e0a0-298f-4908-862e-dcfd8cf66f1c","ef8e4c41-8a99-4aa4-949e-a14290746a31","b8e47e6e-0628-42d2-816c-19f5bc56b6df","1a811314-23d1-4b50-88cc-7952bfc8f194","e91d10e6-7169-4d0a-b0ce-40751c260ad7","a8753fd5-76d8-4965-bfa2-323aa3a0ee9b","b8cbf68a-8deb-4e2d-a248-9bb241fcbab9","9e634544-94eb-4c86-8e19-723660ad486e","bbce5f48-3950-4a0e-8c4f-35a1775b7070","9dbadccf-f609-45c9-8cb5-5d232350d8ec","f124f4b4-b182-49d1-9bc0-8084236b7c50","4e0118a4-9dda-4cf4-b3af-3072c2ea379e","c3befe26-64f0-4719-83f7-061c95d33cd5"],"title":"Initialize","layer":-1,"elementTypeColor":{"r":0.0,"g":0.0,"b":0.0,"a":1.0}}'
   - type: 2
     uid: 26a1f41e-d51d-4da2-b6ff-2108086e5ac7
     jsonData: '{"uid":"26a1f41e-d51d-4da2-b6ff-2108086e5ac7","layout":{"serializedVersion":"2","x":-1446.0001220703125,"y":-81.0,"width":578.0,"height":402.0},"containedElements":["f893fb08-8ace-4aaf-bab7-b3be1c4df96d","cd0a0f8f-3aab-43b4-8f6e-a88d8aef3053","1a9cd384-8054-47f9-ba01-1abae8e31d88","ca68be00-1bf7-4d96-bf9d-a0f03d0bb667","a3e2cac2-1b27-48c1-82ca-efd8742414da","564a4dab-f172-454a-8d7c-7c9789e1d4e6"],"title":"Update

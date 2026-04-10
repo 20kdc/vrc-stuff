@@ -25,10 +25,13 @@ pub fn pop() {
 
 /// Mutable Udon value reference.
 /// Not usable for constants.
-pub trait UdonMutValue : UdonValue {
+pub trait UdonMutValue: UdonValue {
     /// Copies from the given Udon heap slot to this one.
     #[inline(always)]
-    fn copy<Src: UdonValue>() where Src::Type : UdonCastable<Self::Type> {
+    fn copy<Src: UdonValue>()
+    where
+        Src::Type: UdonCastable<Self::Type>,
+    {
         Src::push();
         Self::push();
         kip32_syscall!(b"stdsyscall_copy");
