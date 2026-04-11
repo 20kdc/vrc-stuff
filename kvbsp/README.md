@@ -138,3 +138,19 @@ In particular:
 * Entities can be parameterized however they choose by extending `KDCBSPEntityParameterizer`.
 * It is possible to override the visual mesh generation on a material-by-material basis by extending `KDCBSPAbstractMaterialConfig`. This may be useful if you're doing something fancy/weird with specially marked materials.
 * Extending `KDCBSPAbstractWorkspaceConfig` allows you to define custom search logic (perhaps for texture auto-import).
+
+## TODO: 'PAK Generation'
+
+The goal behind PAK generation is to 'unify' the Unity 'workspaces' with what TrenchBroom and ericw-tools see.
+
+The planned layout looks like this:
+
+* `KDCBSPGameRoot`: Example workspace. Any workspace _could_ be used.
+	* `KDCBSPGameRoot/baseq2`: This is where TrenchBroom is told to point when working on this workspace.
+		* Per-project TrenchBroom game IDs may need to become a thing to help with project switching.
+		* Within a single project, using KDCBSPGameRoot as a 'super-workspace' containing all other workspaces seems sufficient.
+		* `KDCBSPGameRoot/baseq2/generated.pak`: Contains generated PAK data.
+			* In particular, this contains the `textures/` directory, including `wal_json` files for `ericw-tools` and `png` texture proxies for TrenchBroom.
+		* `KDCBSPGameRoot/baseq2/generated.fgd`: Maybe contains generated FGD info for the defined entities.
+
+The ideal is that a Unity material can, at the press of a few buttons ('Generate Material PAK'?), simply _appear_ in TrenchBroom, ready for selection.

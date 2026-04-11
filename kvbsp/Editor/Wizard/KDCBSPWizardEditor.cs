@@ -8,49 +8,8 @@ namespace KDCVRCBSP {
 	public class KDCBSPWizardEditor : Editor {
 
 		static int wizardStep = 0;
-		static string trenchBroomConfig = "";
-		static string qrootPath = "";
-		static string qbspPath = "";
-
-		private void Infer() {
-			if (trenchBroomConfig == "") {
-				// try guess TrenchBroom config
-				string windowsChk = Environment.GetEnvironmentVariable("AppData");
-				if (windowsChk != null) {
-					// assume Windows
-					trenchBroomConfig = Path.Join(windowsChk, "TrenchBroom");
-				} else {
-					// could be Mac or some non-Mac Unix
-					// to disambiguate, look for what Mac will always have
-					string home = Environment.GetEnvironmentVariable("HOME");
-					if (home != null) {
-						if (Directory.Exists(home + "/Library/Application Support")) {
-							// assume Mac
-							trenchBroomConfig = Path.Join(home, "Library/Application Support/TrenchBroom");
-						} else {
-							// assume other
-							trenchBroomConfig = Path.Join(home, ".TrenchBroom");
-						}
-					}
-				}
-			}
-			if (qrootPath == "") {
-				qrootPath = FileUtil.GetPhysicalPath("Assets/KDCBSPGameRoot");
-			}
-			if (qbspPath == "") {
-				// dev privileges
-				qbspPath = "qbsp";
-				string home = Environment.GetEnvironmentVariable("HOME");
-				if (home != null) {
-					if (File.Exists(home + "/.local/bin/qbsp")) {
-						qbspPath = home + "/.local/bin/qbsp";
-					}
-				}
-			}
-		}
 
 		void OnEnable() {
-			Infer();
 		}
 
 		private void WWLabel(string text) {
@@ -58,11 +17,12 @@ namespace KDCVRCBSP {
 		}
 
 		public override void OnInspectorGUI() {
+			string qrootPath = FileUtil.GetPhysicalPath("Assets/KDCBSPGameRoot");
+			// ...
+			string trenchBroomConfig = KDCBSPSetupCore.PathTrenchBroomConfig;
+			string qbspPath = KDCBSPSetupCore.PathQBSP;
 			// discovery
-			string trenchBroomConfigGames = Path.Join(trenchBroomConfig, "games");
-			string trenchBroomConfigDetail = Path.Join(trenchBroomConfigGames, "KVToolsTB");
-			string trenchBroomConfigCompilationProfiles = Path.Join(trenchBroomConfigDetail, "CompilationProfiles.cfg");
-			bool compilationProfilesAlreadyExist = File.Exists(trenchBroomConfigCompilationProfiles);
+			bool compilationProfilesAlreadyExist = File.Exists(KDCBSPSetupCore.PathTrenchBroomCompilationProfiles);
 
 			if (wizardStep == 0) {
 				WWLabel("Hey! Welcome to the t20kdc.vrc-bsp setup wizard!");
@@ -71,18 +31,21 @@ namespace KDCVRCBSP {
 					Application.OpenURL("https://github.com/TrenchBroom/TrenchBroom");
 				}
 				WWLabel("TrenchBroom's user directory is assumed to be:");
-				trenchBroomConfig = EditorGUILayout.TextField("TrenchBroom Config", trenchBroomConfig);
+
+				string trenchBroomConfigNew = EditorGUILayout.TextField("TrenchBroom Config", trenchBroomConfig);
+				if (trenchBroomConfigNew != trenchBroomConfig)
+					KDCBSPSetupCore.PathTrenchBroomConfig = trenchBroomConfigNew;
+				EditorGUILayout.BeginHorizontal();
 				WWLabel("If it's different, change it now.");
-				WWLabel("If using TrenchBroom in portable mode, the executable directory is also the user directory.");
-				bool problem = false;
-				if (!Directory.Exists(trenchBroomConfig)) {
-					EditorGUILayout.HelpBox("The directory doesn't exist. Run TrenchBroom or adjust accordingly.", MessageType.Error);
-					problem = true;
-				} else if (!File.Exists(Path.Join(trenchBroomConfig, "Preferences.json"))) {
-					EditorGUILayout.HelpBox("Preferences.json doesn't exist. Wrong directory, or you haven't run TrenchBroom yet?", MessageType.Error);
-					problem = true;
+				if (GUILayout.Button("Force redetect (if newly installed/run)")) {
+					KDCBSPSetupCore.PathTrenchBroomConfig = null;
 				}
-				if (problem) {
+				EditorGUILayout.EndHorizontal();
+
+				WWLabel("If using TrenchBroom in portable mode, the executable directory is also the user directory.");
+				string problem = KDCBSPSetupCore.IssueTrenchBroomConfig;
+				if (problem != null) {
+					EditorGUILayout.HelpBox(problem, MessageType.Error);
 					if (GUILayout.Button("Consider referring to the TrenchBroom manual.")) {
 						Application.OpenURL("https://trenchbroom.github.io/manual/latest/#game_configuration_files");
 					}
@@ -97,7 +60,9 @@ namespace KDCVRCBSP {
 					Application.OpenURL("https://github.com/ericwa/ericw-tools/releases");
 				}
 				if (!compilationProfilesAlreadyExist) {
-					qbspPath = EditorGUILayout.TextField("ericw-tools qbsp Path", qbspPath);
+					string qbspPathNew = EditorGUILayout.TextField("ericw-tools qbsp Path", qbspPath);
+					if (qbspPathNew != qbspPath)
+						KDCBSPSetupCore.PathQBSP = qbspPathNew;
 					if (!File.Exists(qbspPath)) {
 						EditorGUILayout.HelpBox("The QBSP executable doesn't exist.", MessageType.Error);
 					} else {
@@ -114,24 +79,7 @@ namespace KDCVRCBSP {
 			} else if (wizardStep == 2) {
 				WWLabel("The game definition will now be installed into your TrenchBroom configuration.");
 				if (GUILayout.Button("Continue (copy/update game definition)")) {
-					try {
-						Directory.CreateDirectory(trenchBroomConfigGames);
-					} catch (Exception ex) {
-						Debug.LogException(ex);
-					}
-					try {
-						Directory.CreateDirectory(trenchBroomConfigDetail);
-						string[] trivial = {"CompilationProfiles.cfg", "GameConfig.cfg", "kvtoolstb.fgd"};
-						foreach (string v in trivial) {
-							string fileFrom = FileUtil.GetPhysicalPath("Packages/t20kdc.vrc-bsp/TrenchBroom~/KVToolsTB/" + v);
-							string fileTo = Path.Join(trenchBroomConfigDetail, v);
-							if (v == "CompilationProfiles.cfg" && compilationProfilesAlreadyExist)
-								continue;
-							File.WriteAllText(fileTo, File.ReadAllText(fileFrom).Replace("TOOL_QBSP", qbspPath), new System.Text.UTF8Encoding(false));
-						}
-					} catch (Exception ex) {
-						Debug.LogException(ex);
-					}
+					KDCBSPSetupCore.RunTrenchBroomSetup();
 					wizardStep = 3;
 				}
 				if (GUILayout.Button("Skip (if setup already)")) {
