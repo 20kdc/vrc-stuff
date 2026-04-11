@@ -37,6 +37,32 @@ namespace KDCVRCBSP {
 		[SerializeField]
 		public List<LazyLoadReference<KDCBSPAbstractWorkspaceConfig>> parentWorkspaces = new();
 
+		/// Returns the materials base (or null)
+		public string FullMaterialsBase {
+			get {
+				string assetPath = AssetDatabase.GetAssetPath(this);
+				if (assetPath == null)
+					return null;
+				string baseDir = Path.GetDirectoryName(assetPath);
+				if (baseDir == null)
+					return null;
+				return Path.Join(baseDir, materialConfigsPath);
+			}
+		}
+
+		/// Returns the entities base (or null)
+		public string FullEntitiesBase {
+			get {
+				string assetPath = AssetDatabase.GetAssetPath(this);
+				if (assetPath == null)
+					return null;
+				string baseDir = Path.GetDirectoryName(assetPath);
+				if (baseDir == null)
+					return null;
+				return Path.Join(baseDir, entityConfigsPath);
+			}
+		}
+
 		public override void BuildSearchOrder(AssetImportContext ctx, List<KDCBSPAbstractWorkspaceConfig> searchOrder) {
 			foreach (var workspace in parentWorkspaces) {
 				KDCBSPAbstractWorkspaceConfig ws = KDCBSPImportContext.DependsOnArtifact(ctx, workspace);
@@ -45,6 +71,18 @@ namespace KDCVRCBSP {
 						continue;
 					searchOrder.Add(ws);
 					ws.BuildSearchOrder(ctx, searchOrder);
+				}
+			}
+		}
+
+		public override void BuildSearchOrderEditor(List<KDCBSPAbstractWorkspaceConfig> searchOrder) {
+			foreach (var workspace in parentWorkspaces) {
+				KDCBSPAbstractWorkspaceConfig ws = workspace.asset;
+				if (ws != null) {
+					if (searchOrder.Contains(ws))
+						continue;
+					searchOrder.Add(ws);
+					ws.BuildSearchOrderEditor(searchOrder);
 				}
 			}
 		}
@@ -60,12 +98,11 @@ namespace KDCVRCBSP {
 		}
 
 		public override KDCBSPAbstractMaterialConfig LookupMaterial(AssetImportContext ctx, string path) {
-			string assetPath = AssetDatabase.GetAssetPath(this);
-			string baseDir = Path.GetDirectoryName(assetPath);
+			string baseDir = FullMaterialsBase;
 			if (baseDir == null)
 				return null;
-			string path1 = Path.Join(baseDir, materialConfigsPath, path + ".asset");
-			string path2 = Path.Join(baseDir, materialConfigsPath, path + ".mat");
+			string path1 = Path.Join(baseDir, path + ".asset");
+			string path2 = Path.Join(baseDir, path + ".mat");
 			KDCBSPAbstractMaterialConfig amc = KDCBSPImportContext.DependsOnArtifact<KDCBSPAbstractMaterialConfig>(ctx, path1);
 			if (amc != null)
 				return amc;
@@ -90,15 +127,42 @@ namespace KDCVRCBSP {
 		}
 
 		public override GameObject LookupEntity(AssetImportContext ctx, string classname) {
-			string assetPath = AssetDatabase.GetAssetPath(this);
-			string baseDir = Path.GetDirectoryName(assetPath);
+			string baseDir = FullEntitiesBase;
 			if (baseDir == null)
 				return null;
-			string path1 = Path.Join(baseDir, entityConfigsPath, classname + ".prefab");
+			string path1 = Path.Join(baseDir, classname + ".prefab");
 			GameObject amc = KDCBSPImportContext.DependsOnArtifact<GameObject>(ctx, path1);
 			if (amc != null)
 				return amc;
 			return null;
+		}
+
+		private void Finder(SortedDictionary<string, string> target, string[] exts, string implicitBase, string explicitBase) {
+			string implicitBasePhysical = FileUtil.GetPhysicalPath(implicitBase);
+			foreach (string s in Directory.EnumerateFileSystemEntries(implicitBasePhysical)) {
+				string fileName = Path.GetFileName(s);
+				string fullPath = Path.Join(implicitBase, fileName);
+				if (Directory.Exists(fullPath)) {
+					// Note the manual path join for the explicit base.
+					// The explicit base is a Q2 material name, and should always be written exactly as [dir/]file; no leading slash or ending extension.
+					Finder(target, exts, fullPath, explicitBase + fileName + "/");
+				} else {
+					foreach (string ext in exts) {
+						if (fileName.EndsWith(ext)) {
+							string noExt = fileName.Substring(0, fileName.Length - ext.Length);
+							target[explicitBase + noExt] = fullPath;
+							break;
+						}
+					}
+				}
+			}
+		}
+
+		public override void FindMaterials(SortedDictionary<string, string> materials) {
+			string fb = FullMaterialsBase;
+			if (fb == null)
+				return;
+			Finder(materials, new string[] {".jpg", ".jpeg", ".tga", ".png"}, fb, "");
 		}
 	}
 }

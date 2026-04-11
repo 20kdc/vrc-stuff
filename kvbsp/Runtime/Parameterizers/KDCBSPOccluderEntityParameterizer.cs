@@ -25,7 +25,7 @@ namespace KDCVRCBSP {
 			}
 #endif
 		}
-		public override KDCBSPBrushEntitySettings EntityGetBrushSettings(bool isWorldspawn, KDCBSPBrushEntitySettings worldspawnCompilation, KDCBSPBrushEntitySettings brushEntityCompilation) {
+		public override KDCBSPBrushEntitySettings EntityGetBrushSettings(bool isWorldspawn, KDCBSPBrushEntitySettings prev) {
 			return new KDCBSPBrushEntitySettings {
 				visuals = false,
 				collision = KDCBSPBrushEntitySettings.CollisionMode.None

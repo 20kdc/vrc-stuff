@@ -22,10 +22,11 @@ namespace KDCVRCBSP {
 		}
 
 		/// Returns the brush entity compile settings for this brush entity.
-		/// The passed instances are already cloned and can thus be freely modified.
-		/// Note that if this isn't the first parameterizer, worldspawnCompilation == brushEntityCompilation.
-		public virtual KDCBSPBrushEntitySettings EntityGetBrushSettings(bool isWorldspawn, KDCBSPBrushEntitySettings worldspawnCompilation, KDCBSPBrushEntitySettings brushEntityCompilation) {
-			return isWorldspawn ? worldspawnCompilation : brushEntityCompilation;
+		/// The passed instance is either worldspawnCompilation or the return value from the previous parameterizer.
+		/// If it is worldspawnCompilation, it is already cloned and can thus be freely modified.
+		/// If overridden, returned instances must also therefore be safe to modify.
+		public virtual KDCBSPBrushEntitySettings EntityGetBrushSettings(bool isWorldspawn, KDCBSPBrushEntitySettings prev) {
+			return prev;
 		}
 
 		/// modLayer defaults to the 'default logic', but is also the output of the last entity parameterizer.

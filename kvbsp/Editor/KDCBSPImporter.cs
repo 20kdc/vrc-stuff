@@ -17,8 +17,9 @@ namespace KDCVRCBSP {
 		[SerializeField]
 		public LazyLoadReference<KDCBSPAbstractWorkspaceConfig> workspace;
 
+		[Tooltip("Brush entity settings for compiling worldspawn (unless otherwise overridden by parameterizers or properties).")]
+		[SerializeField]
 		public KDCBSPBrushEntitySettings worldspawnCompilation = new();
-		public KDCBSPBrushEntitySettings brushEntityCompilation = new();
 
 		public override void OnImportAsset(AssetImportContext ctx) {
 			if (!workspace.isSet) {
@@ -29,13 +30,7 @@ namespace KDCVRCBSP {
 
 			KDCBSPIntermediate data = KDCBSPIntermediate.Load(File.ReadAllBytes(ctx.assetPath), myWorkspace.WorldScale);
 
-			List<KDCBSPAbstractWorkspaceConfig> searchOrder = new();
-			searchOrder.Add(myWorkspace);
-			myWorkspace.BuildSearchOrder(ctx, searchOrder);
-
-			var builtInWorkspace = KDCBSPImportContext.DependsOnArtifact<KDCBSPAbstractWorkspaceConfig>(ctx, KDCBSPImportContext.KVBSP_BASE + "Assets/builtinWorkspace.asset");
-			if (builtInWorkspace != null)
-				searchOrder.Add(builtInWorkspace);
+			List<KDCBSPAbstractWorkspaceConfig> searchOrder = PrepareSearchOrder(ctx, myWorkspace);
 
 			// this
 			KDCBSPImportContext importContext = new KDCBSPImportContext {
@@ -103,15 +98,13 @@ namespace KDCVRCBSP {
 
 			var assetPrefix = uniqueName + " ";
 
-			KDCBSPBrushEntitySettings compSettingsWS = (KDCBSPBrushEntitySettings) worldspawnCompilation.Clone();
-			KDCBSPBrushEntitySettings compSettingsBE = (KDCBSPBrushEntitySettings) brushEntityCompilation.Clone();
+			KDCBSPBrushEntitySettings compSettings = (KDCBSPBrushEntitySettings) worldspawnCompilation.Clone();
 			foreach (var c in custom) {
 				c.EntityParameterize(importContext.bsp, ref entity, uniqueName);
 				if (c == null)
 					return null;
-				compSettingsWS = compSettingsBE = c.EntityGetBrushSettings(entity.IsWorldspawn, compSettingsWS, compSettingsBE);
+				compSettings = c.EntityGetBrushSettings(entity.IsWorldspawn, compSettings);
 			}
-			KDCBSPBrushEntitySettings compSettings = entity.IsWorldspawn ? compSettingsWS : compSettingsBE;
 
 			foreach (var c in custom)
 				postProcessThese.Add(c);
@@ -273,6 +266,32 @@ namespace KDCVRCBSP {
 			}
 
 			return entGO;
+		}
+
+		/// Prepares a finished search order.
+		public static List<KDCBSPAbstractWorkspaceConfig> PrepareSearchOrder(AssetImportContext ctx, KDCBSPAbstractWorkspaceConfig myWorkspace) {
+			List<KDCBSPAbstractWorkspaceConfig> searchOrder = new();
+			searchOrder.Add(myWorkspace);
+			myWorkspace.BuildSearchOrder(ctx, searchOrder);
+
+			var builtInWorkspace = KDCBSPImportContext.DependsOnArtifact<KDCBSPAbstractWorkspaceConfig>(ctx, KDCBSPImportContext.KVBSP_BASE + "Assets/builtinWorkspace.asset");
+			if (builtInWorkspace != null)
+				searchOrder.Add(builtInWorkspace);
+
+			return searchOrder;
+		}
+
+		/// Prepares a finished search order (for use in non-importer code)
+		public static List<KDCBSPAbstractWorkspaceConfig> PrepareSearchOrderEditor(KDCBSPAbstractWorkspaceConfig myWorkspace) {
+			List<KDCBSPAbstractWorkspaceConfig> searchOrder = new();
+			searchOrder.Add(myWorkspace);
+			myWorkspace.BuildSearchOrderEditor(searchOrder);
+
+			var builtInWorkspace = (KDCBSPAbstractWorkspaceConfig) AssetDatabase.LoadAssetAtPath(KDCBSPImportContext.KVBSP_BASE + "Assets/builtinWorkspace.asset", typeof(KDCBSPAbstractWorkspaceConfig));
+			if (builtInWorkspace != null)
+				searchOrder.Add(builtInWorkspace);
+
+			return searchOrder;
 		}
 
 		public static UnwrapParam BrushEntitySettingsToUnwrapParam(KDCBSPBrushEntitySettings compSettings) {

@@ -18,6 +18,10 @@ namespace KDCVRCBSP {
 		/// Duplicates are not allowed. This function is expected to be recursive.
 		public abstract void BuildSearchOrder(AssetImportContext ctx, List<KDCBSPAbstractWorkspaceConfig> searchOrder);
 
+		/// Sets up the workspace config search order.
+		/// This version does not require AssetImportContext.
+		public abstract void BuildSearchOrderEditor(List<KDCBSPAbstractWorkspaceConfig> searchOrder);
+
 		/// Returns the fallback material.
 		public abstract KDCBSPAbstractMaterialConfig FallbackMaterial(AssetImportContext ctx);
 
@@ -31,5 +35,9 @@ namespace KDCVRCBSP {
 		/// Looks up an entity type in this config, or returns null.
 		/// Note it does not check 'sub-configs' as covered in the search order.
 		public abstract GameObject LookupEntity(AssetImportContext ctx, string classname);
+
+		/// Contributes (overwriting) to a map from material names to their images.
+		/// This can be used for TrenchBroom material setup.
+		public abstract void FindMaterials(SortedDictionary<string, string> materials);
 	}
 }
