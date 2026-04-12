@@ -36,8 +36,47 @@ namespace KDCVRCBSP {
 		/// Note it does not check 'sub-configs' as covered in the search order.
 		public abstract GameObject LookupEntity(AssetImportContext ctx, string classname);
 
-		/// Contributes (overwriting) to a map from material names to their images.
-		/// This can be used for TrenchBroom material setup.
-		public abstract void FindMaterials(SortedDictionary<string, string> materials);
+		/// Contributes (overwriting) to a map from material names to their material paths and material configs.
+		/// The idea is to get a full materials index as part of TrenchBroom material setup.
+		public abstract void FindMaterials(SortedDictionary<string, (string, KDCBSPAbstractMaterialConfig)> materials);
+
+		/// General 'find everything' function, called upon by SetupBaseQ2 among others.
+		public virtual void FindEverything(out SortedDictionary<string, (string, KDCBSPAbstractMaterialConfig)> materials) {
+			var lst = KDCBSPImporter.PrepareSearchOrderEditor(this);
+			lst.Reverse();
+			materials = new();
+			foreach (var elm in lst) {
+				elm.FindMaterials(materials);
+			}
+		}
+
+		/// Sets up the baseq2 directory.
+		public virtual void SetupBaseQ2() {
+			string path = AssetDatabase.GetAssetPath(this);
+			if (path == null) {
+				Debug.LogError("No asset path for workspace being setup!");
+			} else {
+				string baseDir = Path.GetDirectoryName(path);
+				if (baseDir == null) {
+					Debug.LogError("No base dir for workspace being setup!");
+				} else {
+					string baseq2Dir = Path.Join(baseDir, "baseq2");
+					try {
+						Directory.CreateDirectory(FileUtil.GetPhysicalPath(baseq2Dir));
+					} catch (Exception ex) {
+						Debug.LogException(ex);
+					}
+					try {
+						FindEverything(out var materials);
+						SortedDictionary<string, byte[]> files = new();
+						foreach (var (key, value) in materials)
+							value.Item2.PAKContribute(files, key, value.Item1);
+						File.WriteAllBytes(FileUtil.GetPhysicalPath(Path.Join(baseq2Dir, "generated.pak")), KDCBSPPAKWriter.MakePAK(files));
+					} catch (Exception ex) {
+						Debug.LogException(ex);
+					}
+				}
+			}
+		}
 	}
 }

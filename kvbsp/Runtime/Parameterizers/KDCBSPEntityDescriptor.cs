@@ -14,7 +14,7 @@ namespace KDCVRCBSP {
 		public KDCBSPBrushEntitySettings brushEntitySettings = new();
 
 		public override KDCBSPBrushEntitySettings EntityGetBrushSettings(bool isWorldspawn, KDCBSPBrushEntitySettings prev) {
-			return useBrushEntitySettings ? prev : (KDCBSPBrushEntitySettings) brushEntitySettings.Clone();
+			return useBrushEntitySettings ? (KDCBSPBrushEntitySettings) brushEntitySettings.Clone() : prev;
 		}
 	}
 }

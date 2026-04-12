@@ -32,16 +32,16 @@ namespace KDCVRCBSP {
 			EditorGUILayout.PropertyField(pParentWorkspaces);
 
 			if (GUILayout.Button("Debug material search")) {
-				var lst = KDCBSPImporter.PrepareSearchOrderEditor((KDCBSPAbstractWorkspaceConfig) target);
-				lst.Reverse();
-				SortedDictionary<string, string> materialIcons = new();
-				foreach (var elm in lst) {
-					elm.FindMaterials(materialIcons);
-				}
-				foreach (var elm in materialIcons) {
-					Debug.Log(elm);
+				((KDCBSPAbstractWorkspaceConfig) target).FindEverything(out var materials);
+				foreach (var (key, value) in materials) {
+					Debug.Log((key, value.Item1));
 				}
 			}
+
+			if (GUILayout.Button("Setup 'baseq2'")) {
+				((KDCBSPAbstractWorkspaceConfig) target).SetupBaseQ2();
+			}
+			GUILayout.Label("Setup 'baseq2' on your game root workspace when adding/removing/changing materials!", EditorStyles.wordWrappedLabel);
 
 			serializedObject.ApplyModifiedProperties();
 		}

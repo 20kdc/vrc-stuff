@@ -40,6 +40,10 @@ namespace KDCVRCBSP {
 		/// Note that this mechanism is not in use for the concave root mode.
 		public abstract float GetCollisionConvexPriority(Vector3 normal);
 
+		/// Contributes ericw-tools and TrenchBroom metadata to the PAK.
+		/// Importantly, discoveryPath accounts for the situation where a material config is created on behalf of a material file.
+		public abstract void PAKContribute(SortedDictionary<string, byte[]> pakFiles, string materialPath, string discoveryPath);
+
 		public abstract class Simple : KDCBSPAbstractMaterialConfig {
 			/// Base priority for determining which material a brush is made of. The normal Y (-1 to 1) is added to this, to bias in favour of floors by default.
 			public abstract float BaseCollisionConvexPriority { get; }
@@ -104,6 +108,10 @@ namespace KDCVRCBSP {
 
 			public override float GetCollisionConvexPriority(Vector3 normal) {
 				return BaseCollisionConvexPriority + normal.y;
+			}
+
+			public override void PAKContribute(SortedDictionary<string, byte[]> pakFiles, string materialPath, string discoveryPath) {
+				pakFiles[materialPath] = new byte[0];
 			}
 
 			public struct SimpleMaterialInfo {

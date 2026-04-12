@@ -158,11 +158,27 @@ namespace KDCVRCBSP {
 			}
 		}
 
-		public override void FindMaterials(SortedDictionary<string, string> materials) {
+		public override void FindMaterials(SortedDictionary<string, (string, KDCBSPAbstractMaterialConfig)> materials) {
 			string fb = FullMaterialsBase;
 			if (fb == null)
 				return;
-			Finder(materials, new string[] {".jpg", ".jpeg", ".tga", ".png"}, fb, "");
+			SortedDictionary<string, string> tmp = new();
+			Finder(tmp, new string[] {".asset", ".mat"}, fb, "");
+			foreach (var (key, path) in tmp) {
+				if (path.EndsWith(".mat")) {
+					Material fbc = (Material) AssetDatabase.LoadAssetAtPath(path, typeof(Material));
+					if (fbc == null)
+						continue;
+					KDCBSPMaterialConfig cfg = (KDCBSPMaterialConfig) ScriptableObject.CreateInstance(typeof(KDCBSPMaterialConfig));
+					cfg.material = fbc;
+					materials[key] = (path, cfg);
+				} else {
+					KDCBSPAbstractMaterialConfig fbc = (KDCBSPAbstractMaterialConfig) AssetDatabase.LoadAssetAtPath(path, typeof(KDCBSPAbstractMaterialConfig));
+					if (fbc == null)
+						continue;
+					materials[key] = (path, fbc);
+				}
+			}
 		}
 	}
 }
