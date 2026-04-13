@@ -37,6 +37,7 @@ namespace KDCVRCTools {
 
 		[RuntimeInitializeOnLoadMethod]
 		private static void SetupErrorHook() {
+			KDCUdonHookedVM.OnError -= ErrorHook;
 			KDCUdonHookedVM.OnError += ErrorHook;
 		}
 
