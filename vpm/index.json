@@ -45,6 +45,18 @@
 					"license": "Unlicense",
 					"zipSHA256": "a0faf0ce2de14f32200103e984cc50d11971e1f743b66a47802542973f38cca3",
 					"url": "https://raw.githubusercontent.com/20kdc/vrc-stuff/refs/heads/main/vpm/t20kdc.vrc-bsp-0.2.0.zip"
+				},
+				"0.3.0": {
+					"name": "t20kdc.vrc-bsp",
+					"displayName": "t20kdc Quake 2 BSP Importer",
+					"version": "0.3.0",
+					"author": {
+						"name": "t20kdc"
+					},
+					"description": "Using Quake 2 BSP compilers to build VRChat worlds.",
+					"license": "Unlicense",
+					"zipSHA256": "58a7a10e6b58ce95a60df240d334571cb507132d495ece6c7d8d8738a840fd18",
+					"url": "https://raw.githubusercontent.com/20kdc/vrc-stuff/refs/heads/main/vpm/t20kdc.vrc-bsp-0.3.0.zip"
 				}
 			}
 		},
