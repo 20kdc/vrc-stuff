@@ -131,7 +131,7 @@ Brush entities are _much_ more complicated.
 
 1. If `_kdcbsp_autoorigin` is `1`, then during the initial load, the entity is internally adjusted to set its origin to the centre of the bounding box of its brush model.
 	* This is a pretty hacky thing and issues should be expected, since this requires the brush model to be offset again during mesh generation to fix up the chaos this causes.
-2. The entity parameterizers get the opportunity to arbitrarily modify the `KDCBSPBrushEntitySettings` to their liking, alongside other chaso like changing brush convex layers
+2. The entity parameterizers get the opportunity to arbitrarily modify the `KDCBSPBrushEntitySettings` to their liking, alongside other chaos like changing brush convex layers
 	* In practice, this is to ensure that the entity is being rendered in accordance with how the entity will actually act during gameplay.
 3. There are a number of entity properties defined in `KDCBSPBrushEntitySettings`. These override anything the entity parameterizers set, which allows for fine control by mappers.
 	* These aren't listed here, for now; they are already listed in the FGD.
