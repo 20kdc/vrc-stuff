@@ -36,6 +36,24 @@ namespace KDCVRCBSP {
 		}
 #endif
 
+		/// So a problem is that TrenchBroom will hold a PAK file open for as long as it wants and expects it not to change.
+		/// If you change it anyway, bad things happen.
+		/// This is not to mention the Windows file exclusion issues this risks.
+		/// So in order to prevent this, we write the next PAK file into a new file, and try to delete other files.
+		/// We also name our PAK file by time to control precedence.
+		public static void UpdatePAKFile(string basePhysicalPath, byte[] content) {
+			foreach (string victim in Directory.GetFiles(basePhysicalPath, ".cache*.pak")) {
+				try {
+					File.Delete(victim);
+				} catch (Exception ex) {
+					Debug.LogException(ex);
+				}
+			}
+			string tsPadded = Convert.ToString(DateTimeOffset.UtcNow.ToUnixTimeSeconds(), 16).PadLeft(16, '0');
+			string newFileName = ".cache" + tsPadded + ".pak";
+			File.WriteAllBytes(Path.Join(basePhysicalPath, newFileName), content);
+		}
+
 		public static LayerMask BrushContentsLayerMask(LayerMask entityLayer, int contents) {
 			// CONTENTS_CURRENT_0
 			// We use this as a 'secret handshake' to implement the 'noclip' brush.
