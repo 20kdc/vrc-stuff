@@ -73,12 +73,15 @@ namespace KDCVRCTools {
 
 		[RuntimeInitializeOnLoadMethod]
 		private static void SetupHookOpportunity() {
+			// This catches if we might for some reason hook the function twice.
+			UdonBehaviour.OnInit -= HookOpportunity;
 			UdonBehaviour.OnInit += HookOpportunity;
 		}
 
 		/// We don't want to hook a behaviour more than once.
 		/// If someone else is hooking behaviours, log a warning.
 		public static void HookOpportunity(UdonBehaviour ub, IUdonProgram program) {
+			// Debug.Log("Hook Opportunity for UB " + ub);
 			// to prevent unwanted issues, we don't hook any VMs that don't have our special component.
 			// at some point this might be changed to an attribute
 			if ((!PleaseHookEverything) && !ub.GetComponent<KDCUdonDebugOptions>()) {
