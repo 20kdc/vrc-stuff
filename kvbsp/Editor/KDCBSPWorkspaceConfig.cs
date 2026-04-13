@@ -90,7 +90,7 @@ namespace KDCVRCBSP {
 		public override KDCBSPAbstractMaterialConfig FallbackMaterial(AssetImportContext ctx) {
 			KDCBSPAbstractMaterialConfig fbc = KDCBSPImportContext.DependsOnArtifact(ctx, fallbackMaterial);
 			if (fbc == null) {
-				fbc = KDCBSPImportContext.DependsOnArtifact<KDCBSPAbstractMaterialConfig>(ctx, "Packages/t20kdc.vrc-bsp/Assets/missingMaterial.asset");
+				fbc = KDCBSPImportContext.DependsOnArtifact<KDCBSPAbstractMaterialConfig>(ctx, KDCBSPUtilities.KVBSP_BASE + "Assets/missingMaterial.asset");
 				fallbackMaterial = fbc;
 				return fbc;
 			}
@@ -119,7 +119,7 @@ namespace KDCVRCBSP {
 		public override GameObject FallbackEntity(AssetImportContext ctx) {
 			GameObject fbc = KDCBSPImportContext.DependsOnArtifact(ctx, fallbackEntity);
 			if (fbc == null) {
-				fbc = KDCBSPImportContext.DependsOnArtifact<GameObject>(ctx, "Packages/t20kdc.vrc-bsp/Assets/missingEntity.prefab");
+				fbc = KDCBSPImportContext.DependsOnArtifact<GameObject>(ctx, KDCBSPUtilities.KVBSP_BASE + "Assets/missingEntity.prefab");
 				fallbackEntity = fbc;
 				return fbc;
 			}

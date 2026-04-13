@@ -42,7 +42,34 @@ namespace KDCVRCBSP {
 
 		/// Contributes ericw-tools and TrenchBroom metadata to the PAK.
 		/// Importantly, discoveryPath accounts for the situation where a material config is created on behalf of a material file.
-		public abstract void PAKContribute(SortedDictionary<string, byte[]> pakFiles, string materialPath, string discoveryPath);
+		/// Note that because this logic is 'pretty universal', even for really 'unusual' materials, it's implemented here.
+		public virtual void PAKContribute(SortedDictionary<string, byte[]> pakFiles, string materialPath, string discoveryPath) {
+			var tex = PAKGetTrenchBroomTexture(materialPath, discoveryPath);
+			if (tex == null)
+				tex = KDCBSPUtilities.ReadLPImageOrNull(KDCBSPUtilities.KVBSP_BASE + "Editor/Icons/noIcon.png");
+			pakFiles["textures/" + materialPath + ".png"] = tex.EncodeToPNG();
+			var walJSON = PAKGetWALJSON(materialPath, discoveryPath);
+			if (walJSON != null)
+				pakFiles["textures/" + materialPath + ".wal_json"] = walJSON;
+		}
+
+		/// Gets the texture as shown in TrenchBroom. Here, one Quake unit == 1 pixel.
+		/// Note that this can return null. In that event, a default is loaded and used.
+		public virtual Texture2D PAKGetTrenchBroomTexture(string materialPath, string discoveryPath) {
+			string hypothesis = Path.Join(Path.GetDirectoryName(discoveryPath), Path.GetFileNameWithoutExtension(discoveryPath) + ".png");
+			Texture2D res = KDCBSPUtilities.ReadLPImageOrNull(hypothesis);
+			if (res == null) {
+				Debug.LogWarning("NO ICON: " + hypothesis);
+			}
+			return res;
+		}
+
+		/// Gets the .wal_json file contents.
+		/// If null, no such file is made.
+		public virtual byte[] PAKGetWALJSON(string materialPath, string discoveryPath) {
+			string hypothesis = Path.Join(Path.GetDirectoryName(discoveryPath), Path.GetFileNameWithoutExtension(discoveryPath) + ".wal_json");
+			return KDCBSPUtilities.ReadLPBytesOrNull(hypothesis);
+		}
 
 		public abstract class Simple : KDCBSPAbstractMaterialConfig {
 			/// Base priority for determining which material a brush is made of. The normal Y (-1 to 1) is added to this, to bias in favour of floors by default.
@@ -108,10 +135,6 @@ namespace KDCVRCBSP {
 
 			public override float GetCollisionConvexPriority(Vector3 normal) {
 				return BaseCollisionConvexPriority + normal.y;
-			}
-
-			public override void PAKContribute(SortedDictionary<string, byte[]> pakFiles, string materialPath, string discoveryPath) {
-				pakFiles[materialPath] = new byte[0];
 			}
 
 			public struct SimpleMaterialInfo {

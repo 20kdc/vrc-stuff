@@ -98,7 +98,7 @@ namespace KDCVRCBSP {
 				Directory.CreateDirectory(gamePath);
 				string[] trivial = {"CompilationProfiles.cfg", "GameConfig.cfg", "kvtoolstb.fgd"};
 				foreach (string v in trivial) {
-					string fileFrom = FileUtil.GetPhysicalPath("Packages/t20kdc.vrc-bsp/TrenchBroom~/KVToolsTB/" + v);
+					string fileFrom = FileUtil.GetPhysicalPath(KDCBSPUtilities.KVBSP_BASE + "TrenchBroom~/KVToolsTB/" + v);
 					string fileTo = Path.Join(gamePath, v);
 					if (v == "CompilationProfiles.cfg" && File.Exists(fileTo))
 						continue;

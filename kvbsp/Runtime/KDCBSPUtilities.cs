@@ -10,6 +10,32 @@ namespace KDCVRCBSP {
 	 * Contains various utilities.
 	 */
 	public static class KDCBSPUtilities {
+		public const string KVBSP_BASE = "Packages/t20kdc.vrc-bsp/";
+
+#if UNITY_EDITOR
+		/// Using Unity paths, get bytes or null.
+		public static byte[] ReadLPBytesOrNull(string path) {
+			try {
+				return File.ReadAllBytes(UnityEditor.FileUtil.GetPhysicalPath(path));
+#pragma warning disable CS0168
+			} catch (Exception _) {
+			}
+#pragma warning restore CS0168
+			return null;
+		}
+
+		/// Reads a texture in a CPU-readable form from a Unity path.
+		public static Texture2D ReadLPImageOrNull(string path) {
+			byte[] bytes = ReadLPBytesOrNull(path);
+			if (bytes == null)
+				return null;
+			var res = new Texture2D(2, 2);
+			if (ImageConversion.LoadImage(res, bytes, false))
+				return res;
+			return null;
+		}
+#endif
+
 		public static LayerMask BrushContentsLayerMask(LayerMask entityLayer, int contents) {
 			// CONTENTS_CURRENT_0
 			// We use this as a 'secret handshake' to implement the 'noclip' brush.

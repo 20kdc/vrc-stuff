@@ -274,7 +274,7 @@ namespace KDCVRCBSP {
 			searchOrder.Add(myWorkspace);
 			myWorkspace.BuildSearchOrder(ctx, searchOrder);
 
-			var builtInWorkspace = KDCBSPImportContext.DependsOnArtifact<KDCBSPAbstractWorkspaceConfig>(ctx, KDCBSPImportContext.KVBSP_BASE + "Assets/builtinWorkspace.asset");
+			var builtInWorkspace = KDCBSPImportContext.DependsOnArtifact<KDCBSPAbstractWorkspaceConfig>(ctx, KDCBSPUtilities.KVBSP_BASE + "Assets/builtinWorkspace.asset");
 			if (builtInWorkspace != null)
 				searchOrder.Add(builtInWorkspace);
 
@@ -287,7 +287,7 @@ namespace KDCVRCBSP {
 			searchOrder.Add(myWorkspace);
 			myWorkspace.BuildSearchOrderEditor(searchOrder);
 
-			var builtInWorkspace = (KDCBSPAbstractWorkspaceConfig) AssetDatabase.LoadAssetAtPath(KDCBSPImportContext.KVBSP_BASE + "Assets/builtinWorkspace.asset", typeof(KDCBSPAbstractWorkspaceConfig));
+			var builtInWorkspace = (KDCBSPAbstractWorkspaceConfig) AssetDatabase.LoadAssetAtPath(KDCBSPUtilities.KVBSP_BASE + "Assets/builtinWorkspace.asset", typeof(KDCBSPAbstractWorkspaceConfig));
 			if (builtInWorkspace != null)
 				searchOrder.Add(builtInWorkspace);
 

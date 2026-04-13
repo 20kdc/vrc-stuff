@@ -11,8 +11,6 @@ namespace KDCVRCBSP {
 	 * Contains import context info.
 	 */
 	public struct KDCBSPImportContext {
-		public const string KVBSP_BASE = "Packages/t20kdc.vrc-bsp/";
-
 		public KDCBSPImporter importer;
 		public KDCBSPAbstractWorkspaceConfig workspace;
 		public List<KDCBSPAbstractWorkspaceConfig> searchOrder;
