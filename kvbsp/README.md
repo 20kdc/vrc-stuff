@@ -8,18 +8,25 @@ The basic idea is that:
 	1. Install `TrenchBroom~/KVToolsTB` to inside TrenchBroom's user directory (Linux: `$HOME/.TrenchBroom/games/KVToolsTB`)
 	2. Adjust `CompilationProfiles.cfg` to point at ericw-tools QBSP.
 	3. Copy `TrenchBroom~/KDCBSPGameRoot` to `Assets/` of your Unity project.
-		* Note that your game root may _actually_ be anywhere; KDCBSP intentionally does not care about this. This style is used for easy onboarding, but more experienced users may find it prudent to treat different projects as 'mods' on a single game root that exists outside of any Unity project, using symlinking.
-			* Regardless of this, `Assets/KDCBSPGameRoot/DefaultWorkspaceConfig.asset` is the hardcoded default workspace config.
-2. Add images to the game root textures tree to add materials in TrenchBroom
-3. Add materials to the same tree to add materials in Unity.
+		* Note that your game root may _actually_ be anywhere; KDCBSP intentionally does not care about this.
+			* It's usually easiest to include everything in your Unity project in a single workspace. This prevents needing to switch the TrenchBroom game root.
+			* `Assets/KDCBSPGameRoot/DefaultWorkspaceConfig.asset` is the hardcoded default workspace config if no workspace is otherwise set.
+2. Add materials to the `KDCBSPGameRoot/materials` directory to add materials in Unity.
+	* Be sure to press the "Update Quake VFS" button on your workspace when you change materials!
+		* This does some setup so that TrenchBroom can see your materials. You may need to restart TrenchBroom.
 	* More precise configuration can be added by creating KDCBSP material config files of the same name.
-4. Add prefabs to the `progs` directory to add new entity types.
+	* If a material's 'icon' can't be generated, KDCBSP may give a 'no icon' image to TrenchBroom. The 'icon' is the image used in TrenchBroom as the texture.
+		* In this case, you may want to add a PNG file (named the same as the material) to override the material's TrenchBroom icon.
+3. Add prefabs to the `KDCBSPGameRoot/progs` directory to add new entity types.
+	* You can add `KDCBSPEntityDescriptor` to set default brush entity parameters (i.e. lightmapped, static, etc).
 	* You can write `KDCBSPEntityParameterizer`s to make them more configurable.
-5. BSP files (compiled using the relevant button in TrenchBroom) are imported as prefabs.
+4. BSP files (compiled using the relevant button in TrenchBroom) are imported as prefabs.
 	* There are plenty of options for customizing the import depending on the situation.
 
 As a key note, lightmapping and occlusion is not imported; `light` and `vis` are unused.
 	* The binary-grid nature of TrenchBroom may assist in aligning everything well to make Unity occlusion play nice. Alternatively, use occlusion portals. Or both.
+
+The ideal is that a Unity material can, at the press of a few buttons ('Generate Material PAK'?), simply _appear_ in TrenchBroom, ready for selection.
 
 ## Map Editing Tip: 'Leaks', `common/noclip`, and separation between maps
 
@@ -62,9 +69,7 @@ Workspaces set:
 
 There is an implicit parent workspace at `Packages/t20kdc.vrc-bsp/Assets/builtinWorkspace.asset` which is always loaded.
 
-This is used for things which are likely to need updates, to reduce the risk of issues if `KDCBSPGameRoot` becomes out of date.
-
-(Unfortunately, Unity doesn't support symlinking, and TrenchBroom doesn't provide a method to reconcile this. Solutions to the problem are under consideration, but might result in a minor compatibility break, because they're expected to involve adding a big button that basically says "Generate A Big ZIP File Containing The Workspace Textures And wal\_json Files" and rearranging things with that in mind.)
+This is used for things which are likely to _need_ updates, because there's no safe way to update `KDCBSPGameRoot`.
 
 ## Materials
 
@@ -72,14 +77,19 @@ KDCBSP finds materials relative to the paths of each included (i.e. accounting f
 
 Given the input texture name `dev/32` and the default config, it looks at:
 
-1. `KDCBSPGameRoot/baseq2/textures/dev/32.asset` (for KDCBSP texture config)
-2. `KDCBSPGameRoot/baseq2/textures/dev/32.mat` (for Unity material; this is ignored if a texture config is found)
+1. `KDCBSPGameRoot/materials/dev/32.asset` (for KDCBSP texture config)
+2. `KDCBSPGameRoot/materials/dev/32.mat` (for Unity material; this is ignored if a texture config is found)
 3. `Packages/t20kdc.vrc-bsp/Assets/textures/dev/32.asset`
 4. `Packages/t20kdc.vrc-bsp/Assets/textures/dev/32.mat`
 
 If a KDCBSP material is found and the Unity material is None, triangles will not be created.
 
 This is one of the two useful ways to use `common/sky` (the other being a skybox material, perhaps with a custom shader with emission).
+
+Notably, KDCBSP will also search for:
+
+* `32.png`: TrenchBroom's version of the texture; KDCBSP calls this the 'icon'.
+* `32.wal_json`: Metadata for ericw-tools; decently safe to omit _unless_ the material is special to the BSP compiler.
 
 ## Special Materials
 
@@ -139,18 +149,3 @@ In particular:
 * It is possible to override the visual mesh generation on a material-by-material basis by extending `KDCBSPAbstractMaterialConfig`. This may be useful if you're doing something fancy/weird with specially marked materials.
 * Extending `KDCBSPAbstractWorkspaceConfig` allows you to define custom search logic (perhaps for texture auto-import).
 
-## TODO: 'PAK Generation'
-
-The goal behind PAK generation is to 'unify' the Unity 'workspaces' with what TrenchBroom and ericw-tools see.
-
-The planned layout looks like this:
-
-* `KDCBSPGameRoot`: Example workspace. Any workspace _could_ be used.
-	* `KDCBSPGameRoot/baseq2`: This is where TrenchBroom is told to point when working on this workspace.
-		* Per-project TrenchBroom game IDs may need to become a thing to help with project switching.
-		* Within a single project, using KDCBSPGameRoot as a 'super-workspace' containing all other workspaces seems sufficient.
-		* `KDCBSPGameRoot/baseq2/generated.pak`: Contains generated PAK data.
-			* In particular, this contains the `textures/` directory, including `wal_json` files for `ericw-tools` and `png` texture proxies for TrenchBroom.
-		* `KDCBSPGameRoot/baseq2/generated.fgd`: Maybe contains generated FGD info for the defined entities.
-
-The ideal is that a Unity material can, at the press of a few buttons ('Generate Material PAK'?), simply _appear_ in TrenchBroom, ready for selection.
