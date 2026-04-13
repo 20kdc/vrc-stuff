@@ -13,8 +13,8 @@ MonoBehaviour:
   m_Name: DefaultWorkspaceConfig
   m_EditorClassIdentifier: 
   worldScale: 64
-  materialConfigsPath: baseq2/textures
-  entityConfigsPath: baseq2/progs
+  materialConfigsPath: materials
+  entityConfigsPath: progs
   fallbackMaterial: {fileID: 11400000, guid: bdd7b0466ca6b3e91b5eca64d874ff73, type: 2}
   fallbackEntity: {fileID: 2500365449669987882, guid: edf00fa69b17b079895958c5caa458ea, type: 3}
   parentWorkspaces: []

@@ -1,0 +1,1 @@
+This directory is used to store 'interface' files (material data) for TrenchBroom and ericw-tools.

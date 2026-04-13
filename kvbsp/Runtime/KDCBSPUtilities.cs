@@ -36,6 +36,19 @@ namespace KDCVRCBSP {
 		}
 #endif
 
+		public static Texture2D ReadRenderTexture(RenderTexture rt) {
+			int width = rt.width;
+			int height = rt.height;
+			var t2d = new Texture2D(width, height);
+			// prepare for grab
+			var prev = RenderTexture.active;
+			RenderTexture.active = rt;
+			t2d.ReadPixels(new Rect(0, 0, width, height), 0, 0);
+			t2d.Apply();
+			RenderTexture.active = prev;
+			return t2d;
+		}
+
 		/// So a problem is that TrenchBroom will hold a PAK file open for as long as it wants and expects it not to change.
 		/// If you change it anyway, bad things happen.
 		/// This is not to mention the Windows file exclusion issues this risks.

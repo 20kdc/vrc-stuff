@@ -45,23 +45,31 @@ namespace KDCVRCBSP {
 		/// Note that because this logic is 'pretty universal', even for really 'unusual' materials, it's implemented here.
 		public virtual void PAKContribute(SortedDictionary<string, byte[]> pakFiles, string materialPath, string discoveryPath) {
 			var tex = PAKGetTrenchBroomTexture(materialPath, discoveryPath);
-			if (tex == null)
+			if (tex == null) {
+				Debug.LogWarning("NO ICON: " + PAKGetTrenchBroomTextureOverridePath(discoveryPath));
 				tex = KDCBSPUtilities.ReadLPImageOrNull(KDCBSPUtilities.KVBSP_BASE + "Editor/Icons/noIcon.png");
+			}
 			pakFiles["textures/" + materialPath + ".png"] = tex.EncodeToPNG();
 			var walJSON = PAKGetWALJSON(materialPath, discoveryPath);
 			if (walJSON != null)
 				pakFiles["textures/" + materialPath + ".wal_json"] = walJSON;
 		}
 
+		public string PAKGetTrenchBroomTextureOverridePath(string discoveryPath) {
+			return Path.Join(Path.GetDirectoryName(discoveryPath), Path.GetFileNameWithoutExtension(discoveryPath) + ".png");
+		}
+
+		/// Gets the 'override' icon, if any.
+		/// You SHOULD use this in PAKGetTrenchBroomTexture.
+		public Texture2D PAKGetTrenchBroomTextureOverride(string discoveryPath) {
+			string hypothesis = PAKGetTrenchBroomTextureOverridePath(discoveryPath);
+			return KDCBSPUtilities.ReadLPImageOrNull(hypothesis);
+		}
+
 		/// Gets the texture as shown in TrenchBroom. Here, one Quake unit == 1 pixel.
 		/// Note that this can return null. In that event, a default is loaded and used.
 		public virtual Texture2D PAKGetTrenchBroomTexture(string materialPath, string discoveryPath) {
-			string hypothesis = Path.Join(Path.GetDirectoryName(discoveryPath), Path.GetFileNameWithoutExtension(discoveryPath) + ".png");
-			Texture2D res = KDCBSPUtilities.ReadLPImageOrNull(hypothesis);
-			if (res == null) {
-				Debug.LogWarning("NO ICON: " + hypothesis);
-			}
-			return res;
+			return PAKGetTrenchBroomTextureOverride(discoveryPath);
 		}
 
 		/// Gets the .wal_json file contents.
@@ -137,12 +145,51 @@ namespace KDCVRCBSP {
 				return BaseCollisionConvexPriority + normal.y;
 			}
 
+			public virtual SimpleIconInfo PAKGetTrenchBroomTextureSimple(string materialPath, string discoveryPath) {
+				return new SimpleIconInfo {
+					source = null,
+					offset = Vector2.zero,
+					scale = Vector2.zero,
+					iconSize = Vector2.zero
+				};
+			}
+
+			public override Texture2D PAKGetTrenchBroomTexture(string materialPath, string discoveryPath) {
+				var ovr = PAKGetTrenchBroomTextureOverride(discoveryPath);
+				if (ovr != null)
+					return ovr;
+
+				var iconInfo = PAKGetTrenchBroomTextureSimple(materialPath, discoveryPath);
+				if (iconInfo.source == null)
+					return base.PAKGetTrenchBroomTexture(materialPath, discoveryPath);
+				int width = (int) iconInfo.iconSize.x;
+				if (width < 1)
+					width = 1;
+				int height = (int) iconInfo.iconSize.y;
+				if (height < 1)
+					height = 1;
+				var rt = new RenderTexture(width, height, 0, RenderTextureFormat.ARGB32, RenderTextureReadWrite.sRGB);
+				Graphics.Blit(iconInfo.source, rt, iconInfo.scale, iconInfo.offset);
+				return KDCBSPUtilities.ReadRenderTexture(rt);
+			}
+
 			public struct SimpleMaterialInfo {
 				public Material material;
 				public Vector2 size;
 				public bool receiveShadows;
 				public UnityEngine.Rendering.ShadowCastingMode shadowCastingMode;
 				public bool optForceDisableLightProbes, optForceDisableReflectionProbes;
+			}
+
+			/// Icon information.
+			/// This represents a possible MainTex.
+			/// If source is null, this is invalid.
+			public struct SimpleIconInfo {
+				public Texture source;
+				public Vector2 offset;
+				public Vector2 scale;
+				/// Should match SimpleMaterialInfo.size
+				public Vector2 iconSize;
 			}
 		}
 	}

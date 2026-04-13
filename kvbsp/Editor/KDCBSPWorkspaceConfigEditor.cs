@@ -13,6 +13,7 @@ namespace KDCVRCBSP {
 		SerializedProperty pFallbackMaterial;
 		SerializedProperty pFallbackEntity;
 		SerializedProperty pParentWorkspaces;
+		bool debug = false;
 
 		void OnEnable() {
 			pWorldScale = serializedObject.FindProperty("worldScale");
@@ -31,17 +32,20 @@ namespace KDCVRCBSP {
 			EditorGUILayout.PropertyField(pFallbackEntity);
 			EditorGUILayout.PropertyField(pParentWorkspaces);
 
-			if (GUILayout.Button("Debug material search")) {
-				((KDCBSPAbstractWorkspaceConfig) target).FindEverything(out var materials);
-				foreach (var (key, value) in materials) {
-					Debug.Log((key, value.Item1));
-				}
-			}
-
-			if (GUILayout.Button("Setup 'baseq2'")) {
+			if (GUILayout.Button("Update Quake VFS")) {
 				((KDCBSPAbstractWorkspaceConfig) target).SetupBaseQ2();
 			}
-			GUILayout.Label("Setup 'baseq2' on your game root workspace when adding/removing/changing materials!", EditorStyles.wordWrappedLabel);
+			GUILayout.Label("Run this on your game root workspace when editing materials.", EditorStyles.wordWrappedLabel);
+			GUILayout.Label("TrenchBroom may need to be restarted.", EditorStyles.wordWrappedLabel);
+
+			if (debug = EditorGUILayout.Foldout(debug, "Debug")) {
+				if (GUILayout.Button("Debug material search")) {
+					((KDCBSPAbstractWorkspaceConfig) target).FindEverything(out var materials);
+					foreach (var (key, value) in materials) {
+						Debug.Log((key, value.Item1));
+					}
+				}
+			}
 
 			serializedObject.ApplyModifiedProperties();
 		}

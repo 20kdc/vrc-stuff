@@ -17,8 +17,8 @@
 
 // BrushEntitySettings
 @baseclass base(BrushIntermediateClass) = BrushClass [
-	_kdcbsp_lightmap_pack_margin(float) : "Lightmap pack margin." : 0.01
-	_kdcbsp_lightmap_scale(float) : "Lightmap scale." : 1.0
+	_kdcbsp_lightmap_pack_margin(float) : "Lightmap pack margin." : "0.01"
+	_kdcbsp_lightmap_scale(float) : "Lightmap scale." : "1.0"
 	_kdcbsp_visuals(integer): "If 0, this won't show." : 1
 	// KDCBSPBrushEntitySettings.CollisionMode
 	_kdcbsp_collision(choices): "Collision mode" : -1

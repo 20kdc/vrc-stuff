@@ -139,6 +139,7 @@ namespace KDCVRCBSP {
 
 		private void Finder(SortedDictionary<string, string> target, string[] exts, string implicitBase, string explicitBase) {
 			string implicitBasePhysical = FileUtil.GetPhysicalPath(implicitBase);
+			List<string> listFiles = new();
 			foreach (string s in Directory.EnumerateFileSystemEntries(implicitBasePhysical)) {
 				string fileName = Path.GetFileName(s);
 				string fullPath = Path.Join(implicitBase, fileName);
@@ -147,12 +148,17 @@ namespace KDCVRCBSP {
 					// The explicit base is a Q2 material name, and should always be written exactly as [dir/]file; no leading slash or ending extension.
 					Finder(target, exts, fullPath, explicitBase + fileName + "/");
 				} else {
-					foreach (string ext in exts) {
-						if (fileName.EndsWith(ext)) {
-							string noExt = fileName.Substring(0, fileName.Length - ext.Length);
-							target[explicitBase + noExt] = fullPath;
-							break;
-						}
+					listFiles.Add(fileName);
+				}
+			}
+			// Need to ensure that earlier (higher-priority) extensions override later ones.
+			for (int i = exts.Length - 1; i >= 0; i--) {
+				string ext = exts[i];
+				foreach (string fileName in listFiles) {
+					if (fileName.EndsWith(ext)) {
+						string fullPath = Path.Join(implicitBase, fileName);
+						string noExt = fileName.Substring(0, fileName.Length - ext.Length);
+						target[explicitBase + noExt] = fullPath;
 					}
 				}
 			}
