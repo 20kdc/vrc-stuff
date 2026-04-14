@@ -44,6 +44,9 @@ func lump_size(i: int) -> int:
 	return file.get_32()
 
 func _ready():
+	reload()
+
+func reload():
 	file.open("../drawbook/book.bin", File.READ)
 	lump_count = file.get_32()
 	shapes = {}
@@ -52,6 +55,9 @@ func _input(event):
 	if event is InputEventKey:
 		var key := event as InputEventKey
 		if key.pressed:
+			if key.scancode == KEY_R:
+				reload()
+				update()
 			if key.scancode == KEY_M:
 				debug = !debug
 				update()

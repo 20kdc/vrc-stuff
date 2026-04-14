@@ -156,7 +156,11 @@ fn main() {
         .par_iter()
         .enumerate()
         .map(|(shape_id, (shape, _))| {
-            let res = sdf::shape_to_sdf(shape, 16);
+            // we want the constant 128 to be as high as feasible (so, 128)
+            // this is because it's a major parameter in the current algorithm speed
+            // and also helps with utilizing maximum dynamic range
+            // the problem is, it's basically imitating 'spread', and thus needs to act in concert with the shader and texture size
+            let res = sdf::shape_to_sdf(shape, (128 / sdf_downscale) as i32);
             let res_w = (res.width() / sdf_downscale).max(1);
             let res_h = (res.height() / sdf_downscale).max(1);
             let res_sdf = sdf::scale_pixmap(res, res_w, res_h);
