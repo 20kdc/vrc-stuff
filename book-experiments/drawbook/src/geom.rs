@@ -233,3 +233,30 @@ impl<E: Copy + Eq> Raster<E> {
         )
     }
 }
+
+#[derive(Clone, Copy)]
+pub struct Rect<E: Copy> {
+    pub tl: V2<E>,
+    pub br: V2<E>,
+}
+
+impl<E: Copy + Sub<Output = E>> Rect<E> {
+    /// Size of this rectangle.
+    pub fn size(&self) -> V2<E> {
+        self.br - self.tl
+    }
+}
+impl<E: Copy + PartialOrd> Rect<E> {
+    /// If some other rectangle overlaps this one.
+    pub fn overlaps(&self, other: Rect<E>) -> bool {
+        self.overlaps_x(other) && self.overlaps_y(other)
+    }
+    /// If some other rectangle overlaps this one on the X axis.
+    pub fn overlaps_x(&self, other: Rect<E>) -> bool {
+        other.tl.0.lt(&self.br.0) && other.br.0.gt(&self.tl.0)
+    }
+    /// If some other rectangle overlaps this one on the Y axis.
+    pub fn overlaps_y(&self, other: Rect<E>) -> bool {
+        other.tl.1.lt(&self.br.1) && other.br.1.gt(&self.tl.1)
+    }
+}

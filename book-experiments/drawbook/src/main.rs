@@ -2,10 +2,12 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tiny_skia::{Pixmap, PremultipliedColorU8};
 
+mod atlas;
 mod docmodel;
 mod geom;
 mod sdf;
 
+use atlas::*;
 use docmodel::*;
 use geom::*;
 use lexopt::ValueExt;
@@ -282,10 +284,14 @@ fn main() {
         }
     }
     println!("SDF conversions...");
-    let sdf_shapes: Vec<Pixmap> = shapes
+    // 'rectangle' entries are not included.
+    let mut sdf_shapes: Vec<(usize, Pixmap)> = shapes
         .par_iter()
         .enumerate()
-        .map(|(shape_id, shape)| {
+        .filter_map(|(shape_id, shape)| {
+            if shape.is_solid() && !debug_dump_shapes_late {
+                return None;
+            }
             // we want the constant 128 to be as high as feasible (so, 128)
             // this is because it's a major parameter in the current algorithm speed
             // and also helps with utilizing maximum dynamic range
@@ -300,22 +306,86 @@ fn main() {
                     res_sdf.encode_png().unwrap(),
                 );
             }
-            res_sdf
+            if shape.is_solid() {
+                None
+            } else {
+                Some((shape_id, res_sdf))
+            }
         })
         .collect();
     // 'pre-atlasing': we need these structs ready for when we actually do sort-and-place, since it can happen in a different order to 'encounter order'
     let mut shapes_atlased: Vec<DBShapeAtlased> = Vec::new();
     for shape in &shapes {
         shapes_atlased.push(DBShapeAtlased {
+            // set to the 'rectangle' texture
             atlas: 0,
-            uv_tl: V2(0f32, 0f32),
-            uv_br: V2(0f32, 0f32),
-            // Convert from render units into atlas units.
+            uv_tl: V2(2f32, 2f32),
+            uv_br: V2(3f32, 3f32),
+            // Convert from render units into reference units.
             size: V2(shape.size().0 as f32, shape.size().1 as f32) / V2(render_mul, render_mul),
         });
     }
-    println!("atlasing...");
-    // we WOULD do atlasing here, but to start getting quality checks early we're currently skipping that in favour of having the Godot test app read the dumps directly
+    // determine encounter order, place descending
+    sdf_shapes
+        .sort_by(|v1, v2| (v2.1.width() * v2.1.height()).cmp(&(v1.1.width() * v1.1.height())));
+    println!("atlas planning...");
+    let mut atlas: AtlasPage = AtlasPage {
+        size: 128,
+        rects: Vec::new(),
+        points: Vec::new(),
+    };
+    // this area is reserved for the 'rectangle' texture
+    atlas.rects.push(Rect {
+        tl: V2(0, 0),
+        br: V2(5, 5),
+    });
+    atlas.points.push(V2(5, 0));
+    atlas.points.push(V2(0, 5));
+    atlas.points.push(V2(5, 5));
+    // actually plan the atlas
+    for v in &sdf_shapes {
+        loop {
+            let pt = atlas.place(V2(v.1.width() as usize + 2, v.1.height() as usize + 2));
+            if let Some(pt) = pt {
+                shapes_atlased[v.0].uv_tl = V2(pt.0 as f32, pt.1 as f32) + V2(1f32, 1f32);
+                shapes_atlased[v.0].uv_br = V2(
+                    (pt.0 + v.1.width() as usize) as f32,
+                    (pt.1 + v.1.height() as usize) as f32,
+                ) + V2(1f32, 1f32);
+                break;
+            }
+            atlas.size *= 2;
+        }
+        atlas.clean_points();
+    }
+    println!("drawing atlases...");
+    let mut atlas_pix = Pixmap::new(atlas.size as u32, atlas.size as u32).unwrap();
+    atlas_pix.fill(tiny_skia::Color::BLACK);
+    atlas_pix.fill_rect(
+        tiny_skia::Rect::from_xywh(1f32, 1f32, 3f32, 3f32).unwrap(),
+        &tiny_skia::Paint {
+            shader: tiny_skia::Shader::SolidColor(tiny_skia::Color::WHITE),
+            ..Default::default()
+        },
+        tiny_skia::Transform::identity(),
+        None,
+    );
+    for v in sdf_shapes {
+        atlas_pix.draw_pixmap(
+            shapes_atlased[v.0].uv_tl.0 as i32,
+            shapes_atlased[v.0].uv_tl.1 as i32,
+            v.1.as_ref(),
+            &tiny_skia::PixmapPaint::default(),
+            tiny_skia::Transform::identity(),
+            None,
+        );
+    }
+    _ = std::fs::write("atlas0.png", atlas_pix.encode_png().unwrap());
+    // fix UVs
+    for v in &mut shapes_atlased {
+        v.uv_tl /= V2(atlas.size as f32, atlas.size as f32);
+        v.uv_br /= V2(atlas.size as f32, atlas.size as f32);
+    }
     println!("emit...");
     // initialize atlased book
     let book_atlased = DBBook {

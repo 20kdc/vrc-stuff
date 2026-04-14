@@ -6,9 +6,12 @@ const SPRITE_SIZE: int = 8
 var file = File.new()
 var page_lump: int = 1
 var lump_count: int
-var data: PoolByteArray
 var shapes: Dictionary
+var atlas: ImageTexture = null
 var debug: bool = false
+
+func get_atlas(i: int) -> ImageTexture:
+	return atlas
 
 func get_shape(i: int) -> Dictionary:
 	if shapes.has(i):
@@ -24,14 +27,14 @@ func get_shape(i: int) -> Dictionary:
 	var w = file.get_float()
 	var h = file.get_float()
 
-	var img := Image.new()
-	if img.load("../drawbook/debug/s" + str(i) + ".sdf.png") != OK:
-		return {}
-	var tex := ImageTexture.new()
-	tex.create_from_image(img, Texture.FLAG_FILTER)
+	var atlas = get_atlas(atlas_id)
+
+	var tl = Vector2(tlx, tly) * atlas.get_size()
+	var br = Vector2(brx, bry) * atlas.get_size()
+
 	var res := {}
-	res["tex"] = tex
-	res["src"] = Rect2(0, 0, img.get_width(), img.get_height())
+	res["tex"] = atlas
+	res["src"] = Rect2(tl, br - tl)
 	res["size"] = Vector2(w, h)
 	shapes[i] = res
 	return res
@@ -48,6 +51,11 @@ func _ready():
 
 func reload():
 	file.open("../drawbook/book.bin", File.READ)
+	var img := Image.new()
+	if img.load("../drawbook/atlas0.png") != OK:
+		return {}
+	atlas = ImageTexture.new()
+	atlas.create_from_image(img, Texture.FLAG_FILTER)
 	lump_count = file.get_32()
 	shapes = {}
 
