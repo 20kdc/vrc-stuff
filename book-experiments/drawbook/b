@@ -1,0 +1,5 @@
+#!/bin/sh
+mkdir -p debug
+mkdir -p pages
+cargo fmt
+cargo run --release

@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use tiny_skia::{Pixmap, PremultipliedColorU8};
 
 mod docmodel;
+mod geom;
 mod sdf;
 
 use docmodel::*;
@@ -36,6 +37,9 @@ fn main() {
     let debug_dump_shapes_late = true;
     let render_mul: f32 = 4.0;
     let sdf_downscale: u32 = 4;
+    // Border in render pixels.
+    // This should be pre-multiplied by sdf_downscale.
+    let render_border: f32 = 4f32;
     let mut page_no = 0;
     let mut sprite_lookup: HashMap<DBShape, usize> = HashMap::new();
     let mut doc = DBBook::default();
@@ -61,14 +65,19 @@ fn main() {
             // render and insert sprites
             for (j, sprite) in sprites.into_iter().enumerate() {
                 if let Some(bbox) = sprite.abs_layer_bounding_box() {
+                    // bbox with border padding
+                    let adj_bbox = bbox
+                        .to_rect()
+                        .outset(render_border / render_mul, render_border / render_mul)
+                        .unwrap();
                     let mut temp_canvas = Pixmap::new(
-                        (bbox.width() * render_mul).ceil() as u32,
-                        (bbox.height() * render_mul).ceil() as u32,
+                        (adj_bbox.width() * render_mul).ceil() as u32,
+                        (adj_bbox.height() * render_mul).ceil() as u32,
                     )
                     .unwrap();
                     let transform = usvg::Transform::identity()
-                        .pre_translate(0.0f32, 0.0f32)
-                        .pre_scale(render_mul, render_mul);
+                        .post_scale(render_mul, render_mul)
+                        .post_translate(-render_border, -render_border);
                     if let Some(_) =
                         resvg::render_node(&sprite, transform, &mut temp_canvas.as_mut())
                     {
@@ -89,8 +98,11 @@ fn main() {
                         };
                         page.sprites.push(DBSprite {
                             sprite: sprite_idx,
-                            top_left: (bbox.left() / page.size.0, bbox.top() / page.size.1),
-                            bottom_right: (bbox.right() / page.size.0, bbox.bottom() / page.size.1),
+                            top_left: (adj_bbox.left() / page.size.0, adj_bbox.top() / page.size.1),
+                            bottom_right: (
+                                adj_bbox.right() / page.size.0,
+                                adj_bbox.bottom() / page.size.1,
+                            ),
                             colour: results.1,
                         });
                     }
@@ -120,7 +132,7 @@ fn main() {
                     temp_canvas.encode_png().unwrap(),
                 );
             }
-            let res = sdf::shape_to_sdf(&shape.border(4), 16);
+            let res = sdf::shape_to_sdf(shape, 16);
             let res_size = (res.width() / sdf_downscale)
                 .max(res.height() / sdf_downscale)
                 .max(1)
