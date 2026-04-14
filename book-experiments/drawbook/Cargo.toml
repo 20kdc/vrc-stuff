@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+rayon = "1.12.0"
 resvg = "0.47.0"
 tiny-skia = "0.12.0"
 usvg = "0.47.0"

@@ -6,8 +6,12 @@ mod geom;
 mod sdf;
 
 use docmodel::*;
+use geom::*;
+use rayon::prelude::*;
 
-fn shapeify(src: Pixmap) -> (DBShape, [u8; 3]) {
+type ShapeifyRes = (DBShape, [u8; 3]);
+
+fn shapeify(src: Pixmap) -> ShapeifyRes {
     let mut data = Vec::with_capacity((src.width() as usize) * (src.height() as usize));
     let part = 1f32 / ((src.width() as f32) * (src.height() as f32));
     let mut avg_r = 0f32;
@@ -42,7 +46,11 @@ fn main() {
     let render_border: f32 = 4f32;
     let mut page_no = 0;
     let mut sprite_lookup: HashMap<DBShape, usize> = HashMap::new();
-    let mut doc = DBBook::default();
+    // The size in reference units is stored here for reasonably easy consistency.
+    // There's an implication here that two shapes with slightly different sizes and identical rasterizations will be mismatched.
+    // 'Oh well'.
+    let mut shapes: Vec<(DBShape, V2<f32>)> = Vec::new();
+    let mut pages: Vec<DBPage> = Vec::new();
     let svg_opts = usvg::Options {
         ..Default::default()
     };
@@ -59,56 +67,65 @@ fn main() {
                 res.root().children().iter().map(|v| v.clone()).collect()
             };
             let mut page = DBPage {
-                size: (res.size().width(), res.size().height()),
+                size: V2(res.size().width(), res.size().height()),
                 sprites: Vec::new(),
             };
             // render and insert sprites
-            for (j, sprite) in sprites.into_iter().enumerate() {
-                if let Some(bbox) = sprite.abs_layer_bounding_box() {
-                    // bbox with border padding
-                    let adj_bbox = bbox
-                        .to_rect()
-                        .outset(render_border / render_mul, render_border / render_mul)
+            let rendered: Vec<(ShapeifyRes, tiny_skia::Rect)> = sprites
+                .into_iter()
+                .enumerate()
+                .par_bridge()
+                .filter_map(|(j, sprite)| {
+                    if let Some(bbox) = sprite.abs_layer_bounding_box() {
+                        // bbox with border padding
+                        let adj_bbox = bbox
+                            .to_rect()
+                            .outset(render_border / render_mul, render_border / render_mul)
+                            .unwrap();
+                        let mut temp_canvas = Pixmap::new(
+                            (adj_bbox.width() * render_mul).ceil() as u32,
+                            (adj_bbox.height() * render_mul).ceil() as u32,
+                        )
                         .unwrap();
-                    let mut temp_canvas = Pixmap::new(
-                        (adj_bbox.width() * render_mul).ceil() as u32,
-                        (adj_bbox.height() * render_mul).ceil() as u32,
-                    )
-                    .unwrap();
-                    let transform = usvg::Transform::identity()
-                        .post_scale(render_mul, render_mul)
-                        .post_translate(-render_border, -render_border);
-                    if let Some(_) =
-                        resvg::render_node(&sprite, transform, &mut temp_canvas.as_mut())
-                    {
-                        if debug_dump_sprites_early {
-                            _ = std::fs::write(
-                                format!("debug/p{}.s{}.png", page_no, j),
-                                temp_canvas.encode_png().unwrap(),
-                            );
-                        }
-                        let results = shapeify(temp_canvas);
-                        let sprite_idx = if let Some(sprite_idx) = sprite_lookup.get(&results.0) {
-                            *sprite_idx
+                        let transform = usvg::Transform::identity()
+                            .post_scale(render_mul, render_mul)
+                            .post_translate(render_border, render_border);
+                        if let Some(_) =
+                            resvg::render_node(&sprite, transform, &mut temp_canvas.as_mut())
+                        {
+                            if debug_dump_sprites_early {
+                                _ = std::fs::write(
+                                    format!("debug/p{}.s{}.png", page_no, j),
+                                    temp_canvas.encode_png().unwrap(),
+                                );
+                            }
+                            // Notably, the hashing happens here, which amortizes the (sequential) shape_lookup.
+                            let results = shapeify(temp_canvas);
+                            Some((results, adj_bbox))
                         } else {
-                            let res = doc.shapes.len();
-                            doc.shapes.push(results.0.clone());
-                            sprite_lookup.insert(results.0, res);
-                            res
-                        };
-                        page.sprites.push(DBSprite {
-                            sprite: sprite_idx,
-                            top_left: (adj_bbox.left() / page.size.0, adj_bbox.top() / page.size.1),
-                            bottom_right: (
-                                adj_bbox.right() / page.size.0,
-                                adj_bbox.bottom() / page.size.1,
-                            ),
-                            colour: results.1,
-                        });
+                            None
+                        }
+                    } else {
+                        None
                     }
-                }
+                })
+                .collect();
+            for ((shape, colour), adj_bbox) in rendered {
+                let sprite_idx = if let Some(sprite_idx) = sprite_lookup.get(&shape) {
+                    *sprite_idx
+                } else {
+                    let res = shapes.len();
+                    shapes.push((shape.clone(), V2(adj_bbox.width(), adj_bbox.height())));
+                    sprite_lookup.insert(shape, res);
+                    res
+                };
+                page.sprites.push(DBSprite {
+                    shape: sprite_idx,
+                    top_left: V2(adj_bbox.left(), adj_bbox.top()) / page.size,
+                    colour,
+                });
             }
-            doc.pages.push(page);
+            pages.push(page);
         } else {
             break;
         }
@@ -119,19 +136,24 @@ fn main() {
         println!("dumping shapes...");
         let col_black = PremultipliedColorU8::from_rgba(0, 0, 0, 255).unwrap();
         let col_white = PremultipliedColorU8::from_rgba(255, 255, 255, 255).unwrap();
-        for (shape_id, shape) in doc.shapes.iter().enumerate() {
-            if debug_dump_shapes_late {
-                let mut temp_canvas =
-                    Pixmap::new(shape.size().0 as u32, shape.size().1 as u32).unwrap();
-                for i in shape.data().iter().enumerate() {
-                    temp_canvas.as_mut().pixels_mut()[i.0] =
-                        if *i.1 { col_white } else { col_black };
-                }
-                _ = std::fs::write(
-                    format!("debug/s{}.png", shape_id),
-                    temp_canvas.encode_png().unwrap(),
-                );
+        for (shape_id, (shape, _)) in shapes.iter().enumerate() {
+            let mut temp_canvas =
+                Pixmap::new(shape.size().0 as u32, shape.size().1 as u32).unwrap();
+            for i in shape.data().iter().enumerate() {
+                temp_canvas.as_mut().pixels_mut()[i.0] = if *i.1 { col_white } else { col_black };
             }
+            _ = std::fs::write(
+                format!("debug/s{}.png", shape_id),
+                temp_canvas.encode_png().unwrap(),
+            );
+        }
+    }
+    println!("SDF conversions...");
+    let sdf_shapes: Vec<Pixmap> = shapes
+        .iter()
+        .enumerate()
+        .par_bridge()
+        .map(|(shape_id, (shape, _))| {
             let res = sdf::shape_to_sdf(shape, 16);
             let res_size = (res.width() / sdf_downscale)
                 .max(res.height() / sdf_downscale)
@@ -144,7 +166,26 @@ fn main() {
                     res_sdf.encode_png().unwrap(),
                 );
             }
-        }
+            res_sdf
+        })
+        .collect();
+    // 'pre-atlasing': we need these structs ready for when we actually do sort-and-place, since it can happen in a different order to 'encounter order'
+    let mut shapes_atlased: Vec<DBShapeAtlased> = Vec::new();
+    for shape in &shapes {
+        shapes_atlased.push(DBShapeAtlased {
+            atlas: 0,
+            uv_tl: V2(0f32, 0f32),
+            uv_br: V2(0f32, 0f32),
+            size: shape.1,
+        });
     }
-    // TODO: do writeout?
+    println!("atlasing...");
+    // we WOULD do atlasing here, but to start getting quality checks early we're currently skipping that in favour of having the Godot test app read the dumps directly
+    println!("emit...");
+    // initialize atlased book
+    let book_atlased = DBBook {
+        shapes: shapes_atlased,
+        pages: pages,
+    };
+    _ = std::fs::write("book.bin", book_atlased.emit());
 }
