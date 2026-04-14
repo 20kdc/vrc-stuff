@@ -13,7 +13,7 @@ type ShapeifyRes = (DBShape, [u8; 3]);
 
 fn shapeify(src: Pixmap) -> ShapeifyRes {
     let mut data = Vec::with_capacity((src.width() as usize) * (src.height() as usize));
-    let part = 1f32 / ((src.width() as f32) * (src.height() as f32));
+    let mut counts_count = 0f32;
     let mut avg_r = 0f32;
     let mut avg_g = 0f32;
     let mut avg_b = 0f32;
@@ -21,11 +21,15 @@ fn shapeify(src: Pixmap) -> ShapeifyRes {
         let counts = pix.alpha() >= 128;
         data.push(counts);
         if counts {
-            avg_r += pix.demultiply().red() as f32 * part;
-            avg_g += pix.demultiply().green() as f32 * part;
-            avg_b += pix.demultiply().blue() as f32 * part;
+            avg_r += pix.demultiply().red() as f32;
+            avg_g += pix.demultiply().green() as f32;
+            avg_b += pix.demultiply().blue() as f32;
+            counts_count += 1f32;
         }
     }
+    avg_r /= counts_count;
+    avg_g /= counts_count;
+    avg_b /= counts_count;
     let cr = avg_r.clamp(0f32, 255f32).round() as u8;
     let cg = avg_g.clamp(0f32, 255f32).round() as u8;
     let cb = avg_b.clamp(0f32, 255f32).round() as u8;
@@ -39,7 +43,7 @@ fn main() {
     let debug_single_sprite = false;
     let debug_dump_sprites_early = false;
     let debug_dump_shapes_late = true;
-    let render_mul: f32 = 4.0;
+    let render_mul: f32 = 16.0;
     let sdf_downscale: u32 = 4;
     // Border in render pixels.
     // This should be pre-multiplied by sdf_downscale.
@@ -72,9 +76,8 @@ fn main() {
             };
             // render and insert sprites
             let rendered: Vec<(ShapeifyRes, tiny_skia::Rect)> = sprites
-                .into_iter()
+                .par_iter()
                 .enumerate()
-                .par_bridge()
                 .filter_map(|(j, sprite)| {
                     if let Some(bbox) = sprite.abs_layer_bounding_box() {
                         // bbox with border padding
@@ -150,16 +153,13 @@ fn main() {
     }
     println!("SDF conversions...");
     let sdf_shapes: Vec<Pixmap> = shapes
-        .iter()
+        .par_iter()
         .enumerate()
-        .par_bridge()
         .map(|(shape_id, (shape, _))| {
             let res = sdf::shape_to_sdf(shape, 16);
-            let res_size = (res.width() / sdf_downscale)
-                .max(res.height() / sdf_downscale)
-                .max(1)
-                .next_power_of_two();
-            let res_sdf = sdf::scale_pixmap(res, res_size, res_size);
+            let res_w = (res.width() / sdf_downscale).max(1);
+            let res_h = (res.height() / sdf_downscale).max(1);
+            let res_sdf = sdf::scale_pixmap(res, res_w, res_h);
             if debug_dump_shapes_late {
                 _ = std::fs::write(
                     format!("debug/s{}.sdf.png", shape_id),

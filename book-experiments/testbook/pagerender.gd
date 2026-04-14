@@ -8,6 +8,7 @@ var page_lump: int = 1
 var lump_count: int
 var data: PoolByteArray
 var shapes: Dictionary
+var debug: bool = false
 
 func get_shape(i: int) -> Dictionary:
 	if shapes.has(i):
@@ -24,10 +25,10 @@ func get_shape(i: int) -> Dictionary:
 	var h = file.get_float()
 
 	var img := Image.new()
-	if img.load("../drawbook/debug/s" + str(i) + ".png") != OK:
+	if img.load("../drawbook/debug/s" + str(i) + ".sdf.png") != OK:
 		return {}
 	var tex := ImageTexture.new()
-	tex.create_from_image(img)
+	tex.create_from_image(img, Texture.FLAG_FILTER)
 	var res := {}
 	res["tex"] = tex
 	res["src"] = Rect2(0, 0, img.get_width(), img.get_height())
@@ -47,7 +48,20 @@ func _ready():
 	lump_count = file.get_32()
 	shapes = {}
 
+func _input(event):
+	if event is InputEventKey:
+		var key := event as InputEventKey
+		if key.pressed:
+			if key.scancode == KEY_M:
+				debug = !debug
+				update()
+
 func _draw():
+	_drawpass(0)
+	if debug:
+		_drawpass(1)
+
+func _drawpass(drawpass: int):
 	var page_pos := lump_pos(page_lump)
 	var page_sprites := (lump_size(page_lump) - PAGEHEAD_SIZE) / SPRITE_SIZE
 	# read page header
@@ -71,5 +85,17 @@ func _draw():
 		var mod = Color(cr, cg, cb)
 		# get shape (seeks)
 		var shp = get_shape(shape)
-		if shp.has("tex"):
-			draw_texture_rect_region(shp["tex"], Rect2(tl, shp["size"]), shp["src"], mod)
+		# figure out size even if get_shape fails somehow
+		var size := Vector2(1, 1)
+		if shp.has("size"):
+			size = shp["size"]
+		# target region
+		var targ := Rect2(tl, size)
+		# actual draw code
+		if drawpass == 0:
+			if debug:
+				draw_rect(targ, Color.green, false, 2)
+			if shp.has("tex"):
+				draw_texture_rect_region(shp["tex"], targ, shp["src"], mod)
+		if drawpass == 1:
+			draw_rect(targ, Color.red, false)
