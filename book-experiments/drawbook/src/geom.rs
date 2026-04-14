@@ -72,6 +72,14 @@ impl<E: Copy + DivAssign> DivAssign for V2<E> {
     }
 }
 
+impl<E: Copy + PartialEq> PartialEq for V2<E> {
+    fn eq(&self, other: &Self) -> bool {
+        (other.0 == self.0) && (other.1 == self.1)
+    }
+}
+
+impl<E: Copy + Eq> Eq for V2<E> {}
+
 /// Raster (mutable)
 #[derive(Clone)]
 pub struct Raster<E: Copy> {
@@ -79,10 +87,28 @@ pub struct Raster<E: Copy> {
     size: V2<usize>,
 }
 
+impl<E: Copy + PartialEq> PartialEq for Raster<E> {
+    fn eq(&self, other: &Self) -> bool {
+        (self.size == other.size) && self.data.eq(&other.data)
+    }
+}
+
+impl<E: Copy + Eq> Eq for Raster<E> {}
+
 impl<E: Copy> Raster<E> {
     pub fn new(data: Vec<E>, size: V2<usize>) -> Self {
         assert_eq!(data.len(), size.0 * size.1);
         Self { data, size }
+    }
+    pub fn new_blank(size: V2<usize>, base: E) -> Self {
+        let mut data = Vec::new();
+        for v in 0..(size.0 * size.1) {
+            data.push(base);
+        }
+        Self { data, size }
+    }
+    pub fn size(&self) -> V2<usize> {
+        self.size
     }
     pub fn data(&self) -> &[E] {
         &self.data
@@ -110,5 +136,100 @@ impl<E: Copy> Raster<E> {
     pub fn set_i32(&mut self, pos: V2<i32>, val: E) {
         assert!(pos.0 >= 0 && pos.1 >= 0);
         self.set_usize(V2(pos.0 as usize, pos.1 as usize), val);
+    }
+    /// Blits to this raster from another raster.
+    pub fn copy_i32(&mut self, src: &Self, pos: V2<i32>) {
+        for j in 0..src.size.1 {
+            let ty = pos.1 + (j as i32);
+            if ty < 0 || ty >= (self.size.1 as i32) {
+                continue;
+            }
+            for i in 0..src.size.0 {
+                let tx = pos.1 + (i as i32);
+                if tx < 0 || tx >= (self.size.0 as i32) {
+                    continue;
+                }
+                self.set_i32(V2(tx, ty), src.data[i + (j * src.size.0)]);
+            }
+        }
+    }
+    /// Extracts a copy of a subset of the contents of this raster.
+    /// Uses pos/size notation.
+    /// We do this super naively for now, grumble grumble.
+    pub fn extract_i32(&mut self, pos: V2<i32>, size: V2<usize>, oob: E) -> Self {
+        let mut res = Self::new_blank(size, oob);
+        res.copy_i32(self, pos * V2(-1, -1));
+        res
+    }
+}
+
+impl<E: Copy + Eq> Raster<E> {
+    /// Checks if an area is filled with the given element.
+    /// Uses absolute bounds notation.
+    /// May panic or return wrong results if out of bounds.
+    pub fn area_eq_usize(&self, tl: V2<usize>, br: V2<usize>, e: E) -> bool {
+        for j in tl.1..br.1 {
+            for i in tl.0..br.0 {
+                if self.data[i + (j * self.size.0)] != e {
+                    return false;
+                }
+            }
+        }
+        true
+    }
+    /// Finds absolute-bounds-notation for a crop rectangle
+    pub fn find_crop_rectangle(&self, e: E) -> (V2<usize>, V2<usize>) {
+        let mut potential_crop_left = 0;
+        while potential_crop_left < self.size().0 {
+            if !self.area_eq_usize(
+                V2(potential_crop_left, 0),
+                V2(potential_crop_left + 1, self.size.1),
+                e,
+            ) {
+                break;
+            }
+            potential_crop_left += 1;
+        }
+
+        let mut potential_crop_right = self.size.0;
+        while potential_crop_right > potential_crop_left {
+            if !self.area_eq_usize(
+                V2(potential_crop_right - 1, 0),
+                V2(potential_crop_right, self.size.1),
+                e,
+            ) {
+                break;
+            }
+            potential_crop_right -= 1;
+        }
+
+        let mut potential_crop_top = 0;
+        while potential_crop_top < self.size.1 {
+            if !self.area_eq_usize(
+                V2(0, potential_crop_top),
+                V2(self.size.0, potential_crop_top + 1),
+                e,
+            ) {
+                break;
+            }
+            potential_crop_top += 1;
+        }
+
+        let mut potential_crop_bottom = self.size.1;
+        while potential_crop_bottom > potential_crop_top {
+            if !self.area_eq_usize(
+                V2(0, potential_crop_bottom - 1),
+                V2(self.size.0, potential_crop_bottom),
+                e,
+            ) {
+                break;
+            }
+            potential_crop_bottom -= 1;
+        }
+
+        (
+            V2(potential_crop_left, potential_crop_top),
+            V2(potential_crop_right, potential_crop_bottom),
+        )
     }
 }

@@ -58,11 +58,21 @@ func _input(event):
 			if key.scancode == KEY_R:
 				reload()
 				update()
+			if key.scancode == KEY_LEFT:
+				page_lump -= 1
+				update()
+			if key.scancode == KEY_RIGHT:
+				page_lump += 1
+				update()
 			if key.scancode == KEY_M:
 				debug = !debug
 				update()
 
 func _draw():
+	if page_lump >= lump_count:
+		page_lump = lump_count - 1
+	if page_lump < 1:
+		page_lump = 1
 	_drawpass(0)
 	if debug:
 		_drawpass(1)

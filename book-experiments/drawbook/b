@@ -1,5 +1,10 @@
 #!/bin/sh
+rm -f book.pdf
+ln -s "$1" book.pdf
+shift
 mkdir -p debug
 mkdir -p pages
+rm -rf pages/*.svg debug/*.png
+pdf2svg book.pdf pages/%d.svg all
 cargo fmt
-cargo run --release
+cargo run --release -- "$@"

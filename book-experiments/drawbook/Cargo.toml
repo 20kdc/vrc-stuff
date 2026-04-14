@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+lexopt = "0.3.2"
 rayon = "1.12.0"
 resvg = "0.47.0"
 tiny-skia = "0.12.0"
