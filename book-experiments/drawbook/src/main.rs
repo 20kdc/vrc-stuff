@@ -18,7 +18,7 @@ use shape::*;
 
 const RENDER_MUL_DEFAULT: f32 = 16.0;
 const SDF_DOWNSCALE_MIN_DEFAULT: u32 = 4;
-const SDF_DOWNSCALE_MAX_DEFAULT: u32 = 8;
+const SDF_DOWNSCALE_MAX_DEFAULT: u32 = 4;
 const SDF_DOWNSCALE_TOL_DEFAULT: u8 = 16;
 const SDF_BORDER_DEFAULT: u32 = 4;
 
@@ -208,6 +208,8 @@ fn main() {
                 );
             }
 
+            let shape_sdf = sdf::shape_to_sdf(shape);
+
             // -- stage 2: downscale check copy to 'known loss' size --
             let mut sdf_downscale = sdf_downscale_min;
             if sdf_downscale_min < sdf_downscale_max {
@@ -248,23 +250,21 @@ fn main() {
                 }
             }
 
-            // we want the constant 128 to be as high as feasible (so, 128)
-            // this is because it's a major parameter in the current algorithm speed
-            // and also helps with utilizing maximum dynamic range
-            // the problem is, it's basically imitating 'spread', and thus needs to act in concert with the shader and texture size
-            // this is also why we need to pick our downscale factor before SDF conversion (helps for perf, too)
-            let res = sdf::shape_to_sdf(shape, (128 / sdf_downscale) as i32);
+            // (16 / sdf_downscale) is 'magic' that needs to act in concert with the shader.
+            // It broadly represents smoothness.
+            // The goal here is that we want to balance 'low' bits (subtlety) with 'high' bits (texture distance)
+            let res = sdf::sdf_to_pixmap(&shape_sdf, (16 / sdf_downscale) as i32);
+            if debug_dump_shapes_late {
+                _ = std::fs::write(
+                    format!("debug/s{}.sdf.png", shape_id),
+                    res.encode_png().unwrap(),
+                );
+            }
             let res_scaled = sdf::scale_pixmap(
                 &res,
                 sdf::downscale_size(&res, sdf_downscale),
                 tiny_skia::FilterQuality::Bicubic,
             );
-            if debug_dump_shapes_late {
-                _ = std::fs::write(
-                    format!("debug/s{}.sdf.png", shape_id),
-                    res_scaled.encode_png().unwrap(),
-                );
-            }
             let mut stdout_lock = std::io::stdout().lock();
             _ = write!(
                 &mut stdout_lock,

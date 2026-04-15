@@ -1,7 +1,7 @@
 use core::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
 
 /// Two-element vector.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub struct V2<E: Copy>(pub E, pub E);
 
 impl<E: Copy + Add> Add for V2<E>
@@ -72,19 +72,26 @@ impl<E: Copy + DivAssign> DivAssign for V2<E> {
     }
 }
 
-impl<E: Copy + PartialEq> PartialEq for V2<E> {
-    fn eq(&self, other: &Self) -> bool {
-        (other.0 == self.0) && (other.1 == self.1)
-    }
-}
-
-impl<E: Copy + Eq> Eq for V2<E> {}
-
 /// Raster (mutable)
 #[derive(Clone)]
 pub struct Raster<E: Copy> {
     data: Vec<E>,
     size: V2<usize>,
+}
+
+impl<E: Copy> std::ops::Index<V2<usize>> for Raster<E> {
+    type Output = E;
+    fn index(&self, index: V2<usize>) -> &E {
+        assert!(index.0 < self.size.0);
+        &self.data[index.0 + (index.1 * self.size.0)]
+    }
+}
+
+impl<E: Copy> std::ops::IndexMut<V2<usize>> for Raster<E> {
+    fn index_mut(&mut self, index: V2<usize>) -> &mut E {
+        assert!(index.0 < self.size.0);
+        &mut self.data[index.0 + (index.1 * self.size.0)]
+    }
 }
 
 impl<E: Copy + PartialEq> PartialEq for Raster<E> {
@@ -136,6 +143,10 @@ impl<E: Copy> Raster<E> {
     pub fn set_i32(&mut self, pos: V2<i32>, val: E) {
         assert!(pos.0 >= 0 && pos.1 >= 0);
         self.set_usize(V2(pos.0 as usize, pos.1 as usize), val);
+    }
+    pub fn inbounds_i32(&mut self, pos: V2<i32>) -> bool {
+        (pos.0 >= 0 && ((pos.0 as usize) < self.size.0))
+            && (pos.1 >= 0 && ((pos.1 as usize) < self.size.1))
     }
     /// Blits to this raster from another raster.
     pub fn copy_i32(&mut self, src: &Self, pos: V2<i32>) {

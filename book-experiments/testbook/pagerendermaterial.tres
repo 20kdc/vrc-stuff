@@ -23,7 +23,7 @@ operator = 6
 operator = 3
 
 [sub_resource type="VisualShaderNodeScalarOp" id=18]
-default_input_values = [ 0, 0.0, 1, 2.0 ]
+default_input_values = [ 0, 0.0, 1, 16.0 ]
 operator = 3
 
 [sub_resource type="VisualShaderNodeVectorFunc" id=19]
@@ -108,7 +108,7 @@ void fragment() {
 	float n_out18p0 = max(n_out17p0, n_out17p1);
 
 // ScalarOp:20
-	float n_in20p1 = 2.00000;
+	float n_in20p1 = 16.00000;
 	float n_out20p0 = n_out18p0 / n_in20p1;
 
 // ScalarClamp:23
@@ -144,7 +144,7 @@ void light() {
 
 }
 "
-graph_offset = Vector2( -641.093, 879.942 )
+graph_offset = Vector2( -571.606, 1485.81 )
 mode = 1
 flags/light_only = false
 nodes/fragment/0/position = Vector2( 820, 80 )
