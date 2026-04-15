@@ -109,12 +109,18 @@ fn main() {
                         .expect("--sdf-downscale-min expects u32")
                         .parse()
                         .expect("--sdf-downscale-min expects u32");
+                    if sdf_downscale_max < sdf_downscale_min {
+                        sdf_downscale_max = sdf_downscale_min;
+                    }
                 } else if v.eq("sdf-downscale-max") {
                     sdf_downscale_max = arg_parser
                         .value()
                         .expect("--sdf-downscale-max expects u32")
                         .parse()
                         .expect("--sdf-downscale-max expects u32");
+                    if sdf_downscale_min > sdf_downscale_max {
+                        sdf_downscale_min = sdf_downscale_max;
+                    }
                 } else if v.eq("sdf-downscale-tol") {
                     sdf_downscale_tol = arg_parser
                         .value()
