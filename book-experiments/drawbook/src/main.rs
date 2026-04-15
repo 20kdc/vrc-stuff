@@ -1,6 +1,7 @@
 use std::collections::HashMap;
+use std::io::Write;
 use std::sync::Arc;
-use tiny_skia::{Pixmap, PremultipliedColorU8};
+use tiny_skia::Pixmap;
 
 mod atlas;
 mod docmodel;
@@ -187,7 +188,8 @@ fn main() {
         page_no += 1;
     }
     // done with main conversion bulk
-    println!("SDF conversions...");
+    print!("SDF conversions...");
+    _ = std::io::Write::flush(&mut std::io::stdout().lock());
     // 'rectangle' entries are not included.
     let mut sdf_shapes: Vec<(usize, Pixmap)> = shapes
         .par_iter()
@@ -198,7 +200,7 @@ fn main() {
             }
 
             // -- stage 1: create downscale check copy --
-            let mut downscale_check_canvas = shape.to_pixmap();
+            let downscale_check_canvas = shape.to_pixmap();
             if debug_dump_shapes_late {
                 _ = std::fs::write(
                     format!("debug/s{}.png", shape_id),
@@ -263,6 +265,12 @@ fn main() {
                     res_scaled.encode_png().unwrap(),
                 );
             }
+            let mut stdout_lock = std::io::stdout().lock();
+            _ = write!(
+                &mut stdout_lock,
+                "\rSDF conversions... last={}          ",
+                shape_id
+            );
             if shape.is_solid() {
                 None
             } else {
