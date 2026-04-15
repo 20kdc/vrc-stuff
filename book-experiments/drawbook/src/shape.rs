@@ -11,6 +11,7 @@ pub struct DBShape {
     hash: u64,
     is_solid: bool,
     data: Raster<bool>,
+    render_mul_bitsu32: u32,
 }
 impl std::hash::Hash for DBShape {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
@@ -18,7 +19,7 @@ impl std::hash::Hash for DBShape {
     }
 }
 impl DBShape {
-    pub fn new(data: Raster<bool>) -> DBShape {
+    pub fn new(data: Raster<bool>, render_mul: f32) -> DBShape {
         let mut state = std::hash::DefaultHasher::new();
         for v in data.data() {
             state.write_u8(*v as u8);
@@ -27,6 +28,7 @@ impl DBShape {
             hash: state.finish(),
             is_solid: data.area_eq_usize(V2(0, 0), data.size(), true),
             data,
+            render_mul_bitsu32: render_mul.to_bits(),
         }
     }
     pub fn size(&self) -> V2<usize> {
@@ -34,6 +36,9 @@ impl DBShape {
     }
     pub fn data(&self) -> &Raster<bool> {
         &self.data
+    }
+    pub fn render_mul(&self) -> f32 {
+        f32::from_bits(self.render_mul_bitsu32)
     }
     pub fn is_solid(&self) -> bool {
         self.is_solid
@@ -54,13 +59,18 @@ impl DBShape {
 
 /// 'shapeify' result
 pub struct ShapeifyRes {
-    /// Offset in render units.
-    pub render_offset: V2<f32>,
+    /// Offset in page units.
+    pub page_offset: V2<f32>,
     pub shape: DBShape,
     pub colour: [u8; 3],
 }
 
-pub fn shapeify(src: Pixmap, render_offset: V2<f32>, border: u32) -> Option<ShapeifyRes> {
+pub fn shapeify(
+    src: Pixmap,
+    page_offset: V2<f32>,
+    render_mul: f32,
+    border: u32,
+) -> Option<ShapeifyRes> {
     let mut data = Vec::with_capacity((src.width() as usize) * (src.height() as usize));
     let mut counts_count = 0f32;
     let mut avg_r = 0f32;
@@ -106,12 +116,15 @@ pub fn shapeify(src: Pixmap, render_offset: V2<f32>, border: u32) -> Option<Shap
     }
 
     Some(ShapeifyRes {
-        render_offset: render_offset + V2(crop_ul.0 as f32, crop_ul.1 as f32),
-        shape: DBShape::new(crop_me.extract_i32(
-            V2(crop_ul.0 as i32, crop_ul.1 as i32),
-            crop_br - crop_ul,
-            false,
-        )),
+        page_offset: page_offset + V2(crop_ul.0 as f32 / render_mul, crop_ul.1 as f32 / render_mul),
+        shape: DBShape::new(
+            crop_me.extract_i32(
+                V2(crop_ul.0 as i32, crop_ul.1 as i32),
+                crop_br - crop_ul,
+                false,
+            ),
+            render_mul,
+        ),
         colour: [cr, cg, cb],
     })
 }
@@ -166,7 +179,8 @@ pub fn shapeify_all(
     tree: &usvg::Tree,
     split_aggression: SplitAggression,
     render_border: u32,
-    render_mul: f32,
+    render_limit: u32,
+    cfg_render_mul: f32,
 ) -> Vec<ShapeifyRes> {
     // split into unprocessed sprites
     let sprites: Vec<(usvg::Transform, usvg::Node)> =
@@ -177,6 +191,11 @@ pub fn shapeify_all(
         .enumerate()
         .filter_map(|(j, (transform, sprite))| {
             if let Some(bbox) = sprite.abs_layer_bounding_box() {
+                // Fit render into limit (ignoring border)
+                let bbox_max_len = bbox.width().max(bbox.height());
+                let render_mul_limit = (render_limit as f32) / bbox_max_len;
+                let render_mul = cfg_render_mul.min(render_mul_limit);
+                // Render multiplier is calculated, work with that from now on
                 let render_border_doc = (render_border as f32) / render_mul;
                 // bbox with border padding
                 let adj_bbox = bbox
@@ -201,7 +220,8 @@ pub fn shapeify_all(
                     // Notably, the hashing happens here, which amortizes the (sequential) shape_lookup.
                     shapeify(
                         temp_canvas,
-                        V2(adj_bbox.left(), adj_bbox.top()) * V2(render_mul, render_mul),
+                        V2(adj_bbox.left(), adj_bbox.top()),
+                        render_mul,
                         render_border,
                     )
                 } else {

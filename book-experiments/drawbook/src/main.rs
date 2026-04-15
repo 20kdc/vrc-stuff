@@ -17,9 +17,8 @@ use rayon::prelude::*;
 use shape::*;
 
 const RENDER_MUL_DEFAULT: f32 = 16.0;
-const SDF_DOWNSCALE_MIN_DEFAULT: u32 = 4;
-const SDF_DOWNSCALE_MAX_DEFAULT: u32 = 4;
-const SDF_DOWNSCALE_TOL_DEFAULT: u8 = 16;
+const RENDER_LIMIT_DEFAULT: u32 = 1024;
+const SDF_DOWNSCALE_DEFAULT: u32 = 4;
 const SDF_BORDER_DEFAULT: u32 = 4;
 
 fn do_help() {
@@ -43,20 +42,18 @@ fn do_help() {
         RENDER_MUL_DEFAULT
     );
     println!(
-        " --sdf-downscale-min VAL: SDF downscale from render, default {}",
-        SDF_DOWNSCALE_MIN_DEFAULT
+        " --render-limit VAL: render size limit, default {}",
+        RENDER_LIMIT_DEFAULT
+    );
+    println!("  render-limit overrules render-mul, punishing large objects");
+    println!("  this prevents near-endless SDF propagation");
+    println!(
+        " --sdf-downscale- VAL: SDF downscale from render, default {}",
+        SDF_DOWNSCALE_DEFAULT
     );
     println!("  The SDF generator here requires at least some downscaling.");
     println!("  A minimum of 4 is recommended, else curvature will be poor.");
     println!("  To increase quality, increase --render-mul instead.");
-    println!(
-        " --sdf-downscale-max VAL: SDF downscale from render, default {}",
-        SDF_DOWNSCALE_MAX_DEFAULT
-    );
-    println!(
-        " --sdf-downscale-tol VAL: downscale error tolerance, default {:?}",
-        SDF_DOWNSCALE_TOL_DEFAULT
-    );
     println!(
         " --sdf-border VAL: SDF border, default {}",
         SDF_BORDER_DEFAULT
@@ -68,10 +65,11 @@ fn do_help() {
 fn main() {
     // -- options --
     let mut split_aggression = SplitAggression::Isolatable;
-    let mut render_mul: f32 = RENDER_MUL_DEFAULT;
-    let mut sdf_downscale_min: u32 = SDF_DOWNSCALE_MIN_DEFAULT;
-    let mut sdf_downscale_max: u32 = SDF_DOWNSCALE_MAX_DEFAULT;
-    let mut sdf_downscale_tol: u8 = SDF_DOWNSCALE_TOL_DEFAULT;
+    // **ONLY** use in passing to shapeify_all!
+    // Render coordinates are now per-shape.
+    let mut cfg_render_mul: f32 = RENDER_MUL_DEFAULT;
+    let mut render_limit: u32 = RENDER_LIMIT_DEFAULT;
+    let mut sdf_downscale: u32 = SDF_DOWNSCALE_DEFAULT;
     // Border in SDF pixels.
     let mut sdf_border: u32 = SDF_BORDER_DEFAULT;
     let mut debug_dump_shapes_late = false;
@@ -98,35 +96,23 @@ fn main() {
                         panic!("{}", msg);
                     }
                 } else if v.eq("render-mul") {
-                    render_mul = arg_parser
+                    cfg_render_mul = arg_parser
                         .value()
                         .expect("--render-mul expects float")
                         .parse()
                         .expect("--render-mul expects float");
-                } else if v.eq("sdf-downscale-min") {
-                    sdf_downscale_min = arg_parser
+                } else if v.eq("render-limit") {
+                    render_limit = arg_parser
                         .value()
-                        .expect("--sdf-downscale-min expects u32")
+                        .expect("--render-limit expects u32")
                         .parse()
-                        .expect("--sdf-downscale-min expects u32");
-                    if sdf_downscale_max < sdf_downscale_min {
-                        sdf_downscale_max = sdf_downscale_min;
-                    }
-                } else if v.eq("sdf-downscale-max") {
-                    sdf_downscale_max = arg_parser
+                        .expect("--render-limit expects u32");
+                } else if v.eq("sdf-downscale") {
+                    sdf_downscale = arg_parser
                         .value()
-                        .expect("--sdf-downscale-max expects u32")
+                        .expect("--sdf-downscale expects u32")
                         .parse()
-                        .expect("--sdf-downscale-max expects u32");
-                    if sdf_downscale_min > sdf_downscale_max {
-                        sdf_downscale_min = sdf_downscale_max;
-                    }
-                } else if v.eq("sdf-downscale-tol") {
-                    sdf_downscale_tol = arg_parser
-                        .value()
-                        .expect("--sdf-downscale-tol expects u8")
-                        .parse()
-                        .expect("--sdf-downscale-tol expects u8");
+                        .expect("--sdf-downscale expects u32");
                 } else if v.eq("sdf-border") {
                     sdf_border = arg_parser
                         .value()
@@ -156,15 +142,20 @@ fn main() {
     };
     println!("rendering...");
     // Border in render pixels.
-    let render_border = sdf_border * sdf_downscale_max;
+    let render_border = sdf_border;
     loop {
         let svgn = format!("pages/{}.svg", page_no);
         if let Ok(svgd) = std::fs::read(&svgn) {
             println!("{}", svgn);
             let res = usvg::Tree::from_data(&svgd, &svg_opts).expect("svg should have parsed");
             // render and insert sprites
-            let rendered: Vec<ShapeifyRes> =
-                shapeify_all(&res, split_aggression, render_border, render_mul);
+            let rendered: Vec<ShapeifyRes> = shapeify_all(
+                &res,
+                split_aggression,
+                render_border,
+                render_limit,
+                cfg_render_mul,
+            );
             let mut page = DBPage {
                 size: V2(res.size().width(), res.size().height()),
                 sprites: Vec::new(),
@@ -179,7 +170,7 @@ fn main() {
                     sprite_lookup.insert(arc, res);
                     res
                 };
-                let top_left_page = shapeify_res.render_offset / V2(render_mul, render_mul);
+                let top_left_page = shapeify_res.page_offset;
                 page.sprites.push(DBSprite {
                     shape: sprite_idx,
                     top_left: top_left_page / page.size,
@@ -216,46 +207,6 @@ fn main() {
 
             let shape_sdf = sdf::shape_to_sdf(shape);
 
-            // -- stage 2: downscale check copy to 'known loss' size --
-            let mut sdf_downscale = sdf_downscale_min;
-            if sdf_downscale_min < sdf_downscale_max {
-                let check_min_size =
-                    sdf::downscale_size(&downscale_check_canvas, sdf_downscale_min);
-                let check_min_canvas = sdf::scale_pixmap(
-                    &downscale_check_canvas,
-                    check_min_size,
-                    tiny_skia::FilterQuality::Bilinear,
-                );
-                for test in (sdf_downscale_min + 1)..(sdf_downscale_max + 1) {
-                    // scale down
-                    let check_test1_canvas = sdf::scale_pixmap(
-                        &downscale_check_canvas,
-                        sdf::downscale_size(&downscale_check_canvas, test),
-                        tiny_skia::FilterQuality::Bilinear,
-                    );
-                    // scale up for comparison
-                    let check_test2_canvas = sdf::scale_pixmap(
-                        &check_test1_canvas,
-                        check_min_size,
-                        tiny_skia::FilterQuality::Bilinear,
-                    );
-                    let test2_pixels = check_test2_canvas.pixels();
-                    let mut bad = false;
-                    for (i, pix_min) in check_min_canvas.pixels().iter().enumerate() {
-                        let pix_test2 = test2_pixels[i];
-                        let res = pix_min.red().abs_diff(pix_test2.red());
-                        if res > sdf_downscale_tol {
-                            bad = true;
-                            break;
-                        }
-                    }
-                    if bad {
-                        break;
-                    }
-                    sdf_downscale = test;
-                }
-            }
-
             // (16 / sdf_downscale) is 'magic' that needs to act in concert with the shader.
             // It broadly represents smoothness.
             // The goal here is that we want to balance 'low' bits (subtlety) with 'high' bits (texture distance)
@@ -284,6 +235,7 @@ fn main() {
             }
         })
         .collect();
+    println!("");
     // 'pre-atlasing': we need these structs ready for when we actually do sort-and-place, since it can happen in a different order to 'encounter order'
     let mut shapes_atlased: Vec<DBShapeAtlased> = Vec::new();
     for shape in &shapes {
@@ -293,7 +245,8 @@ fn main() {
             uv_tl: V2(2f32, 2f32),
             uv_br: V2(3f32, 3f32),
             // Convert from render units into reference units.
-            size: V2(shape.size().0 as f32, shape.size().1 as f32) / V2(render_mul, render_mul),
+            size: V2(shape.size().0 as f32, shape.size().1 as f32)
+                / V2(shape.render_mul(), shape.render_mul()),
         });
     }
     // determine encounter order, place descending
