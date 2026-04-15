@@ -85,20 +85,24 @@ pub fn shape_to_sdf(shape: &DBShape, step: i32) -> Pixmap {
     pixmap
 }
 
-pub fn scale_pixmap(pixmap: Pixmap, w: u32, h: u32) -> Pixmap {
-    let mut out = Pixmap::new(w, h).unwrap();
+pub fn downscale_size(w: &Pixmap, fac: u32) -> V2<u32> {
+    V2((w.width() / fac).max(1), (w.height() / fac).max(1))
+}
+
+pub fn scale_pixmap(pixmap: &Pixmap, w: V2<u32>, filter: tiny_skia::FilterQuality) -> Pixmap {
+    let mut out = Pixmap::new(w.0, w.1).unwrap();
     out.draw_pixmap(
         0,
         0,
         pixmap.as_ref(),
         &tiny_skia::PixmapPaint {
             blend_mode: tiny_skia::BlendMode::Source,
-            quality: tiny_skia::FilterQuality::Bicubic,
+            quality: filter,
             ..Default::default()
         },
         tiny_skia::Transform::identity().pre_scale(
-            w as f32 / pixmap.width() as f32,
-            h as f32 / pixmap.height() as f32,
+            w.0 as f32 / pixmap.width() as f32,
+            w.1 as f32 / pixmap.height() as f32,
         ),
         None,
     );

@@ -102,7 +102,7 @@ impl<E: Copy> Raster<E> {
     }
     pub fn new_blank(size: V2<usize>, base: E) -> Self {
         let mut data = Vec::new();
-        for v in 0..(size.0 * size.1) {
+        for _ in 0..(size.0 * size.1) {
             data.push(base);
         }
         Self { data, size }

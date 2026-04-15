@@ -2,9 +2,10 @@ extends Node2D
 
 const PAGEHEAD_SIZE: int = 8
 const SPRITE_SIZE: int = 8
+const HEADLUMPS: int = 2
 
 var file = File.new()
-var page_lump: int = 1
+var page_lump: int = HEADLUMPS
 var lump_count: int
 var shapes: Dictionary
 var atlas: ImageTexture = null
@@ -18,7 +19,7 @@ func get_shape(i: int) -> Dictionary:
 		return shapes[i]
 
 	# grab info from shapes lump
-	file.seek(lump_pos(0) + (i * 17))
+	file.seek(lump_pos(1) + (i * 17))
 	var atlas_id = file.get_8()
 	var tlx = float(file.get_16() & 0xFFFF) / 65535.0
 	var tly = float(file.get_16() & 0xFFFF) / 65535.0
@@ -79,8 +80,8 @@ func _input(event):
 func _draw():
 	if page_lump >= lump_count:
 		page_lump = lump_count - 1
-	if page_lump < 1:
-		page_lump = 1
+	if page_lump < HEADLUMPS:
+		page_lump = HEADLUMPS
 	_drawpass(0)
 	if debug:
 		_drawpass(1)

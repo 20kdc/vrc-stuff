@@ -1,43 +1,4 @@
-use std::hash::Hasher;
-
-use crate::geom::{Raster, V2};
-
-/// A 'shape' is something we're planning to convert into a signed distance field.
-/// Shapes exist in an abstract 0-1 space.
-/// This is to allow for a future level of 'acceptable loss' in comparison or downscaling.
-#[derive(Clone, PartialEq, Eq)]
-pub struct DBShape {
-    hash: u64,
-    is_solid: bool,
-    data: Raster<bool>,
-}
-impl std::hash::Hash for DBShape {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        state.write_u64(self.hash);
-    }
-}
-impl DBShape {
-    pub fn new(data: Raster<bool>) -> DBShape {
-        let mut state = std::hash::DefaultHasher::new();
-        for v in data.data() {
-            state.write_u8(*v as u8);
-        }
-        DBShape {
-            hash: state.finish(),
-            is_solid: data.area_eq_usize(V2(0, 0), data.size(), true),
-            data,
-        }
-    }
-    pub fn size(&self) -> V2<usize> {
-        self.data.size()
-    }
-    pub fn data(&self) -> &Raster<bool> {
-        &self.data
-    }
-    pub fn is_solid(&self) -> bool {
-        self.is_solid
-    }
-}
+use crate::geom::V2;
 
 /// A 'sprite' is a single renderable entity in the book.
 #[derive(Clone)]
@@ -68,7 +29,9 @@ pub struct DBPage {
 #[derive(Clone)]
 pub struct DBShapeAtlased {
     pub atlas: u8,
+    /// UVs. These are specified in top-left-relative pixels in this struct, but as real UVs in the file.
     pub uv_tl: V2<f32>,
+    /// UVs. These are specified in top-left-relative pixels in this struct, but as real UVs in the file.
     pub uv_br: V2<f32>,
     /// Size in reference units.
     pub size: V2<f32>,
@@ -77,6 +40,8 @@ pub struct DBShapeAtlased {
 /// Proper atlased book structure.
 #[derive(Clone, Default)]
 pub struct DBBook {
+    /// Atlas sizes.
+    pub atlases: Vec<u16>,
     pub shapes: Vec<DBShapeAtlased>,
     pub pages: Vec<DBPage>,
 }
@@ -103,12 +68,20 @@ impl DBBook {
     /// Writes book contents to a blob.
     pub fn emit(&self) -> Vec<u8> {
         let mut lumps: Vec<Vec<u8>> = Vec::new();
+        // build atlases lump
+        let mut atlases_lump: Vec<u8> = Vec::new();
+        for atlas_size in &self.atlases {
+            atlases_lump.extend_from_slice(&atlas_size.to_le_bytes());
+        }
+        lumps.push(atlases_lump);
         // build shapes lump
         let mut shapes_lump: Vec<u8> = Vec::new();
         for shape in &self.shapes {
             shapes_lump.extend_from_slice(&[shape.atlas]);
-            shapes_lump.extend_from_slice(&Self::emit_uv2(shape.uv_tl));
-            shapes_lump.extend_from_slice(&Self::emit_uv2(shape.uv_br));
+            let atlas_size = self.atlases[shape.atlas as usize] as f32;
+            let atlas_size = V2(atlas_size, atlas_size);
+            shapes_lump.extend_from_slice(&Self::emit_uv2(shape.uv_tl / atlas_size));
+            shapes_lump.extend_from_slice(&Self::emit_uv2(shape.uv_br / atlas_size));
             shapes_lump.extend_from_slice(&shape.size.0.to_le_bytes());
             shapes_lump.extend_from_slice(&shape.size.1.to_le_bytes());
         }
