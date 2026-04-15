@@ -4,6 +4,7 @@ use std::sync::Arc;
 use tiny_skia::Pixmap;
 
 mod atlas;
+mod collada;
 mod docmodel;
 mod geom;
 mod sdf;
@@ -173,7 +174,7 @@ fn main() {
                 let top_left_page = shapeify_res.page_offset;
                 page.sprites.push(DBSprite {
                     shape: sprite_idx,
-                    top_left: top_left_page / page.size,
+                    top_left: top_left_page,
                     colour: shapeify_res.colour,
                 });
             }
@@ -192,17 +193,16 @@ fn main() {
         .par_iter()
         .enumerate()
         .filter_map(|(shape_id, shape)| {
-            if shape.is_solid() && !debug_dump_shapes_late {
-                return None;
-            }
-
-            // -- stage 1: create downscale check copy --
-            let downscale_check_canvas = shape.to_pixmap();
             if debug_dump_shapes_late {
+                let downscale_check_canvas = shape.to_pixmap();
                 _ = std::fs::write(
                     format!("debug/s{}.png", shape_id),
                     downscale_check_canvas.encode_png().unwrap(),
                 );
+            }
+
+            if shape.is_solid() {
+                return None;
             }
 
             let shape_sdf = sdf::shape_to_sdf(shape);
@@ -228,14 +228,11 @@ fn main() {
                 "\rSDF conversions... last={}          ",
                 shape_id
             );
-            if shape.is_solid() {
-                None
-            } else {
-                Some((shape_id, res_scaled))
-            }
+            Some((shape_id, res_scaled))
         })
         .collect();
     println!("");
+
     // 'pre-atlasing': we need these structs ready for when we actually do sort-and-place, since it can happen in a different order to 'encounter order'
     let mut shapes_atlased: Vec<DBShapeAtlased> = Vec::new();
     for shape in &shapes {
@@ -252,6 +249,7 @@ fn main() {
     // determine encounter order, place descending
     sdf_shapes
         .sort_by(|v1, v2| (v2.1.width() * v2.1.height()).cmp(&(v1.1.width() * v1.1.height())));
+
     println!("atlas planning...");
     let mut atlas: AtlasPage = AtlasPage {
         size: V2(128, 128),
@@ -282,6 +280,7 @@ fn main() {
         }
         atlas.clean_points();
     }
+
     println!("drawing atlases...");
     let mut atlas_pix = Pixmap::new(atlas.size.0 as u32, atlas.size.1 as u32).unwrap();
     atlas_pix.fill(tiny_skia::Color::BLACK);
@@ -305,6 +304,7 @@ fn main() {
         );
     }
     _ = std::fs::write("atlas0.png", atlas_pix.encode_png().unwrap());
+
     println!("emit...");
     // initialize atlased book
     let book_atlased = DBBook {
@@ -313,4 +313,5 @@ fn main() {
         pages: pages,
     };
     _ = std::fs::write("book.bin", book_atlased.emit());
+    _ = std::fs::write("book.dae", book_atlased.emit_dae());
 }
