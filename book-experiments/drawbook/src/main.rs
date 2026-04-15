@@ -8,14 +8,16 @@ mod collada;
 mod docmodel;
 mod geom;
 mod sdf;
-mod shape;
+mod shapify;
+mod svgshapes;
 
 use atlas::*;
 use docmodel::*;
 use geom::*;
 use lexopt::ValueExt;
 use rayon::prelude::*;
-use shape::*;
+use shapify::*;
+use svgshapes::*;
 
 const RENDER_MUL_DEFAULT: f32 = 16.0;
 const RENDER_LIMIT_DEFAULT: u32 = 1024;
@@ -142,8 +144,6 @@ fn main() {
         ..Default::default()
     };
     println!("rendering...");
-    // Border in render pixels.
-    let render_border = sdf_border;
     loop {
         let svgn = format!("pages/{}.svg", page_no);
         if let Ok(svgd) = std::fs::read(&svgn) {
@@ -153,7 +153,7 @@ fn main() {
             let rendered: Vec<ShapeifyRes> = shapeify_all(
                 &res,
                 split_aggression,
-                render_border,
+                sdf_border,
                 render_limit,
                 cfg_render_mul,
             );

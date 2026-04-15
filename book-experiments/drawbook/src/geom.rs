@@ -158,7 +158,7 @@ impl<E: Copy> Raster<E> {
                 continue;
             }
             for i in 0..src.size.0 {
-                let tx = pos.1 + (i as i32);
+                let tx = pos.0 + (i as i32);
                 if tx < 0 || tx >= (self.size.0 as i32) {
                     continue;
                 }

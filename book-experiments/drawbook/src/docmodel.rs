@@ -78,8 +78,6 @@ impl DBBook {
         // this is meant to be 'scalable but unobtrusive'
         for atlas in &self.atlases {
             let mut atlas_lump: Vec<u8> = Vec::new();
-            atlas_lump.extend_from_slice(&atlas.size.0.to_le_bytes());
-            atlas_lump.extend_from_slice(&atlas.size.1.to_le_bytes());
             for shape in &atlas.shapes {
                 let atlas_size = V2(atlas.size.0 as f32, atlas.size.1 as f32);
                 atlas_lump.extend_from_slice(&Self::emit_uv2(shape.uv_tl / atlas_size));
@@ -107,6 +105,13 @@ impl DBBook {
             }
             lumps.push(page_lump);
         }
+        // build atlas size lump
+        let mut asize_lump: Vec<u8> = Vec::new();
+        for atlas in &self.atlases {
+            asize_lump.extend_from_slice(&atlas.size.0.to_le_bytes());
+            asize_lump.extend_from_slice(&atlas.size.1.to_le_bytes());
+        }
+        lumps.push(asize_lump);
         // write out header/lumps
         let mut out: Vec<u8> = Vec::new();
         out.extend_from_slice(&(self.atlases.len() as u32).to_le_bytes());

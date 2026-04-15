@@ -30,7 +30,7 @@ func get_shape(i: int) -> Dictionary:
 	var shape_id = i & 0xFFFF
 
 	# grab info from atlas's lump
-	file.seek(lump_pos(atlas_id) + 4 + (shape_id * 16))
+	file.seek(lump_pos(atlas_id) + (shape_id * 16))
 	var tlx = float(file.get_16() & 0xFFFF) / 65535.0
 	var tly = float(file.get_16() & 0xFFFF) / 65535.0
 	var brx = float(file.get_16() & 0xFFFF) / 65535.0
