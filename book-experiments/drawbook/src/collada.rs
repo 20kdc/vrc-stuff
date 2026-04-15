@@ -57,10 +57,16 @@ pub fn collada_write(geom: &[ColladaGeometry]) -> String {
   <contributor>
    <authoring_tool>20kdc vrc-stuff drawbook</authoring_tool>
   </contributor>
-  <unit name="meter" meter="1"/>
+  <unit name="mm" meter="0.001"/>
   <up_axis>Z_UP</up_axis>
  </asset>
  <library_images/>
+ <library_effects>
+  <effect id="Material-effect"><profile_COMMON><technique sid="common"><phong/></technique></profile_COMMON></effect>
+ </library_effects>
+ <library_materials>
+  <material id="Material-material" name="Material"><instance_effect url="#Material-effect"/></material>
+ </library_materials>
  <library_geometries>"##
     );
     let mut float_buf: Vec<f32> = Vec::new();
@@ -182,7 +188,9 @@ pub fn collada_write(geom: &[ColladaGeometry]) -> String {
    <rotate sid="rotationY">0 1 0 0</rotate>
    <rotate sid="rotationX">1 0 0 0</rotate>
    <scale sid="scale">1 1 1</scale>
-   <instance_geometry url="#{}-mesh" name="{}"/>"##,
+   <instance_geometry url="#{}-mesh" name="{}">
+    <bind_material><technique_common><instance_material symbol="Material-material" target="#Material-material"/></technique_common></bind_material>
+   </instance_geometry>"##,
             v.name, v.name
         );
         _ = writeln!(target, "  </node>");
