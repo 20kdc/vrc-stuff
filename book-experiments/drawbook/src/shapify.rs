@@ -1,5 +1,4 @@
 use crate::geom::{Raster, V2};
-use rayon::prelude::*;
 use std::hash::Hasher;
 use tiny_skia::{Pixmap, PremultipliedColorU8};
 

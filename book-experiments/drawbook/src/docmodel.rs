@@ -142,6 +142,11 @@ impl DBBook {
         )
     }
 
+    /// DAE file seems to expect a different colourspace.
+    fn dae_transform_col(v: u8) -> f32 {
+        f32::powf(v as f32 / 255.0f32, 2.2f32)
+    }
+
     /// Writes book contents to a .dae file.
     pub fn emit_dae(&self) -> String {
         let mut pages_geom: Vec<ColladaGeometry> = Vec::new();
@@ -151,9 +156,9 @@ impl DBBook {
             let mut geom = ColladaGeometry::default();
             for sprite in &v.1.sprites {
                 let colour = (
-                    sprite.colour[0] as f32 / 255.0f32,
-                    sprite.colour[1] as f32 / 255.0f32,
-                    sprite.colour[2] as f32 / 255.0f32,
+                    Self::dae_transform_col(sprite.colour[0]),
+                    Self::dae_transform_col(sprite.colour[1]),
+                    Self::dae_transform_col(sprite.colour[2]),
                 );
                 let shape = &atlas.shapes[sprite.shape];
                 let bottom_right = sprite.top_left + shape.size;

@@ -23,6 +23,7 @@ const RENDER_MUL_DEFAULT: f32 = 16.0;
 const RENDER_LIMIT_DEFAULT: u32 = 1024;
 const SDF_DOWNSCALE_DEFAULT: u32 = 4;
 const SDF_BORDER_DEFAULT: u32 = 4;
+const SDF_SMOOTH_DEFAULT: f32 = 0.05f32;
 
 fn do_help() {
     println!("drawbook");
@@ -51,7 +52,7 @@ fn do_help() {
     println!("  render-limit overrules render-mul, punishing large objects");
     println!("  this prevents near-endless SDF propagation");
     println!(
-        " --sdf-downscale- VAL: SDF downscale from render, default {}",
+        " --sdf-downscale VAL: SDF downscale from render, default {}",
         SDF_DOWNSCALE_DEFAULT
     );
     println!("  The SDF generator here requires at least some downscaling.");
@@ -60,6 +61,10 @@ fn do_help() {
     println!(
         " --sdf-border VAL: SDF border, default {}",
         SDF_BORDER_DEFAULT
+    );
+    println!(
+        " --sdf-smooth VAL: SDF smoothness ('magic', adjust w/ shader), default {:?}",
+        SDF_SMOOTH_DEFAULT
     );
     println!(" --debug-shapeslate: writes debug/s*.png / debug/s*.sdf.png");
     std::process::exit(0);
@@ -73,6 +78,7 @@ fn main() {
     let mut cfg_render_mul: f32 = RENDER_MUL_DEFAULT;
     let mut render_limit: u32 = RENDER_LIMIT_DEFAULT;
     let mut sdf_downscale: u32 = SDF_DOWNSCALE_DEFAULT;
+    let mut sdf_smooth: f32 = SDF_SMOOTH_DEFAULT;
     // Border in SDF pixels.
     let mut sdf_border: u32 = SDF_BORDER_DEFAULT;
     let mut debug_dump_shapes_late = false;
@@ -122,6 +128,12 @@ fn main() {
                         .expect("--sdf-border expects float")
                         .parse()
                         .expect("--sdf-border expects float");
+                } else if v.eq("sdf-smooth") {
+                    sdf_smooth = arg_parser
+                        .value()
+                        .expect("--sdf-smooth expects float")
+                        .parse()
+                        .expect("--sdf-smooth expects float");
                 } else if v.eq("debug-shapeslate") {
                     debug_dump_shapes_late = true;
                 } else if v.eq("help") {
@@ -208,10 +220,12 @@ fn main() {
 
             let shape_sdf = sdf::shape_to_sdf(shape);
 
-            // (16 / sdf_downscale) is 'magic' that needs to act in concert with the shader.
-            // It broadly represents smoothness.
-            // The goal here is that we want to balance 'low' bits (subtlety) with 'high' bits (texture distance)
-            let res = sdf::sdf_to_pixmap(&shape_sdf, (16 / sdf_downscale) as i32);
+            // This is 'magic' that needs to act in concert with the shader.
+            // It broadly represents smoothness, and needs to be smaller if the texture distance is smaller.
+            let step_sdf_mul = (shape.render_mul() as f32) / (sdf_downscale as f32);
+            let step: f32 = 1f32 / (sdf_smooth * step_sdf_mul);
+
+            let res = sdf::sdf_to_pixmap(&shape_sdf, (step as i32).max(1));
             if debug_dump_shapes_late {
                 _ = std::fs::write(
                     format!("debug/s{}.sdf.png", shape_id),

@@ -5,6 +5,7 @@ pub struct ColladaVertex {
     pub pos: (f32, f32, f32),
     pub normal: (f32, f32, f32),
     pub st: (f32, f32),
+    /// IN LINEAR SPACE
     pub colour: (f32, f32, f32),
 }
 
