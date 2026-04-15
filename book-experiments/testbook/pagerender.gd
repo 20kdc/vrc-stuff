@@ -1,26 +1,36 @@
 extends Node2D
 
-const PAGEHEAD_SIZE: int = 8
+const PAGEHEAD_SIZE: int = 9
 const SPRITE_SIZE: int = 8
-const HEADLUMPS: int = 2
 
 var file = File.new()
-var page_lump: int = HEADLUMPS
-var lump_count: int
+var page: int = 0
+var atlas_count: int
+var page_count: int
+var atlases: Dictionary
 var shapes: Dictionary
-var atlas: ImageTexture = null
 var debug: bool = false
 
 func get_atlas(i: int) -> ImageTexture:
+	if atlases.has(i):
+		return atlases[i]
+	var img := Image.new()
+	if img.load("../drawbook/atlas" + str(i) + ".png") != OK:
+		return null
+	var atlas = ImageTexture.new()
+	atlas.create_from_image(img, Texture.FLAG_FILTER)
+	atlases[i] = atlas
 	return atlas
 
 func get_shape(i: int) -> Dictionary:
 	if shapes.has(i):
 		return shapes[i]
 
-	# grab info from shapes lump
-	file.seek(lump_pos(1) + (i * 17))
-	var atlas_id = file.get_8()
+	var atlas_id = i >> 16
+	var shape_id = i & 0xFFFF
+
+	# grab info from atlas's lump
+	file.seek(lump_pos(atlas_id) + 4 + (shape_id * 16))
 	var tlx = float(file.get_16() & 0xFFFF) / 65535.0
 	var tly = float(file.get_16() & 0xFFFF) / 65535.0
 	var brx = float(file.get_16() & 0xFFFF) / 65535.0
@@ -41,10 +51,10 @@ func get_shape(i: int) -> Dictionary:
 	return res
 
 func lump_pos(i: int) -> int:
-	file.seek(4 + (i * 8))
+	file.seek(8 + (i * 8))
 	return file.get_32()
 func lump_size(i: int) -> int:
-	file.seek(8 + (i * 8))
+	file.seek(12 + (i * 8))
 	return file.get_32()
 
 func _ready():
@@ -52,12 +62,9 @@ func _ready():
 
 func reload():
 	file.open("../drawbook/book.bin", File.READ)
-	var img := Image.new()
-	if img.load("../drawbook/atlas0.png") != OK:
-		return {}
-	atlas = ImageTexture.new()
-	atlas.create_from_image(img, Texture.FLAG_FILTER)
-	lump_count = file.get_32()
+	atlas_count = file.get_32()
+	page_count = file.get_32()
+	atlases = {}
 	shapes = {}
 
 func _input(event):
@@ -68,29 +75,30 @@ func _input(event):
 				reload()
 				update()
 			if key.scancode == KEY_LEFT:
-				page_lump -= 1
+				page -= 1
 				update()
 			if key.scancode == KEY_RIGHT:
-				page_lump += 1
+				page += 1
 				update()
 			if key.scancode == KEY_M:
 				debug = !debug
 				update()
 
 func _draw():
-	if page_lump >= lump_count:
-		page_lump = lump_count - 1
-	if page_lump < HEADLUMPS:
-		page_lump = HEADLUMPS
+	if page >= page_count:
+		page = page_count - 1
+	if page < 0:
+		page = 0
 	_drawpass(0)
 	if debug:
 		_drawpass(1)
 
 func _drawpass(drawpass: int):
-	var page_pos := lump_pos(page_lump)
-	var page_sprites := (lump_size(page_lump) - PAGEHEAD_SIZE) / SPRITE_SIZE
+	var page_pos := lump_pos(page + atlas_count)
+	var page_sprites := (lump_size(page + atlas_count) - PAGEHEAD_SIZE) / SPRITE_SIZE
 	# read page header
 	file.seek(page_pos)
+	file.get_8() # atlas ID
 	var page_w: float = file.get_float()
 	var page_h: float = file.get_float()
 	var page_size := Vector2(page_w, page_h)

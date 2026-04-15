@@ -158,6 +158,7 @@ fn main() {
                 cfg_render_mul,
             );
             let mut page = DBPage {
+                atlas: 0,
                 size: V2(res.size().width(), res.size().height()),
                 sprites: Vec::new(),
             };
@@ -238,7 +239,6 @@ fn main() {
     for shape in &shapes {
         shapes_atlased.push(DBShapeAtlased {
             // set to the 'rectangle' texture
-            atlas: 0,
             uv_tl: V2(2f32, 2f32),
             uv_br: V2(3f32, 3f32),
             // Convert from render units into reference units.
@@ -308,9 +308,11 @@ fn main() {
     println!("emit...");
     // initialize atlased book
     let book_atlased = DBBook {
-        atlases: vec![V2(atlas.size.0 as u16, atlas.size.1 as u16)],
-        shapes: shapes_atlased,
-        pages: pages,
+        atlases: vec![DBAtlas {
+            size: V2(atlas.size.0 as u16, atlas.size.1 as u16),
+            shapes: shapes_atlased,
+        }],
+        pages,
     };
     _ = std::fs::write("book.bin", book_atlased.emit());
     _ = std::fs::write("book.dae", book_atlased.emit_dae());

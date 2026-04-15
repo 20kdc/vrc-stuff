@@ -4,7 +4,7 @@ use crate::geom::V2;
 /// A 'sprite' is a single renderable entity in the book.
 #[derive(Clone)]
 pub struct DBSprite {
-    /// Shape ID.
+    /// Shape ID in atlas.
     pub shape: usize,
     /// Sprite position.
     /// This is in reference units in this struct, but in the file this is stored as a mapped -1 to 1 range scaled by [DBPage] `size`.
@@ -17,6 +17,8 @@ pub struct DBSprite {
 /// A page of the book.
 #[derive(Clone)]
 pub struct DBPage {
+    /// Atlas number.
+    pub atlas: u8,
     /// Page size in 'reference units'.
     /// Reference units are basically 'whatever came in'.
     /// Importantly, shape sizes are defined relative to them.
@@ -26,7 +28,6 @@ pub struct DBPage {
 
 #[derive(Clone)]
 pub struct DBShapeAtlased {
-    pub atlas: u8,
     /// UVs. These are specified in top-left-relative pixels in this struct, but as real UVs in the file.
     pub uv_tl: V2<f32>,
     /// UVs. These are specified in top-left-relative pixels in this struct, but as real UVs in the file.
@@ -35,12 +36,19 @@ pub struct DBShapeAtlased {
     pub size: V2<f32>,
 }
 
+/// An individual atlas.
+#[derive(Clone)]
+pub struct DBAtlas {
+    pub size: V2<u16>,
+    pub shapes: Vec<DBShapeAtlased>,
+}
+
 /// Proper atlased book structure.
 #[derive(Clone, Default)]
 pub struct DBBook {
     /// Atlas sizes.
-    pub atlases: Vec<V2<u16>>,
-    pub shapes: Vec<DBShapeAtlased>,
+    pub atlases: Vec<DBAtlas>,
+    /// Pages.
     pub pages: Vec<DBPage>,
 }
 
@@ -67,27 +75,24 @@ impl DBBook {
     pub fn emit(&self) -> Vec<u8> {
         let mut lumps: Vec<Vec<u8>> = Vec::new();
         // build atlases lump
-        let mut atlases_lump: Vec<u8> = Vec::new();
-        for atlas_size in &self.atlases {
-            atlases_lump.extend_from_slice(&atlas_size.0.to_le_bytes());
-            atlases_lump.extend_from_slice(&atlas_size.1.to_le_bytes());
+        // this is meant to be 'scalable but unobtrusive'
+        for atlas in &self.atlases {
+            let mut atlas_lump: Vec<u8> = Vec::new();
+            atlas_lump.extend_from_slice(&atlas.size.0.to_le_bytes());
+            atlas_lump.extend_from_slice(&atlas.size.1.to_le_bytes());
+            for shape in &atlas.shapes {
+                let atlas_size = V2(atlas.size.0 as f32, atlas.size.1 as f32);
+                atlas_lump.extend_from_slice(&Self::emit_uv2(shape.uv_tl / atlas_size));
+                atlas_lump.extend_from_slice(&Self::emit_uv2(shape.uv_br / atlas_size));
+                atlas_lump.extend_from_slice(&shape.size.0.to_le_bytes());
+                atlas_lump.extend_from_slice(&shape.size.1.to_le_bytes());
+            }
+            lumps.push(atlas_lump);
         }
-        lumps.push(atlases_lump);
-        // build shapes lump
-        let mut shapes_lump: Vec<u8> = Vec::new();
-        for shape in &self.shapes {
-            shapes_lump.extend_from_slice(&[shape.atlas]);
-            let atlas_size = self.atlases[shape.atlas as usize];
-            let atlas_size = V2(atlas_size.0 as f32, atlas_size.1 as f32);
-            shapes_lump.extend_from_slice(&Self::emit_uv2(shape.uv_tl / atlas_size));
-            shapes_lump.extend_from_slice(&Self::emit_uv2(shape.uv_br / atlas_size));
-            shapes_lump.extend_from_slice(&shape.size.0.to_le_bytes());
-            shapes_lump.extend_from_slice(&shape.size.1.to_le_bytes());
-        }
-        lumps.push(shapes_lump);
         // build page lumps
         for page in &self.pages {
             let mut page_lump: Vec<u8> = Vec::new();
+            page_lump.extend_from_slice(&[page.atlas]);
             page_lump.extend_from_slice(&page.size.0.to_le_bytes());
             page_lump.extend_from_slice(&page.size.1.to_le_bytes());
             for sprite in &page.sprites {
@@ -104,8 +109,9 @@ impl DBBook {
         }
         // write out header/lumps
         let mut out: Vec<u8> = Vec::new();
-        out.extend_from_slice(&(lumps.len() as u32).to_le_bytes());
-        let mut lpos = 4 + (lumps.len() * 8);
+        out.extend_from_slice(&(self.atlases.len() as u32).to_le_bytes());
+        out.extend_from_slice(&(self.pages.len() as u32).to_le_bytes());
+        let mut lpos = 8 + (lumps.len() * 8);
         for lump in &lumps {
             out.extend_from_slice(&(lpos as u32).to_le_bytes());
             out.extend_from_slice(&(lump.len() as u32).to_le_bytes());
@@ -135,6 +141,8 @@ impl DBBook {
     pub fn emit_dae(&self) -> String {
         let mut pages_geom: Vec<ColladaGeometry> = Vec::new();
         for v in self.pages.iter().enumerate() {
+            let atlas = &self.atlases[v.1.atlas as usize];
+            let atlas_size = atlas.size;
             let mut geom = ColladaGeometry::default();
             for sprite in &v.1.sprites {
                 let colour = (
@@ -142,8 +150,7 @@ impl DBBook {
                     sprite.colour[1] as f32 / 255.0f32,
                     sprite.colour[2] as f32 / 255.0f32,
                 );
-                let shape = &self.shapes[sprite.shape];
-                let atlas_size = self.atlases[shape.atlas as usize];
+                let shape = &atlas.shapes[sprite.shape];
                 let bottom_right = sprite.top_left + shape.size;
                 // AB
                 // CD
