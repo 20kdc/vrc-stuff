@@ -41,7 +41,7 @@ pub struct DBShapeAtlased {
 #[derive(Clone, Default)]
 pub struct DBBook {
     /// Atlas sizes.
-    pub atlases: Vec<u16>,
+    pub atlases: Vec<V2<u16>>,
     pub shapes: Vec<DBShapeAtlased>,
     pub pages: Vec<DBPage>,
 }
@@ -71,15 +71,16 @@ impl DBBook {
         // build atlases lump
         let mut atlases_lump: Vec<u8> = Vec::new();
         for atlas_size in &self.atlases {
-            atlases_lump.extend_from_slice(&atlas_size.to_le_bytes());
+            atlases_lump.extend_from_slice(&atlas_size.0.to_le_bytes());
+            atlases_lump.extend_from_slice(&atlas_size.1.to_le_bytes());
         }
         lumps.push(atlases_lump);
         // build shapes lump
         let mut shapes_lump: Vec<u8> = Vec::new();
         for shape in &self.shapes {
             shapes_lump.extend_from_slice(&[shape.atlas]);
-            let atlas_size = self.atlases[shape.atlas as usize] as f32;
-            let atlas_size = V2(atlas_size, atlas_size);
+            let atlas_size = self.atlases[shape.atlas as usize];
+            let atlas_size = V2(atlas_size.0 as f32, atlas_size.1 as f32);
             shapes_lump.extend_from_slice(&Self::emit_uv2(shape.uv_tl / atlas_size));
             shapes_lump.extend_from_slice(&Self::emit_uv2(shape.uv_br / atlas_size));
             shapes_lump.extend_from_slice(&shape.size.0.to_le_bytes());

@@ -254,7 +254,7 @@ fn main() {
         .sort_by(|v1, v2| (v2.1.width() * v2.1.height()).cmp(&(v1.1.width() * v1.1.height())));
     println!("atlas planning...");
     let mut atlas: AtlasPage = AtlasPage {
-        size: 128,
+        size: V2(128, 128),
         rects: Vec::new(),
         points: Vec::new(),
     };
@@ -263,9 +263,9 @@ fn main() {
         tl: V2(0, 0),
         br: V2(5, 5),
     });
-    atlas.points.push(V2(5, 0));
-    atlas.points.push(V2(0, 5));
-    atlas.points.push(V2(5, 5));
+    atlas.points.push((V2(5, 0), false));
+    atlas.points.push((V2(0, 5), false));
+    atlas.points.push((V2(5, 5), true));
     // actually plan the atlas
     for v in &sdf_shapes {
         loop {
@@ -278,12 +278,12 @@ fn main() {
                 ) + V2(1f32, 1f32);
                 break;
             }
-            atlas.size *= 2;
+            atlas.enlarge();
         }
         atlas.clean_points();
     }
     println!("drawing atlases...");
-    let mut atlas_pix = Pixmap::new(atlas.size as u32, atlas.size as u32).unwrap();
+    let mut atlas_pix = Pixmap::new(atlas.size.0 as u32, atlas.size.1 as u32).unwrap();
     atlas_pix.fill(tiny_skia::Color::BLACK);
     atlas_pix.fill_rect(
         tiny_skia::Rect::from_xywh(1f32, 1f32, 3f32, 3f32).unwrap(),
@@ -308,7 +308,7 @@ fn main() {
     println!("emit...");
     // initialize atlased book
     let book_atlased = DBBook {
-        atlases: vec![atlas.size as u16],
+        atlases: vec![V2(atlas.size.0 as u16, atlas.size.1 as u16)],
         shapes: shapes_atlased,
         pages: pages,
     };
