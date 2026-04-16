@@ -1,31 +1,33 @@
-//! The `shapify` module is responsible for converting rasterized geometry into monochrome bitmapped shapes.
+//! This module is responsible for converting rasterized geometry into monochrome bitmapped 'rendered sprites'.
+//! It's then responsible for mapping those sprites into a global lookup table.
 
+use crate::docmodel::{DBPage, DBSprite};
 use crate::geom::{Raster, V2};
+use std::collections::HashMap;
 use std::hash::Hasher;
+use std::sync::Arc;
 use tiny_skia::{Pixmap, PremultipliedColorU8};
 
-/// A 'shape' is something we're planning to convert into a signed distance field.
-/// Shapes exist in an abstract 0-1 space.
-/// This is to allow for a future level of 'acceptable loss' in comparison or downscaling.
+/// A 'rendered shape' is something we're planning to convert into a signed distance field.
 #[derive(Clone, PartialEq, Eq)]
-pub struct DBShape {
+pub struct DBRenderedShape {
     hash: u64,
     is_solid: bool,
     data: Raster<bool>,
     render_mul_bitsu32: u32,
 }
-impl std::hash::Hash for DBShape {
+impl std::hash::Hash for DBRenderedShape {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         state.write_u64(self.hash);
     }
 }
-impl DBShape {
-    pub fn new(data: Raster<bool>, render_mul: f32) -> DBShape {
+impl DBRenderedShape {
+    pub fn new(data: Raster<bool>, render_mul: f32) -> DBRenderedShape {
         let mut state = std::hash::DefaultHasher::new();
         for v in data.data() {
             state.write_u8(*v as u8);
         }
-        DBShape {
+        DBRenderedShape {
             hash: state.finish(),
             is_solid: data.area_eq_usize(V2(0, 0), data.size(), true),
             data,
@@ -58,11 +60,12 @@ impl DBShape {
     }
 }
 
-/// 'shapeify' result
-pub struct ShapeifyRes {
+/// This struct is the 1-bit bitmap form of a _sprite,_ the fundamental unit of rendering in this program.
+#[derive(Clone)]
+pub struct DBRenderedSprite {
     /// Offset in page units.
     pub page_offset: V2<f32>,
-    pub shape: DBShape,
+    pub shape: DBRenderedShape,
     pub colour: [u8; 3],
 }
 
@@ -71,7 +74,7 @@ pub fn shapeify(
     page_offset: V2<f32>,
     render_mul: f32,
     border: u32,
-) -> Option<ShapeifyRes> {
+) -> Option<DBRenderedSprite> {
     let mut data = Vec::with_capacity((src.width() as usize) * (src.height() as usize));
     let mut counts_count = 0f32;
     let mut avg_r = 0f32;
@@ -116,9 +119,9 @@ pub fn shapeify(
         crop_br.1 = (crop_br.1 + border_us).min(crop_me.size().1);
     }
 
-    Some(ShapeifyRes {
+    Some(DBRenderedSprite {
         page_offset: page_offset + V2(crop_ul.0 as f32 / render_mul, crop_ul.1 as f32 / render_mul),
-        shape: DBShape::new(
+        shape: DBRenderedShape::new(
             crop_me.extract_i32(
                 V2(crop_ul.0 as i32, crop_ul.1 as i32),
                 crop_br - crop_ul,
@@ -128,4 +131,48 @@ pub fn shapeify(
         ),
         colour: [cr, cg, cb],
     })
+}
+
+/// Represents a rendered page.
+#[derive(Clone)]
+pub struct DBRenderedPage {
+    pub size: V2<f32>,
+    pub sprites: Vec<DBRenderedSprite>,
+}
+
+/// Represents a shape lookup.
+/// Deduplication of rendered shapes is the primary driving optimization which makes the whole endeavour possible and scalable to entire books.
+/// Not only does it reduce atlas size to sensible values, but it also reduces the amount of SDF computations necessary.
+#[derive(Clone, Default)]
+pub struct DBShapeLookup {
+    pub shape_lookup: HashMap<Arc<DBRenderedShape>, usize>,
+    pub shapes: Vec<Arc<DBRenderedShape>>,
+}
+
+impl DBShapeLookup {
+    /// Deduplicates an incoming [DBRenderedPage] into a [DBPage], adding any new shapes into the lookup.
+    pub fn deduplicate(&mut self, mut rendered: DBRenderedPage) -> DBPage {
+        let mut page = DBPage {
+            size: rendered.size,
+            sprites: Vec::new(),
+        };
+        for shapeify_res in rendered.sprites.drain(..) {
+            let sprite_idx = if let Some(sprite_idx) = self.shape_lookup.get(&shapeify_res.shape) {
+                *sprite_idx
+            } else {
+                let arc = Arc::new(shapeify_res.shape);
+                let res = self.shapes.len();
+                self.shapes.push(arc.clone());
+                self.shape_lookup.insert(arc, res);
+                res
+            };
+            let top_left_page = shapeify_res.page_offset;
+            page.sprites.push(DBSprite {
+                shape: sprite_idx,
+                top_left: top_left_page,
+                colour: shapeify_res.colour,
+            });
+        }
+        page
+    }
 }

@@ -1,4 +1,4 @@
-use crate::DBShape;
+use crate::DBRenderedShape;
 use crate::geom::{Raster, V2};
 use rayon::prelude::*;
 use std::collections::BTreeSet;
@@ -43,7 +43,7 @@ fn sdf_state_combinator(here: SDFState, other: SDFState, rel: V2<usize>) -> SDFS
 
 /// SDF via cellular automata.
 /// Note that the size may differ from the input if we 'think we can get away with it' (is_solid)
-pub fn shape_to_sdf(shape: &DBShape) -> Raster<f32> {
+pub fn shape_to_sdf(shape: &DBRenderedShape) -> Raster<f32> {
     let sz = shape.size();
     if shape.is_solid() {
         // optimization: For solid rectangles, generate a single pixel 'solid rectangle' output.

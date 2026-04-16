@@ -1,5 +1,5 @@
 use crate::geom::V2;
-use crate::shapify::*;
+use crate::rendered::*;
 use rayon::prelude::*;
 use tiny_skia::Pixmap;
 
@@ -49,14 +49,14 @@ impl SplitAggression {
 }
 
 /// Shapeify the contents of an SVG.
-pub fn shapeify_all(
+pub fn render_svg(
     tree: &usvg::Tree,
     outdir: &str,
     split_aggression: SplitAggression,
     sdf_border: u32,
     render_limit: u32,
     cfg_render_mul: f32,
-) -> Vec<ShapeifyRes> {
+) -> DBRenderedPage {
     let debug_dse = false;
     let debug_bigbox = false;
     // let sdf_border: u32 = 0;
@@ -129,5 +129,8 @@ pub fn shapeify_all(
     if debug_dse {
         std::process::exit(0);
     }
-    rendered
+    DBRenderedPage {
+        size: V2(tree.size().width(), tree.size().height()),
+        sprites: rendered,
+    }
 }

@@ -1,10 +1,11 @@
 use crate::collada::*;
 use crate::geom::V2;
 
-/// A 'sprite' is a single renderable entity in the book.
+/// This is the 'generic' sprite structure.
+/// It's used for all instances of sprites after renders have passed deduplication.
 #[derive(Clone)]
 pub struct DBSprite {
-    /// Shape ID in atlas.
+    /// Shape ID in global table or atlas.
     pub shape: usize,
     /// Sprite position.
     /// This is in reference units in this struct, but in the file this is stored as a mapped -1 to 1 range scaled by [DBPage] `size`.
@@ -14,11 +15,10 @@ pub struct DBSprite {
     pub colour: [u8; 3],
 }
 
-/// A page of the book.
+/// This is the 'generic' page structure.
+/// It's used for all instances of pages after renders have passed deduplication.
 #[derive(Clone)]
 pub struct DBPage {
-    /// Atlas number.
-    pub atlas: u8,
     /// Page size in 'reference units'.
     /// Reference units are basically 'whatever came in'.
     /// Importantly, shape sizes are defined relative to them.
@@ -27,7 +27,7 @@ pub struct DBPage {
 }
 
 #[derive(Clone)]
-pub struct DBShapeAtlased {
+pub struct DBAtlasedShape {
     /// UVs. These are specified in top-left-relative pixels in this struct, but as real UVs in the file.
     pub uv_tl: V2<f32>,
     /// UVs. These are specified in top-left-relative pixels in this struct, but as real UVs in the file.
@@ -40,7 +40,7 @@ pub struct DBShapeAtlased {
 #[derive(Clone)]
 pub struct DBAtlas {
     pub size: V2<u16>,
-    pub shapes: Vec<DBShapeAtlased>,
+    pub shapes: Vec<DBAtlasedShape>,
 }
 
 /// Proper atlased book structure.
@@ -48,8 +48,8 @@ pub struct DBAtlas {
 pub struct DBBook {
     /// Atlas sizes.
     pub atlases: Vec<DBAtlas>,
-    /// Pages.
-    pub pages: Vec<DBPage>,
+    /// Pages (as atlas, page).
+    pub pages: Vec<(u8, DBPage)>,
 }
 
 impl DBBook {
@@ -88,9 +88,9 @@ impl DBBook {
             lumps.push(atlas_lump);
         }
         // build page lumps
-        for page in &self.pages {
+        for (atlas, page) in &self.pages {
             let mut page_lump: Vec<u8> = Vec::new();
-            page_lump.extend_from_slice(&[page.atlas]);
+            page_lump.extend_from_slice(&[*atlas]);
             page_lump.extend_from_slice(&page.size.0.to_le_bytes());
             page_lump.extend_from_slice(&page.size.1.to_le_bytes());
             for sprite in &page.sprites {
@@ -149,8 +149,8 @@ impl DBBook {
 
     /// Writes book contents to .dae geometry.
     pub fn page_dae(&self, page_index: usize) -> ColladaGeometry {
-        let page = &self.pages[page_index];
-        let atlas = &self.atlases[page.atlas as usize];
+        let (atlas_id, page) = &self.pages[page_index];
+        let atlas = &self.atlases[*atlas_id as usize];
         let atlas_size = atlas.size;
         let mut geom = ColladaGeometry::default();
         for sprite in &page.sprites {

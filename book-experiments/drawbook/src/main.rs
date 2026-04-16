@@ -1,23 +1,21 @@
-use std::collections::HashMap;
 use std::io::Write;
-use std::sync::Arc;
 use tiny_skia::Pixmap;
 
-mod atlas;
 mod collada;
 mod docmodel;
 mod geom;
+mod geom_atlas;
+mod render_svg;
+mod rendered;
 mod sdf;
-mod shapify;
-mod svgshapes;
 
-use atlas::*;
 use docmodel::*;
 use geom::*;
+use geom_atlas::*;
 use lexopt::ValueExt;
 use rayon::prelude::*;
-use shapify::*;
-use svgshapes::*;
+use render_svg::*;
+use rendered::*;
 
 const RENDER_MUL_DEFAULT: f32 = 16.0;
 const RENDER_LIMIT_DEFAULT: u32 = 1024;
@@ -183,8 +181,7 @@ fn main() {
     let outdir = outdir.expect("outdir REQUIRED");
     _ = std::fs::create_dir_all(&outdir);
     // -- rasterize --
-    let mut sprite_lookup: HashMap<Arc<DBShape>, usize> = HashMap::new();
-    let mut shapes: Vec<Arc<DBShape>> = Vec::new();
+    let mut shape_lookup = DBShapeLookup::default();
     let mut pages: Vec<DBPage> = Vec::new();
     let svg_opts = usvg::Options {
         ..Default::default()
@@ -195,7 +192,7 @@ fn main() {
             println!("{}", svgn);
             let res = usvg::Tree::from_data(&svgd, &svg_opts).expect("svg should have parsed");
             // render and insert sprites
-            let rendered: Vec<ShapeifyRes> = shapeify_all(
+            let rendered: DBRenderedPage = render_svg(
                 &res,
                 &outdir,
                 split_aggression,
@@ -203,30 +200,8 @@ fn main() {
                 render_limit,
                 cfg_render_mul,
             );
-            let mut page = DBPage {
-                atlas: 0,
-                size: V2(res.size().width(), res.size().height()),
-                sprites: Vec::new(),
-            };
-            for shapeify_res in rendered {
-                let sprite_idx = if let Some(sprite_idx) = sprite_lookup.get(&shapeify_res.shape) {
-                    *sprite_idx
-                } else {
-                    let arc = Arc::new(shapeify_res.shape);
-                    let res = shapes.len();
-                    shapes.push(arc.clone());
-                    sprite_lookup.insert(arc, res);
-                    res
-                };
-                let top_left_page = shapeify_res.page_offset;
-                page.sprites.push(DBSprite {
-                    shape: sprite_idx,
-                    top_left: top_left_page,
-                    colour: shapeify_res.colour,
-                });
-            }
-            pages.push(page);
-            println!(" {} shapes", sprite_lookup.len());
+            pages.push(shape_lookup.deduplicate(rendered));
+            println!(" {} shapes", shape_lookup.shapes.len());
         } else {
             break;
         }
@@ -235,7 +210,8 @@ fn main() {
     print!("SDF conversions...");
     _ = std::io::Write::flush(&mut std::io::stdout().lock());
     // 'rectangle' entries are not included.
-    let mut sdf_shapes: Vec<(usize, Pixmap)> = shapes
+    let mut sdf_shapes: Vec<(usize, Pixmap)> = shape_lookup
+        .shapes
         .par_iter()
         .enumerate()
         .filter_map(|(shape_id, shape)| {
@@ -282,9 +258,9 @@ fn main() {
     println!("");
 
     // 'pre-atlasing': we need these structs ready for when we actually do sort-and-place, since it can happen in a different order to 'encounter order'
-    let mut shapes_atlased: Vec<DBShapeAtlased> = Vec::new();
-    for shape in &shapes {
-        shapes_atlased.push(DBShapeAtlased {
+    let mut shapes_atlased: Vec<DBAtlasedShape> = Vec::new();
+    for shape in &shape_lookup.shapes {
+        shapes_atlased.push(DBAtlasedShape {
             // set to the 'rectangle' texture
             uv_tl: V2(2f32, 2f32),
             uv_br: V2(3f32, 3f32),
@@ -362,7 +338,7 @@ fn main() {
             size: V2(atlas.size.0 as u16, atlas.size.1 as u16),
             shapes: shapes_atlased,
         }],
-        pages,
+        pages: pages.drain(..).map(|v| (0u8, v)).collect(),
     };
     _ = std::fs::write(&format!("{}/book.bin", outdir), book_atlased.emit());
     for i in 0..book_atlased.pages.len() {
