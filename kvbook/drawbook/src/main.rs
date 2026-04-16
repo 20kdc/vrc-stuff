@@ -178,8 +178,17 @@ fn main() {
             }
         }
     }
+    // -- options locked in --
     let outdir = outdir.expect("outdir REQUIRED");
     _ = std::fs::create_dir_all(&outdir);
+    let render_opts = RenderOpts {
+        outdir: outdir.clone(),
+        sdf_border,
+        render_limit,
+        cfg_render_mul,
+        debug_dse: false,
+        debug_bigbox: false,
+    };
     // -- rasterize --
     let mut shape_lookup = DBShapeLookup::default();
     let mut pages: Vec<DBPage> = Vec::new();
@@ -192,14 +201,7 @@ fn main() {
             println!("{}", svgn);
             let res = usvg::Tree::from_data(&svgd, &svg_opts).expect("svg should have parsed");
             // render and insert sprites
-            let rendered: DBRenderedPage = render_svg(
-                &res,
-                &outdir,
-                split_aggression,
-                sdf_border,
-                render_limit,
-                cfg_render_mul,
-            );
+            let rendered: DBRenderedPage = render_svg(&res, split_aggression, &render_opts);
             pages.push(shape_lookup.deduplicate(rendered));
             println!(" {} shapes", shape_lookup.shapes.len());
         } else {
