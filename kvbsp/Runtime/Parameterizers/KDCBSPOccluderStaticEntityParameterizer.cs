@@ -3,7 +3,6 @@ using System.IO;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering;
-using VRC.SDKBase;
 
 using FlagMod = KDCVRCBSP.KDCBSPBrushEntitySettings.FlagMod;
 

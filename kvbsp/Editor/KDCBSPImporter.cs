@@ -169,7 +169,7 @@ namespace KDCVRCBSP {
 					// figure out primary side {
 					(KDCBSPAbstractMaterialConfig bPrimary, float bPrimaryWeight) = FindPrimarySide(importContext, b);
 					bool collisionEnable = bPrimary != null ? bPrimary.collisionEnable : true;
-					PhysicMaterial collisionMaterial = bPrimary != null ? bPrimary.collisionMaterial.asset : null;
+					var collisionMaterial = bPrimary != null ? bPrimary.collisionMaterial.asset : null;
 					// }
 					if (!collisionEnable)
 						continue;
@@ -252,7 +252,7 @@ namespace KDCVRCBSP {
 						importContext.bsp.FaceToTriangles(face, convexMesh);
 				}
 
-				PhysicMaterial collisionMaterial = bFullPrimary != null ? bFullPrimary.collisionMaterial.asset : null;
+				var collisionMaterial = bFullPrimary != null ? bFullPrimary.collisionMaterial.asset : null;
 
 				entity.InternalTransformFixup(convexMesh);
 
