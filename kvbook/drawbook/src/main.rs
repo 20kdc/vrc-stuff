@@ -304,6 +304,13 @@ fn main() {
             atlas.enlarge();
         }
         atlas.clean_points();
+        print!(
+            "\r s{} atlas_size = {:?} q{}         ",
+            v.0,
+            atlas.size,
+            v.1.width() * v.1.height()
+        );
+        _ = std::io::stdout().flush();
     }
 
     println!("drawing atlases...");
@@ -327,6 +334,8 @@ fn main() {
             tiny_skia::Transform::identity(),
             None,
         );
+        print!("\r s{}          ", v.0);
+        _ = std::io::stdout().flush();
     }
     _ = std::fs::write(
         &format!("{}/atlas.0.png", outdir),
