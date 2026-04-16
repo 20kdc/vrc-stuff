@@ -86,10 +86,7 @@ namespace KDCVRCBSP {
 					wizardStep = 3;
 				}
 			} else if (wizardStep == 3) {
-				WWLabel("A quick heads-up. When working with KDCBSP, keep in mind that textures in TrenchBroom are not materials in Unity.");
-				WWLabel("You create textures in TrenchBroom by dropping in image files into the correct directory.");
-				WWLabel("You attach these to materials in Unity by assigning them in a KDCBSP workspace configuration.");
-				WWLabel("We'll now create the 'game root'. This is where the TrenchBroom-side textures live.");
+				WWLabel("We'll now create the 'game root'. You'll need to point TrenchBroom at this!");
 				WWLabel("This will be created at: " + qrootPath);
 				if (GUILayout.Button("Continue (setup game root)")) {
 					try {
@@ -104,6 +101,14 @@ namespace KDCVRCBSP {
 					wizardStep = 4;
 				}
 			} else if (wizardStep == 4) {
+				WWLabel("In KDCBSPGameRoot, you need to open DefaultWorkspaceConfig.asset and press Update Quake VFS.");
+				WWLabel("You need to do this whenever changing materials so that TrenchBroom and ericw-tools can recognize them.");
+				WWLabel("(It was either this or forcing Windows users to use symbolic links.)");
+				WWLabel("While this wizard could do this for you, it's an important learning experience to do this yourself now.");
+				if (GUILayout.Button("Okay, I did it")) {
+					wizardStep = 5;
+				}
+			} else if (wizardStep == 5) {
 				WWLabel("You should have an example map file at: " + qrootPath + "/example.map");
 				WWLabel("Try compiling it in TrenchBroom:");
 				WWLabel("1. Open TrenchBroom");
