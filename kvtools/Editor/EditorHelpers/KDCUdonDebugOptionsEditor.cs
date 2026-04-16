@@ -3,6 +3,7 @@ using System.IO;
 using UnityEngine;
 using UnityEditor;
 using VRC.Udon;
+using VRC.Udon.Editor;
 using VRC.Udon.Common.Interfaces;
 using VRC.Udon.Serialization.OdinSerializer;
 using VRC.Udon.Serialization.OdinSerializer.Utilities;
@@ -59,6 +60,15 @@ namespace KDCVRCTools {
 					DumpProcess(dumpDialogText, KDCUdonCoreDump.CoreDump(vm, targetUDO.ErrorPC));
 			} else {
 				GUILayout.Label("UdonBehaviour has no VM; not in play mode?", EditorStyles.wordWrappedLabel);
+				// This is used as a hacky fix for asset types like Udon Assembly, which are broken & won't automatically refresh.
+				if (GUILayout.Button("Refresh Program")) {
+					var program = ub.programSource;
+					if (program != null) {
+						string path = AssetDatabase.GetAssetPath(program);
+						if (path != null)
+							KDCUdonImportQueue.Queue(path);
+					}
+				}
 			}
 		}
 

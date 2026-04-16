@@ -342,7 +342,7 @@ fn main() {
         }],
         pages: pages.drain(..).map(|v| (0u8, v)).collect(),
     };
-    _ = std::fs::write(&format!("{}/book.bin", outdir), book_atlased.emit());
+    _ = std::fs::write(&format!("{}/book.bytes", outdir), book_atlased.emit());
     for i in 0..book_atlased.pages.len() {
         _ = std::fs::write(
             &format!("{}/page.{}.dae", outdir, i),

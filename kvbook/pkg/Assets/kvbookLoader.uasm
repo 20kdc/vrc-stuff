@@ -1,0 +1,406 @@
+# kvbook loader
+# written in Udon Assembly because this contains a lot of Unity manipulation and some *nasty* hot loops
+
+.data_start
+
+	# -- constants --
+
+	_c_0: %SystemInt32, 0
+	_c_1: %SystemInt32, 1
+	_c_4: %SystemInt32, 4
+	_c_6: %SystemInt32, 6
+	_c_8: %SystemInt32, 8
+	_null: %SystemObject,null
+
+	# -- public --
+
+	.export page
+	page: %SystemInt32, -1
+
+	.export meshFilter
+	meshFilter: %UnityEngineMeshFilter, this
+
+	.export meshRenderer
+	meshRenderer: %UnityEngineMeshRenderer, this
+
+	.export atlasMaterials
+	atlasMaterials: %UnityEngineMaterialArray, null
+
+	.export bytesTextAsset
+	bytesTextAsset: %UnityEngineTextAsset, null
+
+	# -- public out --
+
+	.export infoPageCount
+	infoPageCount: %SystemInt32, 0
+
+	.export infoAtlasCount
+	infoAtlasCount: %SystemInt32, 0
+
+	.export infoPageWidth
+	infoPageWidth: %SystemSingle, 0.0
+
+	.export infoPageHeight
+	infoPageHeight: %SystemSingle, 0.0
+
+	.export infoPageSpriteCount
+	infoPageSpriteCount: %SystemInt32, 0
+
+	.export infoPageVertexCount
+	infoPageVertexCount: %SystemInt32, 0
+
+	.export infoPageIndexCount
+	infoPageIndexCount: %SystemInt32, 0
+
+	# -- file offsets --
+
+	.export _ofsPage
+	.export _endPage
+	.export _ofsAtlas
+
+	_ofsPage: %SystemInt32, 0
+	_endPage: %SystemInt32, 0
+	_ofsAtlas: %SystemInt32, 0
+
+	# -- erase-me --
+
+	_data: %SystemByteArray, null
+	_mesh: %UnityEngineMesh, null
+	_material: %UnityEngineMaterial, null
+
+	_vertices: %UnityEngineVector3Array, null
+	_triangles: %SystemInt32Array, null
+	_colors32: %UnityEngineColor32Array, null
+	_uv: %UnityEngineVector2Array, null
+	_uv2: %UnityEngineVector2Array, null
+
+	# -- temporaries --
+
+	_byte: %SystemByte, null
+	_bool: %SystemBoolean, null
+
+.data_end
+.code_start
+
+	# _start is an alias for _LoadPage.
+.export _start
+_start:
+	JUMP, _LoadPage
+
+.export _ClearPage
+_ClearPage:
+
+	# meshFilter.mesh = null
+		PUSH, meshFilter
+		PUSH, _null
+		EXTERN, "UnityEngineMeshFilter.__set_mesh__UnityEngineMesh__SystemVoid"
+
+_cleanErasable:
+
+	# _data = null
+		PUSH, _null
+		PUSH, _data
+		COPY
+
+	# _mesh = null
+		PUSH, _null
+		PUSH, _mesh
+		COPY
+
+	# _material = null
+		PUSH, _null
+		PUSH, _material
+		COPY
+
+	# _vertices = null
+		PUSH, _null
+		PUSH, _vertices
+		COPY
+
+	# _triangles = null
+		PUSH, _null
+		PUSH, _triangles
+		COPY
+
+	# _colors32 = null
+		PUSH, _null
+		PUSH, _colors32
+		COPY
+
+	# _uv = null
+		PUSH, _null
+		PUSH, _uv
+		COPY
+
+	# _uv2 = null
+		PUSH, _null
+		PUSH, _uv2
+		COPY
+
+	# end
+		JUMP, 0xFFFFFFFC
+
+.export _LoadPage
+_LoadPage:
+
+	# -- setup info --
+
+		# set up _data, which lets us read the file.
+		# notably, we don't want _data to be in Udon Heap longer than necessary, as this causes terrible memory use risks if we're instantiated.
+			PUSH, bytesTextAsset
+			PUSH, _data
+			EXTERN, "UnityEngineTextAsset.__get_bytes__SystemByteArray"
+
+		# read the atlas count
+			PUSH, _data
+			PUSH, _c_0
+			PUSH, infoAtlasCount
+			EXTERN, "SystemBitConverter.__ToInt32__SystemByteArray_SystemInt32__SystemInt32"
+
+		# read the page count
+			PUSH, _data
+			PUSH, _c_4
+			PUSH, infoPageCount
+			EXTERN, "SystemBitConverter.__ToInt32__SystemByteArray_SystemInt32__SystemInt32"
+
+	# -- validate page number --
+
+		# if the page is < 0, it's definitely not valid, so clear the page
+			PUSH, page
+			PUSH, _c_0
+			PUSH, _bool
+			EXTERN, "SystemInt32.__op_GreaterThanOrEqual__SystemInt32_SystemInt32__SystemBoolean"
+			PUSH, _bool
+			JUMP_IF_FALSE, _ClearPage
+
+		# if the page is >= the page count, it's not valid, so clear the page
+			PUSH, page
+			PUSH, infoPageCount
+			PUSH, _bool
+			EXTERN, "SystemInt32.__op_LessThan__SystemInt32_SystemInt32__SystemBoolean"
+			PUSH, _bool
+			JUMP_IF_FALSE, _ClearPage
+
+	# -- find page lump --
+
+		# _ofsPage = page + atlasCount
+			PUSH, page
+			PUSH, infoAtlasCount
+			PUSH, _ofsPage
+			EXTERN, "SystemInt32.__op_Addition__SystemInt32_SystemInt32__SystemInt32"
+
+		# _ofsPage *= 8
+			PUSH, _ofsPage
+			PUSH, _c_8
+			PUSH, _ofsPage
+			EXTERN, "SystemInt32.__op_Multiplication__SystemInt32_SystemInt32__SystemInt32"
+
+		# _ofsPage += 8
+			PUSH, _ofsPage
+			PUSH, _c_8
+			PUSH, _ofsPage
+			EXTERN, "SystemInt32.__op_Addition__SystemInt32_SystemInt32__SystemInt32"
+
+		# _ofsPage now points to the page's lump offset field
+
+		# _endPage = _ofsPage + 4
+			PUSH, _ofsPage
+			PUSH, _c_4
+			PUSH, _endPage
+			EXTERN, "SystemInt32.__op_Addition__SystemInt32_SystemInt32__SystemInt32"
+
+		# _endPage now points to the page's lump length field
+
+		# _ofsPage = *_ofsPage
+			PUSH, _data
+			PUSH, _ofsPage
+			PUSH, _ofsPage
+			EXTERN, "SystemBitConverter.__ToInt32__SystemByteArray_SystemInt32__SystemInt32"
+
+		# _endPage = *_endPage
+			PUSH, _data
+			PUSH, _endPage
+			PUSH, _endPage
+			EXTERN, "SystemBitConverter.__ToInt32__SystemByteArray_SystemInt32__SystemInt32"
+
+		# _endPage += _ofsPage
+			PUSH, _ofsPage
+			PUSH, _endPage
+			PUSH, _endPage
+			EXTERN, "SystemInt32.__op_Addition__SystemInt32_SystemInt32__SystemInt32"
+
+	# -- find atlas lump --
+
+		# _byte = *_ofsPage ; _ofsPage += 1
+			PUSH, _data
+			PUSH, _ofsPage
+			PUSH, _byte
+			EXTERN, "SystemByteArray.__Get__SystemInt32__SystemByte"
+			PUSH, _ofsPage
+			PUSH, _c_1
+			PUSH, _ofsPage
+			EXTERN, "SystemInt32.__op_Addition__SystemInt32_SystemInt32__SystemInt32"
+
+		# _ofsAtlas = int32(_byte)
+			PUSH, _byte
+			PUSH, _ofsAtlas
+			EXTERN, "SystemConvert.__ToInt32__SystemByte__SystemInt32"
+
+		# _material = atlasMaterials[_ofsAtlas]
+			PUSH, atlasMaterials
+			PUSH, _ofsAtlas
+			PUSH, _material
+			EXTERN, "UnityEngineMaterialArray.__Get__SystemInt32__UnityEngineMaterial"
+
+		# _ofsAtlas *= 8
+			PUSH, _ofsAtlas
+			PUSH, _c_8
+			PUSH, _ofsAtlas
+			EXTERN, "SystemInt32.__op_Multiplication__SystemInt32_SystemInt32__SystemInt32"
+
+		# _ofsAtlas += 8
+			PUSH, _ofsAtlas
+			PUSH, _c_8
+			PUSH, _ofsAtlas
+			EXTERN, "SystemInt32.__op_Addition__SystemInt32_SystemInt32__SystemInt32"
+
+		# _ofsAtlas = *_ofsAtlas
+			PUSH, _data
+			PUSH, _ofsAtlas
+			PUSH, _ofsAtlas
+			EXTERN, "SystemBitConverter.__ToInt32__SystemByteArray_SystemInt32__SystemInt32"
+
+	# -- page width/height/sprite count --
+
+		# infoPageWidth = *_ofsPage ; _ofsPage += 4
+			PUSH, _data
+			PUSH, _ofsPage
+			PUSH, infoPageWidth
+			EXTERN, "SystemBitConverter.__ToSingle__SystemByteArray_SystemInt32__SystemSingle"
+			PUSH, _ofsPage
+			PUSH, _c_4
+			PUSH, _ofsPage
+			EXTERN, "SystemInt32.__op_Addition__SystemInt32_SystemInt32__SystemInt32"
+
+		# infoPageHeight = *_ofsPage ; _ofsPage += 4
+			PUSH, _data
+			PUSH, _ofsPage
+			PUSH, infoPageHeight
+			EXTERN, "SystemBitConverter.__ToSingle__SystemByteArray_SystemInt32__SystemSingle"
+			PUSH, _ofsPage
+			PUSH, _c_4
+			PUSH, _ofsPage
+			EXTERN, "SystemInt32.__op_Addition__SystemInt32_SystemInt32__SystemInt32"
+
+		# infoPageSpriteCount = _endPage - _ofsPage
+			PUSH, _endPage
+			PUSH, _ofsPage
+			PUSH, infoPageSpriteCount
+			EXTERN, "SystemInt32.__op_Subtraction__SystemInt32_SystemInt32__SystemInt32"
+
+		# infoPageSpriteCount /= 8
+			PUSH, infoPageSpriteCount
+			PUSH, _c_8
+			PUSH, infoPageSpriteCount
+			EXTERN, "SystemInt32.__op_Division__SystemInt32_SystemInt32__SystemInt32"
+
+		# infoPageVertexCount = infoPageSpriteCount * 4
+			PUSH, infoPageSpriteCount
+			PUSH, _c_4
+			PUSH, infoPageVertexCount
+			EXTERN, "SystemInt32.__op_Multiplication__SystemInt32_SystemInt32__SystemInt32"
+
+		# infoPageIndexCount = infoPageSpriteCount * 6
+			PUSH, infoPageSpriteCount
+			PUSH, _c_6
+			PUSH, infoPageIndexCount
+			EXTERN, "SystemInt32.__op_Multiplication__SystemInt32_SystemInt32__SystemInt32"
+
+	# -- create arrays --
+
+		# _vertices = new Vector3[infoPageVertexCount]
+			PUSH, infoPageVertexCount
+			PUSH, _vertices
+			EXTERN, "UnityEngineVector3Array.__ctor__SystemInt32__UnityEngineVector3Array"
+
+		# _uv = new Vector2[infoPageVertexCount]
+			PUSH, infoPageVertexCount
+			PUSH, _uv
+			EXTERN, "UnityEngineVector2Array.__ctor__SystemInt32__UnityEngineVector2Array"
+
+		# _uv2 = new Vector2[infoPageVertexCount]
+			PUSH, infoPageVertexCount
+			PUSH, _uv2
+			EXTERN, "UnityEngineVector2Array.__ctor__SystemInt32__UnityEngineVector2Array"
+
+		# _colors32 = new Color32[infoPageVertexCount]
+			PUSH, infoPageVertexCount
+			PUSH, _colors32
+			EXTERN, "UnityEngineColor32Array.__ctor__SystemInt32__UnityEngineColor32Array"
+
+		# _triangles = new Int32[infoPageIndexCount]
+			PUSH, infoPageIndexCount
+			PUSH, _triangles
+			EXTERN, "SystemInt32Array.__ctor__SystemInt32__SystemInt32Array"
+
+	# -- generate geometry --
+
+	# -- create, assign, and setup the mesh --
+
+		# _mesh = new Mesh()
+			PUSH, _mesh
+			EXTERN, "UnityEngineMesh.__ctor____UnityEngineMesh"
+
+		# _mesh.vertices = _vertices
+			PUSH, _mesh
+			PUSH, _vertices
+			EXTERN, "UnityEngineMesh.__set_vertices__UnityEngineVector3Array__SystemVoid"
+
+		# _mesh.uv = _uv
+			PUSH, _mesh
+			PUSH, _uv
+			EXTERN, "UnityEngineMesh.__set_uv__UnityEngineVector2Array__SystemVoid"
+
+		# _mesh.uv2 = _uv2
+			PUSH, _mesh
+			PUSH, _uv2
+			EXTERN, "UnityEngineMesh.__set_uv2__UnityEngineVector2Array__SystemVoid"
+
+		# _mesh.colors32 = _colors32
+			PUSH, _mesh
+			PUSH, _colors32
+			EXTERN, "UnityEngineMesh.__set_colors32__UnityEngineColor32Array__SystemVoid"
+
+		# _mesh.triangles = _triangles
+			PUSH, _mesh
+			PUSH, _triangles
+			EXTERN, "UnityEngineMesh.__set_triangles__SystemInt32Array__SystemVoid"
+
+		# _mesh.RecalculateNormals()
+			PUSH, _mesh
+			EXTERN, "UnityEngineMesh.__RecalculateNormals__SystemVoid"
+
+		# _mesh.UploadMeshData(true)
+			PUSH, _c_0
+			PUSH, _c_0
+			PUSH, _bool
+			EXTERN, "SystemInt32.__op_Equality__SystemInt32_SystemInt32__SystemBoolean"
+			PUSH, _mesh
+			PUSH, _bool
+			EXTERN, "UnityEngineMesh.__UploadMeshData__SystemBoolean__SystemVoid"
+
+		# meshFilter.sharedMesh = _mesh
+			PUSH, meshFilter
+			PUSH, _mesh
+			EXTERN, "UnityEngineMeshFilter.__set_sharedMesh__UnityEngineMesh__SystemVoid"
+
+		# meshRenderer.sharedMaterial = _material
+			PUSH, meshRenderer
+			PUSH, _material
+			EXTERN, "UnityEngineMeshRenderer.__set_sharedMaterial__UnityEngineMaterial__SystemVoid"
+
+	# -- clean up temporaries and leave --
+
+		JUMP, _cleanErasable
+
+.code_end
