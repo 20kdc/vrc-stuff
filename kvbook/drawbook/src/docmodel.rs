@@ -197,6 +197,7 @@ impl DBBook {
             geom.triangles.push(vtxc);
         }
         geom.name = format!("p{}", page_index);
+        geom.material_name = format!("atlas.{}", atlas_id);
         geom
     }
 }

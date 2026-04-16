@@ -1,3 +1,4 @@
+use std::collections::BTreeSet;
 use std::fmt::Write;
 
 #[derive(Clone, Copy, Default)]
@@ -12,6 +13,7 @@ pub struct ColladaVertex {
 #[derive(Clone, Default)]
 pub struct ColladaGeometry {
     pub name: String,
+    pub material_name: String,
     pub triangles: Vec<ColladaVertex>,
 }
 
@@ -49,6 +51,10 @@ fn collada_write_float_array(
 
 /// Minimum-effort collada writer.
 pub fn collada_write(geom: &[ColladaGeometry]) -> String {
+    let mut unique_materials = BTreeSet::new();
+    for v in geom {
+        unique_materials.insert(v.material_name.clone());
+    }
     let mut target = String::new();
     _ = writeln!(
         target,
@@ -62,12 +68,30 @@ pub fn collada_write(geom: &[ColladaGeometry]) -> String {
   <up_axis>Z_UP</up_axis>
  </asset>
  <library_images/>
- <library_effects>
-  <effect id="Material-effect"><profile_COMMON><technique sid="common"><phong/></technique></profile_COMMON></effect>
- </library_effects>
- <library_materials>
-  <material id="Material-material" name="Material"><instance_effect url="#Material-effect"/></material>
- </library_materials>
+ <library_effects>"##
+    );
+    for m in &unique_materials {
+        _ = writeln!(
+            target,
+            "  <effect id=\"{}-effect\"><profile_COMMON><technique sid=\"common\"><phong/></technique></profile_COMMON></effect>",
+            m
+        );
+    }
+    _ = writeln!(
+        target,
+        r##" </library_effects>
+ <library_materials>"##
+    );
+    for m in &unique_materials {
+        _ = writeln!(
+            target,
+            "  <material id=\"{}-material\" name=\"{}\"><instance_effect url=\"#{}-effect\"/></material>",
+            m, m, m
+        );
+    }
+    _ = writeln!(
+        target,
+        r##" </library_materials>
  <library_geometries>"##
     );
     let mut float_buf: Vec<f32> = Vec::new();
@@ -190,9 +214,9 @@ pub fn collada_write(geom: &[ColladaGeometry]) -> String {
    <rotate sid="rotationX">1 0 0 0</rotate>
    <scale sid="scale">1 1 1</scale>
    <instance_geometry url="#{}-mesh" name="{}">
-    <bind_material><technique_common><instance_material symbol="Material-material" target="#Material-material"/></technique_common></bind_material>
+    <bind_material><technique_common><instance_material symbol="{}-material" target="#{}-material"/></technique_common></bind_material>
    </instance_geometry>"##,
-            v.name, v.name
+            v.name, v.name, v.material_name, v.material_name
         );
         _ = writeln!(target, "  </node>");
     }

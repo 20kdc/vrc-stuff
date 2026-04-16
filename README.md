@@ -6,6 +6,7 @@ Includes:
 
 * `kip32`: Compiling C (via RISC-V) to Udon (and beyond?)
 * `kvassets`: Assets for 20kdc worlds.
+* `kvbook`: Converting PDFs/SVGs to readable in-game books
 * `kvbsp`: Using Quake 2 BSP import.
 	* Still subject to severe workflow changes, so not yet stabilized.
 * `kvresearch`: 'Research' package used to understand Udon + things that aren't stable enough for `kvtools`.

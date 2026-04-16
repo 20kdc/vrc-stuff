@@ -1,0 +1,8 @@
+{
+	"name": "t20kdc.vrctmpbook",
+	"displayName": "t20kdc PDFSDF Udon loader",
+	"version": "0.1.0",
+	"author": {"name": "t20kdc"},
+	"description": "Udon code to load books converted to SDF using the loader",
+	"license": "Unlicense"
+}
