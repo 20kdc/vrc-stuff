@@ -7,9 +7,22 @@
 
 	_c_0: %SystemInt32, 0
 	_c_1: %SystemInt32, 1
+	_c_2: %SystemInt32, 2
+	_c_3: %SystemInt32, 3
 	_c_4: %SystemInt32, 4
+	_c_5: %SystemInt32, 5
 	_c_6: %SystemInt32, 6
 	_c_8: %SystemInt32, 8
+	_c_11: %SystemInt32, 11
+	_c_16: %SystemInt32, 16
+	_c_31: %SystemInt32, 31
+	_c_63: %SystemInt32, 63
+
+	_cf_0: %SystemSingle, 0.0
+	_cf_1: %SystemSingle, 1.0
+	_cf_31: %SystemSingle, 31.0
+	_cf_63: %SystemSingle, 63.0
+
 	_null: %SystemObject,null
 
 	# -- public --
@@ -54,13 +67,17 @@
 
 	# -- file offsets --
 
-	.export _ofsPage
-	.export _endPage
-	.export _ofsAtlas
+	# .export _ofsPage
+	# .export _endPage
+	# .export _ofsAtlas
 
 	_ofsPage: %SystemInt32, 0
 	_endPage: %SystemInt32, 0
 	_ofsAtlas: %SystemInt32, 0
+
+	_ofsShape: %SystemInt32, 0
+
+	# worth noting, this generator uses Z as 'X' and X as 'Y' to reduce complexity
 
 	# -- erase-me --
 
@@ -74,10 +91,89 @@
 	_uv: %UnityEngineVector2Array, null
 	_uv2: %UnityEngineVector2Array, null
 
+	# -- struct sprite --
+
+	# .export _sprShape
+	# .export _sprTLX
+	# .export _sprTLY
+	# .export _sprCol
+
+	_sprShape: %SystemUInt16, null
+	_sprTLX: %SystemInt16, null
+	_sprTLY: %SystemInt16, null
+	_sprCol: %SystemUInt16, null
+
+	# -- struct shape --
+
+	# .export _shpUTLX
+	# .export _shpUTLY
+	# .export _shpUBRX
+	# .export _shpUBRY
+	# .export _shpSizeX
+	# .export _shpSizeY
+
+	_shpUTLX: %SystemUInt16, null
+	_shpUTLY: %SystemUInt16, null
+	_shpUBRX: %SystemUInt16, null
+	_shpUBRY: %SystemUInt16, null
+	_shpSizeX: %SystemSingle, 0.0
+	_shpSizeY: %SystemSingle, 0.0
+
+	# -- colour decoding --
+
+	_col_i32: %SystemInt32, 0
+
+	_col_r: %SystemSingle, 0.0
+	_col_g: %SystemSingle, 0.0
+	_col_b: %SystemSingle, 0.0
+	_col: %UnityEngineColor, null
+	_col32: %UnityEngineColor32, null
+
+	# -- position calculation --
+
+	_pclTLX: %SystemSingle, 0.0
+	_pclTLY: %SystemSingle, 0.0
+	_pclBRX: %SystemSingle, 0.0
+	_pclBRY: %SystemSingle, 0.0
+
+	# -- uv calculation --
+
+	_uvTLX: %SystemSingle, 0.0
+	_uvTLY: %SystemSingle, 0.0
+	_uvBRX: %SystemSingle, 0.0
+	_uvBRY: %SystemSingle, 0.0
+
+	# -- vertex muxing --
+
+	_vtxV0: %UnityEngineVector3, null
+	_vtxT0: %UnityEngineVector2, null
+	_vtxV1: %UnityEngineVector3, null
+	_vtxT1: %UnityEngineVector2, null
+	_vtxV2: %UnityEngineVector3, null
+	_vtxT2: %UnityEngineVector2, null
+	_vtxV3: %UnityEngineVector3, null
+	_vtxT3: %UnityEngineVector2, null
+
+	_vtxUV2: %UnityEngineVector2, null
+
+	# -- indices --
+
+	_vi0: %SystemInt32, 0
+	_vi1: %SystemInt32, 0
+	_vi2: %SystemInt32, 0
+	_vi3: %SystemInt32, 0
+
+	_iptr: %SystemInt32, 0
+
 	# -- temporaries --
 
 	_byte: %SystemByte, null
 	_bool: %SystemBoolean, null
+	_i32: %SystemInt32, 0
+	_floatA: %SystemSingle, 0.0
+	_floatB: %SystemSingle, 0.0
+	_floatX: %SystemSingle, 0.0
+	_floatY: %SystemSingle, 0.0
 
 .data_end
 .code_start
@@ -343,7 +439,428 @@ _LoadPage:
 			PUSH, _triangles
 			EXTERN, "SystemInt32Array.__ctor__SystemInt32__SystemInt32Array"
 
-	# -- generate geometry --
+# -- setup sprite main loop variables --
+
+# _vi0 = 0 ; _iptr = 0
+	PUSH, _c_0
+	PUSH, _vi0
+	COPY
+	PUSH, _c_0
+	PUSH, _iptr
+	COPY
+
+# _vtxUV2 = Vector2(0.0, 1.0)
+	PUSH, _cf_0
+	PUSH, _cf_1
+	PUSH, _vtxUV2
+	EXTERN, "UnityEngineVector2.__ctor__SystemSingle_SystemSingle__UnityEngineVector2"
+
+# -- sprite main loop --
+# we use some special formatting here because this is going to get **DEEP**
+
+_genGeomLoop:
+	PUSH, _ofsPage
+	PUSH, _endPage
+	PUSH, _bool
+	EXTERN, "SystemInt32.__op_Inequality__SystemInt32_SystemInt32__SystemBoolean"
+	PUSH, _bool
+	JUMP_IF_FALSE, _genGeomDone
+
+	# -- sprite read-in --
+
+		# _sprShape = *_ofsPage ; _ofsPage += 2
+			PUSH, _data
+			PUSH, _ofsPage
+			PUSH, _sprShape
+			EXTERN, "SystemBitConverter.__ToUInt16__SystemByteArray_SystemInt32__SystemUInt16"
+			PUSH, _ofsPage
+			PUSH, _c_2
+			PUSH, _ofsPage
+			EXTERN, "SystemInt32.__op_Addition__SystemInt32_SystemInt32__SystemInt32"
+		# _sprTLX = *_ofsPage ; _ofsPage += 2
+			PUSH, _data
+			PUSH, _ofsPage
+			PUSH, _sprTLX
+			EXTERN, "SystemBitConverter.__ToUInt16__SystemByteArray_SystemInt32__SystemUInt16"
+			PUSH, _ofsPage
+			PUSH, _c_2
+			PUSH, _ofsPage
+			EXTERN, "SystemInt32.__op_Addition__SystemInt32_SystemInt32__SystemInt32"
+		# _sprTLY = *_ofsPage ; _ofsPage += 2
+			PUSH, _data
+			PUSH, _ofsPage
+			PUSH, _sprTLY
+			EXTERN, "SystemBitConverter.__ToUInt16__SystemByteArray_SystemInt32__SystemUInt16"
+			PUSH, _ofsPage
+			PUSH, _c_2
+			PUSH, _ofsPage
+			EXTERN, "SystemInt32.__op_Addition__SystemInt32_SystemInt32__SystemInt32"
+		# _sprCol = *_ofsPage ; _ofsPage += 2
+			PUSH, _data
+			PUSH, _ofsPage
+			PUSH, _sprCol
+			EXTERN, "SystemBitConverter.__ToUInt16__SystemByteArray_SystemInt32__SystemUInt16"
+			PUSH, _ofsPage
+			PUSH, _c_2
+			PUSH, _ofsPage
+			EXTERN, "SystemInt32.__op_Addition__SystemInt32_SystemInt32__SystemInt32"
+
+	# -- find shape --
+
+		# _ofsShape = int32(_sprShape)
+			PUSH, _sprShape
+			PUSH, _ofsShape
+			EXTERN, "SystemConvert.__ToInt32__SystemUInt16__SystemInt32"
+		# _ofsShape *= 16
+			PUSH, _ofsShape
+			PUSH, _c_16
+			PUSH, _ofsShape
+			EXTERN, "SystemInt32.__op_Multiplication__SystemInt32_SystemInt32__SystemInt32"
+		# _ofsShape += _ofsAtlas
+			PUSH, _ofsShape
+			PUSH, _ofsAtlas
+			PUSH, _ofsShape
+			EXTERN, "SystemInt32.__op_Addition__SystemInt32_SystemInt32__SystemInt32"
+
+	# -- shape read-in --
+
+		# _shpUTLX = *_ofsShape ; _ofsShape += 2
+			PUSH, _data
+			PUSH, _ofsShape
+			PUSH, _shpUTLX
+			EXTERN, "SystemBitConverter.__ToUInt16__SystemByteArray_SystemInt32__SystemUInt16"
+			PUSH, _ofsShape
+			PUSH, _c_2
+			PUSH, _ofsShape
+			EXTERN, "SystemInt32.__op_Addition__SystemInt32_SystemInt32__SystemInt32"
+		# _shpUTLY = *_ofsShape ; _ofsShape += 2
+			PUSH, _data
+			PUSH, _ofsShape
+			PUSH, _shpUTLY
+			EXTERN, "SystemBitConverter.__ToUInt16__SystemByteArray_SystemInt32__SystemUInt16"
+			PUSH, _ofsShape
+			PUSH, _c_2
+			PUSH, _ofsShape
+			EXTERN, "SystemInt32.__op_Addition__SystemInt32_SystemInt32__SystemInt32"
+		# _shpUBRX = *_ofsShape ; _ofsShape += 2
+			PUSH, _data
+			PUSH, _ofsShape
+			PUSH, _shpUBRX
+			EXTERN, "SystemBitConverter.__ToUInt16__SystemByteArray_SystemInt32__SystemUInt16"
+			PUSH, _ofsShape
+			PUSH, _c_2
+			PUSH, _ofsShape
+			EXTERN, "SystemInt32.__op_Addition__SystemInt32_SystemInt32__SystemInt32"
+		# _shpUBRY = *_ofsShape ; _ofsShape += 2
+			PUSH, _data
+			PUSH, _ofsShape
+			PUSH, _shpUBRY
+			EXTERN, "SystemBitConverter.__ToUInt16__SystemByteArray_SystemInt32__SystemUInt16"
+			PUSH, _ofsShape
+			PUSH, _c_2
+			PUSH, _ofsShape
+			EXTERN, "SystemInt32.__op_Addition__SystemInt32_SystemInt32__SystemInt32"
+		# _shpSizeX = *_ofsShape ; _ofsShape += 4
+			PUSH, _data
+			PUSH, _ofsShape
+			PUSH, _shpSizeX
+			EXTERN, "SystemBitConverter.__ToSingle__SystemByteArray_SystemInt32__SystemSingle"
+			PUSH, _ofsShape
+			PUSH, _c_4
+			PUSH, _ofsShape
+			EXTERN, "SystemInt32.__op_Addition__SystemInt32_SystemInt32__SystemInt32"
+		# _shpSizeY = *_ofsShape
+			PUSH, _data
+			PUSH, _ofsShape
+			PUSH, _shpSizeY
+			EXTERN, "SystemBitConverter.__ToSingle__SystemByteArray_SystemInt32__SystemSingle"
+
+	# -- colour decoding --
+
+		# _col_i32 = int32(_sprCol)
+			PUSH, _sprCol
+			PUSH, _col_i32
+			EXTERN, "SystemConvert.__ToInt32__SystemUInt16__SystemInt32"
+
+		# _col_r = float(_col_i32 >> 11)
+			PUSH, _col_i32
+			PUSH, _i32
+			COPY
+			PUSH, _i32
+			PUSH, _c_11
+			PUSH, _i32
+			EXTERN, "SystemInt32.__op_RightShift__SystemInt32_SystemInt32__SystemInt32"
+			PUSH, _i32
+			PUSH, _col_r
+			EXTERN, "SystemConvert.__ToSingle__SystemInt32__SystemSingle"
+
+		# _col_g = float((_col_i32 >> 5) & 0x3F)
+			PUSH, _col_i32
+			PUSH, _i32
+			COPY
+			PUSH, _i32
+			PUSH, _c_5
+			PUSH, _i32
+			EXTERN, "SystemInt32.__op_RightShift__SystemInt32_SystemInt32__SystemInt32"
+			PUSH, _i32
+			PUSH, _c_63
+			PUSH, _i32
+			EXTERN, "SystemInt32.__op_LogicalAnd__SystemInt32_SystemInt32__SystemInt32"
+			PUSH, _i32
+			PUSH, _col_g
+			EXTERN, "SystemConvert.__ToSingle__SystemInt32__SystemSingle"
+
+		# _col_b = float(_col_i32 & 0x1F)
+			PUSH, _col_i32
+			PUSH, _i32
+			COPY
+			PUSH, _i32
+			PUSH, _c_31
+			PUSH, _i32
+			EXTERN, "SystemInt32.__op_LogicalAnd__SystemInt32_SystemInt32__SystemInt32"
+			PUSH, _i32
+			PUSH, _col_b
+			EXTERN, "SystemConvert.__ToSingle__SystemInt32__SystemSingle"
+
+		# _col_r /= 31.0, _col_g /= 63.0, _col_b /= 31.0
+			PUSH, _col_r
+			PUSH, _cf_31
+			PUSH, _col_r
+			EXTERN, "SystemSingle.__op_Division__SystemSingle_SystemSingle__SystemSingle"
+			PUSH, _col_g
+			PUSH, _cf_63
+			PUSH, _col_g
+			EXTERN, "SystemSingle.__op_Division__SystemSingle_SystemSingle__SystemSingle"
+			PUSH, _col_b
+			PUSH, _cf_31
+			PUSH, _col_b
+			EXTERN, "SystemSingle.__op_Division__SystemSingle_SystemSingle__SystemSingle"
+
+		# _col32 = Color32(Color(_col_r, _col_g, _col_b))
+			PUSH, _col_r
+			PUSH, _col_g
+			PUSH, _col_b
+			PUSH, _col
+			EXTERN, "UnityEngineColor.__ctor__SystemSingle_SystemSingle_SystemSingle__UnityEngineColor"
+			PUSH, _col
+			PUSH, _col32
+			EXTERN, "UnityEngineColor32.__op_Implicit__UnityEngineColor__UnityEngineColor32"
+
+	# -- find vertex indices --
+	# these are also used to *write* the vertices, so indices should be figured out first.
+
+		PUSH, _vi0
+		PUSH, _c_1
+		PUSH, _vi1
+		EXTERN, "SystemInt32.__op_Addition__SystemInt32_SystemInt32__SystemInt32"
+		PUSH, _vi0
+		PUSH, _c_2
+		PUSH, _vi2
+		EXTERN, "SystemInt32.__op_Addition__SystemInt32_SystemInt32__SystemInt32"
+		PUSH, _vi0
+		PUSH, _c_3
+		PUSH, _vi3
+		EXTERN, "SystemInt32.__op_Addition__SystemInt32_SystemInt32__SystemInt32"
+
+	# -- write indices --
+
+		# To make the array easier to see, the stack operations here do something weird.
+		PUSH, _triangles
+		PUSH, _iptr
+		PUSH, _vi0
+		#
+		PUSH, _triangles
+		PUSH, _iptr
+		PUSH, _vi1
+		#
+		PUSH, _triangles
+		PUSH, _iptr
+		PUSH, _vi2
+		#
+		PUSH, _triangles
+		PUSH, _iptr
+		PUSH, _vi2
+		#
+		PUSH, _triangles
+		PUSH, _iptr
+		PUSH, _vi1
+		#
+		PUSH, _triangles
+		PUSH, _iptr
+		PUSH, _vi3
+		# --
+		EXTERN, "SystemInt32Array.__Set__SystemInt32_SystemInt32__SystemVoid"
+			PUSH, _iptr
+			PUSH, _c_1
+			PUSH, _iptr
+			EXTERN, "SystemInt32.__op_Addition__SystemInt32_SystemInt32__SystemInt32"
+		EXTERN, "SystemInt32Array.__Set__SystemInt32_SystemInt32__SystemVoid"
+			PUSH, _iptr
+			PUSH, _c_1
+			PUSH, _iptr
+			EXTERN, "SystemInt32.__op_Addition__SystemInt32_SystemInt32__SystemInt32"
+		EXTERN, "SystemInt32Array.__Set__SystemInt32_SystemInt32__SystemVoid"
+			PUSH, _iptr
+			PUSH, _c_1
+			PUSH, _iptr
+			EXTERN, "SystemInt32.__op_Addition__SystemInt32_SystemInt32__SystemInt32"
+		EXTERN, "SystemInt32Array.__Set__SystemInt32_SystemInt32__SystemVoid"
+			PUSH, _iptr
+			PUSH, _c_1
+			PUSH, _iptr
+			EXTERN, "SystemInt32.__op_Addition__SystemInt32_SystemInt32__SystemInt32"
+		EXTERN, "SystemInt32Array.__Set__SystemInt32_SystemInt32__SystemVoid"
+			PUSH, _iptr
+			PUSH, _c_1
+			PUSH, _iptr
+			EXTERN, "SystemInt32.__op_Addition__SystemInt32_SystemInt32__SystemInt32"
+		EXTERN, "SystemInt32Array.__Set__SystemInt32_SystemInt32__SystemVoid"
+			PUSH, _iptr
+			PUSH, _c_1
+			PUSH, _iptr
+			EXTERN, "SystemInt32.__op_Addition__SystemInt32_SystemInt32__SystemInt32"
+
+	# -- position calculation --
+
+	# -- uv calculation --
+
+	# -- position muxing --
+
+		# muxing array
+		# remember, X->Z, Y->X
+		PUSH, _pclTLY
+		PUSH, _cf_0
+		PUSH, _pclTLX
+
+		PUSH, _pclTLY
+		PUSH, _cf_0
+		PUSH, _pclBRX
+
+		PUSH, _pclBRY
+		PUSH, _cf_0
+		PUSH, _pclTLX
+
+		PUSH, _pclBRY
+		PUSH, _cf_0
+		PUSH, _pclBRX
+
+		# muxing finish
+			PUSH, _vtxV0
+			EXTERN, "UnityEngineVector3.__ctor__SystemSingle_SystemSingle_SystemSingle__UnityEngineVector3"
+			PUSH, _vtxV1
+			EXTERN, "UnityEngineVector3.__ctor__SystemSingle_SystemSingle_SystemSingle__UnityEngineVector3"
+			PUSH, _vtxV2
+			EXTERN, "UnityEngineVector3.__ctor__SystemSingle_SystemSingle_SystemSingle__UnityEngineVector3"
+			PUSH, _vtxV3
+			EXTERN, "UnityEngineVector3.__ctor__SystemSingle_SystemSingle_SystemSingle__UnityEngineVector3"
+
+	# -- UV muxing --
+
+		# muxing array
+		PUSH, _uvTLX
+		PUSH, _uvTLY
+
+		PUSH, _uvBRX
+		PUSH, _uvTLY
+
+		PUSH, _uvTLX
+		PUSH, _uvBRY
+
+		PUSH, _uvBRX
+		PUSH, _uvBRY
+
+		# muxing finish
+			PUSH, _vtxT0
+			EXTERN, "UnityEngineVector2.__ctor__SystemSingle_SystemSingle__UnityEngineVector2"
+			PUSH, _vtxT1
+			EXTERN, "UnityEngineVector2.__ctor__SystemSingle_SystemSingle__UnityEngineVector2"
+			PUSH, _vtxT2
+			EXTERN, "UnityEngineVector2.__ctor__SystemSingle_SystemSingle__UnityEngineVector2"
+			PUSH, _vtxT3
+			EXTERN, "UnityEngineVector2.__ctor__SystemSingle_SystemSingle__UnityEngineVector2"
+
+	# -- write vertices --
+
+		# -- vi0 --
+		PUSH, _vertices
+		PUSH, _vi0
+		PUSH, _vtxV0
+		EXTERN, "UnityEngineVector3Array.__Set__SystemInt32_UnityEngineVector3__SystemVoid"
+		PUSH, _uv
+		PUSH, _vi0
+		PUSH, _vtxT0
+		EXTERN, "UnityEngineVector2Array.__Set__SystemInt32_UnityEngineVector2__SystemVoid"
+		PUSH, _uv2
+		PUSH, _vi0
+		PUSH, _vtxUV2
+		EXTERN, "UnityEngineVector2Array.__Set__SystemInt32_UnityEngineVector2__SystemVoid"
+		PUSH, _colors32
+		PUSH, _vi0
+		PUSH, _col32
+		EXTERN, "UnityEngineColor32Array.__Set__SystemInt32_UnityEngineColor32__SystemVoid"
+		# -- vi1 --
+		PUSH, _vertices
+		PUSH, _vi1
+		PUSH, _vtxV1
+		EXTERN, "UnityEngineVector3Array.__Set__SystemInt32_UnityEngineVector3__SystemVoid"
+		PUSH, _uv
+		PUSH, _vi1
+		PUSH, _vtxT1
+		EXTERN, "UnityEngineVector2Array.__Set__SystemInt32_UnityEngineVector2__SystemVoid"
+		PUSH, _uv2
+		PUSH, _vi1
+		PUSH, _vtxUV2
+		EXTERN, "UnityEngineVector2Array.__Set__SystemInt32_UnityEngineVector2__SystemVoid"
+		PUSH, _colors32
+		PUSH, _vi1
+		PUSH, _col32
+		EXTERN, "UnityEngineColor32Array.__Set__SystemInt32_UnityEngineColor32__SystemVoid"
+		# -- vi2 --
+		PUSH, _vertices
+		PUSH, _vi2
+		PUSH, _vtxV2
+		EXTERN, "UnityEngineVector3Array.__Set__SystemInt32_UnityEngineVector3__SystemVoid"
+		PUSH, _uv
+		PUSH, _vi2
+		PUSH, _vtxT2
+		EXTERN, "UnityEngineVector2Array.__Set__SystemInt32_UnityEngineVector2__SystemVoid"
+		PUSH, _uv2
+		PUSH, _vi2
+		PUSH, _vtxUV2
+		EXTERN, "UnityEngineVector2Array.__Set__SystemInt32_UnityEngineVector2__SystemVoid"
+		PUSH, _colors32
+		PUSH, _vi2
+		PUSH, _col32
+		EXTERN, "UnityEngineColor32Array.__Set__SystemInt32_UnityEngineColor32__SystemVoid"
+		# -- vi3 --
+		PUSH, _vertices
+		PUSH, _vi3
+		PUSH, _vtxV3
+		EXTERN, "UnityEngineVector3Array.__Set__SystemInt32_UnityEngineVector3__SystemVoid"
+		PUSH, _uv
+		PUSH, _vi3
+		PUSH, _vtxT3
+		EXTERN, "UnityEngineVector2Array.__Set__SystemInt32_UnityEngineVector2__SystemVoid"
+		PUSH, _uv2
+		PUSH, _vi3
+		PUSH, _vtxUV2
+		EXTERN, "UnityEngineVector2Array.__Set__SystemInt32_UnityEngineVector2__SystemVoid"
+		PUSH, _colors32
+		PUSH, _vi3
+		PUSH, _col32
+		EXTERN, "UnityEngineColor32Array.__Set__SystemInt32_UnityEngineColor32__SystemVoid"
+
+	# -- advance _vi0 --
+
+		PUSH, _vi0
+		PUSH, _c_4
+		PUSH, _vi0
+		EXTERN, "SystemInt32.__op_Addition__SystemInt32_SystemInt32__SystemInt32"
+
+	# -- done --
+
+JUMP, _genGeomLoop
+_genGeomDone:
 
 	# -- create, assign, and setup the mesh --
 
