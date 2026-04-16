@@ -327,7 +327,7 @@ fn main() {
         );
     }
     _ = std::fs::write(
-        &format!("{}/atlas0.png", outdir),
+        &format!("{}/atlas.0.png", outdir),
         atlas_pix.encode_png().unwrap(),
     );
 

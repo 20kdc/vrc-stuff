@@ -1,0 +1,3 @@
+#!/bin/sh
+cd ../testbook
+godot

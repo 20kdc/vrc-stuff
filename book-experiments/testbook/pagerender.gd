@@ -15,7 +15,7 @@ func get_atlas(i: int) -> ImageTexture:
 	if atlases.has(i):
 		return atlases[i]
 	var img := Image.new()
-	if img.load("../drawbook/atlas" + str(i) + ".png") != OK:
+	if img.load("../drawbook/out/atlas." + str(i) + ".png") != OK:
 		return null
 	var atlas = ImageTexture.new()
 	atlas.create_from_image(img, Texture.FLAG_FILTER)
@@ -61,7 +61,7 @@ func _ready():
 	reload()
 
 func reload():
-	file.open("../drawbook/book.bin", File.READ)
+	file.open("../drawbook/out/book.bin", File.READ)
 	atlas_count = file.get_32()
 	page_count = file.get_32()
 	atlases = {}
