@@ -1,6 +1,6 @@
 /target
 /pages
-/debug
+/out
 /*.pdf
 /book.bin
 /atlas*.png

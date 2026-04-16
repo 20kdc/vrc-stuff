@@ -147,59 +147,56 @@ impl DBBook {
         f32::powf(v as f32 / 255.0f32, 2.2f32)
     }
 
-    /// Writes book contents to a .dae file.
-    pub fn emit_dae(&self) -> String {
-        let mut pages_geom: Vec<ColladaGeometry> = Vec::new();
-        for v in self.pages.iter().enumerate() {
-            let atlas = &self.atlases[v.1.atlas as usize];
-            let atlas_size = atlas.size;
-            let mut geom = ColladaGeometry::default();
-            for sprite in &v.1.sprites {
-                let colour = (
-                    Self::dae_transform_col(sprite.colour[0]),
-                    Self::dae_transform_col(sprite.colour[1]),
-                    Self::dae_transform_col(sprite.colour[2]),
-                );
-                let shape = &atlas.shapes[sprite.shape];
-                let bottom_right = sprite.top_left + shape.size;
-                // AB
-                // CD
-                let vtxa = ColladaVertex {
-                    pos: Self::dae_transform(v.1, sprite.top_left.0, sprite.top_left.1),
-                    normal: (0f32, 0f32, 1f32),
-                    st: self.dae_transform_st(atlas_size, shape.uv_tl.0, shape.uv_tl.1),
-                    colour,
-                };
-                let vtxb = ColladaVertex {
-                    pos: Self::dae_transform(v.1, bottom_right.0, sprite.top_left.1),
-                    normal: (0f32, 0f32, 1f32),
-                    st: self.dae_transform_st(atlas_size, shape.uv_br.0, shape.uv_tl.1),
-                    colour,
-                };
-                let vtxc = ColladaVertex {
-                    pos: Self::dae_transform(v.1, sprite.top_left.0, bottom_right.1),
-                    normal: (0f32, 0f32, 1f32),
-                    st: self.dae_transform_st(atlas_size, shape.uv_tl.0, shape.uv_br.1),
-                    colour,
-                };
-                let vtxd = ColladaVertex {
-                    pos: Self::dae_transform(v.1, bottom_right.0, bottom_right.1),
-                    normal: (0f32, 0f32, 1f32),
-                    st: self.dae_transform_st(atlas_size, shape.uv_br.0, shape.uv_br.1),
-                    colour,
-                };
-                // AB
-                // CD
-                geom.triangles.push(vtxc);
-                geom.triangles.push(vtxb);
-                geom.triangles.push(vtxa);
-                geom.triangles.push(vtxd);
-                geom.triangles.push(vtxb);
-                geom.triangles.push(vtxc);
-            }
-            geom.name = format!("p{}", v.0);
-            pages_geom.push(geom);
+    /// Writes book contents to .dae geometry.
+    pub fn page_dae(&self, page_index: usize) -> ColladaGeometry {
+        let page = &self.pages[page_index];
+        let atlas = &self.atlases[page.atlas as usize];
+        let atlas_size = atlas.size;
+        let mut geom = ColladaGeometry::default();
+        for sprite in &page.sprites {
+            let colour = (
+                Self::dae_transform_col(sprite.colour[0]),
+                Self::dae_transform_col(sprite.colour[1]),
+                Self::dae_transform_col(sprite.colour[2]),
+            );
+            let shape = &atlas.shapes[sprite.shape];
+            let bottom_right = sprite.top_left + shape.size;
+            // AB
+            // CD
+            let vtxa = ColladaVertex {
+                pos: Self::dae_transform(page, sprite.top_left.0, sprite.top_left.1),
+                normal: (0f32, 0f32, 1f32),
+                st: self.dae_transform_st(atlas_size, shape.uv_tl.0, shape.uv_tl.1),
+                colour,
+            };
+            let vtxb = ColladaVertex {
+                pos: Self::dae_transform(page, bottom_right.0, sprite.top_left.1),
+                normal: (0f32, 0f32, 1f32),
+                st: self.dae_transform_st(atlas_size, shape.uv_br.0, shape.uv_tl.1),
+                colour,
+            };
+            let vtxc = ColladaVertex {
+                pos: Self::dae_transform(page, sprite.top_left.0, bottom_right.1),
+                normal: (0f32, 0f32, 1f32),
+                st: self.dae_transform_st(atlas_size, shape.uv_tl.0, shape.uv_br.1),
+                colour,
+            };
+            let vtxd = ColladaVertex {
+                pos: Self::dae_transform(page, bottom_right.0, bottom_right.1),
+                normal: (0f32, 0f32, 1f32),
+                st: self.dae_transform_st(atlas_size, shape.uv_br.0, shape.uv_br.1),
+                colour,
+            };
+            // AB
+            // CD
+            geom.triangles.push(vtxc);
+            geom.triangles.push(vtxb);
+            geom.triangles.push(vtxa);
+            geom.triangles.push(vtxd);
+            geom.triangles.push(vtxb);
+            geom.triangles.push(vtxc);
         }
-        collada_write(&pages_geom)
+        geom.name = format!("p{}", page_index);
+        geom
     }
 }

@@ -51,6 +51,7 @@ impl SplitAggression {
 /// Shapeify the contents of an SVG.
 pub fn shapeify_all(
     tree: &usvg::Tree,
+    outdir: &str,
     split_aggression: SplitAggression,
     sdf_border: u32,
     render_limit: u32,
@@ -106,7 +107,7 @@ pub fn shapeify_all(
                 if let Some(_) = resvg::render_node(&sprite, transform, &mut temp_canvas.as_mut()) {
                     if debug_dse {
                         _ = std::fs::write(
-                            format!("debug/dse.s{}.png", j),
+                            format!("{}/debug.dse.s{}.png", outdir, j),
                             temp_canvas.encode_png().unwrap(),
                         );
                     }

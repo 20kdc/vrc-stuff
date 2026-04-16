@@ -2,9 +2,9 @@
 rm -f book.pdf
 ln -s "$1" book.pdf
 shift
-mkdir -p debug
+mkdir -p out
 mkdir -p pages
-rm -rf pages/*.svg debug/*.png
+rm -f pages/*.svg out/*
 pdf2svg book.pdf pages/%d.svg all
 cargo fmt
-cargo run --release -- "$@"
+cargo run --release -- "pages/%d.svg" -o out "$@"

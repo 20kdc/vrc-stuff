@@ -1,3 +1,5 @@
+//! The `shapify` module is responsible for converting rasterized geometry into monochrome bitmapped shapes.
+
 use crate::geom::{Raster, V2};
 use std::hash::Hasher;
 use tiny_skia::{Pixmap, PremultipliedColorU8};

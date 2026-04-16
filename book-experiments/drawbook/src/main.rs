@@ -26,11 +26,14 @@ const SDF_BORDER_DEFAULT: u32 = 4;
 const SDF_SMOOTH_DEFAULT: f32 = 0.05f32;
 
 fn do_help() {
-    println!("drawbook");
+    println!("drawbook IN... -o OUTDIR");
     println!(
         "{}",
         " converts a set of SVGs (pages/{1.svg, 2.svg...}) to SDF sheets"
     );
+    println!(" IN: may be a single SVG, or if this contains '%d', this is");
+    println!("  considered to be a sequence starting from either 0 or 1.");
+    println!(" -o OUTDIR: output directory, created if it doesn't exist");
     println!(" --help: help");
     println!(" --split page/roots/isolatable/nasty: SVG shape split mode");
     println!("  page: renders each page as one shape");
@@ -66,7 +69,7 @@ fn do_help() {
         " --sdf-smooth VAL: SDF smoothness ('magic', adjust w/ shader), default {:?}",
         SDF_SMOOTH_DEFAULT
     );
-    println!(" --debug-shapeslate: writes debug/s*.png / debug/s*.sdf.png");
+    println!(" --debug-shapeslate: writes debug.s*.png / debug.s*.sdf.png");
     std::process::exit(0);
 }
 
@@ -82,12 +85,24 @@ fn main() {
     // Border in SDF pixels.
     let mut sdf_border: u32 = SDF_BORDER_DEFAULT;
     let mut debug_dump_shapes_late = false;
+    let mut inputs: Vec<String> = Vec::new();
+    let mut outdir: Option<String> = None;
     // -- argparse --
     let mut arg_parser = lexopt::Parser::from_env();
     while let Some(arg) = arg_parser.next().expect("arg_parser") {
         match arg {
             lexopt::Arg::Short(v) => {
-                panic!("unknown short arg {}, try --help", v);
+                if v.eq(&'o') {
+                    outdir = Some(
+                        arg_parser
+                            .value()
+                            .expect("-o should have parameter")
+                            .to_string_lossy()
+                            .to_string(),
+                    );
+                } else {
+                    panic!("unknown short arg {}, try --help", v);
+                }
             }
             lexopt::Arg::Long(v) => {
                 if v.eq("split") {
@@ -143,12 +158,31 @@ fn main() {
                 }
             }
             lexopt::Arg::Value(v) => {
-                panic!("can't handle value {}, try --help", v.to_string_lossy());
+                // It's easier to handle sequencing here.
+                let x = v.to_string_lossy();
+                if x.contains("%d") {
+                    let mut page_no = 0;
+                    loop {
+                        let candidate = x.replace("%d", &page_no.to_string());
+                        if !std::fs::exists(&candidate).is_ok_and(|v| v) {
+                            // This rule allows the sequence to start from 0 or 1.
+                            if page_no != 0 {
+                                break;
+                            }
+                        } else {
+                            inputs.push(candidate);
+                        }
+                        page_no += 1;
+                    }
+                } else {
+                    inputs.push(x.to_string());
+                }
             }
         }
     }
+    let outdir = outdir.expect("outdir REQUIRED");
+    _ = std::fs::create_dir_all(&outdir);
     // -- rasterize --
-    let mut page_no = 1;
     let mut sprite_lookup: HashMap<Arc<DBShape>, usize> = HashMap::new();
     let mut shapes: Vec<Arc<DBShape>> = Vec::new();
     let mut pages: Vec<DBPage> = Vec::new();
@@ -156,14 +190,14 @@ fn main() {
         ..Default::default()
     };
     println!("rendering...");
-    loop {
-        let svgn = format!("pages/{}.svg", page_no);
+    for svgn in inputs {
         if let Ok(svgd) = std::fs::read(&svgn) {
             println!("{}", svgn);
             let res = usvg::Tree::from_data(&svgd, &svg_opts).expect("svg should have parsed");
             // render and insert sprites
             let rendered: Vec<ShapeifyRes> = shapeify_all(
                 &res,
+                &outdir,
                 split_aggression,
                 sdf_border,
                 render_limit,
@@ -196,7 +230,6 @@ fn main() {
         } else {
             break;
         }
-        page_no += 1;
     }
     // done with main conversion bulk
     print!("SDF conversions...");
@@ -209,7 +242,7 @@ fn main() {
             if debug_dump_shapes_late {
                 let downscale_check_canvas = shape.to_pixmap();
                 _ = std::fs::write(
-                    format!("debug/s{}.png", shape_id),
+                    format!("{}/debug.s{}.png", outdir, shape_id),
                     downscale_check_canvas.encode_png().unwrap(),
                 );
             }
@@ -221,14 +254,14 @@ fn main() {
             let shape_sdf = sdf::shape_to_sdf(shape);
 
             // This is 'magic' that needs to act in concert with the shader.
-            // It broadly represents smoothness, and needs to be smaller if the texture distance is smaller.
+            // It's important that it's scaled according to the 'total multiplier' so that it's spatially consistent.
             let step_sdf_mul = (shape.render_mul() as f32) / (sdf_downscale as f32);
             let step: f32 = 1f32 / (sdf_smooth * step_sdf_mul);
 
             let res = sdf::sdf_to_pixmap(&shape_sdf, (step as i32).max(1));
             if debug_dump_shapes_late {
                 _ = std::fs::write(
-                    format!("debug/s{}.sdf.png", shape_id),
+                    format!("{}/debug.s{}.sdf.png", outdir, shape_id),
                     res.encode_png().unwrap(),
                 );
             }
@@ -317,7 +350,10 @@ fn main() {
             None,
         );
     }
-    _ = std::fs::write("atlas0.png", atlas_pix.encode_png().unwrap());
+    _ = std::fs::write(
+        &format!("{}/atlas0.png", outdir),
+        atlas_pix.encode_png().unwrap(),
+    );
 
     println!("emit...");
     // initialize atlased book
@@ -328,6 +364,11 @@ fn main() {
         }],
         pages,
     };
-    _ = std::fs::write("book.bin", book_atlased.emit());
-    _ = std::fs::write("book.dae", book_atlased.emit_dae());
+    _ = std::fs::write(&format!("{}/book.bin", outdir), book_atlased.emit());
+    for i in 0..book_atlased.pages.len() {
+        _ = std::fs::write(
+            &format!("{}/page.{}.dae", outdir, i),
+            collada::collada_write(&[book_atlased.page_dae(i)]),
+        );
+    }
 }
