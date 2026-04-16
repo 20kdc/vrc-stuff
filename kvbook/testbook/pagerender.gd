@@ -40,8 +40,8 @@ func get_shape(i: int) -> Dictionary:
 
 	var atlas = get_atlas(atlas_id)
 
-	var tl = Vector2(tlx, tly) * atlas.get_size()
-	var br = Vector2(brx, bry) * atlas.get_size()
+	var tl = Vector2(tlx, 1.0 - tly) * atlas.get_size()
+	var br = Vector2(brx, 1.0 - bry) * atlas.get_size()
 
 	var res := {}
 	res["tex"] = atlas
@@ -61,7 +61,7 @@ func _ready():
 	reload()
 
 func reload():
-	file.open("../drawbook/out/book.bin", File.READ)
+	file.open("../drawbook/out/book.bytes", File.READ)
 	atlas_count = file.get_32()
 	page_count = file.get_32()
 	atlases = {}

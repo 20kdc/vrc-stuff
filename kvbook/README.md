@@ -40,7 +40,8 @@ The binary file format uses several different forms of unit:
 	2. multiplying it by `32767.0`
 	3. clamping
 	4. converting to `int16`
-* '`float` UV space', 0,0 being top-left and 1,1 being bottom-right.
+* '`float` UV space', 0,1 being top-left and 1,0 being bottom-right.
+	* The Y is inverted here because it'd need to be done in the Udon code otherwise, and if you've seen it, you know why I don't want to do that.
 * '`uint16` UV space', which maps 0-65535 to 0-1.
 
 The binary file format starts with a header:

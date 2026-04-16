@@ -22,6 +22,8 @@
 	_cf_1: %SystemSingle, 1.0
 	_cf_31: %SystemSingle, 31.0
 	_cf_63: %SystemSingle, 63.0
+	_cf_32767: %SystemSingle, 32767.0
+	_cf_65535: %SystemSingle, 65535.0
 
 	_null: %SystemObject,null
 
@@ -478,19 +480,21 @@ _genGeomLoop:
 			PUSH, _ofsPage
 			EXTERN, "SystemInt32.__op_Addition__SystemInt32_SystemInt32__SystemInt32"
 		# _sprTLX = *_ofsPage ; _ofsPage += 2
+		# ** SIGNED ** (as opposed to unsigned like shape/col)
 			PUSH, _data
 			PUSH, _ofsPage
 			PUSH, _sprTLX
-			EXTERN, "SystemBitConverter.__ToUInt16__SystemByteArray_SystemInt32__SystemUInt16"
+			EXTERN, "SystemBitConverter.__ToInt16__SystemByteArray_SystemInt32__SystemInt16"
 			PUSH, _ofsPage
 			PUSH, _c_2
 			PUSH, _ofsPage
 			EXTERN, "SystemInt32.__op_Addition__SystemInt32_SystemInt32__SystemInt32"
 		# _sprTLY = *_ofsPage ; _ofsPage += 2
+		# ** SIGNED ** (as opposed to unsigned like shape/col)
 			PUSH, _data
 			PUSH, _ofsPage
 			PUSH, _sprTLY
-			EXTERN, "SystemBitConverter.__ToUInt16__SystemByteArray_SystemInt32__SystemUInt16"
+			EXTERN, "SystemBitConverter.__ToInt16__SystemByteArray_SystemInt32__SystemInt16"
 			PUSH, _ofsPage
 			PUSH, _c_2
 			PUSH, _ofsPage
@@ -636,12 +640,19 @@ _genGeomLoop:
 			PUSH, _col_b
 			EXTERN, "SystemSingle.__op_Division__SystemSingle_SystemSingle__SystemSingle"
 
-		# _col32 = Color32(Color(_col_r, _col_g, _col_b))
+		# _col = Color(_col_r, _col_g, _col_b)
 			PUSH, _col_r
 			PUSH, _col_g
 			PUSH, _col_b
 			PUSH, _col
 			EXTERN, "UnityEngineColor.__ctor__SystemSingle_SystemSingle_SystemSingle__UnityEngineColor"
+
+		# _col = _col.linear
+			PUSH, _col
+			PUSH, _col
+			EXTERN, "UnityEngineColor.__get_linear__UnityEngineColor"
+
+		# _col32 = Color32(_col)
 			PUSH, _col
 			PUSH, _col32
 			EXTERN, "UnityEngineColor32.__op_Implicit__UnityEngineColor__UnityEngineColor32"
@@ -667,27 +678,27 @@ _genGeomLoop:
 		# To make the array easier to see, the stack operations here do something weird.
 		PUSH, _triangles
 		PUSH, _iptr
+		PUSH, _vi2
+		#
+		PUSH, _triangles
+		PUSH, _iptr
+		PUSH, _vi1
+		#
+		PUSH, _triangles
+		PUSH, _iptr
 		PUSH, _vi0
 		#
 		PUSH, _triangles
 		PUSH, _iptr
-		PUSH, _vi1
-		#
-		PUSH, _triangles
-		PUSH, _iptr
-		PUSH, _vi2
-		#
-		PUSH, _triangles
-		PUSH, _iptr
-		PUSH, _vi2
-		#
-		PUSH, _triangles
-		PUSH, _iptr
-		PUSH, _vi1
-		#
-		PUSH, _triangles
-		PUSH, _iptr
 		PUSH, _vi3
+		#
+		PUSH, _triangles
+		PUSH, _iptr
+		PUSH, _vi1
+		#
+		PUSH, _triangles
+		PUSH, _iptr
+		PUSH, _vi2
 		# --
 		EXTERN, "SystemInt32Array.__Set__SystemInt32_SystemInt32__SystemVoid"
 			PUSH, _iptr
@@ -722,7 +733,77 @@ _genGeomLoop:
 
 	# -- position calculation --
 
+		# uint16 to float (x32767)
+			PUSH, _sprTLX
+			PUSH, _pclTLX
+				EXTERN, "SystemConvert.__ToSingle__SystemInt16__SystemSingle"
+			PUSH, _sprTLY
+			PUSH, _pclTLY
+				EXTERN, "SystemConvert.__ToSingle__SystemInt16__SystemSingle"
+
+		# divide by 32767
+			PUSH, _pclTLX
+			PUSH, _cf_32767
+			PUSH, _pclTLX
+				EXTERN, "SystemSingle.__op_Division__SystemSingle_SystemSingle__SystemSingle"
+			PUSH, _pclTLY
+			PUSH, _cf_32767
+			PUSH, _pclTLY
+				EXTERN, "SystemSingle.__op_Division__SystemSingle_SystemSingle__SystemSingle"
+
+		# multiply by page size
+			PUSH, _pclTLX
+			PUSH, infoPageWidth
+			PUSH, _pclTLX
+				EXTERN, "SystemSingle.__op_Multiplication__SystemSingle_SystemSingle__SystemSingle"
+			PUSH, _pclTLY
+			PUSH, infoPageHeight
+			PUSH, _pclTLY
+				EXTERN, "SystemSingle.__op_Multiplication__SystemSingle_SystemSingle__SystemSingle"
+
+		# add sprite size to create pclBR
+			PUSH, _pclTLX
+			PUSH, _shpSizeX
+			PUSH, _pclBRX
+				EXTERN, "SystemSingle.__op_Addition__SystemSingle_SystemSingle__SystemSingle"
+			PUSH, _pclTLY
+			PUSH, _shpSizeY
+			PUSH, _pclBRY
+				EXTERN, "SystemSingle.__op_Addition__SystemSingle_SystemSingle__SystemSingle"
+
 	# -- uv calculation --
+
+		# uint16 to float (0-65535)
+			PUSH, _shpUTLX
+			PUSH, _uvTLX
+				EXTERN, "SystemConvert.__ToSingle__SystemUInt16__SystemSingle"
+			PUSH, _shpUTLY
+			PUSH, _uvTLY
+				EXTERN, "SystemConvert.__ToSingle__SystemUInt16__SystemSingle"
+			PUSH, _shpUBRX
+			PUSH, _uvBRX
+				EXTERN, "SystemConvert.__ToSingle__SystemUInt16__SystemSingle"
+			PUSH, _shpUBRY
+			PUSH, _uvBRY
+				EXTERN, "SystemConvert.__ToSingle__SystemUInt16__SystemSingle"
+
+		# divide
+			PUSH, _uvTLX
+			PUSH, _cf_65535
+			PUSH, _uvTLX
+				EXTERN, "SystemSingle.__op_Division__SystemSingle_SystemSingle__SystemSingle"
+			PUSH, _uvTLY
+			PUSH, _cf_65535
+			PUSH, _uvTLY
+				EXTERN, "SystemSingle.__op_Division__SystemSingle_SystemSingle__SystemSingle"
+			PUSH, _uvBRX
+			PUSH, _cf_65535
+			PUSH, _uvBRX
+				EXTERN, "SystemSingle.__op_Division__SystemSingle_SystemSingle__SystemSingle"
+			PUSH, _uvBRY
+			PUSH, _cf_65535
+			PUSH, _uvBRY
+				EXTERN, "SystemSingle.__op_Division__SystemSingle_SystemSingle__SystemSingle"
 
 	# -- position muxing --
 
@@ -851,13 +932,10 @@ _genGeomLoop:
 		EXTERN, "UnityEngineColor32Array.__Set__SystemInt32_UnityEngineColor32__SystemVoid"
 
 	# -- advance _vi0 --
-
 		PUSH, _vi0
 		PUSH, _c_4
 		PUSH, _vi0
 		EXTERN, "SystemInt32.__op_Addition__SystemInt32_SystemInt32__SystemInt32"
-
-	# -- done --
 
 JUMP, _genGeomLoop
 _genGeomDone:
@@ -917,7 +995,5 @@ _genGeomDone:
 			EXTERN, "UnityEngineMeshRenderer.__set_sharedMaterial__UnityEngineMaterial__SystemVoid"
 
 	# -- clean up temporaries and leave --
-
 		JUMP, _cleanErasable
-
 .code_end

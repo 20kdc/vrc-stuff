@@ -68,7 +68,7 @@ impl DBBook {
     }
     pub fn emit_uv2(v: V2<f32>) -> [u8; 4] {
         let a = Self::emit_uf(v.0);
-        let b = Self::emit_uf(v.1);
+        let b = Self::emit_uf(1f32 - v.1);
         [a[0], a[1], b[0], b[1]]
     }
     /// Writes book contents to a blob.
