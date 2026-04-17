@@ -20,11 +20,11 @@ use render_svg::*;
 use rendered::*;
 
 const RENDER_MUL_DEFAULT: f32 = 16.0;
-const RENDER_LIMIT_DEFAULT: u32 = 1024;
+const RENDER_LIMIT_DEFAULT: u32 = 512;
 const SDF_DOWNSCALE_DEFAULT: u32 = 4;
 const SDF_BORDER_DEFAULT: u32 = 4;
 const SDF_SMOOTH_DEFAULT: f32 = 0.05f32;
-const ATLAS_PERFCHOP_DEFAULT: usize = 16384;
+const ATLAS_PERFCHOP_DEFAULT: usize = 131072;
 const ATLAS_MIN_SIZE_DEFAULT: usize = 8;
 const ATLAS_MAX_SIZE_DEFAULT: usize = 1024;
 
