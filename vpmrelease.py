@@ -47,7 +47,8 @@ try:
 	os.unlink("vpm/" + pkg_zip_name)
 except:
 	pass
-subprocess.check_call(["zip", "-r", "../vpm/" + pkg_zip_name, "."], cwd = pkg_path, stdin = None, stdout = None, stderr = None)
+inverse_pkg_path = "../" * (pkg_path.count("/") + 1)
+subprocess.check_call(["zip", "-r", inverse_pkg_path + "vpm/" + pkg_zip_name, "."], cwd = pkg_path, stdin = None, stdout = None, stderr = None)
 
 pkg_json["zipSHA256"] = hashlib.file_digest(open("vpm/" + pkg_zip_name, "rb"), "sha256").hexdigest()
 pkg_json["url"] = URL_PREFIX + pkg_zip_name
