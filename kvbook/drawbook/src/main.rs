@@ -22,6 +22,7 @@ const RENDER_LIMIT_DEFAULT: u32 = 1024;
 const SDF_DOWNSCALE_DEFAULT: u32 = 4;
 const SDF_BORDER_DEFAULT: u32 = 4;
 const SDF_SMOOTH_DEFAULT: f32 = 0.05f32;
+const ATLAS_PERFCHOP_DEFAULT: usize = 131072;
 
 fn do_help() {
     println!("drawbook IN... -o OUTDIR");
@@ -32,6 +33,7 @@ fn do_help() {
     println!(" IN: may be a single SVG, or if this contains '%d', this is");
     println!("  considered to be a sequence starting from either 0 or 1.");
     println!(" -o OUTDIR: output directory, created if it doesn't exist");
+    println!(" --no-dae: don't make DAE files");
     println!(" --help: help");
     println!(" --split page/roots/isolatable/nasty: SVG shape split mode");
     println!("  page: renders each page as one shape");
@@ -67,21 +69,27 @@ fn do_help() {
         " --sdf-smooth VAL: SDF smoothness ('magic', adjust w/ shader), default {:?}",
         SDF_SMOOTH_DEFAULT
     );
+    println!(
+        " --atlas-perfchop VAL: atlas freelist limit before 'forgetting', default {:?}",
+        ATLAS_PERFCHOP_DEFAULT
+    );
     println!(" --debug-shapeslate: writes debug.s*.png / debug.s*.sdf.png");
     std::process::exit(0);
 }
 
 fn main() {
     // -- options --
+    let mut no_dae = false;
     let mut split_aggression = SplitAggression::Isolatable;
     // **ONLY** use in passing to shapeify_all!
     // Render coordinates are now per-shape.
     let mut cfg_render_mul: f32 = RENDER_MUL_DEFAULT;
     let mut render_limit: u32 = RENDER_LIMIT_DEFAULT;
     let mut sdf_downscale: u32 = SDF_DOWNSCALE_DEFAULT;
-    let mut sdf_smooth: f32 = SDF_SMOOTH_DEFAULT;
     // Border in SDF pixels.
     let mut sdf_border: u32 = SDF_BORDER_DEFAULT;
+    let mut sdf_smooth: f32 = SDF_SMOOTH_DEFAULT;
+    let mut atlas_perfchop: usize = ATLAS_PERFCHOP_DEFAULT;
     let mut debug_dump_shapes_late = false;
     let mut inputs: Vec<String> = Vec::new();
     let mut outdir: Option<String> = None;
@@ -103,7 +111,9 @@ fn main() {
                 }
             }
             lexopt::Arg::Long(v) => {
-                if v.eq("split") {
+                if v.eq("no-dae") {
+                    no_dae = true;
+                } else if v.eq("split") {
                     let msg = "--split expects one of: page, roots, isolatable, nasty";
                     let vp = arg_parser.value().expect(msg);
                     if vp.eq("page") {
@@ -147,6 +157,12 @@ fn main() {
                         .expect("--sdf-smooth expects float")
                         .parse()
                         .expect("--sdf-smooth expects float");
+                } else if v.eq("atlas-perfchop") {
+                    atlas_perfchop = arg_parser
+                        .value()
+                        .expect("--atlas-perfchop expects usize")
+                        .parse()
+                        .expect("--atlas-perfchop expects usize");
                 } else if v.eq("debug-shapeslate") {
                     debug_dump_shapes_late = true;
                 } else if v.eq("help") {
@@ -276,24 +292,21 @@ fn main() {
         .sort_by(|v1, v2| (v2.1.width() * v2.1.height()).cmp(&(v1.1.width() * v1.1.height())));
 
     println!("atlas planning...");
-    let mut atlas: AtlasPage = AtlasPage {
-        size: V2(128, 128),
-        rects: Vec::new(),
-        points: Vec::new(),
-    };
-    // this area is reserved for the 'rectangle' texture
-    atlas.rects.push(Rect {
+    let mut atlas: AtlasPage = AtlasPage::new(V2(8, 8));
+    atlas.delete_under = V2(4, 4);
+    atlas.mark(Rect {
         tl: V2(0, 0),
         br: V2(5, 5),
     });
-    atlas.points.push((V2(5, 0), false));
-    atlas.points.push((V2(0, 5), false));
-    atlas.points.push((V2(5, 5), true));
     // actually plan the atlas
     for v in &sdf_shapes {
         loop {
             let pt = atlas.place(V2(v.1.width() as usize + 2, v.1.height() as usize + 2));
             if let Some(pt) = pt {
+                if atlas.free.len() >= atlas_perfchop {
+                    println!(" --atlas-perfchop freelist limit reached");
+                    atlas.perf_chop();
+                }
                 shapes_atlased[v.0].uv_tl = V2(pt.0 as f32, pt.1 as f32) + V2(1f32, 1f32);
                 shapes_atlased[v.0].uv_br = V2(
                     (pt.0 + v.1.width() as usize) as f32,
@@ -302,13 +315,17 @@ fn main() {
                 break;
             }
             atlas.enlarge();
+            assert!(
+                atlas.size.0 < 65536 && atlas.size.1 < 65536,
+                "atlas size out of range"
+            );
         }
-        atlas.clean_points();
         print!(
-            "\r s{} atlas_size = {:?} q{}         ",
+            "\r s{} atlas_size = {:?} q{} f{}        ",
             v.0,
             atlas.size,
-            v.1.width() * v.1.height()
+            v.1.width() * v.1.height(),
+            atlas.free.len()
         );
         _ = std::io::stdout().flush();
     }
@@ -352,10 +369,12 @@ fn main() {
         pages: pages.drain(..).map(|v| (0u8, v)).collect(),
     };
     _ = std::fs::write(&format!("{}/book.bytes", outdir), book_atlased.emit());
-    for i in 0..book_atlased.pages.len() {
-        _ = std::fs::write(
-            &format!("{}/page.{}.dae", outdir, i),
-            collada::collada_write(&[book_atlased.page_dae(i)]),
-        );
+    if !no_dae {
+        for i in 0..book_atlased.pages.len() {
+            _ = std::fs::write(
+                &format!("{}/page.{}.dae", outdir, i),
+                collada::collada_write(&[book_atlased.page_dae(i)]),
+            );
+        }
     }
 }

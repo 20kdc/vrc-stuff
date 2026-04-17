@@ -1,10 +1,6 @@
 #!/bin/sh
-rm -f book.pdf
-ln -s "$1" book.pdf
-shift
 mkdir -p out
-mkdir -p pages
-rm -f pages/*.svg out/*
-pdf2svg book.pdf pages/%d.svg all
+echo deleting output
+rm -f out/*
 cargo fmt
 cargo run --release -- "pages/%d.svg" -o out "$@"

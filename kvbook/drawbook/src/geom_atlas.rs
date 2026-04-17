@@ -1,61 +1,96 @@
 use crate::geom::{Rect, V2};
 use rayon::prelude::*;
+use std::collections::BTreeSet;
 
 /// Atlas page planner.
 pub struct AtlasPage {
     /// Current size of the atlas page.
-    /// This can be dynamically increased as needed.
+    /// This may be freely changed.
     pub size: V2<usize>,
-    /// Rectangles already placed.
-    pub rects: Vec<Rect<usize>>,
-    /// Attachment points to try.
-    /// Note the second part, the 'diagonal flag'.
-    /// This is because diagonal placements are usually inefficient.
-    pub points: Vec<(V2<usize>, bool)>,
+    /// Delete free areas with X or Y under this size.
+    /// Change this if you always add a border, so you'll never request a rectangle under this size.
+    /// This can also be used as a performance tweak.
+    pub delete_under: V2<usize>,
+    /// Free areas to try.
+    pub free: BTreeSet<Rect<usize>>,
 }
 
 impl AtlasPage {
-    /// Places something on the atlas page. Returns the resulting position.
-    pub fn place(&mut self, wanted: V2<usize>) -> Option<V2<usize>> {
-        let mut acceptable: Vec<(V2<usize>, bool)> = self
-            .points
+    pub fn new(initial_size: V2<usize>) -> Self {
+        let mut free = BTreeSet::new();
+        free.insert(Rect {
+            tl: V2(0, 0),
+            br: V2(usize::MAX, usize::MAX),
+        });
+        Self {
+            size: initial_size,
+            delete_under: V2(1, 1),
+            free,
+        }
+    }
+
+    /// Marks an area as used.
+    /// In practice, this works by carving out of the unused area.
+    pub fn mark(&mut self, area: Rect<usize>) {
+        let prev: BTreeSet<Rect<usize>> = self
+            .free
             .par_iter()
-            .filter_map(|(p, diagonal)| {
+            .map(|rct| {
+                let mut res: Vec<Rect<usize>> = Vec::with_capacity(4);
+                rct.carve(area, &mut |f| {
+                    if f.size().0 < self.delete_under.0 {
+                        return;
+                    }
+                    if f.size().1 < self.delete_under.1 {
+                        return;
+                    }
+                    res.push(f);
+                });
+                res
+            })
+            .flatten()
+            .collect();
+        self.free = prev;
+    }
+
+    /// Forcibly deletes half of the free areas to improve performance.
+    pub fn perf_chop(&mut self) {
+        let mut v: Vec<Rect<usize>> = self.free.iter().map(|v| *v).collect();
+        v.sort_by_key(|rct| rct.size().0.min(rct.size().1));
+        self.free.clear();
+        for vi in (v.len() >> 1)..(v.len()) {
+            self.free.insert(v[vi]);
+        }
+    }
+
+    /// Places something on the atlas page and calls [Self::mark]. Returns the resulting position.
+    pub fn place(&mut self, wanted: V2<usize>) -> Option<V2<usize>> {
+        let acceptable: Vec<V2<usize>> = self
+            .free
+            .par_iter()
+            .filter_map(|free_rect| {
+                let mut effective_br = free_rect.br;
+                effective_br.0 = effective_br.0.min(self.size.0);
+                effective_br.1 = effective_br.1.min(self.size.1);
                 let rect = Rect {
-                    tl: *p,
-                    br: *p + wanted,
+                    tl: free_rect.tl,
+                    br: free_rect.tl + wanted,
                 };
-                if rect.br.0 > self.size.0 || rect.br.1 > self.size.1 {
+                if rect.br.0 > effective_br.0 || rect.br.1 > effective_br.1 {
                     return None;
                 }
-                for v in &self.rects {
-                    let overlaps_x = v.overlap_x(rect).is_some();
-                    let overlaps_y = v.overlap_y(rect).is_some();
-                    if overlaps_x && overlaps_y {
-                        return None;
-                    }
-                    // there was going to be a more involved optimization here
-                    // but it's been scrapped.
-                }
-                Some((*p, *diagonal))
+                Some(free_rect.tl)
             })
             .collect();
         if acceptable.is_empty() {
             None
         } else {
-            // really shouldn't be sorting the whole list, grr.
-            // notably, we DON'T want to do this in clean_points, as it's useful to have earlier (thus 'tighter-spaced') points show up first.
-            acceptable.sort_by_key(|v| v.1);
             let rct = Rect {
-                tl: acceptable[0].0,
-                br: acceptable[0].0 + wanted,
+                tl: acceptable[0],
+                br: acceptable[0] + wanted,
             };
-            self.rects.push(rct);
-            // create new points at the right, diagonal, and bottom
-            self.points.push((V2(rct.tl.0, rct.br.1), false));
-            self.points.push((V2(rct.br.0, rct.tl.1), false));
-            self.points.push((rct.br, true));
-            Some(acceptable[0].0)
+            self.mark(rct);
+            Some(rct.tl)
         }
     }
     /// Makes the atlas a step larger.
@@ -65,27 +100,5 @@ impl AtlasPage {
         } else {
             self.size.0 *= 2;
         }
-    }
-    /// Cleans the attachment points list.
-    /// It might be wise to do this after every place call.
-    pub fn clean_points(&mut self) {
-        let prev: Vec<(V2<usize>, bool)> = self
-            .points
-            .par_iter()
-            .filter(|(p, _)| {
-                let rect = Rect {
-                    tl: *p,
-                    br: *p + V2(1, 1),
-                };
-                for v in &self.rects {
-                    if v.overlap(rect).is_some() {
-                        return false;
-                    }
-                }
-                true
-            })
-            .map(|v| *v)
-            .collect();
-        self.points = prev;
     }
 }
