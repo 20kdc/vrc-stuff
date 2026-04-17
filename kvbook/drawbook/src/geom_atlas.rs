@@ -29,8 +29,8 @@ impl AtlasPage {
                     return None;
                 }
                 for v in &self.rects {
-                    let overlaps_x = v.overlaps_x(rect);
-                    let overlaps_y = v.overlaps_y(rect);
+                    let overlaps_x = v.overlap_x(rect).is_some();
+                    let overlaps_y = v.overlap_y(rect).is_some();
                     if overlaps_x && overlaps_y {
                         return None;
                     }
@@ -78,7 +78,7 @@ impl AtlasPage {
                     br: *p + V2(1, 1),
                 };
                 for v in &self.rects {
-                    if v.overlaps(rect) {
+                    if v.overlap(rect).is_some() {
                         return false;
                     }
                 }

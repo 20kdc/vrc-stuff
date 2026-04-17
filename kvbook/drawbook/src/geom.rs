@@ -248,11 +248,70 @@ impl<E: Copy + Eq> Raster<E> {
 }
 
 #[derive(Clone, Copy)]
+pub struct Area1D<E: Copy> {
+    pub min: E,
+    pub max: E,
+}
+
+impl<E: Copy + Sub<Output = E>> Area1D<E> {
+    /// Size of this area.
+    #[inline]
+    pub fn size(&self) -> E {
+        self.max - self.min
+    }
+}
+impl<E: Copy + PartialOrd> Area1D<E> {
+    /// If some other area overlaps this one.
+    #[inline]
+    pub fn overlaps(&self, other: Area1D<E>) -> bool {
+        other.min.lt(&self.max) && other.max.gt(&self.min)
+    }
+    #[inline]
+    /// Overlapping region.
+    pub fn overlap(&self, other: Area1D<E>) -> Option<Area1D<E>> {
+        if self.overlaps(other) {
+            Some(Area1D {
+                min: if self.min.lt(&other.min) {
+                    other.min
+                } else {
+                    self.min
+                },
+                max: if self.max.lt(&other.max) {
+                    self.max
+                } else {
+                    other.max
+                },
+            })
+        } else {
+            None
+        }
+    }
+}
+
+#[derive(Clone, Copy)]
 pub struct Rect<E: Copy> {
     pub tl: V2<E>,
     pub br: V2<E>,
 }
 
+impl<E: Copy> Rect<E> {
+    /// X area
+    #[inline]
+    pub fn area_x(&self) -> Area1D<E> {
+        Area1D {
+            min: self.tl.0,
+            max: self.br.0,
+        }
+    }
+    /// Y area
+    #[inline]
+    pub fn area_y(&self) -> Area1D<E> {
+        Area1D {
+            min: self.tl.1,
+            max: self.br.1,
+        }
+    }
+}
 impl<E: Copy + Sub<Output = E>> Rect<E> {
     /// Size of this rectangle.
     pub fn size(&self) -> V2<E> {
@@ -260,16 +319,25 @@ impl<E: Copy + Sub<Output = E>> Rect<E> {
     }
 }
 impl<E: Copy + PartialOrd> Rect<E> {
-    /// If some other rectangle overlaps this one.
-    pub fn overlaps(&self, other: Rect<E>) -> bool {
-        self.overlaps_x(other) && self.overlaps_y(other)
+    pub fn overlap_x(&self, other: Rect<E>) -> Option<Area1D<E>> {
+        self.area_x().overlap(other.area_x())
     }
-    /// If some other rectangle overlaps this one on the X axis.
-    pub fn overlaps_x(&self, other: Rect<E>) -> bool {
-        other.tl.0.lt(&self.br.0) && other.br.0.gt(&self.tl.0)
+    pub fn overlap_y(&self, other: Rect<E>) -> Option<Area1D<E>> {
+        self.area_y().overlap(other.area_y())
     }
-    /// If some other rectangle overlaps this one on the Y axis.
-    pub fn overlaps_y(&self, other: Rect<E>) -> bool {
-        other.tl.1.lt(&self.br.1) && other.br.1.gt(&self.tl.1)
+    /// Overlapping region.
+    pub fn overlap(&self, other: Rect<E>) -> Option<Rect<E>> {
+        if let Some(overlap_x) = self.overlap_x(other) {
+            if let Some(overlap_y) = self.overlap_y(other) {
+                Some(Self {
+                    tl: V2(overlap_x.min, overlap_y.min),
+                    br: V2(overlap_x.max, overlap_y.max),
+                })
+            } else {
+                None
+            }
+        } else {
+            None
+        }
     }
 }
