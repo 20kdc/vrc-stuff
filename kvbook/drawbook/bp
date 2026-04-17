@@ -1,0 +1,6 @@
+#!/bin/sh
+mkdir -p out
+echo deleting output
+rm -f out/*
+cargo fmt
+cargo run --release -- -o out "$@"
