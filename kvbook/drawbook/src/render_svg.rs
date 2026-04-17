@@ -78,7 +78,7 @@ struct SVGRenderable {
 }
 
 impl SVGRenderable {
-    pub fn render(&self, j: usize, opts: &RenderOpts) -> Vec<DBRenderedSprite> {
+    pub fn render(&self, page_idx: usize, j: usize, opts: &RenderOpts) -> Vec<DBRenderedSprite> {
         let mut results: Vec<DBRenderedSprite> = Vec::new();
         if let Some(bbox) = self.node.abs_layer_bounding_box() {
             // Fit render into limit (ignoring border)
@@ -103,18 +103,21 @@ impl SVGRenderable {
             .unwrap();
             // Transforms the object perfectly into page-space.
             let bigbox_transform = usvg::Transform::from_scale(render_mul, render_mul)
-                .pre_concat(self.parent_transform)
-                .pre_translate(bbox.x(), bbox.y());
+                .pre_concat(self.parent_transform);
             let transform = if opts.debug_bigbox {
                 bigbox_transform
             } else {
                 bigbox_transform
                     .post_translate(-adj_bbox.left() * render_mul, -adj_bbox.top() * render_mul)
             };
-            if let Some(_) = resvg::render_node(&self.node, transform, &mut temp_canvas.as_mut()) {
+            if let Some(_) = resvg::render_node(
+                &self.node,
+                transform.pre_translate(bbox.x(), bbox.y()),
+                &mut temp_canvas.as_mut(),
+            ) {
                 if opts.debug_dse {
                     _ = std::fs::write(
-                        format!("{}/debug.dse.s{}.png", opts.outdir, j),
+                        format!("{}/debug.dse.p{}.s{}.png", opts.outdir, page_idx, j),
                         temp_canvas.encode_png().unwrap(),
                     );
                 }
@@ -135,6 +138,7 @@ impl SVGRenderable {
 pub fn render_svg(
     tree: &usvg::Tree,
     split_aggression: SplitAggression,
+    page_idx: usize,
     render_opts: &RenderOpts,
 ) -> DBRenderedPage {
     // let sdf_border: u32 = 0;
@@ -148,12 +152,9 @@ pub fn render_svg(
     let rendered = sprites
         .par_iter()
         .enumerate()
-        .map(|(j, renderable)| renderable.render(j, render_opts))
+        .map(|(j, renderable)| renderable.render(page_idx, j, render_opts))
         .flatten()
         .collect();
-    if render_opts.debug_dse {
-        std::process::exit(0);
-    }
     DBRenderedPage {
         size: V2(tree.size().width(), tree.size().height()),
         sprites: rendered,

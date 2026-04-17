@@ -86,7 +86,9 @@ fn do_help() {
         ATLAS_MAX_SIZE_DEFAULT
     );
     println!("  if a single page requires more atlas space, this will be exceeded!",);
+    println!(" --debug-shapesearly: writes debug.dse.p*.s*.png");
     println!(" --debug-shapeslate: writes debug.s*.png / debug.s*.sdf.png");
+    println!(" --debug-bigbox: runs all renders in page AABB to debug transform issues");
     std::process::exit(0);
 }
 
@@ -105,7 +107,9 @@ fn main() {
     let mut atlas_perfchop: usize = ATLAS_PERFCHOP_DEFAULT;
     let mut atlas_min_size: usize = ATLAS_MIN_SIZE_DEFAULT;
     let mut atlas_max_size: usize = ATLAS_MAX_SIZE_DEFAULT;
+    let mut debug_dump_shapes_early = false;
     let mut debug_dump_shapes_late = false;
+    let mut debug_bigbox = false;
     let mut inputs: Vec<String> = Vec::new();
     let mut outdir: Option<String> = None;
     // -- argparse --
@@ -190,8 +194,12 @@ fn main() {
                         .expect("--atlas-max-size expects usize")
                         .parse()
                         .expect("--atlas-max-size expects usize");
+                } else if v.eq("debug-shapesearly") {
+                    debug_dump_shapes_early = true;
                 } else if v.eq("debug-shapeslate") {
                     debug_dump_shapes_late = true;
+                } else if v.eq("debug-bigbox") {
+                    debug_bigbox = true;
                 } else if v.eq("help") {
                     do_help();
                 } else {
@@ -229,8 +237,8 @@ fn main() {
         sdf_border,
         render_limit,
         cfg_render_mul,
-        debug_dse: false,
-        debug_bigbox: false,
+        debug_dse: debug_dump_shapes_early,
+        debug_bigbox: debug_bigbox,
     };
     // -- rasterize --
     progress::stage("rendering");
@@ -249,7 +257,8 @@ fn main() {
             ));
             let res = usvg::Tree::from_data(&svgd, &svg_opts).expect("svg should have parsed");
             // render and insert sprites
-            let rendered: DBRenderedPage = render_svg(&res, split_aggression, &render_opts);
+            let rendered: DBRenderedPage =
+                render_svg(&res, split_aggression, page_idx, &render_opts);
             pages.push(shape_lookup.deduplicate(rendered));
             progress::status(&format!(
                 " {:<24} : ({:>3}%), total_shapes={:>6}",
