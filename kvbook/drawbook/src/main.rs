@@ -1,6 +1,6 @@
-use std::io::Write;
 use tiny_skia::Pixmap;
 
+mod atlas_builder;
 mod collada;
 mod docmodel;
 mod geom;
@@ -10,6 +10,7 @@ mod render_svg;
 mod rendered;
 mod sdf;
 
+use atlas_builder::*;
 use docmodel::*;
 use geom::*;
 use geom_atlas::*;
@@ -24,6 +25,8 @@ const SDF_DOWNSCALE_DEFAULT: u32 = 4;
 const SDF_BORDER_DEFAULT: u32 = 4;
 const SDF_SMOOTH_DEFAULT: f32 = 0.05f32;
 const ATLAS_PERFCHOP_DEFAULT: usize = 16384;
+const ATLAS_MIN_SIZE_DEFAULT: usize = 8;
+const ATLAS_MAX_SIZE_DEFAULT: usize = 1024;
 
 fn do_help() {
     println!("drawbook IN... -o OUTDIR");
@@ -74,6 +77,15 @@ fn do_help() {
         " --atlas-perfchop VAL: atlas freelist limit before 'forgetting', default {:?}",
         ATLAS_PERFCHOP_DEFAULT
     );
+    println!(
+        " --atlas-min-size VAL: atlas min size, default {:?}",
+        ATLAS_MIN_SIZE_DEFAULT
+    );
+    println!(
+        " --atlas-max-size VAL: atlas max size, default {:?}",
+        ATLAS_MAX_SIZE_DEFAULT
+    );
+    println!("  if a single page requires more atlas space, this will be exceeded!",);
     println!(" --debug-shapeslate: writes debug.s*.png / debug.s*.sdf.png");
     std::process::exit(0);
 }
@@ -91,6 +103,8 @@ fn main() {
     let mut sdf_border: u32 = SDF_BORDER_DEFAULT;
     let mut sdf_smooth: f32 = SDF_SMOOTH_DEFAULT;
     let mut atlas_perfchop: usize = ATLAS_PERFCHOP_DEFAULT;
+    let mut atlas_min_size: usize = ATLAS_MIN_SIZE_DEFAULT;
+    let mut atlas_max_size: usize = ATLAS_MAX_SIZE_DEFAULT;
     let mut debug_dump_shapes_late = false;
     let mut inputs: Vec<String> = Vec::new();
     let mut outdir: Option<String> = None;
@@ -164,6 +178,18 @@ fn main() {
                         .expect("--atlas-perfchop expects usize")
                         .parse()
                         .expect("--atlas-perfchop expects usize");
+                } else if v.eq("atlas-min-size") {
+                    atlas_min_size = arg_parser
+                        .value()
+                        .expect("--atlas-min-size expects usize")
+                        .parse()
+                        .expect("--atlas-min-size expects usize");
+                } else if v.eq("atlas-max-size") {
+                    atlas_max_size = arg_parser
+                        .value()
+                        .expect("--atlas-max-size expects usize")
+                        .parse()
+                        .expect("--atlas-max-size expects usize");
                 } else if v.eq("debug-shapeslate") {
                     debug_dump_shapes_late = true;
                 } else if v.eq("help") {
@@ -207,12 +233,12 @@ fn main() {
         debug_bigbox: false,
     };
     // -- rasterize --
+    progress::stage("rendering");
     let mut shape_lookup = DBShapeLookup::default();
     let mut pages: Vec<DBPage> = Vec::new();
     let svg_opts = usvg::Options {
         ..Default::default()
     };
-    progress::stage("rendering");
     for (page_idx, svgn) in inputs.iter().enumerate() {
         if let Ok(svgd) = std::fs::read(svgn) {
             progress::status(&format!(
@@ -235,15 +261,14 @@ fn main() {
             break;
         }
     }
-    // done with main conversion bulk
+    // -- SDF --
     progress::stage("SDF conversions...");
-    _ = std::io::Write::flush(&mut std::io::stdout().lock());
-    // 'rectangle' entries are not included.
-    let mut sdf_shapes: Vec<(usize, Pixmap)> = shape_lookup
+    // 'rectangle' entries are None.
+    let sdf_shapes: Vec<Option<Pixmap>> = shape_lookup
         .shapes
         .par_iter()
         .enumerate()
-        .filter_map(|(shape_id, shape)| {
+        .map(|(shape_id, shape)| {
             if debug_dump_shapes_late {
                 let downscale_check_canvas = shape.to_pixmap();
                 _ = std::fs::write(
@@ -276,101 +301,102 @@ fn main() {
                 tiny_skia::FilterQuality::Bicubic,
             );
             progress::status(&format!(" last={:>6}", shape_id));
-            Some((shape_id, res_scaled))
+            Some(res_scaled)
         })
         .collect();
 
-    // 'pre-atlasing': we need these structs ready for when we actually do sort-and-place, since it can happen in a different order to 'encounter order'
-    let mut shapes_atlased: Vec<DBAtlasedShape> = Vec::new();
-    for shape in &shape_lookup.shapes {
-        shapes_atlased.push(DBAtlasedShape {
-            // set to the 'rectangle' texture
-            uv_tl: V2(2f32, 2f32),
-            uv_br: V2(3f32, 3f32),
-            // Convert from render units into reference units.
-            size: V2(shape.size().0 as f32, shape.size().1 as f32)
-                / V2(shape.render_mul(), shape.render_mul()),
-        });
-    }
-    // determine encounter order, place descending
-    sdf_shapes
-        .sort_by(|v1, v2| (v2.1.width() * v2.1.height()).cmp(&(v1.1.width() * v1.1.height())));
-
-    progress::stage("atlas planning...");
-    let mut atlas: AtlasPage = AtlasPage::new(V2(8, 8));
-    atlas.delete_under = V2(4, 4);
-    atlas.mark(Rect {
-        tl: V2(0, 0),
-        br: V2(5, 5),
-    });
-    // actually plan the atlas
-    for (k, v) in sdf_shapes.iter().enumerate() {
-        loop {
-            let pt = atlas.place(V2(v.1.width() as usize + 2, v.1.height() as usize + 2));
-            if let Some(pt) = pt {
-                if atlas.free.len() >= atlas_perfchop {
-                    progress::alert("--atlas-perfchop freelist limit reached");
-                    atlas.perf_chop();
-                }
-                shapes_atlased[v.0].uv_tl = V2(pt.0 as f32, pt.1 as f32) + V2(1f32, 1f32);
-                shapes_atlased[v.0].uv_br = V2(
-                    (pt.0 + v.1.width() as usize) as f32,
-                    (pt.1 + v.1.height() as usize) as f32,
-                ) + V2(1f32, 1f32);
-                break;
-            }
-            atlas.enlarge();
-            assert!(
-                atlas.size.0 < 65536 && atlas.size.1 < 65536,
-                "atlas size out of range"
+    // -- Atlasing --
+    let mut atlas_builders: Vec<AtlasBuilder> = Vec::new();
+    let mut pages_atlased: Vec<(u8, DBPage)> = Vec::new();
+    {
+        progress::stage("atlasing...");
+        let mut curr_atlas =
+            AtlasBuilder::new(V2(atlas_min_size, atlas_min_size), sdf_shapes.len());
+        let mut has_alerted = false;
+        for (k, page) in pages.iter().enumerate() {
+            // attempt 1
+            let watermark_pre_page = curr_atlas.watermark();
+            let (ok, mut tf_page) = curr_atlas.atlas_page(
+                page,
+                &shape_lookup,
+                &sdf_shapes,
+                // if k == 0 here, this is a fresh atlas
+                if k == 0 { None } else { Some(atlas_max_size) },
+                atlas_perfchop,
             );
+            if !ok {
+                curr_atlas.revert_to_watermark(watermark_pre_page);
+                progress::alert(&format!("index {:>6}: new atlas", k));
+                atlas_builders.push(curr_atlas);
+                curr_atlas =
+                    AtlasBuilder::new(V2(atlas_min_size, atlas_min_size), sdf_shapes.len());
+                has_alerted = false;
+                (_, tf_page) =
+                    curr_atlas.atlas_page(page, &shape_lookup, &sdf_shapes, None, atlas_perfchop);
+            }
+            if (curr_atlas.planner.size.0 > atlas_max_size
+                || curr_atlas.planner.size.0 > atlas_max_size)
+                && !has_alerted
+            {
+                has_alerted = true;
+                progress::alert(&format!(
+                    "index {:>6}: fresh atlas had to be expanded beyond max size",
+                    k
+                ));
+            }
+            pages_atlased.push((atlas_builders.len() as u8, tf_page));
+            progress::status(&format!(
+                " {:>3}% atlas={:>2} atlas_size={:?} freelist={:>8}        ",
+                progress::percentage(k + 1, pages.len()),
+                atlas_builders.len(),
+                curr_atlas.planner.size,
+                curr_atlas.planner.free.len()
+            ));
         }
-        progress::status(&format!(
-            " {:>3}% atlas_size={:?} shape_area={:>8} freelist={:>8}        ",
-            progress::percentage(k + 1, sdf_shapes.len()),
-            atlas.size,
-            v.1.width() * v.1.height(),
-            atlas.free.len()
-        ));
-        _ = std::io::stdout().flush();
+        atlas_builders.push(curr_atlas);
     }
 
     progress::stage("drawing atlases...");
-    let mut atlas_pix = Pixmap::new(atlas.size.0 as u32, atlas.size.1 as u32).unwrap();
-    atlas_pix.fill(tiny_skia::Color::BLACK);
-    atlas_pix.fill_rect(
-        tiny_skia::Rect::from_xywh(1f32, 1f32, 3f32, 3f32).unwrap(),
-        &tiny_skia::Paint {
-            shader: tiny_skia::Shader::SolidColor(tiny_skia::Color::WHITE),
-            ..Default::default()
-        },
-        tiny_skia::Transform::identity(),
-        None,
-    );
-    for v in sdf_shapes {
-        atlas_pix.draw_pixmap(
-            shapes_atlased[v.0].uv_tl.0 as i32,
-            shapes_atlased[v.0].uv_tl.1 as i32,
-            v.1.as_ref(),
-            &tiny_skia::PixmapPaint::default(),
+    for (atlas_id, atlas_builder) in atlas_builders.iter().enumerate() {
+        let mut atlas_pix = Pixmap::new(
+            atlas_builder.planner.size.0 as u32,
+            atlas_builder.planner.size.1 as u32,
+        )
+        .unwrap();
+        atlas_pix.fill(tiny_skia::Color::BLACK);
+        atlas_pix.fill_rect(
+            tiny_skia::Rect::from_xywh(1f32, 1f32, 3f32, 3f32).unwrap(),
+            &tiny_skia::Paint {
+                shader: tiny_skia::Shader::SolidColor(tiny_skia::Color::WHITE),
+                ..Default::default()
+            },
             tiny_skia::Transform::identity(),
             None,
         );
-        progress::status(&format!(" last={:>6}", v.0));
+        for (local_id, v) in atlas_builder.placements.iter().enumerate() {
+            let global_id = atlas_builder.inv_shape_map[local_id];
+            if let Some(sdf) = &sdf_shapes[global_id] {
+                atlas_pix.draw_pixmap(
+                    v.uv_tl.0 as i32,
+                    v.uv_tl.1 as i32,
+                    sdf.as_ref(),
+                    &tiny_skia::PixmapPaint::default(),
+                    tiny_skia::Transform::identity(),
+                    None,
+                );
+            }
+        }
+        _ = std::fs::write(
+            &format!("{}/atlas.{}.png", outdir, atlas_id),
+            atlas_pix.encode_png().unwrap(),
+        );
     }
-    _ = std::fs::write(
-        &format!("{}/atlas.0.png", outdir),
-        atlas_pix.encode_png().unwrap(),
-    );
 
     progress::stage("emit...");
     // initialize atlased book
     let book_atlased = DBBook {
-        atlases: vec![DBAtlas {
-            size: V2(atlas.size.0 as u16, atlas.size.1 as u16),
-            shapes: shapes_atlased,
-        }],
-        pages: pages.drain(..).map(|v| (0u8, v)).collect(),
+        atlases: atlas_builders.drain(..).map(|v| v.complete()).collect(),
+        pages: pages_atlased,
     };
     _ = std::fs::write(&format!("{}/book.bytes", outdir), book_atlased.emit());
     if !no_dae {

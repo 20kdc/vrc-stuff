@@ -3,6 +3,7 @@ use rayon::prelude::*;
 use std::collections::BTreeSet;
 
 /// Atlas page planner.
+#[derive(Clone)]
 pub struct AtlasPage {
     /// Current size of the atlas page.
     /// This may be freely changed.
@@ -93,12 +94,18 @@ impl AtlasPage {
             Some(rct.tl)
         }
     }
+    /// 'Simulates' the enlarge() function.
+    pub fn enlarge_size(&self) -> V2<usize> {
+        let mut size = self.size;
+        if size.0 > size.1 {
+            size.1 *= 2;
+        } else {
+            size.0 *= 2;
+        }
+        size
+    }
     /// Makes the atlas a step larger.
     pub fn enlarge(&mut self) {
-        if self.size.0 > self.size.1 {
-            self.size.1 *= 2;
-        } else {
-            self.size.0 *= 2;
-        }
+        self.size = self.enlarge_size();
     }
 }

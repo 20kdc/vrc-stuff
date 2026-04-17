@@ -98,7 +98,7 @@ func _drawpass(drawpass: int):
 	var page_sprites := (lump_size(page + atlas_count) - PAGEHEAD_SIZE) / SPRITE_SIZE
 	# read page header
 	file.seek(page_pos)
-	file.get_8() # atlas ID
+	var atlas_id: int = (file.get_8() & 0xFF) << 16
 	var page_w: float = file.get_float()
 	var page_h: float = file.get_float()
 	var page_size := Vector2(page_w, page_h)
@@ -107,7 +107,7 @@ func _drawpass(drawpass: int):
 		file.seek(page_pos)
 		page_pos += SPRITE_SIZE
 		# read sprite details
-		var shape = file.get_16() & 0xFFFF
+		var shape = atlas_id | (file.get_16() & 0xFFFF)
 		var tlx = float(((file.get_16() + 0x8000) & 0xFFFF) - 0x8000) / 32767.0
 		var tly = float(((file.get_16() + 0x8000) & 0xFFFF) - 0x8000) / 32767.0
 		var tl = Vector2(tlx, tly) * page_size
