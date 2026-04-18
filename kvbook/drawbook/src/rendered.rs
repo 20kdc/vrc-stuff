@@ -74,7 +74,13 @@ pub struct DBRenderedSprite {
 impl DBRenderedSprite {
     /// Creates a new rendered sprite.
     /// Handles auto-cropping and dead sprite elimination (returns None)
-    pub fn new(crop_me: &Raster<bool>, colour: [u8; 3], page_offset: V2<f32>, render_mul: f32, border: usize) -> Option<Self> {
+    pub fn new(
+        crop_me: &Raster<bool>,
+        colour: [u8; 3],
+        page_offset: V2<f32>,
+        render_mul: f32,
+        border: usize,
+    ) -> Option<Self> {
         let (mut crop_ul, mut crop_br) = crop_me.find_crop_rectangle(false);
 
         if crop_ul.0 >= crop_br.0 || crop_ul.1 >= crop_br.1 {
@@ -95,7 +101,8 @@ impl DBRenderedSprite {
         }
 
         Some(DBRenderedSprite {
-            page_offset: page_offset + V2(crop_ul.0 as f32 / render_mul, crop_ul.1 as f32 / render_mul),
+            page_offset: page_offset
+                + V2(crop_ul.0 as f32 / render_mul, crop_ul.1 as f32 / render_mul),
             shape: DBRenderedShape::new(
                 crop_me.extract_i32(
                     V2(crop_ul.0 as i32, crop_ul.1 as i32),
@@ -111,7 +118,11 @@ impl DBRenderedSprite {
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub enum ShapifyStrategy {
-    AlphaClippedColourAverage
+    AlphaClippedColourAverage,
+    /// Experimental strategy for greyscale images.
+    /// Not presently enabled; worked less well than hoped.
+    #[allow(dead_code)]
+    BWPrinting,
 }
 
 impl ShapifyStrategy {
@@ -147,7 +158,39 @@ impl ShapifyStrategy {
                 let cb = avg_b.clamp(0f32, 255f32).round() as u8;
                 // figure out culling
                 let crop_me = Raster::new(data, V2(src.width() as usize, src.height() as usize));
-                DBRenderedSprite::new(&crop_me, [cr, cg, cb], page_offset, render_mul, border as usize)
+                DBRenderedSprite::new(
+                    &crop_me,
+                    [cr, cg, cb],
+                    page_offset,
+                    render_mul,
+                    border as usize,
+                )
+            }
+            Self::BWPrinting => {
+                let mut data = Vec::with_capacity((src.width() as usize) * (src.height() as usize));
+                for y in 0..src.height() {
+                    for x in 0..src.width() {
+                        let pix =
+                            src.pixels()[(x as usize) + ((y as usize) * (src.width() as usize))];
+                        // remember, pix is premultiplied
+                        let avg_pma =
+                            (pix.red() as i32 + pix.green() as i32 + pix.blue() as i32) / 3;
+                        let dst_mul = 255 * ((255 - pix.alpha()) as i32);
+                        let res = avg_pma + dst_mul;
+                        let xa1 = (x & 1) + ((y & 1) << 1);
+                        let threshold: i32 = [32, 96, 128, 64][xa1 as usize];
+                        data.push((res - 96) < threshold);
+                    }
+                }
+                // figure out culling
+                let crop_me = Raster::new(data, V2(src.width() as usize, src.height() as usize));
+                DBRenderedSprite::new(
+                    &crop_me,
+                    [0, 0, 0],
+                    page_offset,
+                    render_mul,
+                    border as usize,
+                )
             }
         }
     }
