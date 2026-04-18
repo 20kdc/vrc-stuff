@@ -36,9 +36,12 @@ fn do_help() {
     );
     println!(" IN: may be a single SVG, or if this contains '%d', this is");
     println!("  considered to be a sequence starting from either 0 or 1.");
+    // output options
     println!(" -o OUTDIR: output directory, created if it doesn't exist");
     println!(" --no-dae: don't make DAE files");
+    //
     println!(" --help: help");
+    // renderer
     println!(" --split page/roots/isolatable/nasty: SVG shape split mode");
     println!("  page: renders each page as one shape");
     println!("   (avoid unless direly needed)");
@@ -58,6 +61,9 @@ fn do_help() {
     );
     println!("  render-limit overrules render-mul, punishing large objects");
     println!("  this prevents near-endless SDF propagation");
+    // post-filter
+    println!(" --invert: Inverts colours");
+    // sdf
     println!(
         " --sdf-downscale VAL: SDF downscale from render, default {}",
         SDF_DOWNSCALE_DEFAULT
@@ -73,6 +79,7 @@ fn do_help() {
         " --sdf-smooth VAL: SDF smoothness ('magic', adjust w/ shader), default {:?}",
         SDF_SMOOTH_DEFAULT
     );
+    // atlasing
     println!(
         " --atlas-perfchop VAL: atlas freelist limit before 'forgetting', default {:?}",
         ATLAS_PERFCHOP_DEFAULT
@@ -86,6 +93,7 @@ fn do_help() {
         ATLAS_MAX_SIZE_DEFAULT
     );
     println!("  if a single page requires more atlas space, this will be exceeded!",);
+    // debug
     println!(" --debug-shapesearly: writes debug.dse.p*.s*.png");
     println!(" --debug-shapeslate: writes debug.s*.png / debug.s*.sdf.png");
     println!(" --debug-bigbox: runs all renders in page AABB to debug transform issues");
@@ -94,24 +102,32 @@ fn do_help() {
 
 fn main() {
     // -- options --
+    // output
+    let mut outdir: Option<String> = None;
     let mut no_dae = false;
+    // renderer
     let mut split_aggression = SplitAggression::Isolatable;
     // **ONLY** use in passing to shapeify_all!
     // Render coordinates are now per-shape.
     let mut cfg_render_mul: f32 = RENDER_MUL_DEFAULT;
     let mut render_limit: u32 = RENDER_LIMIT_DEFAULT;
+    // post-filter
+    let mut invert: bool = false;
+    // sdf
     let mut sdf_downscale: u32 = SDF_DOWNSCALE_DEFAULT;
     // Border in SDF pixels.
     let mut sdf_border: u32 = SDF_BORDER_DEFAULT;
     let mut sdf_smooth: f32 = SDF_SMOOTH_DEFAULT;
+    // atlasing
     let mut atlas_perfchop: usize = ATLAS_PERFCHOP_DEFAULT;
     let mut atlas_min_size: usize = ATLAS_MIN_SIZE_DEFAULT;
     let mut atlas_max_size: usize = ATLAS_MAX_SIZE_DEFAULT;
+    // debug
     let mut debug_dump_shapes_early = false;
     let mut debug_dump_shapes_late = false;
     let mut debug_bigbox = false;
+    // files
     let mut inputs: Vec<String> = Vec::new();
-    let mut outdir: Option<String> = None;
     // -- argparse --
     let mut arg_parser = lexopt::Parser::from_env();
     while let Some(arg) = arg_parser.next().expect("arg_parser") {
@@ -132,6 +148,8 @@ fn main() {
             lexopt::Arg::Long(v) => {
                 if v.eq("no-dae") {
                     no_dae = true;
+                } else if v.eq("help") {
+                    do_help();
                 } else if v.eq("split") {
                     let msg = "--split expects one of: page, roots, isolatable, nasty";
                     let vp = arg_parser.value().expect(msg);
@@ -158,6 +176,8 @@ fn main() {
                         .expect("--render-limit expects u32")
                         .parse()
                         .expect("--render-limit expects u32");
+                } else if v.eq("invert") {
+                    invert = !invert;
                 } else if v.eq("sdf-downscale") {
                     sdf_downscale = arg_parser
                         .value()
@@ -200,8 +220,6 @@ fn main() {
                     debug_dump_shapes_late = true;
                 } else if v.eq("debug-bigbox") {
                     debug_bigbox = true;
-                } else if v.eq("help") {
-                    do_help();
                 } else {
                     panic!("unknown long arg {}, try --help", v);
                 }
@@ -257,8 +275,15 @@ fn main() {
             ));
             let res = usvg::Tree::from_data(&svgd, &svg_opts).expect("svg should have parsed");
             // render and insert sprites
-            let rendered: DBRenderedPage =
+            let mut rendered: DBRenderedPage =
                 render_svg(&res, split_aggression, page_idx, &render_opts);
+            // post-filter
+            if invert {
+                for sprite in &mut rendered.sprites {
+                    sprite.colour = [255 - sprite.colour[0], 255 - sprite.colour[1], 255 - sprite.colour[2]];
+                }
+            }
+            // complete
             pages.push(shape_lookup.deduplicate(rendered));
             progress::status(&format!(
                 " {:<24} : ({:>3}%), total_shapes={:>6}",
