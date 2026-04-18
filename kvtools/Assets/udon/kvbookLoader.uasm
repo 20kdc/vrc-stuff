@@ -180,10 +180,6 @@
 	_byte: %SystemByte, null
 	_bool: %SystemBoolean, null
 	_i32: %SystemInt32, 0
-	_floatA: %SystemSingle, 0.0
-	_floatB: %SystemSingle, 0.0
-	_floatX: %SystemSingle, 0.0
-	_floatY: %SystemSingle, 0.0
 
 .data_end
 .code_start
