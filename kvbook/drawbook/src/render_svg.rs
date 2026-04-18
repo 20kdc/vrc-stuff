@@ -121,8 +121,8 @@ impl SVGRenderable {
                         temp_canvas.encode_png().unwrap(),
                     );
                 }
-                // Notably, the hashing happens here, which amortizes the (sequential) shape_lookup.
-                results.extend(shapeify(
+                let sps = ShapifyStrategy::AlphaClippedColourAverage;
+                results.extend(sps.shapeify(
                     temp_canvas,
                     V2(adj_bbox.left(), adj_bbox.top()),
                     render_mul,

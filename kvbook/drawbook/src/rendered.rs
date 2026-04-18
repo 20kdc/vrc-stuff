@@ -28,6 +28,8 @@ impl DBRenderedShape {
             state.write_u8(*v as u8);
         }
         DBRenderedShape {
+            // Notably, the hashing happens here.
+            // This means that it happens during the (parallel) rendering stage, rather than the (sequential) matching stage.
             hash: state.finish(),
             is_solid: data.area_eq_usize(V2(0, 0), data.size(), true),
             data,
@@ -69,68 +71,86 @@ pub struct DBRenderedSprite {
     pub colour: [u8; 3],
 }
 
-pub fn shapeify(
-    src: Pixmap,
-    page_offset: V2<f32>,
-    render_mul: f32,
-    border: u32,
-) -> Option<DBRenderedSprite> {
-    let mut data = Vec::with_capacity((src.width() as usize) * (src.height() as usize));
-    let mut counts_count = 0f32;
-    let mut avg_r = 0f32;
-    let mut avg_g = 0f32;
-    let mut avg_b = 0f32;
-    for pix in src.pixels() {
-        let counts = pix.alpha() >= 128;
-        data.push(counts);
-        if counts {
-            avg_r += pix.demultiply().red() as f32;
-            avg_g += pix.demultiply().green() as f32;
-            avg_b += pix.demultiply().blue() as f32;
-            counts_count += 1f32;
+impl DBRenderedSprite {
+    /// Creates a new rendered sprite.
+    /// Handles auto-cropping and dead sprite elimination (returns None)
+    pub fn new(crop_me: &Raster<bool>, colour: [u8; 3], page_offset: V2<f32>, render_mul: f32, border: usize) -> Option<Self> {
+        let (mut crop_ul, mut crop_br) = crop_me.find_crop_rectangle(false);
+
+        if crop_ul.0 >= crop_br.0 || crop_ul.1 >= crop_br.1 {
+            // Empty optimization
+            return None;
+        }
+
+        if !crop_me.area_eq_usize(crop_ul, crop_br, true) {
+            // Make sure to leave at least border_us pixels...
+            // **unless** it's a solid rectangle.
+            // If it's a solid rectangle, we want that to be plainly obvious down the line, so we allow these borders to be cropped off.
+            // This allows the SDF generator to be aware that it can, in fact, not generate an SDF at all.
+            crop_ul.0 = crop_ul.0.max(border) - border;
+            crop_ul.1 = crop_ul.1.max(border) - border;
+
+            crop_br.0 = (crop_br.0 + border).min(crop_me.size().0);
+            crop_br.1 = (crop_br.1 + border).min(crop_me.size().1);
+        }
+
+        Some(DBRenderedSprite {
+            page_offset: page_offset + V2(crop_ul.0 as f32 / render_mul, crop_ul.1 as f32 / render_mul),
+            shape: DBRenderedShape::new(
+                crop_me.extract_i32(
+                    V2(crop_ul.0 as i32, crop_ul.1 as i32),
+                    crop_br - crop_ul,
+                    false,
+                ),
+                render_mul,
+            ),
+            colour,
+        })
+    }
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
+pub enum ShapifyStrategy {
+    AlphaClippedColourAverage
+}
+
+impl ShapifyStrategy {
+    pub fn shapeify(
+        &self,
+        src: Pixmap,
+        page_offset: V2<f32>,
+        render_mul: f32,
+        border: u32,
+    ) -> Option<DBRenderedSprite> {
+        match self {
+            Self::AlphaClippedColourAverage => {
+                let mut data = Vec::with_capacity((src.width() as usize) * (src.height() as usize));
+                let mut counts_count = 0f32;
+                let mut avg_r = 0f32;
+                let mut avg_g = 0f32;
+                let mut avg_b = 0f32;
+                for pix in src.pixels() {
+                    let counts = pix.alpha() >= 128;
+                    data.push(counts);
+                    if counts {
+                        avg_r += pix.demultiply().red() as f32;
+                        avg_g += pix.demultiply().green() as f32;
+                        avg_b += pix.demultiply().blue() as f32;
+                        counts_count += 1f32;
+                    }
+                }
+                avg_r /= counts_count;
+                avg_g /= counts_count;
+                avg_b /= counts_count;
+                let cr = avg_r.clamp(0f32, 255f32).round() as u8;
+                let cg = avg_g.clamp(0f32, 255f32).round() as u8;
+                let cb = avg_b.clamp(0f32, 255f32).round() as u8;
+                // figure out culling
+                let crop_me = Raster::new(data, V2(src.width() as usize, src.height() as usize));
+                DBRenderedSprite::new(&crop_me, [cr, cg, cb], page_offset, render_mul, border as usize)
+            }
         }
     }
-    avg_r /= counts_count;
-    avg_g /= counts_count;
-    avg_b /= counts_count;
-    let cr = avg_r.clamp(0f32, 255f32).round() as u8;
-    let cg = avg_g.clamp(0f32, 255f32).round() as u8;
-    let cb = avg_b.clamp(0f32, 255f32).round() as u8;
-    // figure out culling
-    let mut crop_me = Raster::new(data, V2(src.width() as usize, src.height() as usize));
-
-    let border_us = border as usize;
-    let (mut crop_ul, mut crop_br) = crop_me.find_crop_rectangle(false);
-
-    if crop_ul.0 >= crop_br.0 || crop_ul.1 >= crop_br.1 {
-        // Empty optimization
-        return None;
-    }
-
-    if !crop_me.area_eq_usize(crop_ul, crop_br, true) {
-        // Make sure to leave at least border_us pixels...
-        // **unless** it's a solid rectangle.
-        // If it's a solid rectangle, we want that to be plainly obvious down the line, so we allow these borders to be cropped off.
-        // This allows the SDF generator to be aware that it can, in fact, not generate an SDF at all.
-        crop_ul.0 = crop_ul.0.max(border_us) - border_us;
-        crop_ul.1 = crop_ul.1.max(border_us) - border_us;
-
-        crop_br.0 = (crop_br.0 + border_us).min(crop_me.size().0);
-        crop_br.1 = (crop_br.1 + border_us).min(crop_me.size().1);
-    }
-
-    Some(DBRenderedSprite {
-        page_offset: page_offset + V2(crop_ul.0 as f32 / render_mul, crop_ul.1 as f32 / render_mul),
-        shape: DBRenderedShape::new(
-            crop_me.extract_i32(
-                V2(crop_ul.0 as i32, crop_ul.1 as i32),
-                crop_br - crop_ul,
-                false,
-            ),
-            render_mul,
-        ),
-        colour: [cr, cg, cb],
-    })
 }
 
 /// Represents a rendered page.

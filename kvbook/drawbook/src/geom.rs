@@ -169,7 +169,7 @@ impl<E: Copy> Raster<E> {
     /// Extracts a copy of a subset of the contents of this raster.
     /// Uses pos/size notation.
     /// We do this super naively for now, grumble grumble.
-    pub fn extract_i32(&mut self, pos: V2<i32>, size: V2<usize>, oob: E) -> Self {
+    pub fn extract_i32(&self, pos: V2<i32>, size: V2<usize>, oob: E) -> Self {
         let mut res = Self::new_blank(size, oob);
         res.copy_i32(self, pos * V2(-1, -1));
         res

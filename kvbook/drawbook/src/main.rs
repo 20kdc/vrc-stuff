@@ -280,7 +280,11 @@ fn main() {
             // post-filter
             if invert {
                 for sprite in &mut rendered.sprites {
-                    sprite.colour = [255 - sprite.colour[0], 255 - sprite.colour[1], 255 - sprite.colour[2]];
+                    sprite.colour = [
+                        255 - sprite.colour[0],
+                        255 - sprite.colour[1],
+                        255 - sprite.colour[2],
+                    ];
                 }
             }
             // complete
