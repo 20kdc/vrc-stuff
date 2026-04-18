@@ -114,7 +114,9 @@ impl DBBook {
         lumps.push(asize_lump);
         // write out header/lumps
         let mut out: Vec<u8> = Vec::new();
-        out.extend_from_slice(&(self.atlases.len() as u32).to_le_bytes());
+        out.extend_from_slice(&(self.atlases.len() as u16).to_le_bytes());
+        // version number
+        out.extend_from_slice(&(0 as u16).to_le_bytes());
         out.extend_from_slice(&(self.pages.len() as u32).to_le_bytes());
         let mut lpos = 8 + (lumps.len() * 8);
         for lump in &lumps {

@@ -28,7 +28,10 @@ It uses several different forms of unit:
 The binary file format starts with a header:
 
 ```
-uint32_t atlas_count;
+uint16_t atlas_count;
+// upper 8 bits are major. current version is 0x0000.
+// before kvtools release, loader will be fixed to read atlas_count and version correctly.
+uint16_t version;
 uint32_t page_count;
 lump_t lumps[atlas_count + page_count + 1];
 ```
