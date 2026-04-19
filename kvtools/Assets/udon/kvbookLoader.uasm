@@ -21,6 +21,8 @@
 	_c_16: %SystemInt32, 16
 	_c_31: %SystemInt32, 31
 	_c_63: %SystemInt32, 63
+	_c_256: %SystemInt32, 256
+	_c_65535: %SystemInt32, 65535
 
 	_cf_0: %SystemSingle, 0.0
 	_cf_1: %SystemSingle, 1.0
@@ -30,6 +32,13 @@
 	_cf_65535: %SystemSingle, 65535.0
 
 	_null: %SystemObject,null
+
+	# -- format constants --
+
+	# supported version range
+
+	_f_versionMin: %SystemInt32, 0x0000
+	_f_versionMax: %SystemInt32, 0x00FF
 
 	# -- public --
 
@@ -60,6 +69,9 @@
 
 	.export infoAtlasCount
 	infoAtlasCount: %SystemInt32, 0
+
+	.export infoFileVersion
+	infoFileVersion: %SystemInt32, 0
 
 	.export infoPageWidth
 	infoPageWidth: %SystemSingle, 0.0
@@ -295,17 +307,47 @@ _LoadPage:
 
 		# -- setup info --
 
-		# read the atlas count
+		# read the atlas count and version number
 			PUSH, bytes
 			PUSH, _c_0
 			PUSH, infoAtlasCount
 			EXTERN, "SystemBitConverter.__ToInt32__SystemByteArray_SystemInt32__SystemInt32"
+
+		# extract version number
+			PUSH, infoAtlasCount
+			PUSH, _c_16
+			PUSH, infoFileVersion
+			EXTERN, "SystemInt32.__op_RightShift__SystemInt32_SystemInt32__SystemInt32"
+
+		# fix atlas count to not include version number
+			PUSH, infoAtlasCount
+			PUSH, _c_65535
+			PUSH, infoAtlasCount
+			EXTERN, "SystemInt32.__op_LogicalAnd__SystemInt32_SystemInt32__SystemInt32"
 
 		# read the page count
 			PUSH, bytes
 			PUSH, _c_4
 			PUSH, infoPageCount
 			EXTERN, "SystemBitConverter.__ToInt32__SystemByteArray_SystemInt32__SystemInt32"
+
+	# -- validate version number --
+
+		# version must be >= _f_versionMin
+			PUSH, infoFileVersion
+			PUSH, _f_versionMin
+			PUSH, _bool
+			EXTERN, "SystemInt32.__op_GreaterThanOrEqual__SystemInt32_SystemInt32__SystemBoolean"
+			PUSH, _bool
+			JUMP_IF_FALSE, _ClearPage
+
+		# version must be <= _f_versionMax
+			PUSH, infoFileVersion
+			PUSH, _f_versionMax
+			PUSH, _bool
+			EXTERN, "SystemInt32.__op_LessThanOrEqual__SystemInt32_SystemInt32__SystemBoolean"
+			PUSH, _bool
+			JUMP_IF_FALSE, _ClearPage
 
 	# -- validate page number --
 

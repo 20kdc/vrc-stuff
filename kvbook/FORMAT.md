@@ -25,12 +25,23 @@ It uses several different forms of unit:
 	* The Y is inverted here because it'd need to be done in the Udon code otherwise, and if you've seen it, you know why I don't want to do that.
 * '`uint16` UV space', which maps 0-65535 to 0-1.
 
+## Versioning
+
+Upper 8 bits of version are major. Current version is `0x0000`.
+
+`kvbookLoader.uasm` will likely either accept versions 0x0000 through 0x00FF inc. or versions 0x0100 through 0x01FF inc.
+
+loaders will support all sensible files of a given major version.
+
+In practice the only reason the major version would change would be because of a change in sprite packing, likely replacing RGB565 with a palette table to allow for alpha trickery.
+
+## Header
+
 The binary file format starts with a header:
 
 ```
+// kvtoolsLoader reads atlas_count and version fields as one int32, then ANDs/shifts accordingly.
 uint16_t atlas_count;
-// upper 8 bits are major. current version is 0x0000.
-// before kvtools release, loader will be fixed to read atlas_count and version correctly.
 uint16_t version;
 uint32_t page_count;
 lump_t lumps[atlas_count + page_count + 1];
