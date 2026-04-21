@@ -128,6 +128,8 @@ fn main() {
     let mut debug_bigbox = false;
     // files
     let mut inputs: Vec<String> = Vec::new();
+    // metadata
+    let metadata = json::object::Object::new();
     // -- argparse --
     let mut arg_parser = lexopt::Parser::from_env();
     while let Some(arg) = arg_parser.next().expect("arg_parser") {
@@ -284,6 +286,7 @@ fn main() {
                         255 - sprite.colour[0],
                         255 - sprite.colour[1],
                         255 - sprite.colour[2],
+                        sprite.colour[3],
                     ];
                 }
             }
@@ -433,6 +436,7 @@ fn main() {
     progress::stage("emit...");
     // initialize atlased book
     let book_atlased = DBBook {
+        metadata,
         atlases: atlas_builders.drain(..).map(|v| v.complete()).collect(),
         pages: pages_atlased,
     };

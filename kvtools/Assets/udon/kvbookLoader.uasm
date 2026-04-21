@@ -37,8 +37,15 @@
 
 	# supported version range
 
-	_f_versionMin: %SystemInt32, 0x0000
-	_f_versionMax: %SystemInt32, 0x00FF
+	_f_versionMin: %SystemInt32, 0x0100
+	_f_versionMax: %SystemInt32, 0x01FF
+
+	# placements
+
+	# file head size; this includes both the formal header and the metadata/palette lumps
+	_f_fileHeadSize: %SystemInt32, 0x0018
+	# palette offset offset
+	_f_fileHeadPalOfs: %SystemInt32, 0x0010
 
 	# -- public --
 
@@ -90,10 +97,12 @@
 
 	# -- file offsets --
 
+	# .export _ofsPalette
 	# .export _ofsPage
 	# .export _endPage
 	# .export _ofsAtlas
 
+	_ofsPalette: %SystemInt32, 0
 	_ofsPage: %SystemInt32, 0
 	_endPage: %SystemInt32, 0
 	_ofsAtlas: %SystemInt32, 0
@@ -143,11 +152,12 @@
 
 	# -- colour decoding --
 
-	_col_i32: %SystemInt32, 0
+	_colOfs: %SystemInt32, 0
 
-	_col_r: %SystemSingle, 0.0
-	_col_g: %SystemSingle, 0.0
-	_col_b: %SystemSingle, 0.0
+	_col_r: %SystemByte, null
+	_col_g: %SystemByte, null
+	_col_b: %SystemByte, null
+	_col_a: %SystemByte, null
 	_col: %UnityEngineColor, null
 	_col32: %UnityEngineColor32, null
 
@@ -381,9 +391,9 @@ _LoadPage:
 			PUSH, _ofsPage
 			EXTERN, "SystemInt32.__op_Multiplication__SystemInt32_SystemInt32__SystemInt32"
 
-		# _ofsPage += 8
+		# _ofsPage += _f_fileHeadSize
 			PUSH, _ofsPage
-			PUSH, _c_8
+			PUSH, _f_fileHeadSize
 			PUSH, _ofsPage
 			EXTERN, "SystemInt32.__op_Addition__SystemInt32_SystemInt32__SystemInt32"
 
@@ -458,9 +468,9 @@ _LoadPage:
 			PUSH, _ofsAtlas
 			EXTERN, "SystemInt32.__op_Multiplication__SystemInt32_SystemInt32__SystemInt32"
 
-		# _ofsAtlas += 8
+		# _ofsAtlas += _f_fileHeadSize
 			PUSH, _ofsAtlas
-			PUSH, _c_8
+			PUSH, _f_fileHeadSize
 			PUSH, _ofsAtlas
 			EXTERN, "SystemInt32.__op_Addition__SystemInt32_SystemInt32__SystemInt32"
 
@@ -468,6 +478,14 @@ _LoadPage:
 			PUSH, bytes
 			PUSH, _ofsAtlas
 			PUSH, _ofsAtlas
+			EXTERN, "SystemBitConverter.__ToInt32__SystemByteArray_SystemInt32__SystemInt32"
+
+	# -- find palette --
+
+		# _ofsPalette = *_f_fileHeadPalOfs
+			PUSH, bytes
+			PUSH, _f_fileHeadPalOfs
+			PUSH, _ofsPalette
 			EXTERN, "SystemBitConverter.__ToInt32__SystemByteArray_SystemInt32__SystemInt32"
 
 	# -- page width/height/sprite count --
@@ -683,71 +701,69 @@ _genGeomLoop:
 
 	# -- colour decoding --
 
-		# _col_i32 = int32(_sprCol)
+		# _colOfs = int32(_sprCol)
 			PUSH, _sprCol
-			PUSH, _col_i32
+			PUSH, _colOfs
 			EXTERN, "SystemConvert.__ToInt32__SystemUInt16__SystemInt32"
 
-		# _col_r = float(_col_i32 >> 11)
-			PUSH, _col_i32
-			PUSH, _i32
-			COPY
-			PUSH, _i32
-			PUSH, _c_11
-			PUSH, _i32
-			EXTERN, "SystemInt32.__op_RightShift__SystemInt32_SystemInt32__SystemInt32"
-			PUSH, _i32
+		# _colOfs = _ofsPalette + (_colOfs << 2)
+			PUSH, _colOfs
+			PUSH, _c_2
+			PUSH, _colOfs
+			EXTERN, "SystemInt32.__op_LeftShift__SystemInt32_SystemInt32__SystemInt32"
+			PUSH, _ofsPalette
+			PUSH, _colOfs
+			PUSH, _colOfs
+			EXTERN, "SystemInt32.__op_Addition__SystemInt32_SystemInt32__SystemInt32"
+
+		# _col_r = *_colOfs ; _colOfs += 1
+			PUSH, bytes
+			PUSH, _colOfs
 			PUSH, _col_r
-			EXTERN, "SystemConvert.__ToSingle__SystemInt32__SystemSingle"
+			EXTERN, "SystemByteArray.__Get__SystemInt32__SystemByte"
+			PUSH, _colOfs
+			PUSH, _c_1
+			PUSH, _colOfs
+			EXTERN, "SystemInt32.__op_Addition__SystemInt32_SystemInt32__SystemInt32"
 
-		# _col_g = float((_col_i32 >> 5) & 0x3F)
-			PUSH, _col_i32
-			PUSH, _i32
-			COPY
-			PUSH, _i32
-			PUSH, _c_5
-			PUSH, _i32
-			EXTERN, "SystemInt32.__op_RightShift__SystemInt32_SystemInt32__SystemInt32"
-			PUSH, _i32
-			PUSH, _c_63
-			PUSH, _i32
-			EXTERN, "SystemInt32.__op_LogicalAnd__SystemInt32_SystemInt32__SystemInt32"
-			PUSH, _i32
+		# _col_g = *_colOfs ; _colOfs += 1
+			PUSH, bytes
+			PUSH, _colOfs
 			PUSH, _col_g
-			EXTERN, "SystemConvert.__ToSingle__SystemInt32__SystemSingle"
+			EXTERN, "SystemByteArray.__Get__SystemInt32__SystemByte"
+			PUSH, _colOfs
+			PUSH, _c_1
+			PUSH, _colOfs
+			EXTERN, "SystemInt32.__op_Addition__SystemInt32_SystemInt32__SystemInt32"
 
-		# _col_b = float(_col_i32 & 0x1F)
-			PUSH, _col_i32
-			PUSH, _i32
-			COPY
-			PUSH, _i32
-			PUSH, _c_31
-			PUSH, _i32
-			EXTERN, "SystemInt32.__op_LogicalAnd__SystemInt32_SystemInt32__SystemInt32"
-			PUSH, _i32
+		# _col_b = *_colOfs ; _colOfs += 1
+			PUSH, bytes
+			PUSH, _colOfs
 			PUSH, _col_b
-			EXTERN, "SystemConvert.__ToSingle__SystemInt32__SystemSingle"
+			EXTERN, "SystemByteArray.__Get__SystemInt32__SystemByte"
+			PUSH, _colOfs
+			PUSH, _c_1
+			PUSH, _colOfs
+			EXTERN, "SystemInt32.__op_Addition__SystemInt32_SystemInt32__SystemInt32"
 
-		# _col_r /= 31.0, _col_g /= 63.0, _col_b /= 31.0
-			PUSH, _col_r
-			PUSH, _cf_31
-			PUSH, _col_r
-			EXTERN, "SystemSingle.__op_Division__SystemSingle_SystemSingle__SystemSingle"
-			PUSH, _col_g
-			PUSH, _cf_63
-			PUSH, _col_g
-			EXTERN, "SystemSingle.__op_Division__SystemSingle_SystemSingle__SystemSingle"
-			PUSH, _col_b
-			PUSH, _cf_31
-			PUSH, _col_b
-			EXTERN, "SystemSingle.__op_Division__SystemSingle_SystemSingle__SystemSingle"
+		# _col_a = *_colOfs
+			PUSH, bytes
+			PUSH, _colOfs
+			PUSH, _col_a
+			EXTERN, "SystemByteArray.__Get__SystemInt32__SystemByte"
 
-		# _col = Color(_col_r, _col_g, _col_b)
+		# _col32 = Color32(_col_r, _col_g, _col_b, _col_a)
 			PUSH, _col_r
 			PUSH, _col_g
 			PUSH, _col_b
+			PUSH, _col_a
+			PUSH, _col32
+			EXTERN, "UnityEngineColor32.__ctor__SystemByte_SystemByte_SystemByte_SystemByte__UnityEngineColor32"
+
+		# _col = Color(_col32)
+			PUSH, _col32
 			PUSH, _col
-			EXTERN, "UnityEngineColor.__ctor__SystemSingle_SystemSingle_SystemSingle__UnityEngineColor"
+			EXTERN, "UnityEngineColor32.__op_Implicit__UnityEngineColor32__UnityEngineColor"
 
 		# _col = _col.linear
 			PUSH, _col

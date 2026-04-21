@@ -2,6 +2,8 @@
 
 The file format used by this Udon script is designed to encode:
 
+* A metadata JSON object
+* A palette, consisting of 4-byte RGBA (non-premultiplied, non-linear) colours
 * A series of _atlases_
 	* Represents a single compiled image file.
 	* Contains a set of _shapes_
@@ -27,13 +29,11 @@ It uses several different forms of unit:
 
 ## Versioning
 
-Upper 8 bits of version are major. Current version is `0x0000`.
+Upper 8 bits of version are major. Current version is `0x0100`.
 
-`kvbookLoader.uasm` will likely either accept versions 0x0000 through 0x00FF inc. or versions 0x0100 through 0x01FF inc.
+`kvbookLoader.uasm` will accept versions 0x0100 through 0x01FF inc.
 
-loaders will support all sensible files of a given major version.
-
-In practice the only reason the major version would change would be because of a change in sprite packing, likely replacing RGB565 with a palette table to allow for alpha trickery.
+Loaders will support all sensible files of a given major version. With this said, it is unlikely for the major version to change in future, as there are no longer any format changes worth making.
 
 ## Header
 
@@ -44,7 +44,10 @@ The binary file format starts with a header:
 uint16_t atlas_count;
 uint16_t version;
 uint32_t page_count;
-lump_t lumps[atlas_count + page_count + 1];
+lump_t metadata;
+lump_t palette;
+lump_t atlases[atlas_count];
+lump_t pages[page_count];
 ```
 
 `lump_t` is a simple offset/length pair:
@@ -54,9 +57,19 @@ uint32_t offset;
 uint32_t length;
 ```
 
-The lumps represented here are divided into three kinds: Atlas shape array lumps, page lumps, and the atlas sizes lump.
+The metadata lump is a JSON UTF-8 string, not null-terminated.
 
-Atlas shape array lumps contain 'shapes'. These contain regions on the actual atlas texture, along with a reference size to display at.
+It is guaranteed to parse as a JSON object, but is considered application-specific data.
+
+The palette lump is pretty simple:
+
+```
+struct {
+	uint8_t r, g, b, a;
+} palette[...];
+```
+
+Each atlas lump contains 'shapes'. These contain regions on the actual atlas texture, along with a reference size to display at.
 
 ```
 struct {
@@ -73,16 +86,8 @@ float width, height; // defines the page size, which is also the extent of refer
 struct {
 	uint16_t shape; // shape ID in atlas
 	int16_t x, y; // position in int16 reference space
-	uint16_t rgb565; // RGB565 colour
+	uint16_t colour; // colour index in palette
 } sprites[...];
 ```
 
 Note that the size of the sprite structure is the primary driver of the binary format's file size.
-
-The atlas size lump contains the texture sizes of the previous atlas lumps. There may be some obscure reason you need this, but it's put at the back of the lumps for a reason.
-
-```
-struct {
-	uint16_t w, h;
-} atlas_sizes[...];
-```

@@ -68,7 +68,7 @@ pub struct DBRenderedSprite {
     /// Offset in page units.
     pub page_offset: V2<f32>,
     pub shape: DBRenderedShape,
-    pub colour: [u8; 3],
+    pub colour: [u8; 4],
 }
 
 impl DBRenderedSprite {
@@ -76,7 +76,7 @@ impl DBRenderedSprite {
     /// Handles auto-cropping and dead sprite elimination (returns None)
     pub fn new(
         crop_me: &Raster<bool>,
-        colour: [u8; 3],
+        colour: [u8; 4],
         page_offset: V2<f32>,
         render_mul: f32,
         border: usize,
@@ -160,7 +160,7 @@ impl ShapifyStrategy {
                 let crop_me = Raster::new(data, V2(src.width() as usize, src.height() as usize));
                 DBRenderedSprite::new(
                     &crop_me,
-                    [cr, cg, cb],
+                    [cr, cg, cb, 255],
                     page_offset,
                     render_mul,
                     border as usize,
@@ -186,7 +186,7 @@ impl ShapifyStrategy {
                 let crop_me = Raster::new(data, V2(src.width() as usize, src.height() as usize));
                 DBRenderedSprite::new(
                     &crop_me,
-                    [0, 0, 0],
+                    [0, 0, 0, 255],
                     page_offset,
                     render_mul,
                     border as usize,

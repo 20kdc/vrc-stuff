@@ -30,7 +30,7 @@ func get_shape(i: int) -> Dictionary:
 	var shape_id = i & 0xFFFF
 
 	# grab info from atlas's lump
-	file.seek(lump_pos(atlas_id) + (shape_id * 16))
+	file.seek(lump_pos(2 + atlas_id) + (shape_id * 16))
 	var tlx = float(file.get_16() & 0xFFFF) / 65535.0
 	var tly = float(file.get_16() & 0xFFFF) / 65535.0
 	var brx = float(file.get_16() & 0xFFFF) / 65535.0
@@ -62,7 +62,8 @@ func _ready():
 
 func reload():
 	file.open("../drawbook/out/book.bytes", File.READ)
-	atlas_count = file.get_32()
+	atlas_count = file.get_16()
+	print("file version: 0x%x" % [file.get_16()])
 	page_count = file.get_32()
 	atlases = {}
 	shapes = {}
@@ -94,8 +95,9 @@ func _draw():
 		_drawpass(1)
 
 func _drawpass(drawpass: int):
-	var page_pos := lump_pos(page + atlas_count)
-	var page_sprites := (lump_size(page + atlas_count) - PAGEHEAD_SIZE) / SPRITE_SIZE
+	var page_lump := 2 + atlas_count + page
+	var page_pos := lump_pos(page_lump)
+	var page_sprites := (lump_size(page_lump) - PAGEHEAD_SIZE) / SPRITE_SIZE
 	# read page header
 	file.seek(page_pos)
 	var atlas_id: int = (file.get_8() & 0xFF) << 16
@@ -111,11 +113,14 @@ func _drawpass(drawpass: int):
 		var tlx = float(((file.get_16() + 0x8000) & 0xFFFF) - 0x8000) / 32767.0
 		var tly = float(((file.get_16() + 0x8000) & 0xFFFF) - 0x8000) / 32767.0
 		var tl = Vector2(tlx, tly) * page_size
-		var rgb565 = file.get_16()
-		var cr = float((rgb565 >> 11) & 0x1F) / 0x1F
-		var cg = float((rgb565 >> 5) & 0x3F) / 0x3F
-		var cb = float((rgb565 >> 0) & 0x1F) / 0x1F
-		var mod = Color(cr, cg, cb)
+		var colour_index = file.get_16()
+		# palette lookup
+		file.seek(lump_pos(1) + (colour_index * 4))
+		var cr = file.get_8()
+		var cg = file.get_8()
+		var cb = file.get_8()
+		var ca = file.get_8()
+		var mod = Color8(cr, cg, cb, ca)
 		# get shape (seeks)
 		var shp = get_shape(shape)
 		# figure out size even if get_shape fails somehow

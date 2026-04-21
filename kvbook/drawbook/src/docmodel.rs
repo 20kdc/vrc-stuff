@@ -1,5 +1,6 @@
 use crate::collada::*;
 use crate::geom::V2;
+use std::collections::HashMap;
 
 /// This is the 'generic' sprite structure.
 /// It's used for all instances of sprites after renders have passed deduplication.
@@ -12,7 +13,7 @@ pub struct DBSprite {
     /// See [DBBook::emit_qv2].
     pub top_left: V2<f32>,
     /// Colour.
-    pub colour: [u8; 3],
+    pub colour: [u8; 4],
 }
 
 /// This is the 'generic' page structure.
@@ -44,12 +45,23 @@ pub struct DBAtlas {
 }
 
 /// Proper atlased book structure.
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub struct DBBook {
+    pub metadata: json::object::Object,
     /// Atlas sizes.
     pub atlases: Vec<DBAtlas>,
     /// Pages (as atlas, page).
     pub pages: Vec<(u8, DBPage)>,
+}
+
+impl Default for DBBook {
+    fn default() -> Self {
+        Self {
+            metadata: json::object::Object::new(),
+            atlases: Vec::new(),
+            pages: Vec::new(),
+        }
+    }
 }
 
 impl DBBook {
@@ -74,6 +86,17 @@ impl DBBook {
     /// Writes book contents to a blob.
     pub fn emit(&self) -> Vec<u8> {
         let mut lumps: Vec<Vec<u8>> = Vec::new();
+        // metadata lump
+        {
+            let mut metadata_lump: Vec<u8> = Vec::new();
+            json::JsonValue::Object(self.metadata.clone())
+                .write(&mut metadata_lump)
+                .unwrap();
+            lumps.push(metadata_lump);
+        }
+        // palette lump placeholder
+        const LUMP_PALETTE: usize = 1;
+        lumps.push(Vec::new());
         // build atlases lump
         // this is meant to be 'scalable but unobtrusive'
         for atlas in &self.atlases {
@@ -87,6 +110,8 @@ impl DBBook {
             }
             lumps.push(atlas_lump);
         }
+        // do palette deduplication inline
+        let mut palette_map: HashMap<[u8; 4], usize> = HashMap::new();
         // build page lumps
         for (atlas, page) in &self.pages {
             let mut page_lump: Vec<u8> = Vec::new();
@@ -96,12 +121,15 @@ impl DBBook {
             for sprite in &page.sprites {
                 page_lump.extend_from_slice(&(sprite.shape as u16).to_le_bytes());
                 page_lump.extend_from_slice(&Self::emit_qv2(sprite.top_left / page.size));
-                // colour to RGB565
-                let r = sprite.colour[0] as u32;
-                let g = sprite.colour[1] as u32;
-                let b = sprite.colour[2] as u32;
-                let rgb565 = ((r << 8) & 0xF800) | ((g << 3) & 0x07E0) | ((b >> 3) & 0x001F);
-                page_lump.extend_from_slice(&(rgb565 as u16).to_le_bytes());
+                let index = if let Some(index) = palette_map.get(&sprite.colour) {
+                    *index
+                } else {
+                    let v = lumps[LUMP_PALETTE].len() / 4;
+                    lumps[LUMP_PALETTE].extend_from_slice(&sprite.colour);
+                    palette_map.insert(sprite.colour, v);
+                    v
+                };
+                page_lump.extend_from_slice(&(index as u16).to_le_bytes());
             }
             lumps.push(page_lump);
         }
@@ -116,7 +144,7 @@ impl DBBook {
         let mut out: Vec<u8> = Vec::new();
         out.extend_from_slice(&(self.atlases.len() as u16).to_le_bytes());
         // version number
-        out.extend_from_slice(&(0 as u16).to_le_bytes());
+        out.extend_from_slice(&(0x0100 as u16).to_le_bytes());
         out.extend_from_slice(&(self.pages.len() as u32).to_le_bytes());
         let mut lpos = 8 + (lumps.len() * 8);
         for lump in &lumps {
