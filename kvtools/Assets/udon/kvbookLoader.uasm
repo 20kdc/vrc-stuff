@@ -44,6 +44,9 @@
 
 	# file head size; this includes both the formal header and the metadata/palette lumps
 	_f_fileHeadSize: %SystemInt32, 0x0018
+	# this
+	_f_fileHeadMetaOfs: %SystemInt32, 0x0008
+	_f_fileHeadMetaLen: %SystemInt32, 0x000C
 	# palette offset offset
 	_f_fileHeadPalOfs: %SystemInt32, 0x0010
 
@@ -95,14 +98,20 @@
 	.export infoPageIndexCount
 	infoPageIndexCount: %SystemInt32, 0
 
+	.export infoMetadata
+	infoMetadata: %SystemString, "{}"
+
 	# -- file offsets --
 
 	# .export _ofsPalette
+	# .export _ofsMetadata
 	# .export _ofsPage
 	# .export _endPage
 	# .export _ofsAtlas
 
 	_ofsPalette: %SystemInt32, 0
+	_ofsMetadata: %SystemInt32, 0
+	_lenMetadata: %SystemInt32, 0
 	_ofsPage: %SystemInt32, 0
 	_endPage: %SystemInt32, 0
 	_ofsAtlas: %SystemInt32, 0
@@ -202,6 +211,7 @@
 	_byte: %SystemByte, null
 	_bool: %SystemBoolean, null
 	_i32: %SystemInt32, 0
+	_utf8: %SystemTextEncoding, null
 
 .data_end
 .code_start
@@ -304,12 +314,12 @@ _LoadPage:
 			PUSH, _bool
 			JUMP_IF_FALSE, _ClearPage
 
-		# also do this if the length is < 8 (no header)
+		# also do this if the length is < _f_fileHeadSize (no header)
 			PUSH, bytes
 			PUSH, _i32
 			EXTERN, "SystemByteArray.__get_Length__SystemInt32"
 			PUSH, _i32
-			PUSH, _c_8
+			PUSH, _f_fileHeadSize
 			PUSH, _bool
 			EXTERN, "SystemInt32.__op_GreaterThanOrEqual__SystemInt32_SystemInt32__SystemBoolean"
 			PUSH, _bool
@@ -487,6 +497,32 @@ _LoadPage:
 			PUSH, _f_fileHeadPalOfs
 			PUSH, _ofsPalette
 			EXTERN, "SystemBitConverter.__ToInt32__SystemByteArray_SystemInt32__SystemInt32"
+
+	# -- get metadata --
+
+		# _ofsMetadata = *_f_fileHeadMetaOfs
+			PUSH, bytes
+			PUSH, _f_fileHeadMetaOfs
+			PUSH, _ofsMetadata
+			EXTERN, "SystemBitConverter.__ToInt32__SystemByteArray_SystemInt32__SystemInt32"
+
+		# _lenMetadata = *_f_fileHeadMetaLen
+			PUSH, bytes
+			PUSH, _f_fileHeadMetaLen
+			PUSH, _lenMetadata
+			EXTERN, "SystemBitConverter.__ToInt32__SystemByteArray_SystemInt32__SystemInt32"
+
+		# _utf8 = Encoding.UTF8
+			PUSH, _utf8
+			EXTERN, "SystemTextEncoding.__get_UTF8__SystemTextEncoding"
+
+		# infoMetadata = _utf8.GetString(bytes, _ofsMetadata, _lenMetadata)
+			PUSH, _utf8
+			PUSH, bytes
+			PUSH, _ofsMetadata
+			PUSH, _lenMetadata
+			PUSH, infoMetadata
+			EXTERN, "SystemTextEncoding.__GetString__SystemByteArray_SystemInt32_SystemInt32__SystemString"
 
 	# -- page width/height/sprite count --
 
