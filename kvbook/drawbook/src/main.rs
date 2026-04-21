@@ -93,6 +93,9 @@ fn do_help() {
         ATLAS_MAX_SIZE_DEFAULT
     );
     println!("  if a single page requires more atlas space, this will be exceeded!",);
+    // metadata
+    println!(" --metadata-file FILE: merges a JSON object into metadata from a file");
+    println!(" --metadata JSON: merges a JSON object into metadata from command line");
     // debug
     println!(" --debug-shapesearly: writes debug.dse.p*.s*.png");
     println!(" --debug-shapeslate: writes debug.s*.png / debug.s*.sdf.png");
@@ -129,7 +132,7 @@ fn main() {
     // files
     let mut inputs: Vec<String> = Vec::new();
     // metadata
-    let metadata = json::object::Object::new();
+    let mut metadata_override = json::object::Object::new();
     // -- argparse --
     let mut arg_parser = lexopt::Parser::from_env();
     while let Some(arg) = arg_parser.next().expect("arg_parser") {
@@ -216,6 +219,25 @@ fn main() {
                         .expect("--atlas-max-size expects usize")
                         .parse()
                         .expect("--atlas-max-size expects usize");
+                } else if v.eq("metadata-file") {
+                    let vp = arg_parser.value().expect("--metadata-file expects a path");
+                    let ff = std::fs::read_to_string(&vp)
+                        .expect(&format!("metadata-file {:?} unreadable", vp));
+                    let val =
+                        json::parse(&ff).expect(&format!("metadata-file {:?} not valid JSON", vp));
+                    for kv in val.entries() {
+                        metadata_override.insert(kv.0, kv.1.clone());
+                    }
+                } else if v.eq("metadata") {
+                    let vp = arg_parser
+                        .value()
+                        .expect("--metadata expects JSON")
+                        .to_string_lossy()
+                        .to_string();
+                    let val = json::parse(&vp).expect("metadata not valid JSON");
+                    for kv in val.entries() {
+                        metadata_override.insert(kv.0, kv.1.clone());
+                    }
                 } else if v.eq("debug-shapesearly") {
                     debug_dump_shapes_early = true;
                 } else if v.eq("debug-shapeslate") {
@@ -436,7 +458,7 @@ fn main() {
     progress::stage("emit...");
     // initialize atlased book
     let book_atlased = DBBook {
-        metadata,
+        metadata: metadata_override,
         atlases: atlas_builders.drain(..).map(|v| v.complete()).collect(),
         pages: pages_atlased,
     };
