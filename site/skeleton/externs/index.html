@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<script src="../udon_api.js"></script>
+		<script src="deact.js"></script>
+		<script src="udonexternparser.js"></script>
+		<script src="apibook.js"></script>
+		<style>
+			:root {
+				--shade-0: #000000;
+				--shade-1: #100808;
+				--shade-2: #201010;
+				--shade-4: #402020;
+				--shade-5: #502828;
+				--shade-6: #603030;
+				--text-colour: white;
+			}
+			html {
+				background: var(--shade-4);
+				color: var(--text-colour);
+			}
+			body {
+				position: absolute;
+				top: 0;
+				left: 0;
+				width: 100vw;
+				height: 100vh;
+				display: flex;
+				flex-direction: column;
+				margin: 0;
+			}
+			header {
+				border-bottom: 4pt solid var(--shade-1);
+				display: flex;
+			}
+			header > * {
+				padding: 8pt;
+			}
+			#searchBox {
+				flex-grow: 1;
+			}
+			#view {
+				flex-grow: 1;
+				overflow: scroll;
+				padding: 16pt;
+			}
+			button {
+				background: var(--shade-5);
+				border: 1pt solid var(--shade-0);
+				color: var(--text-colour);
+			}
+			button:hover {
+				background: var(--shade-6);
+			}
+			button:active {
+				background: var(--shade-2);
+			}
+			input {
+				background: var(--shade-1);
+				border: 2pt solid var(--shade-0);
+				color: var(--text-colour);
+			}
+			code {
+				background: var(--shade-0);
+				border: 2pt solid var(--shade-0);
+				border-radius: 2pt;
+			}
+			.copyableButton {
+				margin-left: 8pt;
+				padding: 4pt;
+			}
+			a {
+				color: var(--text-colour);
+				text-decoration: none;
+			}
+			.typeIntro {
+				margin-top: 16pt;
+				margin-bottom: 16pt;
+				background: var(--shade-2);
+				border-radius: 4pt;
+				padding: 4pt;
+				padding-left: 16pt;
+			}
+			.genericIntro {
+				margin-top: 16pt;
+				margin-bottom: 16pt;
+				background: var(--shade-2);
+				border-radius: 4pt;
+				padding: 4pt;
+				padding-left: 16pt;
+			}
+			.exttag {
+				margin: 8pt;
+				padding: 2pt;
+				border-radius: 4pt;
+			}
+			.exttagStatic {
+				background: #808000;
+				color: white;
+			}
+			.exttagGeneric {
+				background: #000080;
+				color: white;
+			}
+		</style>
+	</head>
+	<body onload="initialize()">
+		<header>
+			<div id="banner">
+				20kdc's udon extern browser <i>(Worlds SDK version <code id="apiVersion">?</code>)</i>
+			</div>
+			<input id="searchBox" type="text" placeholder="Search..." oninput="searchBoxChanged();"></input>
+		</header>
+		<div id="view">
+		</div>
+	</body>
+</html>

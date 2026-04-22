@@ -1,4 +1,4 @@
-build: udon kip32 mdbook
+build: udon kip32 site
 
 [working-directory: 'kip32']
 kip32: kip32-sdk kip32-sdk-examples kip32-rust-sdk
@@ -44,9 +44,13 @@ libc-host-weird:
 	cc test_weird.c -o test_weird
 	./test_weird
 
-[working-directory: 'mdbook']
-mdbook:
+[working-directory: 'site']
+site:
 	./b
+
+[working-directory: 'site']
+site-srv: site
+	miniserve out
 
 [working-directory: 'udon']
 udon:
@@ -67,7 +71,7 @@ datamine2json:
 
 clean:
 	cd kip32/sdk ; ./clean
-	cargo clean --manifest-path mdbook/generator/Cargo.toml
+	cargo clean --manifest-path site/generator/Cargo.toml
 	cargo clean --manifest-path udon/Cargo.toml
 
 kip32-sdk-src-package: clean

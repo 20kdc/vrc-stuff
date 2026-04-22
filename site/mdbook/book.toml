@@ -1,0 +1,9 @@
+[book]
+authors = ["t20kdc"]
+language = "en"
+src = "src"
+title = "'vrc-stuff' Index And Documentation"
+
+[output.html]
+# While this is a really nice feature, we can't have it because we can't specify it on a chapter-by-chapter basis.
+sidebar-header-nav = false

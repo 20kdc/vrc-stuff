@@ -1,0 +1,15 @@
+#!/bin/sh -e
+
+rm -rf out
+
+# mdbook runs first, creating the 'base structure'
+cd mdbook
+mdbook build
+cd ..
+cp -r mdbook/book out
+
+# add in the extern reference
+cp -r skeleton/* out/
+
+echo "window.UDON_API =" > out/udon_api.js
+unxz < ../udon/kudon_apijson/src/api_c.json.xz >> out/udon_api.js

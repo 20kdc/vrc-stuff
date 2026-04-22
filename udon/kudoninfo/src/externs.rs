@@ -18,6 +18,9 @@ pub struct UdonExternIDParse {
 
 impl UdonExternIDParse {
     pub fn parse(src: &str) -> Result<Self, String> {
+        //
+        // -- THIS FUNCTION SHOULD BE KEPT IN SYNC WITH site/skeleton/externs/udonexternparser.js --
+        //
         let wm: Vec<&str> = src.split(".").collect();
         if wm.len() != 2 {
             return Err(format!("Must have exactly one '.': {}", src));
@@ -143,6 +146,9 @@ pub fn udonextern_map() -> &'static BTreeMap<String, UdonExtern> {
         for key in crate::udontype_map() {
             let typeobj = kudon_apijson::type_by_name(key.0).unwrap();
             for ext in typeobj["externs"].entries() {
+                //
+                // -- THIS FUNCTION SHOULD BE KEPT IN SYNC WITH site/skeleton/externs/udonexternparser.js --
+                //
                 let name_parsed = UdonExternIDParse::parse(ext.0).expect("extern ID should parse");
                 let has_return = !name_parsed.return_type.eq("SystemVoid");
                 let parameters: Vec<UdonExternParam> = ext.1["parameters"]

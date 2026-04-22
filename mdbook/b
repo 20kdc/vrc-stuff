@@ -1,7 +1,0 @@
-#!/bin/sh
-# **LOAD-BEARING SHELL SCRIPT** - this is invoked from CI
-set -e
-cd generator
-cargo run
-cd ..
-mdbook build
