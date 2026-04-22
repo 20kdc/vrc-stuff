@@ -108,7 +108,7 @@ function BType(tName) {
 		var doc = bFindDoc(tName);
 		res.push(h("div", {id: "typeHeader", className: "typeIntro"}, [
 			h("h2", "Type ", BCopyable(tName)),
-			h("p", "Kind: ", BCopyable(ty["kind"])),
+			h("p", "Kind: ", h("code", ty["kind"])),
 			h("p", "Base Types: ", baseList),
 			h("p", "OdinSerializer: ", BCopyable(ty["odin_name"])),
 			h("p", "Sync Type: ",
