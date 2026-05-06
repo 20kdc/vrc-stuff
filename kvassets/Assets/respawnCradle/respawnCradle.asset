@@ -13,12 +13,23 @@ MonoBehaviour:
   m_Name: respawnCradle
   m_EditorClassIdentifier: 
   serializedUdonProgramAsset: {fileID: 11400000, guid: c00e73b0cc18f2789be9f300d4d5353c, type: 2}
-  udonAssembly: ".data_start\n\n    .export target\n    \n    __instance_0: %VRCSDK3ComponentsVRCObjectSync,
-    null\n    target: %VRCSDK3ComponentsVRCObjectSync, null\n\n.data_end\n\n.code_start\n\n   
+  udonAssembly: ".data_start\n\n    .export target\n    .export zeroTransform\n   
+    \n    __object_0: %SystemObject, null\n    __result_0: %SystemBoolean, null\n   
+    __instance_0: %VRCSDK3ComponentsVRCObjectSync, null\n    __instance_1: %UnityEngineTransform,
+    this\n    __localPosition_0: %UnityEngineVector3, null\n    __localRotation_0:
+    %UnityEngineQuaternion, null\n    target: %VRCSDK3ComponentsVRCObjectSync, null\n   
+    zeroTransform: %UnityEngineTransform, this\n\n.data_end\n\n.code_start\n\n   
     .export _interact\n    \n    _interact:\n    \n        PUSH, target\n       
+    PUSH, __object_0\n        COPY\n        PUSH, __object_0\n        PUSH, __result_0\n       
+    EXTERN, \"VRCSDKBaseUtilities.__IsValid__SystemObject__SystemBoolean\"\n       
+    PUSH, __result_0\n        JUMP_IF_FALSE, 0x00000068\n        PUSH, target\n       
     PUSH, __instance_0\n        COPY\n        PUSH, __instance_0\n        EXTERN,
-    \"VRCSDK3ComponentsVRCObjectSync.__Respawn__SystemVoid\"\n        JUMP, 0xFFFFFFFC\n   
-    \n\n.code_end\n"
+    \"VRCSDK3ComponentsVRCObjectSync.__Respawn__SystemVoid\"\n        JUMP, 0x000000AC\n       
+    PUSH, zeroTransform\n        PUSH, __instance_1\n        COPY\n        PUSH,
+    __localRotation_0\n        EXTERN, \"UnityEngineQuaternion.__get_identity__UnityEngineQuaternion\"\n       
+    PUSH, __instance_1\n        PUSH, __localPosition_0\n        PUSH, __localRotation_0\n       
+    EXTERN, \"UnityEngineTransform.__SetLocalPositionAndRotation__UnityEngineVector3_UnityEngineQuaternion__SystemVoid\"\n       
+    JUMP, 0xFFFFFFFC\n    \n\n.code_end\n"
   assemblyError: 
   graphData:
     name: 
@@ -26,14 +37,14 @@ MonoBehaviour:
     nodes:
     - fullName: Event_Interact
       uid: 39caf8f7-db7b-4cea-a171-a8ead604af30
-      position: {x: 420.3688, y: -142.00221}
+      position: {x: 280.00003, y: -279.6892}
       nodeUIDs: []
       flowUIDs:
-      - 66eaeb2e-fbac-4b65-b6be-b5710fdbcae4
+      - dca59ea5-9e1a-48cc-a4fc-9644fd8cba43
       nodeValues: []
     - fullName: VRCSDK3ComponentsVRCObjectSync.__Respawn__SystemVoid
       uid: 66eaeb2e-fbac-4b65-b6be-b5710fdbcae4
-      position: {x: 558.615, y: -142}
+      position: {x: 626.8884, y: -249}
       nodeUIDs:
       - 2d64aec1-0f58-4802-aa85-89f4d8883cfd|0
       flowUIDs: []
@@ -65,7 +76,7 @@ MonoBehaviour:
         stringValue: System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089|none
     - fullName: Get_Variable
       uid: 2d64aec1-0f58-4802-aa85-89f4d8883cfd
-      position: {x: 358.34277, y: -35.000008}
+      position: {x: 93.94083, y: -141.99998}
       nodeUIDs:
       - 
       flowUIDs: []
@@ -74,6 +85,74 @@ MonoBehaviour:
         stringValue: System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089|8c064371-ae8b-4c85-bfd9-47b60e316359
       - unityObjectValue: {fileID: 0}
         stringValue: 
+    - fullName: Is_Valid
+      uid: dca59ea5-9e1a-48cc-a4fc-9644fd8cba43
+      position: {x: 415, y: -266.4999}
+      nodeUIDs:
+      - 2d64aec1-0f58-4802-aa85-89f4d8883cfd|0
+      flowUIDs:
+      - 66eaeb2e-fbac-4b65-b6be-b5710fdbcae4
+      - f786490c-c8bc-4253-b075-61b853c824ea
+      nodeValues:
+      - unityObjectValue: {fileID: 0}
+        stringValue: 
+    - fullName: Variable_UnityEngineTransform
+      uid: 909ce71b-650f-4238-a5aa-837ea9589b5a
+      position: {x: 0, y: 0}
+      nodeUIDs:
+      - 
+      - 
+      - 
+      - 
+      - 
+      flowUIDs: []
+      nodeValues:
+      - unityObjectValue: {fileID: 0}
+        stringValue: 
+      - unityObjectValue: {fileID: 0}
+        stringValue: System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089|zeroTransform
+      - unityObjectValue: {fileID: 0}
+        stringValue: System.Boolean, mscorlib, Version=4.0.0.0, Culture=neutral,
+          PublicKeyToken=b77a5c561934e089|True
+      - unityObjectValue: {fileID: 0}
+        stringValue: System.Boolean, mscorlib, Version=4.0.0.0, Culture=neutral,
+          PublicKeyToken=b77a5c561934e089|False
+      - unityObjectValue: {fileID: 0}
+        stringValue: System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089|none
+    - fullName: Get_Variable
+      uid: 980da322-c53e-491a-925c-8e5f7b2a517b
+      position: {x: 400.07245, y: -100.50002}
+      nodeUIDs:
+      - 
+      flowUIDs: []
+      nodeValues:
+      - unityObjectValue: {fileID: 0}
+        stringValue: System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089|909ce71b-650f-4238-a5aa-837ea9589b5a
+      - unityObjectValue: {fileID: 0}
+        stringValue: 
+    - fullName: UnityEngineTransform.__SetLocalPositionAndRotation__UnityEngineVector3_UnityEngineQuaternion__SystemVoid
+      uid: f786490c-c8bc-4253-b075-61b853c824ea
+      position: {x: 663.65216, y: -126.94205}
+      nodeUIDs:
+      - 980da322-c53e-491a-925c-8e5f7b2a517b|0
+      - 
+      - aaf1bf02-e39c-4949-a8a4-b56ddff4242d|0
+      flowUIDs: []
+      nodeValues:
+      - unityObjectValue: {fileID: 0}
+        stringValue: 
+      - unityObjectValue: {fileID: 0}
+        stringValue: UnityEngine.Vector3, UnityEngine.CoreModule, Version=0.0.0.0,
+          Culture=neutral, PublicKeyToken=null|{"x":0.0,"y":0.0,"z":0.0}
+      - unityObjectValue: {fileID: 0}
+        stringValue: UnityEngine.Quaternion, UnityEngine.CoreModule, Version=0.0.0.0,
+          Culture=neutral, PublicKeyToken=null|{"x":0.0,"y":0.0,"z":0.0,"w":0.0}
+    - fullName: UnityEngineQuaternion.__get_identity__UnityEngineQuaternion
+      uid: aaf1bf02-e39c-4949-a8a4-b56ddff4242d
+      position: {x: 438.40582, y: -1.492691}
+      nodeUIDs: []
+      flowUIDs: []
+      nodeValues: []
     updateOrder: 0
   graphElementData: []
   version: 1.0.0
