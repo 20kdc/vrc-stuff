@@ -8,6 +8,23 @@ use std::sync::Arc;
 use tiny_skia::Pixmap;
 
 #[derive(Clone)]
+pub enum AtlasableShape {
+    /// Special path for simple rectangles.
+    Rectangle,
+    Pixmap(Pixmap),
+}
+
+impl AtlasableShape {
+    /// Returns size of the pixmap, or zero for not-applicable.
+    pub fn size(&self) -> V2<u32> {
+        match self {
+            Self::Pixmap(px) => V2(px.width(), px.height()),
+            Self::Rectangle => V2(0, 0),
+        }
+    }
+}
+
+#[derive(Clone)]
 pub struct AtlasBuilder {
     pub planner: AtlasPage,
     /// Maps global shape IDs to atlas shape IDs.
@@ -63,42 +80,47 @@ impl AtlasBuilder {
         &mut self,
         global_id: usize,
         shape: &Arc<DBRenderedShape>,
-        sdf: &Option<Pixmap>,
+        sdf: &AtlasableShape,
         atlas_perfchop: usize,
-        progress: &impl Progress,
+        progress: &dyn Progress,
     ) -> bool {
         // Convert from render units into reference units.
         let size = V2(shape.size().0 as f32, shape.size().1 as f32)
             / V2(shape.render_mul(), shape.render_mul());
-        if let Some(sdf) = sdf {
-            let pt = self
-                .planner
-                .place(V2(sdf.width() as usize + 2, sdf.height() as usize + 2));
-            if let Some(pt) = pt {
-                if self.planner.free.len() >= atlas_perfchop {
-                    progress.alert("--atlas-perfchop freelist limit reached");
-                    self.planner.perf_chop();
-                }
-                self.placements.push(DBAtlasedShape {
-                    uv_tl: V2(pt.0 as f32, pt.1 as f32) + V2(1f32, 1f32),
-                    uv_br: V2(
-                        (pt.0 + sdf.width() as usize) as f32,
-                        (pt.1 + sdf.height() as usize) as f32,
-                    ) + V2(1f32, 1f32),
+        let placement = match sdf {
+            AtlasableShape::Rectangle => {
+                DBAtlasedShape {
+                    // set to the 'rectangle' texture
+                    uv_tl: V2(2f32, 2f32),
+                    uv_br: V2(3f32, 3f32),
                     size,
-                });
-            } else {
-                // failed to place, so can't continue
-                return false;
+                }
             }
-        } else {
-            self.placements.push(DBAtlasedShape {
-                // set to the 'rectangle' texture
-                uv_tl: V2(2f32, 2f32),
-                uv_br: V2(3f32, 3f32),
-                size,
-            });
-        }
+            AtlasableShape::Pixmap(sdf) => {
+                let pt = self
+                    .planner
+                    .place(V2(sdf.width() as usize + 2, sdf.height() as usize + 2));
+                if let Some(pt) = pt {
+                    if self.planner.free.len() >= atlas_perfchop {
+                        progress.alert("--atlas-perfchop freelist limit reached");
+                        self.planner.perf_chop();
+                    }
+                    DBAtlasedShape {
+                        uv_tl: V2(pt.0 as f32, pt.1 as f32) + V2(1f32, 1f32),
+                        uv_br: V2(
+                            (pt.0 + sdf.width() as usize) as f32,
+                            (pt.1 + sdf.height() as usize) as f32,
+                        ) + V2(1f32, 1f32),
+                        size,
+                    }
+                } else {
+                    // failed to place, so can't continue
+                    return false;
+                }
+            }
+        };
+        // N: Add placement to mapping in a simple block.
+        self.placements.push(placement);
         let local_id = self.inv_shape_map.len();
         self.inv_shape_map.push(global_id);
         self.shape_map[global_id] = Some(local_id);
@@ -113,10 +135,10 @@ impl AtlasBuilder {
         &mut self,
         src_page: &DBPage,
         shape_lookup: &DBShapeLookup,
-        sdf_shapes: &[Option<Pixmap>],
+        sdf_shapes: &[AtlasableShape],
         max_size: Option<usize>,
         atlas_perfchop: usize,
-        progress: &impl Progress,
+        progress: &dyn Progress,
     ) -> (bool, DBPage) {
         let mut page = DBPage {
             size: src_page.size,
@@ -136,16 +158,10 @@ impl AtlasBuilder {
 
         // determine encounter order, place descending
         shapes_to_add.sort_by(|v1, v2| {
-            let v1r: &Option<Pixmap> = &sdf_shapes[*v1];
-            let v2r: &Option<Pixmap> = &sdf_shapes[*v2];
-            let v1s = v1r
-                .as_ref()
-                .map(|v| (v.width(), v.height()))
-                .unwrap_or((0, 0));
-            let v2s = v2r
-                .as_ref()
-                .map(|v| (v.width(), v.height()))
-                .unwrap_or((0, 0));
+            let v1r: &AtlasableShape = &sdf_shapes[*v1];
+            let v2r: &AtlasableShape = &sdf_shapes[*v2];
+            let v1s = v1r.size();
+            let v2s = v2r.size();
             (v2s.0 * v2s.1).cmp(&(v1s.0 * v1s.1))
         });
 
@@ -180,5 +196,35 @@ impl AtlasBuilder {
         }
 
         (true, page)
+    }
+
+    /// Renders the atlas to a pixmap.
+    pub fn render(&self, sdf_shapes: &[AtlasableShape]) -> Pixmap {
+        let mut atlas_pix =
+            Pixmap::new(self.planner.size.0 as u32, self.planner.size.1 as u32).unwrap();
+        atlas_pix.fill(tiny_skia::Color::BLACK);
+        atlas_pix.fill_rect(
+            tiny_skia::Rect::from_xywh(1f32, 1f32, 3f32, 3f32).unwrap(),
+            &tiny_skia::Paint {
+                shader: tiny_skia::Shader::SolidColor(tiny_skia::Color::WHITE),
+                ..Default::default()
+            },
+            tiny_skia::Transform::identity(),
+            None,
+        );
+        for (local_id, v) in self.placements.iter().enumerate() {
+            let global_id = self.inv_shape_map[local_id];
+            if let AtlasableShape::Pixmap(sdf) = &sdf_shapes[global_id] {
+                atlas_pix.draw_pixmap(
+                    v.uv_tl.0 as i32,
+                    v.uv_tl.1 as i32,
+                    sdf.as_ref(),
+                    &tiny_skia::PixmapPaint::default(),
+                    tiny_skia::Transform::identity(),
+                    None,
+                );
+            }
+        }
+        atlas_pix
     }
 }

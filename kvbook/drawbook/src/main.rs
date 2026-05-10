@@ -1,17 +1,13 @@
-use tiny_skia::Pixmap;
-
 mod progress;
 mod render_svg;
 
 use booklib::atlas_builder::*;
 use booklib::docmodel::*;
-use booklib::geom::*;
+use booklib::highlevel;
 use booklib::progress::*;
 use booklib::rendered::*;
-use booklib::sdf;
 use lexopt::ValueExt;
 use progress::ProgressImpl;
-use rayon::prelude::*;
 use render_svg::*;
 
 const RENDER_MUL_DEFAULT: f32 = 16.0;
@@ -322,135 +318,34 @@ fn main() {
     // -- SDF --
     ProgressImpl.stage("SDF conversions...");
     // 'rectangle' entries are None.
-    let sdf_shapes: Vec<Option<Pixmap>> = shape_lookup
-        .shapes
-        .par_iter()
-        .enumerate()
-        .map(|(shape_id, shape)| {
-            if debug_dump_shapes_late {
-                let downscale_check_canvas = shape.to_pixmap();
-                _ = std::fs::write(
-                    format!("{}/debug.s{}.png", outdir, shape_id),
-                    downscale_check_canvas.encode_png().unwrap(),
-                );
-            }
-
-            if shape.is_solid() {
-                return None;
-            }
-
-            let shape_sdf = sdf::shape_to_sdf(shape);
-
-            // This is 'magic' that needs to act in concert with the shader.
-            // It's important that it's scaled according to the 'total multiplier' so that it's spatially consistent.
-            let step_sdf_mul = (shape.render_mul() as f32) / (sdf_downscale as f32);
-            let step: f32 = 1f32 / (sdf_smooth * step_sdf_mul);
-
-            let res = sdf::sdf_to_pixmap(&shape_sdf, (step as i32).max(1));
-            if debug_dump_shapes_late {
-                _ = std::fs::write(
-                    format!("{}/debug.s{}.sdf.png", outdir, shape_id),
-                    res.encode_png().unwrap(),
-                );
-            }
-            let res_scaled = sdf::scale_pixmap(
-                &res,
-                sdf::downscale_size(&res, sdf_downscale),
-                tiny_skia::FilterQuality::Bicubic,
-            );
-            ProgressImpl.status(&format!(" last={:>6}", shape_id));
-            Some(res_scaled)
-        })
-        .collect();
+    let sdf_shapes: Vec<AtlasableShape> = highlevel::gen_sdf_shapes(
+        highlevel::GenSDFShapesInput {
+            shape_lookup: &shape_lookup,
+            outdir: &outdir,
+            debug_dump_shapes_late,
+            sdf_downscale,
+            sdf_smooth,
+        },
+        &ProgressImpl,
+    );
 
     // -- Atlasing --
-    let mut atlas_builders: Vec<AtlasBuilder> = Vec::new();
-    let mut pages_atlased: Vec<(u8, DBPage)> = Vec::new();
-    {
-        ProgressImpl.stage("atlasing...");
-        let mut curr_atlas =
-            AtlasBuilder::new(V2(atlas_min_size, atlas_min_size), sdf_shapes.len());
-        let mut has_alerted = false;
-        for (k, page) in pages.iter().enumerate() {
-            // attempt 1
-            let watermark_pre_page = curr_atlas.watermark();
-            let (ok, mut tf_page) = curr_atlas.atlas_page(
-                page,
-                &shape_lookup,
-                &sdf_shapes,
-                // if k == 0 here, this is a fresh atlas
-                if k == 0 { None } else { Some(atlas_max_size) },
-                atlas_perfchop,
-                &ProgressImpl,
-            );
-            if !ok {
-                curr_atlas.revert_to_watermark(watermark_pre_page);
-                ProgressImpl.alert(&format!("index {:>6}: new atlas", k));
-                atlas_builders.push(curr_atlas);
-                curr_atlas =
-                    AtlasBuilder::new(V2(atlas_min_size, atlas_min_size), sdf_shapes.len());
-                has_alerted = false;
-                (_, tf_page) = curr_atlas.atlas_page(
-                    page,
-                    &shape_lookup,
-                    &sdf_shapes,
-                    None,
-                    atlas_perfchop,
-                    &ProgressImpl,
-                );
-            }
-            if (curr_atlas.planner.size.0 > atlas_max_size
-                || curr_atlas.planner.size.0 > atlas_max_size)
-                && !has_alerted
-            {
-                has_alerted = true;
-                ProgressImpl.alert(&format!(
-                    "index {:>6}: fresh atlas had to be expanded beyond max size",
-                    k
-                ));
-            }
-            pages_atlased.push((atlas_builders.len() as u8, tf_page));
-            ProgressImpl.status(&format!(
-                " {:>3}% atlas={:>2} atlas_size={:?} freelist={:>8}        ",
-                progress::percentage(k + 1, pages.len()),
-                atlas_builders.len(),
-                curr_atlas.planner.size,
-                curr_atlas.planner.free.len()
-            ));
-        }
-        atlas_builders.push(curr_atlas);
-    }
+    ProgressImpl.stage("atlasing...");
+    let (mut atlas_builders, pages_atlased) = highlevel::atlas_pages(
+        highlevel::AtlasPagesInput {
+            sdf_shapes: &sdf_shapes,
+            pages: &pages,
+            shape_lookup: &shape_lookup,
+            atlas_min_size,
+            atlas_max_size,
+            atlas_perfchop,
+        },
+        &ProgressImpl,
+    );
 
     ProgressImpl.stage("drawing atlases...");
     for (atlas_id, atlas_builder) in atlas_builders.iter().enumerate() {
-        let mut atlas_pix = Pixmap::new(
-            atlas_builder.planner.size.0 as u32,
-            atlas_builder.planner.size.1 as u32,
-        )
-        .unwrap();
-        atlas_pix.fill(tiny_skia::Color::BLACK);
-        atlas_pix.fill_rect(
-            tiny_skia::Rect::from_xywh(1f32, 1f32, 3f32, 3f32).unwrap(),
-            &tiny_skia::Paint {
-                shader: tiny_skia::Shader::SolidColor(tiny_skia::Color::WHITE),
-                ..Default::default()
-            },
-            tiny_skia::Transform::identity(),
-            None,
-        );
-        for (local_id, v) in atlas_builder.placements.iter().enumerate() {
-            let global_id = atlas_builder.inv_shape_map[local_id];
-            if let Some(sdf) = &sdf_shapes[global_id] {
-                atlas_pix.draw_pixmap(
-                    v.uv_tl.0 as i32,
-                    v.uv_tl.1 as i32,
-                    sdf.as_ref(),
-                    &tiny_skia::PixmapPaint::default(),
-                    tiny_skia::Transform::identity(),
-                    None,
-                );
-            }
-        }
+        let atlas_pix = atlas_builder.render(&sdf_shapes);
         _ = std::fs::write(
             &format!("{}/atlas.{}.png", outdir, atlas_id),
             atlas_pix.encode_png().unwrap(),
