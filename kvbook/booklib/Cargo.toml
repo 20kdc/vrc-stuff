@@ -1,5 +1,5 @@
 [package]
-name = "drawbook"
+name = "booklib"
 publish.workspace = true
 version.workspace = true
 edition.workspace = true
@@ -8,9 +8,5 @@ license.workspace = true
 
 [dependencies]
 json = "0.12.4"
-lexopt = "0.3.2"
 rayon = "1.12.0"
-resvg = "0.47.0"
 tiny-skia = "0.12.0"
-usvg = "0.47.0"
-booklib = { path = "../booklib" }

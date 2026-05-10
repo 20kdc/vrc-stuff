@@ -1,5 +1,5 @@
-use crate::DBRenderedShape;
 use crate::geom::{Raster, V2};
+use crate::rendered::DBRenderedShape;
 use rayon::prelude::*;
 use std::collections::BTreeSet;
 use tiny_skia::{Pixmap, PremultipliedColorU8};

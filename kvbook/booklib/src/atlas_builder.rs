@@ -1,6 +1,11 @@
-use crate::*;
+use crate::docmodel::*;
+use crate::geom::*;
+use crate::geom_atlas::*;
+use crate::progress::Progress;
+use crate::rendered::*;
 use std::collections::BTreeSet;
 use std::sync::Arc;
+use tiny_skia::Pixmap;
 
 #[derive(Clone)]
 pub struct AtlasBuilder {
@@ -60,6 +65,7 @@ impl AtlasBuilder {
         shape: &Arc<DBRenderedShape>,
         sdf: &Option<Pixmap>,
         atlas_perfchop: usize,
+        progress: &impl Progress,
     ) -> bool {
         // Convert from render units into reference units.
         let size = V2(shape.size().0 as f32, shape.size().1 as f32)
@@ -70,7 +76,7 @@ impl AtlasBuilder {
                 .place(V2(sdf.width() as usize + 2, sdf.height() as usize + 2));
             if let Some(pt) = pt {
                 if self.planner.free.len() >= atlas_perfchop {
-                    progress::alert("--atlas-perfchop freelist limit reached");
+                    progress.alert("--atlas-perfchop freelist limit reached");
                     self.planner.perf_chop();
                 }
                 self.placements.push(DBAtlasedShape {
@@ -110,6 +116,7 @@ impl AtlasBuilder {
         sdf_shapes: &[Option<Pixmap>],
         max_size: Option<usize>,
         atlas_perfchop: usize,
+        progress: &impl Progress,
     ) -> (bool, DBPage) {
         let mut page = DBPage {
             size: src_page.size,
@@ -148,6 +155,7 @@ impl AtlasBuilder {
                 &shape_lookup.shapes[shape_idx],
                 &sdf_shapes[shape_idx],
                 atlas_perfchop,
+                progress,
             ) {
                 if let Some(max_size) = max_size {
                     let sz = self.planner.enlarge_size();

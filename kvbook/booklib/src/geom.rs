@@ -1,3 +1,5 @@
+//! Geometric primitives.
+
 #![allow(dead_code)]
 
 use core::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};

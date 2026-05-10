@@ -1,23 +1,18 @@
 use tiny_skia::Pixmap;
 
-mod atlas_builder;
-mod collada;
-mod docmodel;
-mod geom;
-mod geom_atlas;
 mod progress;
 mod render_svg;
-mod rendered;
-mod sdf;
 
-use atlas_builder::*;
-use docmodel::*;
-use geom::*;
-use geom_atlas::*;
+use booklib::atlas_builder::*;
+use booklib::docmodel::*;
+use booklib::geom::*;
+use booklib::progress::*;
+use booklib::rendered::*;
+use booklib::sdf;
 use lexopt::ValueExt;
+use progress::ProgressImpl;
 use rayon::prelude::*;
 use render_svg::*;
-use rendered::*;
 
 const RENDER_MUL_DEFAULT: f32 = 16.0;
 const RENDER_LIMIT_DEFAULT: u32 = 512;
@@ -283,7 +278,7 @@ fn main() {
         debug_bigbox: debug_bigbox,
     };
     // -- rasterize --
-    progress::stage("rendering");
+    ProgressImpl.stage("rendering");
     let mut shape_lookup = DBShapeLookup::default();
     let mut pages: Vec<DBPage> = Vec::new();
     let svg_opts = usvg::Options {
@@ -291,7 +286,7 @@ fn main() {
     };
     for (page_idx, svgn) in inputs.iter().enumerate() {
         if let Ok(svgd) = std::fs::read(svgn) {
-            progress::status(&format!(
+            ProgressImpl.status(&format!(
                 " {:<24} : ({:>3}%), total_shapes={:>6}",
                 svgn,
                 progress::percentage(page_idx, inputs.len()),
@@ -314,7 +309,7 @@ fn main() {
             }
             // complete
             pages.push(shape_lookup.deduplicate(rendered));
-            progress::status(&format!(
+            ProgressImpl.status(&format!(
                 " {:<24} : ({:>3}%), total_shapes={:>6}",
                 svgn,
                 progress::percentage(page_idx, inputs.len()),
@@ -325,7 +320,7 @@ fn main() {
         }
     }
     // -- SDF --
-    progress::stage("SDF conversions...");
+    ProgressImpl.stage("SDF conversions...");
     // 'rectangle' entries are None.
     let sdf_shapes: Vec<Option<Pixmap>> = shape_lookup
         .shapes
@@ -363,7 +358,7 @@ fn main() {
                 sdf::downscale_size(&res, sdf_downscale),
                 tiny_skia::FilterQuality::Bicubic,
             );
-            progress::status(&format!(" last={:>6}", shape_id));
+            ProgressImpl.status(&format!(" last={:>6}", shape_id));
             Some(res_scaled)
         })
         .collect();
@@ -372,7 +367,7 @@ fn main() {
     let mut atlas_builders: Vec<AtlasBuilder> = Vec::new();
     let mut pages_atlased: Vec<(u8, DBPage)> = Vec::new();
     {
-        progress::stage("atlasing...");
+        ProgressImpl.stage("atlasing...");
         let mut curr_atlas =
             AtlasBuilder::new(V2(atlas_min_size, atlas_min_size), sdf_shapes.len());
         let mut has_alerted = false;
@@ -386,29 +381,36 @@ fn main() {
                 // if k == 0 here, this is a fresh atlas
                 if k == 0 { None } else { Some(atlas_max_size) },
                 atlas_perfchop,
+                &ProgressImpl,
             );
             if !ok {
                 curr_atlas.revert_to_watermark(watermark_pre_page);
-                progress::alert(&format!("index {:>6}: new atlas", k));
+                ProgressImpl.alert(&format!("index {:>6}: new atlas", k));
                 atlas_builders.push(curr_atlas);
                 curr_atlas =
                     AtlasBuilder::new(V2(atlas_min_size, atlas_min_size), sdf_shapes.len());
                 has_alerted = false;
-                (_, tf_page) =
-                    curr_atlas.atlas_page(page, &shape_lookup, &sdf_shapes, None, atlas_perfchop);
+                (_, tf_page) = curr_atlas.atlas_page(
+                    page,
+                    &shape_lookup,
+                    &sdf_shapes,
+                    None,
+                    atlas_perfchop,
+                    &ProgressImpl,
+                );
             }
             if (curr_atlas.planner.size.0 > atlas_max_size
                 || curr_atlas.planner.size.0 > atlas_max_size)
                 && !has_alerted
             {
                 has_alerted = true;
-                progress::alert(&format!(
+                ProgressImpl.alert(&format!(
                     "index {:>6}: fresh atlas had to be expanded beyond max size",
                     k
                 ));
             }
             pages_atlased.push((atlas_builders.len() as u8, tf_page));
-            progress::status(&format!(
+            ProgressImpl.status(&format!(
                 " {:>3}% atlas={:>2} atlas_size={:?} freelist={:>8}        ",
                 progress::percentage(k + 1, pages.len()),
                 atlas_builders.len(),
@@ -419,7 +421,7 @@ fn main() {
         atlas_builders.push(curr_atlas);
     }
 
-    progress::stage("drawing atlases...");
+    ProgressImpl.stage("drawing atlases...");
     for (atlas_id, atlas_builder) in atlas_builders.iter().enumerate() {
         let mut atlas_pix = Pixmap::new(
             atlas_builder.planner.size.0 as u32,
@@ -455,7 +457,7 @@ fn main() {
         );
     }
 
-    progress::stage("emit...");
+    ProgressImpl.stage("emit...");
     // initialize atlased book
     let book_atlased = DBBook {
         metadata: metadata_override,
@@ -467,9 +469,9 @@ fn main() {
         for i in 0..book_atlased.pages.len() {
             _ = std::fs::write(
                 &format!("{}/page.{}.dae", outdir, i),
-                collada::collada_write(&[book_atlased.page_dae(i)]),
+                booklib::collada::collada_write(&[book_atlased.page_dae(i)]),
             );
-            progress::status(&format!(
+            ProgressImpl.status(&format!(
                 " DAE ({:>3}%)",
                 progress::percentage(i, book_atlased.pages.len())
             ));

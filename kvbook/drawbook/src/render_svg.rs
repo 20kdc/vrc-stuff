@@ -1,5 +1,5 @@
-use crate::geom::V2;
-use crate::rendered::*;
+use booklib::geom::V2;
+use booklib::rendered::*;
 use rayon::prelude::*;
 use tiny_skia::Pixmap;
 
