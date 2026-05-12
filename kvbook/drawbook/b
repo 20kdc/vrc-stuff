@@ -2,5 +2,6 @@
 mkdir -p out
 echo deleting output
 rm -f out/*
-cargo fmt
+
+(cd .. ; cargo fmt)
 cargo run --release -- "pages/%d.svg" -o out "$@"

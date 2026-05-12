@@ -9,4 +9,4 @@ license = "Unlicense"
 resolver = "2"
 members = ["booklib",
     "drawbook"
-]
+, "svgseparator"]

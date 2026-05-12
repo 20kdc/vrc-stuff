@@ -22,6 +22,13 @@ There are a number of theoretical improvements and optimizations here. These hav
 * Exceed the capabilities of the TextMeshPro Mobile shader for a single mesh
 * Would generate an unholy number of draw calls (i.e. multi-atlas per page)
 
+## Structure
+
+* `booklib`: Core processing and writer library.
+* `drawbook`: Core book converter.
+* `svgseparator`: Preprocesses an SVG with `usvg`, then splits into a set of simple 'one shape per file' objects for SDF rendition. Has an associated test program for diagnostics.
+* `testbook`: Godot 3.x project to render a converted book.
+
 ## Known Hard To Fix Issues
 
 * Strokes and fills are confused. _Requires patching resvg, switching rasterizers, or imitating resvg to fix :(_

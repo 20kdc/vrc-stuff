@@ -3,64 +3,6 @@ use booklib::rendered::*;
 use rayon::prelude::*;
 use tiny_skia::Pixmap;
 
-/// Split aggression controls how 'aggressive' we are in terms of chopping up the render.
-/// You almost always want to be on 'Isolatable' aggression, but sometimes 'Nasty' may be required (with implied rendering caveats).
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub enum SplitAggression {
-    PageShape,
-    RootChildren,
-    Isolatable,
-    Nasty,
-}
-
-impl SplitAggression {
-    fn run(
-        &self,
-        page_size: (f32, f32),
-        src: &usvg::Group,
-        tf: usvg::Transform,
-    ) -> Vec<SVGRenderable> {
-        let (descend, deeper) = match self {
-            Self::PageShape => (false, false),
-            Self::RootChildren => (true, false),
-            Self::Isolatable => (!src.should_isolate(), true),
-            Self::Nasty => (true, true),
-        };
-        if !descend {
-            vec![SVGRenderable {
-                parent_transform: tf,
-                node: usvg::Node::Group(Box::new(src.clone())),
-                page_size,
-            }]
-        } else {
-            // since we're now descending into children, we have to include the parent transform
-            // see [resvg::render::render_group]
-            let my_transform = tf.pre_concat(src.transform());
-            let mut res = Vec::new();
-            for v in src.children() {
-                if deeper {
-                    if let usvg::Node::Group(g) = v {
-                        res.extend(self.run(page_size, g, my_transform));
-                    } else {
-                        res.push(SVGRenderable {
-                            page_size,
-                            parent_transform: my_transform,
-                            node: v.clone(),
-                        });
-                    }
-                } else {
-                    res.push(SVGRenderable {
-                        page_size,
-                        parent_transform: my_transform,
-                        node: v.clone(),
-                    });
-                }
-            }
-            res
-        }
-    }
-}
-
 pub struct RenderOpts {
     pub outdir: String,
     pub sdf_border: u32,
@@ -71,10 +13,11 @@ pub struct RenderOpts {
 }
 
 /// Renderable object within the SVG.
+/// Note that the node is actually a whole page due to how the new separator works.
 struct SVGRenderable {
     page_size: (f32, f32),
-    parent_transform: usvg::Transform,
     node: usvg::Node,
+    content: svgseparator::ContentKind,
 }
 
 impl SVGRenderable {
@@ -102,8 +45,7 @@ impl SVGRenderable {
             )
             .unwrap();
             // Transforms the object perfectly into page-space.
-            let bigbox_transform = usvg::Transform::from_scale(render_mul, render_mul)
-                .pre_concat(self.parent_transform);
+            let bigbox_transform = usvg::Transform::from_scale(render_mul, render_mul);
             let transform = if opts.debug_bigbox {
                 bigbox_transform
             } else {
@@ -121,7 +63,10 @@ impl SVGRenderable {
                         temp_canvas.encode_png().unwrap(),
                     );
                 }
-                let sps = ShapifyStrategy::AlphaClippedColourAverage;
+                let sps = match self.content {
+                    svgseparator::ContentKind::Image => ShapifyStrategy::BWPrinting,
+                    _ => ShapifyStrategy::AlphaClippedColourAverage,
+                };
                 results.extend(sps.shapeify(
                     temp_canvas,
                     V2(adj_bbox.left(), adj_bbox.top()),
@@ -135,19 +80,30 @@ impl SVGRenderable {
 }
 
 /// Shapeify the contents of an SVG.
-pub fn render_svg(
-    tree: &usvg::Tree,
-    split_aggression: SplitAggression,
-    page_idx: usize,
-    render_opts: &RenderOpts,
-) -> DBRenderedPage {
-    // let sdf_border: u32 = 0;
-    // split into unprocessed sprites
-    let sprites: Vec<SVGRenderable> = split_aggression.run(
-        (tree.size().width(), tree.size().height()),
-        tree.root(),
-        usvg::Transform::identity(),
-    );
+pub fn render_svg(tree: &usvg::Tree, page_idx: usize, render_opts: &RenderOpts) -> DBRenderedPage {
+    // let usvg produce a clean tree for feeding to separator
+    let usvg_src = tree.to_string(&usvg::WriteOptions {
+        indent: usvg::Indent::None,
+        ..usvg::WriteOptions::default()
+    });
+    // perform separation
+    let mut sprites_src: Vec<(String, svgseparator::ContentKind)> = Vec::new();
+    svgseparator::separator_main(&usvg_src, &mut |consider| {
+        sprites_src.push(consider);
+    })
+    .expect("separator should not throw errors");
+    // transform separated entities into renderables
+    let sprites: Vec<SVGRenderable> = sprites_src
+        .par_iter()
+        .map(|v| {
+            let tree = usvg::Tree::from_str(&v.0, &usvg::Options::default()).unwrap();
+            SVGRenderable {
+                node: usvg::Node::Group(Box::new(tree.root().clone())),
+                page_size: (tree.size().width(), tree.size().height()),
+                content: v.1,
+            }
+        })
+        .collect();
     // render and insert sprites
     let rendered = sprites
         .par_iter()

@@ -1,0 +1,8 @@
+#!/bin/sh
+set -e
+cd ..
+cargo fmt
+cd svgseparator
+rm -f out/*
+mkdir -p out
+cargo run "../drawbook/$1" out/

@@ -1,0 +1,11 @@
+[package]
+name = "svgseparator"
+publish.workspace = true
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+usvg = "0.47.0"
+xot = "0.31.2"

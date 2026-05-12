@@ -33,15 +33,6 @@ fn do_help() {
     //
     println!(" --help: help");
     // renderer
-    println!(" --split page/roots/isolatable/nasty: SVG shape split mode");
-    println!("  page: renders each page as one shape");
-    println!("   (avoid unless direly needed)");
-    println!("  roots: renders the root objects of each page as shapes");
-    println!("   (this tends to result in groups of multiple characters)");
-    println!("  isolatable: renders isolatable objects of each page as shapes");
-    println!("   (the default)");
-    println!("  nasty: breaks through all groups");
-    println!("   (risky for compatibility)");
     println!(
         " --render-mul VAL: render multiplier, default {:?}",
         RENDER_MUL_DEFAULT
@@ -99,8 +90,6 @@ fn main() {
     // output
     let mut outdir: Option<String> = None;
     let mut no_dae = false;
-    // renderer
-    let mut split_aggression = SplitAggression::Isolatable;
     // **ONLY** use in passing to shapeify_all!
     // Render coordinates are now per-shape.
     let mut cfg_render_mul: f32 = RENDER_MUL_DEFAULT;
@@ -146,20 +135,6 @@ fn main() {
                     no_dae = true;
                 } else if v.eq("help") {
                     do_help();
-                } else if v.eq("split") {
-                    let msg = "--split expects one of: page, roots, isolatable, nasty";
-                    let vp = arg_parser.value().expect(msg);
-                    if vp.eq("page") {
-                        split_aggression = SplitAggression::PageShape;
-                    } else if vp.eq("roots") {
-                        split_aggression = SplitAggression::RootChildren;
-                    } else if vp.eq("isolatable") {
-                        split_aggression = SplitAggression::Isolatable;
-                    } else if vp.eq("nasty") {
-                        split_aggression = SplitAggression::Nasty;
-                    } else {
-                        panic!("{}", msg);
-                    }
                 } else if v.eq("render-mul") {
                     cfg_render_mul = arg_parser
                         .value()
@@ -278,6 +253,7 @@ fn main() {
     let mut shape_lookup = DBShapeLookup::default();
     let mut pages: Vec<DBPage> = Vec::new();
     let svg_opts = usvg::Options {
+        font_family: "Liberation Serif".to_string(),
         ..Default::default()
     };
     for (page_idx, svgn) in inputs.iter().enumerate() {
@@ -290,8 +266,7 @@ fn main() {
             ));
             let res = usvg::Tree::from_data(&svgd, &svg_opts).expect("svg should have parsed");
             // render and insert sprites
-            let mut rendered: DBRenderedPage =
-                render_svg(&res, split_aggression, page_idx, &render_opts);
+            let mut rendered: DBRenderedPage = render_svg(&res, page_idx, &render_opts);
             // post-filter
             if invert {
                 for sprite in &mut rendered.sprites {
