@@ -87,17 +87,18 @@ pub fn render_svg(tree: &usvg::Tree, page_idx: usize, render_opts: &RenderOpts) 
         ..usvg::WriteOptions::default()
     });
     // perform separation
-    let mut sprites: Vec<(String, svgseparator::ContentKind)> = Vec::new();
+    let mut sprites: Vec<(usvg::Tree, svgseparator::ContentKind)> = Vec::new();
     svgseparator::separator_main(&usvg_src, &mut |consider| {
-        sprites.push(consider);
+        // We have to do parsing early because otherwise the memory usage will be killer.
+        let tree = usvg::Tree::from_str(&consider.0, &usvg::Options::default()).unwrap();
+        sprites.push((tree, consider.1));
     })
     .expect("separator should not throw errors");
     // render and insert sprites
     let rendered = sprites
         .par_iter()
         .enumerate()
-        .map(|(j, (svgsrc, kind))| {
-            let tree = usvg::Tree::from_str(svgsrc, &usvg::Options::default()).unwrap();
+        .map(|(j, (tree, kind))| {
             let renderable = SVGRenderable {
                 node: usvg::Node::Group(Box::new(tree.root().clone())),
                 page_size: (tree.size().width(), tree.size().height()),
