@@ -125,6 +125,31 @@ pub enum ShapifyStrategy {
     BWPrinting,
 }
 
+/// Core noise function.
+fn noise(i: u32) -> u32 {
+    let mut val: u32 = 0x811c9dc5;
+    for x in 0..4 {
+        let b = (i >> ((x & 3) * 8)) & 0xFF;
+        val ^= b;
+        val = val.wrapping_mul(0x1000193);
+    }
+    val
+}
+
+static NOISE_TBL: std::sync::OnceLock<[u8; 0x10000]> = std::sync::OnceLock::new();
+
+fn noise_table() -> &'static [u8; 0x10000] {
+    NOISE_TBL.get_or_init(|| {
+        let mut res = [0u8; 0x10000];
+        for x in 0..256 {
+            for y in 0..256 {
+                res[x + (y * 0x100)] = noise((x as u32) | ((y as u32) << 8)) as u8;
+            }
+        }
+        res
+    })
+}
+
 impl ShapifyStrategy {
     pub fn shapeify(
         &self,
@@ -175,6 +200,7 @@ impl ShapifyStrategy {
                 )
             }
             Self::BWPrinting => {
+                let noise_table = noise_table();
                 let mut data = Vec::with_capacity((src.width() as usize) * (src.height() as usize));
                 for y in 0..src.height() {
                     for x in 0..src.width() {
@@ -183,11 +209,16 @@ impl ShapifyStrategy {
                         // remember, pix is premultiplied
                         let avg_pma =
                             (pix.red() as i32 + pix.green() as i32 + pix.blue() as i32) / 3;
-                        let dst_mul = 255 * ((255 - pix.alpha()) as i32);
+                        // our background here is assumed to be white.
+                        // therefore, we lower from white and then add back the average pre-multiplied colour.
+                        let dst_mul = (255 - pix.alpha()) as i32;
                         let res = avg_pma + dst_mul;
-                        let xa1 = (x & 1) + ((y & 1) << 1);
-                        let threshold: i32 = [32, 96, 128, 64][xa1 as usize];
-                        data.push((res - 96) < threshold);
+                        // let res = (res * res) / 255;
+                        //let xa1 = (x & 1) + ((y & 1) << 1);
+                        //let threshold: i32 = [32, 96, 128, 64][xa1 as usize];
+                        let threshold =
+                            noise_table[(((y & 0xFF) << 8) + (x & 0xFF)) as usize] as i32;
+                        data.push(res < threshold);
                     }
                 }
                 // figure out culling
