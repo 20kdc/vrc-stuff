@@ -5,9 +5,9 @@ use std::collections::HashMap;
 /// This is the 'generic' sprite structure.
 /// It's used for all instances of sprites after renders have passed deduplication.
 #[derive(Clone)]
-pub struct DBSprite {
+pub struct DBSprite<S: Clone> {
     /// Shape ID in global table or atlas.
-    pub shape: usize,
+    pub shape: S,
     /// Sprite position.
     /// This is in reference units in this struct, but in the file this is stored as a mapped -1 to 1 range scaled by [DBPage] `size`.
     /// See [DBBook::emit_qv2].
@@ -24,7 +24,7 @@ pub struct DBPage {
     /// Reference units are basically 'whatever came in'.
     /// Importantly, shape sizes are defined relative to them.
     pub size: V2<f32>,
-    pub sprites: Vec<DBSprite>,
+    pub sprites: Vec<DBSprite<usize>>,
 }
 
 #[derive(Clone)]

@@ -11,7 +11,9 @@ use progress::ProgressImpl;
 use render_svg::*;
 
 const RENDER_MUL_DEFAULT: f32 = 16.0;
+const RENDER_MUL_IMG_DEFAULT: f32 = 16.0;
 const RENDER_LIMIT_DEFAULT: u32 = 512;
+const RENDER_LIMIT_IMG_DEFAULT: u32 = 2048;
 const SDF_DOWNSCALE_DEFAULT: u32 = 4;
 const SDF_BORDER_DEFAULT: u32 = 4;
 const SDF_SMOOTH_DEFAULT: f32 = 0.05f32;
@@ -43,6 +45,14 @@ fn do_help() {
     );
     println!("  render-limit overrules render-mul, punishing large objects");
     println!("  this prevents near-endless SDF propagation");
+    println!(
+        " --img-render-mul VAL: for bitmaps, default {:?}",
+        RENDER_MUL_IMG_DEFAULT
+    );
+    println!(
+        " --img-render-limit VAL: for bitmaps. default {}",
+        RENDER_LIMIT_IMG_DEFAULT
+    );
     // post-filter
     println!(" --invert: Inverts colours");
     // sdf
@@ -93,7 +103,9 @@ fn main() {
     // **ONLY** use in passing to shapeify_all!
     // Render coordinates are now per-shape.
     let mut cfg_render_mul: f32 = RENDER_MUL_DEFAULT;
+    let mut cfg_render_mul_img: f32 = RENDER_MUL_IMG_DEFAULT;
     let mut render_limit: u32 = RENDER_LIMIT_DEFAULT;
+    let mut render_limit_img: u32 = RENDER_LIMIT_IMG_DEFAULT;
     // post-filter
     let mut invert: bool = false;
     // sdf
@@ -147,6 +159,18 @@ fn main() {
                         .expect("--render-limit expects u32")
                         .parse()
                         .expect("--render-limit expects u32");
+                } else if v.eq("img-render-mul") {
+                    cfg_render_mul_img = arg_parser
+                        .value()
+                        .expect("--img-render-mul expects float")
+                        .parse()
+                        .expect("--img-render-mul expects float");
+                } else if v.eq("img-render-limit") {
+                    render_limit_img = arg_parser
+                        .value()
+                        .expect("--img-render-limit expects u32")
+                        .parse()
+                        .expect("--img-render-limit expects u32");
                 } else if v.eq("invert") {
                     invert = !invert;
                 } else if v.eq("sdf-downscale") {
@@ -244,7 +268,9 @@ fn main() {
         outdir: outdir.clone(),
         sdf_border,
         render_limit,
+        render_limit_img,
         cfg_render_mul,
+        cfg_render_mul_img,
         debug_dse: debug_dump_shapes_early,
         debug_bigbox: debug_bigbox,
     };
@@ -256,6 +282,8 @@ fn main() {
         font_family: "Liberation Serif".to_string(),
         ..Default::default()
     };
+    let mut max_sprite_count: usize = 0;
+    let mut max_sprite_count_page: usize = 0;
     for (page_idx, svgn) in inputs.iter().enumerate() {
         if let Ok(svgd) = std::fs::read(svgn) {
             ProgressImpl.status(&format!(
@@ -267,6 +295,10 @@ fn main() {
             let res = usvg::Tree::from_data(&svgd, &svg_opts).expect("svg should have parsed");
             // render and insert sprites
             let mut rendered: DBRenderedPage = render_svg(&res, page_idx, &render_opts);
+            if rendered.sprites.len() > max_sprite_count {
+                max_sprite_count = rendered.sprites.len();
+                max_sprite_count_page = page_idx;
+            }
             // post-filter
             if invert {
                 for sprite in &mut rendered.sprites {
@@ -318,9 +350,11 @@ fn main() {
         &ProgressImpl,
     );
 
+    let mut total_pixels: u64 = 0;
     ProgressImpl.stage("drawing atlases...");
     for (atlas_id, atlas_builder) in atlas_builders.iter().enumerate() {
         let atlas_pix = atlas_builder.render(&sdf_shapes);
+        total_pixels += (atlas_pix.width() * atlas_pix.height()) as u64;
         _ = std::fs::write(
             &format!("{}/atlas.{}.png", outdir, atlas_id),
             atlas_pix.encode_png().unwrap(),
@@ -334,7 +368,9 @@ fn main() {
         atlases: atlas_builders.drain(..).map(|v| v.complete()).collect(),
         pages: pages_atlased,
     };
-    _ = std::fs::write(&format!("{}/book.bytes", outdir), book_atlased.emit());
+    let emitted = book_atlased.emit();
+    let emitted_len = emitted.len();
+    _ = std::fs::write(&format!("{}/book.bytes", outdir), emitted);
     if !no_dae {
         for i in 0..book_atlased.pages.len() {
             _ = std::fs::write(
@@ -348,5 +384,14 @@ fn main() {
         }
     }
 
-    println!();
+    ProgressImpl.alert("book completed");
+    println!("atlases: {}", book_atlased.atlases.len());
+    println!("pages: {}", book_atlased.pages.len());
+    println!(
+        "max tris on one page: {} (pg. {})",
+        (max_sprite_count * 2),
+        max_sprite_count_page + 1
+    );
+    println!("texture VRAM: {:?}mb", (total_pixels as f32) / 1000000.0);
+    println!(".bytes (RAM): {:?}mb", (emitted_len as f32) / 1000000.0);
 }

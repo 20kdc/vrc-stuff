@@ -7,7 +7,9 @@ pub struct RenderOpts {
     pub outdir: String,
     pub sdf_border: u32,
     pub render_limit: u32,
+    pub render_limit_img: u32,
     pub cfg_render_mul: f32,
+    pub cfg_render_mul_img: f32,
     pub debug_dse: bool,
     pub debug_bigbox: bool,
 }
@@ -21,13 +23,24 @@ struct SVGRenderable {
 }
 
 impl SVGRenderable {
+    fn render_mul(&self, bbox_max_len: f32, opts: &RenderOpts) -> f32 {
+        let render_limit = match self.content {
+            svgseparator::ContentKind::Image => opts.render_limit_img,
+            _ => opts.render_limit,
+        };
+        let render_mul = match self.content {
+            svgseparator::ContentKind::Image => opts.cfg_render_mul_img,
+            _ => opts.cfg_render_mul,
+        };
+        let render_mul_limit = (render_limit as f32) / bbox_max_len;
+        render_mul.min(render_mul_limit)
+    }
     pub fn render(&self, page_idx: usize, j: usize, opts: &RenderOpts) -> Vec<DBRenderedSprite> {
         let mut results: Vec<DBRenderedSprite> = Vec::new();
         if let Some(bbox) = self.node.abs_layer_bounding_box() {
             // Fit render into limit (ignoring border)
             let bbox_max_len = bbox.width().max(bbox.height());
-            let render_mul_limit = (opts.render_limit as f32) / bbox_max_len;
-            let render_mul = opts.cfg_render_mul.min(render_mul_limit);
+            let render_mul = self.render_mul(bbox_max_len, opts);
             // Render multiplier is calculated, work with that from now on
             let render_border_doc = (opts.sdf_border as f32) / render_mul;
             // bbox with border padding

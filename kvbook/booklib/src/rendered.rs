@@ -62,58 +62,48 @@ impl DBRenderedShape {
     }
 }
 
-/// This struct is the 1-bit bitmap form of a _sprite,_ the fundamental unit of rendering in this program.
-#[derive(Clone)]
-pub struct DBRenderedSprite {
-    /// Offset in page units.
-    pub page_offset: V2<f32>,
-    pub shape: DBRenderedShape,
-    pub colour: [u8; 4],
-}
+pub type DBRenderedSprite = DBSprite<DBRenderedShape>;
 
-impl DBRenderedSprite {
-    /// Creates a new rendered sprite.
-    /// Handles auto-cropping and dead sprite elimination (returns None)
-    pub fn new(
-        crop_me: &Raster<bool>,
-        colour: [u8; 4],
-        page_offset: V2<f32>,
-        render_mul: f32,
-        border: usize,
-    ) -> Option<Self> {
-        let (mut crop_ul, mut crop_br) = crop_me.find_crop_rectangle(false);
+/// Creates a new rendered sprite.
+/// Handles auto-cropping and dead sprite elimination (returns None)
+pub fn dbrenderedsprite_new(
+    crop_me: &Raster<bool>,
+    colour: [u8; 4],
+    top_left: V2<f32>,
+    render_mul: f32,
+    border: usize,
+) -> Option<DBRenderedSprite> {
+    let (mut crop_ul, mut crop_br) = crop_me.find_crop_rectangle(false);
 
-        if crop_ul.0 >= crop_br.0 || crop_ul.1 >= crop_br.1 {
-            // Empty optimization
-            return None;
-        }
-
-        if !crop_me.area_eq_usize(crop_ul, crop_br, true) {
-            // Make sure to leave at least border_us pixels...
-            // **unless** it's a solid rectangle.
-            // If it's a solid rectangle, we want that to be plainly obvious down the line, so we allow these borders to be cropped off.
-            // This allows the SDF generator to be aware that it can, in fact, not generate an SDF at all.
-            crop_ul.0 = crop_ul.0.max(border) - border;
-            crop_ul.1 = crop_ul.1.max(border) - border;
-
-            crop_br.0 = (crop_br.0 + border).min(crop_me.size().0);
-            crop_br.1 = (crop_br.1 + border).min(crop_me.size().1);
-        }
-
-        Some(DBRenderedSprite {
-            page_offset: page_offset
-                + V2(crop_ul.0 as f32 / render_mul, crop_ul.1 as f32 / render_mul),
-            shape: DBRenderedShape::new(
-                crop_me.extract_i32(
-                    V2(crop_ul.0 as i32, crop_ul.1 as i32),
-                    crop_br - crop_ul,
-                    false,
-                ),
-                render_mul,
-            ),
-            colour,
-        })
+    if crop_ul.0 >= crop_br.0 || crop_ul.1 >= crop_br.1 {
+        // Empty optimization
+        return None;
     }
+
+    if !crop_me.area_eq_usize(crop_ul, crop_br, true) {
+        // Make sure to leave at least border_us pixels...
+        // **unless** it's a solid rectangle.
+        // If it's a solid rectangle, we want that to be plainly obvious down the line, so we allow these borders to be cropped off.
+        // This allows the SDF generator to be aware that it can, in fact, not generate an SDF at all.
+        crop_ul.0 = crop_ul.0.max(border) - border;
+        crop_ul.1 = crop_ul.1.max(border) - border;
+
+        crop_br.0 = (crop_br.0 + border).min(crop_me.size().0);
+        crop_br.1 = (crop_br.1 + border).min(crop_me.size().1);
+    }
+
+    Some(DBRenderedSprite {
+        top_left: top_left + V2(crop_ul.0 as f32 / render_mul, crop_ul.1 as f32 / render_mul),
+        shape: DBRenderedShape::new(
+            crop_me.extract_i32(
+                V2(crop_ul.0 as i32, crop_ul.1 as i32),
+                crop_br - crop_ul,
+                false,
+            ),
+            render_mul,
+        ),
+        colour,
+    })
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
@@ -191,7 +181,7 @@ impl ShapifyStrategy {
                 let cb = avg_b.clamp(0f32, 255f32).round() as u8;
                 // figure out culling
                 let crop_me = Raster::new(data, V2(src.width() as usize, src.height() as usize));
-                DBRenderedSprite::new(
+                dbrenderedsprite_new(
                     &crop_me,
                     [cr, cg, cb, max_a],
                     page_offset,
@@ -223,7 +213,7 @@ impl ShapifyStrategy {
                 }
                 // figure out culling
                 let crop_me = Raster::new(data, V2(src.width() as usize, src.height() as usize));
-                DBRenderedSprite::new(
+                dbrenderedsprite_new(
                     &crop_me,
                     [0, 0, 0, 255],
                     page_offset,
@@ -268,10 +258,9 @@ impl DBShapeLookup {
                 self.shape_lookup.insert(arc, res);
                 res
             };
-            let top_left_page = shapeify_res.page_offset;
             page.sprites.push(DBSprite {
                 shape: sprite_idx,
-                top_left: top_left_page,
+                top_left: shapeify_res.top_left,
                 colour: shapeify_res.colour,
             });
         }

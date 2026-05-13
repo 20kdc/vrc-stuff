@@ -16,6 +16,7 @@ pub enum AtlasableShape {
 
 impl AtlasableShape {
     /// Returns size of the pixmap, or zero for not-applicable.
+    /// This is used for sorting.
     pub fn size(&self) -> V2<u32> {
         match self {
             Self::Pixmap(px) => V2(px.width(), px.height()),
