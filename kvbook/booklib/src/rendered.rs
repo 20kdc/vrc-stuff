@@ -140,13 +140,21 @@ impl ShapifyStrategy {
                 let mut avg_r = 0f32;
                 let mut avg_g = 0f32;
                 let mut avg_b = 0f32;
+                // We get the maximum alpha in a first pass.
+                // This lets us determine a reasonably safe threshold to prevent lower-alpha pixels (i.e. from AA) from causing too much colour drift.
+                let mut max_a: u8 = 0;
                 for pix in src.pixels() {
-                    let counts = pix.alpha() >= 128;
+                    max_a = pix.alpha().max(max_a);
+                }
+                let threshold = max_a >> 1;
+                for pix in src.pixels() {
+                    let counts = pix.alpha() > threshold;
                     data.push(counts);
                     if counts {
-                        avg_r += pix.demultiply().red() as f32;
-                        avg_g += pix.demultiply().green() as f32;
-                        avg_b += pix.demultiply().blue() as f32;
+                        let pix_dm = pix.demultiply();
+                        avg_r += pix_dm.red() as f32;
+                        avg_g += pix_dm.green() as f32;
+                        avg_b += pix_dm.blue() as f32;
                         counts_count += 1f32;
                     }
                 }
@@ -160,7 +168,7 @@ impl ShapifyStrategy {
                 let crop_me = Raster::new(data, V2(src.width() as usize, src.height() as usize));
                 DBRenderedSprite::new(
                     &crop_me,
-                    [cr, cg, cb, 255],
+                    [cr, cg, cb, max_a],
                     page_offset,
                     render_mul,
                     border as usize,

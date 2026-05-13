@@ -87,28 +87,24 @@ pub fn render_svg(tree: &usvg::Tree, page_idx: usize, render_opts: &RenderOpts) 
         ..usvg::WriteOptions::default()
     });
     // perform separation
-    let mut sprites_src: Vec<(String, svgseparator::ContentKind)> = Vec::new();
+    let mut sprites: Vec<(String, svgseparator::ContentKind)> = Vec::new();
     svgseparator::separator_main(&usvg_src, &mut |consider| {
-        sprites_src.push(consider);
+        sprites.push(consider);
     })
     .expect("separator should not throw errors");
-    // transform separated entities into renderables
-    let sprites: Vec<SVGRenderable> = sprites_src
-        .par_iter()
-        .map(|v| {
-            let tree = usvg::Tree::from_str(&v.0, &usvg::Options::default()).unwrap();
-            SVGRenderable {
-                node: usvg::Node::Group(Box::new(tree.root().clone())),
-                page_size: (tree.size().width(), tree.size().height()),
-                content: v.1,
-            }
-        })
-        .collect();
     // render and insert sprites
     let rendered = sprites
         .par_iter()
         .enumerate()
-        .map(|(j, renderable)| renderable.render(page_idx, j, render_opts))
+        .map(|(j, (svgsrc, kind))| {
+            let tree = usvg::Tree::from_str(svgsrc, &usvg::Options::default()).unwrap();
+            let renderable = SVGRenderable {
+                node: usvg::Node::Group(Box::new(tree.root().clone())),
+                page_size: (tree.size().width(), tree.size().height()),
+                content: *kind,
+            };
+            renderable.render(page_idx, j, render_opts)
+        })
         .flatten()
         .collect();
     DBRenderedPage {
