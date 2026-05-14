@@ -2,25 +2,31 @@ use crate::docmodel::*;
 use crate::geom::*;
 use crate::geom_atlas::*;
 use crate::progress::Progress;
-use crate::rendered::*;
 use std::collections::BTreeSet;
-use std::sync::Arc;
 use tiny_skia::Pixmap;
 
 #[derive(Clone)]
 pub enum AtlasableShape {
     /// Special path for simple rectangles.
-    Rectangle,
-    Pixmap(Pixmap),
+    Rectangle {
+        /// Size in reference units.
+        size: V2<f32>,
+    },
+    Pixmap {
+        /// SDF.
+        sdf: Pixmap,
+        /// Size in reference units.
+        size: V2<f32>,
+    },
 }
 
 impl AtlasableShape {
     /// Returns size of the pixmap, or zero for not-applicable.
     /// This is used for sorting.
-    pub fn size(&self) -> V2<u32> {
+    pub fn sort_size(&self) -> V2<u32> {
         match self {
-            Self::Pixmap(px) => V2(px.width(), px.height()),
-            Self::Rectangle => V2(0, 0),
+            Self::Pixmap { sdf: px, size: _ } => V2(px.width(), px.height()),
+            Self::Rectangle { size: _ } => V2(0, 0),
         }
     }
 }
@@ -80,24 +86,20 @@ impl AtlasBuilder {
     pub fn try_add_shape(
         &mut self,
         global_id: usize,
-        shape: &Arc<DBRenderedShape>,
         sdf: &AtlasableShape,
         atlas_perfchop: usize,
         progress: &dyn Progress,
     ) -> bool {
-        // Convert from render units into reference units.
-        let size = V2(shape.size().0 as f32, shape.size().1 as f32)
-            / V2(shape.render_mul(), shape.render_mul());
         let placement = match sdf {
-            AtlasableShape::Rectangle => {
+            AtlasableShape::Rectangle { size } => {
                 DBAtlasedShape {
                     // set to the 'rectangle' texture
                     uv_tl: V2(2f32, 2f32),
                     uv_br: V2(3f32, 3f32),
-                    size,
+                    size: *size,
                 }
             }
-            AtlasableShape::Pixmap(sdf) => {
+            AtlasableShape::Pixmap { sdf, size } => {
                 // Note the 2px border.
                 // This is compensated for when placing uv_tl/uv_br.
                 let pt = self
@@ -114,7 +116,7 @@ impl AtlasBuilder {
                             (pt.0 + 1 + sdf.width() as usize) as f32,
                             (pt.1 + 1 + sdf.height() as usize) as f32,
                         ) + V2(1f32, 1f32),
-                        size,
+                        size: *size,
                     }
                 } else {
                     // failed to place, so can't continue
@@ -137,7 +139,6 @@ impl AtlasBuilder {
     pub fn atlas_page(
         &mut self,
         src_page: &DBPage,
-        shape_lookup: &DBShapeLookup,
         sdf_shapes: &[AtlasableShape],
         max_size: Option<usize>,
         atlas_perfchop: usize,
@@ -163,19 +164,13 @@ impl AtlasBuilder {
         shapes_to_add.sort_by(|v1, v2| {
             let v1r: &AtlasableShape = &sdf_shapes[*v1];
             let v2r: &AtlasableShape = &sdf_shapes[*v2];
-            let v1s = v1r.size();
-            let v2s = v2r.size();
+            let v1s = v1r.sort_size();
+            let v2s = v2r.sort_size();
             (v2s.0 * v2s.1).cmp(&(v1s.0 * v1s.1))
         });
 
         for shape_idx in shapes_to_add {
-            while !self.try_add_shape(
-                shape_idx,
-                &shape_lookup.shapes[shape_idx],
-                &sdf_shapes[shape_idx],
-                atlas_perfchop,
-                progress,
-            ) {
+            while !self.try_add_shape(shape_idx, &sdf_shapes[shape_idx], atlas_perfchop, progress) {
                 if let Some(max_size) = max_size {
                     let sz = self.planner.enlarge_size();
                     if sz.0 > max_size || sz.1 > max_size {
@@ -217,7 +212,7 @@ impl AtlasBuilder {
         );
         for (local_id, v) in self.placements.iter().enumerate() {
             let global_id = self.inv_shape_map[local_id];
-            if let AtlasableShape::Pixmap(sdf) = &sdf_shapes[global_id] {
+            if let AtlasableShape::Pixmap { sdf, size: _ } = &sdf_shapes[global_id] {
                 atlas_pix.draw_pixmap(
                     v.uv_tl.0 as i32,
                     v.uv_tl.1 as i32,

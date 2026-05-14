@@ -31,8 +31,12 @@ pub fn gen_sdf_shapes(opt: GenSDFShapesInput, progress: &dyn Progress) -> Vec<At
                 );
             }
 
+            // Convert from render units into reference units.
+            let size = V2(shape.size().0 as f32, shape.size().1 as f32)
+                / V2(shape.render_mul(), shape.render_mul());
+
             if shape.is_solid() {
-                return AtlasableShape::Rectangle;
+                return AtlasableShape::Rectangle { size };
             }
 
             let shape_sdf = shape_to_sdf(shape);
@@ -55,7 +59,10 @@ pub fn gen_sdf_shapes(opt: GenSDFShapesInput, progress: &dyn Progress) -> Vec<At
                 tiny_skia::FilterQuality::Bicubic,
             );
             progress.status(&format!(" last={:>6}", shape_id));
-            AtlasableShape::Pixmap(res_scaled)
+            AtlasableShape::Pixmap {
+                sdf: res_scaled,
+                size,
+            }
         })
         .collect()
 }
@@ -63,7 +70,6 @@ pub fn gen_sdf_shapes(opt: GenSDFShapesInput, progress: &dyn Progress) -> Vec<At
 pub struct AtlasPagesInput<'a> {
     pub sdf_shapes: &'a [AtlasableShape],
     pub pages: &'a [DBPage],
-    pub shape_lookup: &'a DBShapeLookup,
     pub atlas_min_size: usize,
     pub atlas_max_size: usize,
     pub atlas_perfchop: usize,
@@ -86,7 +92,6 @@ pub fn atlas_pages(
         let watermark_pre_page = curr_atlas.watermark();
         let (ok, mut tf_page) = curr_atlas.atlas_page(
             page,
-            opt.shape_lookup,
             opt.sdf_shapes,
             // if k == 0 here, this is a fresh atlas
             if k == 0 {
@@ -106,14 +111,8 @@ pub fn atlas_pages(
                 opt.sdf_shapes.len(),
             );
             has_alerted = false;
-            (_, tf_page) = curr_atlas.atlas_page(
-                page,
-                opt.shape_lookup,
-                opt.sdf_shapes,
-                None,
-                opt.atlas_perfchop,
-                progress,
-            );
+            (_, tf_page) =
+                curr_atlas.atlas_page(page, opt.sdf_shapes, None, opt.atlas_perfchop, progress);
         }
         if (curr_atlas.planner.size.0 > opt.atlas_max_size
             || curr_atlas.planner.size.0 > opt.atlas_max_size)
@@ -143,6 +142,10 @@ pub fn atlas_pages(
 /// We always create a 2048x2048-sized image, and no other files.
 /// We store book data starting at the top-left. The bytes, in pixel order, are the exact bytes of the .bytes datafile.
 /// The atlas we build is shifted down so that the bottom-most image nearly touches the bottom of the atlas (with a pixel for border).
-pub fn atlas_web() -> Result<Vec<u8>, String> {
+pub fn atlas_web(
+    _metadata: json::object::Object,
+    _sdf_shapes: &[AtlasableShape],
+    _pages: &[DBPage],
+) -> Result<Vec<u8>, String> {
     Err("Not yet implemented".to_string())
 }

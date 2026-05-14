@@ -343,7 +343,8 @@ fn main() {
 
     if web {
         ProgressImpl.stage("atlasing...");
-        let res = highlevel::atlas_web().expect("web should succeed");
+        let res = highlevel::atlas_web(metadata_override, &sdf_shapes, &pages)
+            .expect("web should succeed");
         std::fs::write(&format!("{}/book.png", outdir), res).unwrap();
     } else {
         // -- Atlasing --
@@ -352,7 +353,6 @@ fn main() {
             highlevel::AtlasPagesInput {
                 sdf_shapes: &sdf_shapes,
                 pages: &pages,
-                shape_lookup: &shape_lookup,
                 atlas_min_size,
                 atlas_max_size,
                 atlas_perfchop,
