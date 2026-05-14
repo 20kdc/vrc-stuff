@@ -98,6 +98,8 @@ impl AtlasBuilder {
                 }
             }
             AtlasableShape::Pixmap(sdf) => {
+                // Note the 2px border.
+                // This is compensated for when placing uv_tl/uv_br.
                 let pt = self
                     .planner
                     .place(V2(sdf.width() as usize + 2, sdf.height() as usize + 2));
@@ -109,8 +111,8 @@ impl AtlasBuilder {
                     DBAtlasedShape {
                         uv_tl: V2(pt.0 as f32, pt.1 as f32) + V2(1f32, 1f32),
                         uv_br: V2(
-                            (pt.0 + sdf.width() as usize) as f32,
-                            (pt.1 + sdf.height() as usize) as f32,
+                            (pt.0 + 1 + sdf.width() as usize) as f32,
+                            (pt.1 + 1 + sdf.height() as usize) as f32,
                         ) + V2(1f32, 1f32),
                         size,
                     }

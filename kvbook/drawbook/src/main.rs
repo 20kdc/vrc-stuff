@@ -31,6 +31,8 @@ fn do_help() {
     println!("  considered to be a sequence starting from either 0 or 1.");
     // output options
     println!(" -o OUTDIR: output directory, created if it doesn't exist");
+    println!(" --web: Forces single 2k x 2k atlas w/ embedded data.");
+    println!("        This is for downloading via VRCImageDownloader.");
     println!(" --no-dae: don't make DAE files");
     //
     println!(" --help: help");
@@ -84,7 +86,7 @@ fn do_help() {
         " --atlas-max-size VAL: atlas max size, default {:?}",
         ATLAS_MAX_SIZE_DEFAULT
     );
-    println!("  if a single page requires more atlas space, this will be exceeded!",);
+    println!("  if a single page requires more atlas space, this will be exceeded!");
     // metadata
     println!(" --metadata-file FILE: merges a JSON object into metadata from a file");
     println!(" --metadata JSON: merges a JSON object into metadata from command line");
@@ -100,6 +102,7 @@ fn main() {
     // output
     let mut outdir: Option<String> = None;
     let mut no_dae = false;
+    let mut web = false;
     // **ONLY** use in passing to shapeify_all!
     // Render coordinates are now per-shape.
     let mut cfg_render_mul: f32 = RENDER_MUL_DEFAULT;
@@ -145,6 +148,8 @@ fn main() {
             lexopt::Arg::Long(v) => {
                 if v.eq("no-dae") {
                     no_dae = true;
+                } else if v.eq("web") {
+                    web = true;
                 } else if v.eq("help") {
                     do_help();
                 } else if v.eq("render-mul") {
@@ -336,62 +341,70 @@ fn main() {
         &ProgressImpl,
     );
 
-    // -- Atlasing --
-    ProgressImpl.stage("atlasing...");
-    let (mut atlas_builders, pages_atlased) = highlevel::atlas_pages(
-        highlevel::AtlasPagesInput {
-            sdf_shapes: &sdf_shapes,
-            pages: &pages,
-            shape_lookup: &shape_lookup,
-            atlas_min_size,
-            atlas_max_size,
-            atlas_perfchop,
-        },
-        &ProgressImpl,
-    );
-
-    let mut total_pixels: u64 = 0;
-    ProgressImpl.stage("drawing atlases...");
-    for (atlas_id, atlas_builder) in atlas_builders.iter().enumerate() {
-        let atlas_pix = atlas_builder.render(&sdf_shapes);
-        total_pixels += (atlas_pix.width() * atlas_pix.height()) as u64;
-        _ = std::fs::write(
-            &format!("{}/atlas.{}.png", outdir, atlas_id),
-            atlas_pix.encode_png().unwrap(),
+    if web {
+        ProgressImpl.stage("atlasing...");
+        let res = highlevel::atlas_web().expect("web should succeed");
+        std::fs::write(&format!("{}/book.png", outdir), res).unwrap();
+    } else {
+        // -- Atlasing --
+        ProgressImpl.stage("atlasing...");
+        let (mut atlas_builders, pages_atlased) = highlevel::atlas_pages(
+            highlevel::AtlasPagesInput {
+                sdf_shapes: &sdf_shapes,
+                pages: &pages,
+                shape_lookup: &shape_lookup,
+                atlas_min_size,
+                atlas_max_size,
+                atlas_perfchop,
+            },
+            &ProgressImpl,
         );
-    }
 
-    ProgressImpl.stage("emit...");
-    // initialize atlased book
-    let book_atlased = DBBook {
-        metadata: metadata_override,
-        atlases: atlas_builders.drain(..).map(|v| v.complete()).collect(),
-        pages: pages_atlased,
-    };
-    let emitted = book_atlased.emit();
-    let emitted_len = emitted.len();
-    _ = std::fs::write(&format!("{}/book.bytes", outdir), emitted);
-    if !no_dae {
-        for i in 0..book_atlased.pages.len() {
-            _ = std::fs::write(
-                &format!("{}/page.{}.dae", outdir, i),
-                booklib::collada::collada_write(&[book_atlased.page_dae(i)]),
-            );
-            ProgressImpl.status(&format!(
-                " DAE ({:>3}%)",
-                progress::percentage(i, book_atlased.pages.len())
-            ));
+        let mut total_pixels: u64 = 0;
+        ProgressImpl.stage("drawing atlases...");
+        for (atlas_id, atlas_builder) in atlas_builders.iter().enumerate() {
+            let atlas_pix = atlas_builder.render(&sdf_shapes);
+            total_pixels += (atlas_pix.width() * atlas_pix.height()) as u64;
+            std::fs::write(
+                &format!("{}/atlas.{}.png", outdir, atlas_id),
+                atlas_pix.encode_png().unwrap(),
+            )
+            .unwrap();
         }
-    }
 
-    ProgressImpl.alert("book completed");
-    println!("atlases: {}", book_atlased.atlases.len());
-    println!("pages: {}", book_atlased.pages.len());
-    println!(
-        "max tris on one page: {} (pg. {})",
-        (max_sprite_count * 2),
-        max_sprite_count_page + 1
-    );
-    println!("texture VRAM: {:?}mb", (total_pixels as f32) / 1000000.0);
-    println!(".bytes (RAM): {:?}mb", (emitted_len as f32) / 1000000.0);
+        ProgressImpl.stage("emit...");
+        // initialize atlased book
+        let book_atlased = DBBook {
+            metadata: metadata_override,
+            atlases: atlas_builders.drain(..).map(|v| v.complete()).collect(),
+            pages: pages_atlased,
+        };
+        let emitted = book_atlased.emit();
+        let emitted_len = emitted.len();
+        std::fs::write(&format!("{}/book.bytes", outdir), emitted).unwrap();
+        if !no_dae {
+            for i in 0..book_atlased.pages.len() {
+                std::fs::write(
+                    &format!("{}/page.{}.dae", outdir, i),
+                    booklib::collada::collada_write(&[book_atlased.page_dae(i)]),
+                )
+                .unwrap();
+                ProgressImpl.status(&format!(
+                    " DAE ({:>3}%)",
+                    progress::percentage(i, book_atlased.pages.len())
+                ));
+            }
+        }
+
+        ProgressImpl.alert("book completed");
+        println!("atlases: {}", book_atlased.atlases.len());
+        println!("pages: {}", book_atlased.pages.len());
+        println!(
+            "max tris on one page: {} (pg. {})",
+            (max_sprite_count * 2),
+            max_sprite_count_page + 1
+        );
+        println!("texture VRAM: {:?}mb", (total_pixels as f32) / 1000000.0);
+        println!(".bytes (RAM): {:?}mb", (emitted_len as f32) / 1000000.0);
+    }
 }

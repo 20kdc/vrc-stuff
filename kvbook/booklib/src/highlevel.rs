@@ -137,3 +137,12 @@ pub fn atlas_pages(
     atlas_builders.push(curr_atlas);
     (atlas_builders, pages_atlased)
 }
+
+/// 'Web format' exporter.
+/// The format here is pretty simple:
+/// We always create a 2048x2048-sized image, and no other files.
+/// We store book data starting at the top-left. The bytes, in pixel order, are the exact bytes of the .bytes datafile.
+/// The atlas we build is shifted down so that the bottom-most image nearly touches the bottom of the atlas (with a pixel for border).
+pub fn atlas_web() -> Result<Vec<u8>, String> {
+    Err("Not yet implemented".to_string())
+}
