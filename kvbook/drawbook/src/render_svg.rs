@@ -12,6 +12,7 @@ pub struct RenderOpts {
     pub cfg_render_mul_img: f32,
     pub debug_dse: bool,
     pub debug_bigbox: bool,
+    pub debug_noclip: bool,
 }
 
 /// Renderable object within the SVG.
@@ -48,9 +49,17 @@ impl SVGRenderable {
                 .to_rect()
                 .outset(render_border_doc, render_border_doc)
                 .unwrap();
+            let page_box =
+                usvg::Rect::from_xywh(0f32, 0f32, self.page_size.0, self.page_size.1).unwrap();
             if opts.debug_bigbox {
-                adj_bbox =
-                    usvg::Rect::from_xywh(0f32, 0f32, self.page_size.0, self.page_size.1).unwrap();
+                adj_bbox = page_box;
+            } else if !opts.debug_noclip {
+                if let Some(b) = adj_bbox.intersect(&page_box) {
+                    adj_bbox = b;
+                } else {
+                    // entirely clipped, reject
+                    return results;
+                }
             }
             let mut temp_canvas = Pixmap::new(
                 (adj_bbox.width() * render_mul).ceil() as u32,

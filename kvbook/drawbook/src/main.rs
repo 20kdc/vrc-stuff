@@ -124,6 +124,7 @@ fn do_help() {
     println!(" --debug-shapesearly: writes debug.dse.p*.s*.png");
     println!(" --debug-shapeslate: writes debug.s*.png / debug.s*.sdf.png");
     println!(" --debug-bigbox: runs all renders in page AABB to debug transform issues");
+    println!(" --debug-noclip: disables renderer page bounds clipping");
     std::process::exit(0);
 }
 
@@ -174,6 +175,7 @@ fn main() {
     let mut debug_dump_shapes_early = false;
     let mut debug_dump_shapes_late = false;
     let mut debug_bigbox = false;
+    let mut debug_noclip = false;
     // files
     let mut current_volume: String = "book".to_string();
     let mut inputs: Vec<InputNote> = Vec::new();
@@ -266,6 +268,8 @@ fn main() {
                     debug_dump_shapes_late = true;
                 } else if v.eq("debug-bigbox") {
                     debug_bigbox = true;
+                } else if v.eq("debug-noclip") {
+                    debug_noclip = true;
                 } else {
                     panic!("unknown long arg {}, try --help", v);
                 }
@@ -306,7 +310,8 @@ fn main() {
         cfg_render_mul,
         cfg_render_mul_img,
         debug_dse: debug_dump_shapes_early,
-        debug_bigbox: debug_bigbox,
+        debug_bigbox,
+        debug_noclip,
     };
     // -- Page separation --
     ProgressImpl.stage("page separation");
