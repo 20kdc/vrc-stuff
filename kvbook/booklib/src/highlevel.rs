@@ -151,8 +151,25 @@ pub fn atlas_web(
     let mut pages_atlased: Vec<(u8, DBPage)> = Vec::new();
     let mut curr_atlas = AtlasBuilder::new(V2(2048, 8), sdf_shapes.len());
     curr_atlas.planner.web_mode = true;
+
+    // add all shapes in best order
+    let mut shapes_to_add: Vec<usize> = Vec::new();
+    for v in 0..sdf_shapes.len() {
+        shapes_to_add.push(v);
+    }
+    curr_atlas.sort_shapes(sdf_shapes, &mut shapes_to_add);
+    for shape_id in shapes_to_add {
+        _ = curr_atlas.try_add_shape_or_enlarge(
+            shape_id,
+            &sdf_shapes[shape_id],
+            Some(2048),
+            usize::max_value(),
+            progress,
+        );
+    }
+
+    // atlas pages
     for (k, page) in pages.iter().enumerate() {
-        // attempt 1
         let (ok, tf_page) =
             curr_atlas.atlas_page(page, sdf_shapes, Some(2048), usize::max_value(), progress);
         if !ok {
@@ -166,12 +183,13 @@ pub fn atlas_web(
             curr_atlas.planner.free.len()
         ));
     }
+
     // Shift all placements to the bottom.
     let mut max_v = 0;
     for v in &curr_atlas.placements {
         max_v = max_v.max(v.uv_br.1);
     }
-    let shift = 2048 - max_v.min(2048);
+    let shift = 2047 - max_v.min(2047);
     let available_bytes = ((shift as usize).max(1) - 1) * 2048 * 4;
     for v in &mut curr_atlas.placements {
         v.uv_tl.1 += shift;

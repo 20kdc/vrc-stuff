@@ -90,6 +90,10 @@ impl AtlasBuilder {
         atlas_perfchop: usize,
         progress: &dyn Progress,
     ) -> bool {
+        // NOP if shape is already present
+        if self.shape_map[global_id].is_some() {
+            return true;
+        }
         let placement = match sdf {
             AtlasableShape::Rectangle { size } => {
                 DBAtlasedShape {
@@ -132,6 +136,41 @@ impl AtlasBuilder {
         true
     }
 
+    pub fn try_add_shape_or_enlarge(
+        &mut self,
+        shape_idx: usize,
+        sdf: &AtlasableShape,
+        max_size: Option<usize>,
+        atlas_perfchop: usize,
+        progress: &dyn Progress,
+    ) -> bool {
+        while !self.try_add_shape(shape_idx, sdf, atlas_perfchop, progress) {
+            if let Some(max_size) = max_size {
+                let sz = self.planner.enlarge_size();
+                if sz.0 > max_size || sz.1 > max_size {
+                    return false;
+                }
+            }
+            self.planner.enlarge();
+            assert!(
+                self.planner.size.0 < 65536 && self.planner.size.1 < 65536,
+                "atlas size out of range"
+            );
+        }
+        true
+    }
+
+    pub fn sort_shapes(&self, sdf_shapes: &[AtlasableShape], shapes: &mut [usize]) {
+        // determine encounter order, place descending
+        shapes.sort_by(|v1, v2| {
+            let v1r: &AtlasableShape = &sdf_shapes[*v1];
+            let v2r: &AtlasableShape = &sdf_shapes[*v2];
+            let v1s = v1r.sort_size();
+            let v2s = v2r.sort_size();
+            (v2s.0 * v2s.1).cmp(&(v1s.0 * v1s.1))
+        });
+    }
+
     /// Atlases a page.
     /// If the atlas is enlarged to above max_size, returns false and the (empty) page.
     /// Otherwise returns true and the complete translated page.
@@ -160,28 +199,17 @@ impl AtlasBuilder {
             shapes_to_add.iter().map(|v| *v).collect()
         };
 
-        // determine encounter order, place descending
-        shapes_to_add.sort_by(|v1, v2| {
-            let v1r: &AtlasableShape = &sdf_shapes[*v1];
-            let v2r: &AtlasableShape = &sdf_shapes[*v2];
-            let v1s = v1r.sort_size();
-            let v2s = v2r.sort_size();
-            (v2s.0 * v2s.1).cmp(&(v1s.0 * v1s.1))
-        });
+        self.sort_shapes(sdf_shapes, &mut shapes_to_add);
 
         for shape_idx in shapes_to_add {
-            while !self.try_add_shape(shape_idx, &sdf_shapes[shape_idx], atlas_perfchop, progress) {
-                if let Some(max_size) = max_size {
-                    let sz = self.planner.enlarge_size();
-                    if sz.0 > max_size || sz.1 > max_size {
-                        return (false, page);
-                    }
-                }
-                self.planner.enlarge();
-                assert!(
-                    self.planner.size.0 < 65536 && self.planner.size.1 < 65536,
-                    "atlas size out of range"
-                );
+            if !self.try_add_shape_or_enlarge(
+                shape_idx,
+                &sdf_shapes[shape_idx],
+                max_size,
+                atlas_perfchop,
+                progress,
+            ) {
+                return (false, page);
             }
         }
 
@@ -201,26 +229,38 @@ impl AtlasBuilder {
         let mut atlas_pix =
             Pixmap::new(self.planner.size.0 as u32, self.planner.size.1 as u32).unwrap();
         atlas_pix.fill(tiny_skia::Color::BLACK);
-        atlas_pix.fill_rect(
-            tiny_skia::Rect::from_xywh(1f32, 1f32, 3f32, 3f32).unwrap(),
-            &tiny_skia::Paint {
-                shader: tiny_skia::Shader::SolidColor(tiny_skia::Color::WHITE),
-                ..Default::default()
-            },
-            tiny_skia::Transform::identity(),
-            None,
-        );
         for (local_id, v) in self.placements.iter().enumerate() {
             let global_id = self.inv_shape_map[local_id];
-            if let AtlasableShape::Pixmap { sdf, size: _ } = &sdf_shapes[global_id] {
-                atlas_pix.draw_pixmap(
-                    v.uv_tl.0 as i32,
-                    v.uv_tl.1 as i32,
-                    sdf.as_ref(),
-                    &tiny_skia::PixmapPaint::default(),
-                    tiny_skia::Transform::identity(),
-                    None,
-                );
+            match &sdf_shapes[global_id] {
+                AtlasableShape::Pixmap { sdf, size: _ } => {
+                    atlas_pix.draw_pixmap(
+                        v.uv_tl.0 as i32,
+                        v.uv_tl.1 as i32,
+                        sdf.as_ref(),
+                        &tiny_skia::PixmapPaint::default(),
+                        tiny_skia::Transform::identity(),
+                        None,
+                    );
+                }
+                AtlasableShape::Rectangle { size: _ } => {
+                    atlas_pix.fill_rect(
+                        // Rectangles are given a 1-pixel 'extra border'.
+                        // Really, we're rendering it this way just so that the rectangle gets moved properly in 'web' builds.
+                        tiny_skia::Rect::from_ltrb(
+                            v.uv_tl.0 as f32 - 1f32,
+                            v.uv_tl.1 as f32 - 1f32,
+                            v.uv_br.0 as f32 + 1f32,
+                            v.uv_br.1 as f32 + 1f32,
+                        )
+                        .unwrap(),
+                        &tiny_skia::Paint {
+                            shader: tiny_skia::Shader::SolidColor(tiny_skia::Color::WHITE),
+                            ..Default::default()
+                        },
+                        tiny_skia::Transform::identity(),
+                        None,
+                    );
+                }
             }
         }
         atlas_pix
