@@ -30,9 +30,9 @@ pub struct DBPage {
 #[derive(Clone)]
 pub struct DBAtlasedShape {
     /// UVs. These are specified in top-left-relative pixels in this struct, but as real UVs in the file.
-    pub uv_tl: V2<f32>,
+    pub uv_tl: V2<u32>,
     /// UVs. These are specified in top-left-relative pixels in this struct, but as real UVs in the file.
-    pub uv_br: V2<f32>,
+    pub uv_br: V2<u32>,
     /// Size in reference units.
     pub size: V2<f32>,
 }
@@ -102,9 +102,11 @@ impl DBBook {
         for atlas in &self.atlases {
             let mut atlas_lump: Vec<u8> = Vec::new();
             for shape in &atlas.shapes {
+                let uv_tl = V2(shape.uv_tl.0 as f32, shape.uv_tl.1 as f32);
+                let uv_br = V2(shape.uv_br.0 as f32, shape.uv_br.1 as f32);
                 let atlas_size = V2(atlas.size.0 as f32, atlas.size.1 as f32);
-                atlas_lump.extend_from_slice(&Self::emit_uv2(shape.uv_tl / atlas_size));
-                atlas_lump.extend_from_slice(&Self::emit_uv2(shape.uv_br / atlas_size));
+                atlas_lump.extend_from_slice(&Self::emit_uv2(uv_tl / atlas_size));
+                atlas_lump.extend_from_slice(&Self::emit_uv2(uv_br / atlas_size));
                 atlas_lump.extend_from_slice(&shape.size.0.to_le_bytes());
                 atlas_lump.extend_from_slice(&shape.size.1.to_le_bytes());
             }
@@ -165,10 +167,10 @@ impl DBBook {
         (-x, y, 0f32)
     }
 
-    fn dae_transform_st(&self, atlas_size: V2<u16>, x: f32, y: f32) -> (f32, f32) {
+    fn dae_transform_st(&self, atlas_size: V2<u16>, x: u32, y: u32) -> (f32, f32) {
         (
-            x / (atlas_size.0 as f32),
-            1f32 - (y / (atlas_size.1 as f32)),
+            x as f32 / (atlas_size.0 as f32),
+            1f32 - ((y as f32) / (atlas_size.1 as f32)),
         )
     }
 

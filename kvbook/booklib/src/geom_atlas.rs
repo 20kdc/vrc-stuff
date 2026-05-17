@@ -16,6 +16,10 @@ pub struct AtlasPage {
     pub delete_under: V2<usize>,
     /// Free areas to try.
     pub free: BTreeSet<Rect<usize>>,
+    /// For 'web book image' builds.
+    /// Enlargement algorithm adds one row at a time.
+    /// Slows things down but maximizes vertical space efficiency.
+    pub web_mode: bool,
 }
 
 impl AtlasPage {
@@ -29,6 +33,7 @@ impl AtlasPage {
             size: initial_size,
             delete_under: V2(1, 1),
             free,
+            web_mode: false,
         }
     }
 
@@ -98,6 +103,9 @@ impl AtlasPage {
     }
     /// 'Simulates' the enlarge() function.
     pub fn enlarge_size(&self) -> V2<usize> {
+        if self.web_mode {
+            return V2(self.size.0, self.size.1 + 1);
+        }
         let mut size = self.size;
         if size.0 > size.1 {
             size.1 *= 2;

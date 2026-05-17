@@ -94,8 +94,8 @@ impl AtlasBuilder {
             AtlasableShape::Rectangle { size } => {
                 DBAtlasedShape {
                     // set to the 'rectangle' texture
-                    uv_tl: V2(2f32, 2f32),
-                    uv_br: V2(3f32, 3f32),
+                    uv_tl: V2(2, 2),
+                    uv_br: V2(3, 3),
                     size: *size,
                 }
             }
@@ -111,11 +111,11 @@ impl AtlasBuilder {
                         self.planner.perf_chop();
                     }
                     DBAtlasedShape {
-                        uv_tl: V2(pt.0 as f32, pt.1 as f32) + V2(1f32, 1f32),
+                        uv_tl: V2(pt.0 as u32, pt.1 as u32) + V2(1, 1),
                         uv_br: V2(
-                            (pt.0 + 1 + sdf.width() as usize) as f32,
-                            (pt.1 + 1 + sdf.height() as usize) as f32,
-                        ) + V2(1f32, 1f32),
+                            pt.0 as u32 + 1 + sdf.width(),
+                            pt.1 as u32 + 1 + sdf.height(),
+                        ) + V2(1, 1),
                         size: *size,
                     }
                 } else {

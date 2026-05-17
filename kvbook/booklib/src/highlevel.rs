@@ -143,9 +143,73 @@ pub fn atlas_pages(
 /// We store book data starting at the top-left. The bytes, in pixel order, are the exact bytes of the .bytes datafile.
 /// The atlas we build is shifted down so that the bottom-most image nearly touches the bottom of the atlas (with a pixel for border).
 pub fn atlas_web(
-    _metadata: json::object::Object,
-    _sdf_shapes: &[AtlasableShape],
-    _pages: &[DBPage],
+    metadata: json::object::Object,
+    sdf_shapes: &[AtlasableShape],
+    pages: &[DBPage],
+    progress: &dyn Progress,
 ) -> Result<Vec<u8>, String> {
-    Err("Not yet implemented".to_string())
+    let mut pages_atlased: Vec<(u8, DBPage)> = Vec::new();
+    let mut curr_atlas = AtlasBuilder::new(V2(2048, 8), sdf_shapes.len());
+    curr_atlas.planner.web_mode = true;
+    for (k, page) in pages.iter().enumerate() {
+        // attempt 1
+        let (ok, tf_page) =
+            curr_atlas.atlas_page(page, sdf_shapes, Some(2048), usize::max_value(), progress);
+        if !ok {
+            return Err(format!("index {}: out of atlas space", k));
+        }
+        pages_atlased.push((0, tf_page));
+        progress.status(&format!(
+            " {:>3}% atlas_size={:?} freelist={:>8}        ",
+            percentage(k + 1, pages.len()),
+            curr_atlas.planner.size,
+            curr_atlas.planner.free.len()
+        ));
+    }
+    // Shift all placements to the bottom.
+    let mut max_v = 0;
+    for v in &curr_atlas.placements {
+        max_v = max_v.max(v.uv_br.1);
+    }
+    let shift = 2048 - max_v.min(2048);
+    let available_bytes = ((shift as usize).max(1) - 1) * 2048 * 4;
+    for v in &mut curr_atlas.placements {
+        v.uv_tl.1 += shift;
+        v.uv_br.1 += shift;
+    }
+    curr_atlas.planner.size = V2(2048, 2048);
+    // Complete the atlas and prepare book data.
+    let rendered_atlas = curr_atlas.render(sdf_shapes);
+    let atlas = curr_atlas.complete();
+    let book = DBBook {
+        metadata,
+        atlases: vec![atlas],
+        pages: pages_atlased,
+    };
+    let book_data = book.emit();
+    if book_data.len() > available_bytes {
+        return Err(format!(
+            "Available bytes: {}, book data: {}",
+            available_bytes,
+            book_data.len()
+        ));
+    }
+    // Get rendered data
+    let mut raw_data = rendered_atlas.take_demultiplied();
+    assert_eq!(raw_data.len(), 2048 * 2048 * 4);
+    // Do TMP colour transform (copy to alpha)
+    for i in 0..(2048 * 2048) {
+        raw_data[(i * 4) + 3] = raw_data[(i * 4) + 2];
+    }
+    // Install book data
+    raw_data[0..book_data.len()].copy_from_slice(&book_data);
+    // Turn into PNG
+    let mut png_data = vec![];
+    let mut encoder = png::Encoder::new(&mut png_data, 2048, 2048);
+    encoder.set_color(png::ColorType::Rgba);
+    encoder.set_depth(png::BitDepth::Eight);
+    let mut encoder = encoder.write_header().unwrap();
+    encoder.write_image_data(&raw_data).unwrap();
+    encoder.finish().unwrap();
+    Ok(png_data)
 }

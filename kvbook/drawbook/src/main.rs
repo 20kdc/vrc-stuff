@@ -9,7 +9,6 @@ use booklib::rendered::*;
 use lexopt::ValueExt;
 use progress::ProgressImpl;
 use render_svg::*;
-use std::collections::BTreeMap;
 
 const RENDER_MUL_DEFAULT: f32 = 16.0;
 const RENDER_MUL_IMG_DEFAULT: f32 = 16.0;
@@ -367,7 +366,7 @@ fn main() {
 
     if web {
         ProgressImpl.stage("atlasing...");
-        let res = highlevel::atlas_web(metadata_override, &sdf_shapes, &pages)
+        let res = highlevel::atlas_web(metadata_override, &sdf_shapes, &pages, &ProgressImpl)
             .expect("web should succeed");
         std::fs::write(&format!("{}/book.png", outdir), res).unwrap();
     } else {

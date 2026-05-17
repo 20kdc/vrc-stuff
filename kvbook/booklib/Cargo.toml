@@ -8,5 +8,6 @@ license.workspace = true
 
 [dependencies]
 json = "0.12.4"
+png = "0.18.1"
 rayon = "1.12.0"
 tiny-skia = "0.12.0"
