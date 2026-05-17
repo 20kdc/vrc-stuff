@@ -158,14 +158,20 @@ pub fn atlas_web(
         shapes_to_add.push(v);
     }
     curr_atlas.sort_shapes(sdf_shapes, &mut shapes_to_add);
-    for shape_id in shapes_to_add {
+    for (k, shape_id) in shapes_to_add.iter().enumerate() {
         _ = curr_atlas.try_add_shape_or_enlarge(
-            shape_id,
-            &sdf_shapes[shape_id],
+            *shape_id,
+            &sdf_shapes[*shape_id],
             Some(2048),
             usize::max_value(),
             progress,
         );
+        progress.status(&format!(
+            " {:>3}% atlas_size={:?} freelist={:>8}        ",
+            percentage(k + 1, shapes_to_add.len()),
+            curr_atlas.planner.size,
+            curr_atlas.planner.free.len()
+        ));
     }
 
     // atlas pages
@@ -176,12 +182,6 @@ pub fn atlas_web(
             return Err(format!("index {}: out of atlas space", k));
         }
         pages_atlased.push((0, tf_page));
-        progress.status(&format!(
-            " {:>3}% atlas_size={:?} freelist={:>8}        ",
-            percentage(k + 1, pages.len()),
-            curr_atlas.planner.size,
-            curr_atlas.planner.free.len()
-        ));
     }
 
     // Shift all placements to the bottom.
