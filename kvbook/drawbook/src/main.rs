@@ -9,6 +9,7 @@ use booklib::rendered::*;
 use lexopt::ValueExt;
 use progress::ProgressImpl;
 use render_svg::*;
+use std::collections::BTreeMap;
 
 const RENDER_MUL_DEFAULT: f32 = 16.0;
 const RENDER_MUL_IMG_DEFAULT: f32 = 16.0;
@@ -29,14 +30,27 @@ fn do_help() {
     );
     println!(" IN: may be a single SVG, or if this contains '%d', this is");
     println!("  considered to be a sequence starting from either 0 or 1.");
+    // help options
+    println!("");
+    println!("HELP OPTIONS");
+    println!(" --help: help");
     // output options
+    println!("");
+    println!("OUTPUT OPTIONS");
     println!(" -o OUTDIR: output directory, created if it doesn't exist");
     println!(" --web: Forces single 2k x 2k atlas w/ embedded data.");
     println!("        This is for downloading via VRCImageDownloader.");
+    println!("        Implies --no-dae. Volumes are ignored.");
     println!(" --no-dae: don't make DAE files");
-    //
-    println!(" --help: help");
+    // input options
+    println!("");
+    println!("INPUT OPTIONS");
+    println!(" --volume NAME: separates into volumes that share atlases");
+    println!(" --metadata-file FILE: merges a JSON object into metadata from a file");
+    println!(" --metadata JSON: merges a JSON object into metadata from command line");
     // renderer
+    println!("");
+    println!("RENDERER OPTIONS");
     println!(
         " --render-mul VAL: render multiplier, default {:?}",
         RENDER_MUL_DEFAULT
@@ -56,8 +70,12 @@ fn do_help() {
         RENDER_LIMIT_IMG_DEFAULT
     );
     // post-filter
+    println!("");
+    println!("POST-FILTER OPTIONS");
     println!(" --invert: Inverts colours");
     // sdf
+    println!("");
+    println!("SDF OPTIONS");
     println!(
         " --sdf-downscale VAL: SDF downscale from render, default {}",
         SDF_DOWNSCALE_DEFAULT
@@ -74,6 +92,8 @@ fn do_help() {
         SDF_SMOOTH_DEFAULT
     );
     // atlasing
+    println!("");
+    println!("ATLASING OPTIONS");
     println!(
         " --atlas-perfchop VAL: atlas freelist limit before 'forgetting', default {:?}",
         ATLAS_PERFCHOP_DEFAULT
@@ -87,14 +107,29 @@ fn do_help() {
         ATLAS_MAX_SIZE_DEFAULT
     );
     println!("  if a single page requires more atlas space, this will be exceeded!");
-    // metadata
-    println!(" --metadata-file FILE: merges a JSON object into metadata from a file");
-    println!(" --metadata JSON: merges a JSON object into metadata from command line");
     // debug
+    println!("");
+    println!("DEBUG OPTIONS");
     println!(" --debug-shapesearly: writes debug.dse.p*.s*.png");
     println!(" --debug-shapeslate: writes debug.s*.png / debug.s*.sdf.png");
     println!(" --debug-bigbox: runs all renders in page AABB to debug transform issues");
     std::process::exit(0);
+}
+
+fn parse_arg<
+    V: std::str::FromStr<Err: Into<Box<dyn std::error::Error + Send + Sync + 'static>>>,
+>(
+    arg_parser: &mut lexopt::Parser,
+    err: &str,
+) -> V {
+    let errstr = format!("--{} expects {}", err, std::any::type_name::<V>());
+    arg_parser.value().expect(&errstr).parse().expect(&errstr)
+}
+
+enum InputNote {
+    /// Volumes are converted into 'end volume' commands.
+    EndVolume(String),
+    Input(String),
 }
 
 fn main() {
@@ -125,7 +160,8 @@ fn main() {
     let mut debug_dump_shapes_late = false;
     let mut debug_bigbox = false;
     // files
-    let mut inputs: Vec<String> = Vec::new();
+    let mut current_volume: String = "book".to_string();
+    let mut inputs: Vec<InputNote> = Vec::new();
     // metadata
     let mut metadata_override = json::object::Object::new();
     // -- argparse --
@@ -146,74 +182,22 @@ fn main() {
                 }
             }
             lexopt::Arg::Long(v) => {
+                let vc = v.to_string();
                 if v.eq("no-dae") {
                     no_dae = true;
                 } else if v.eq("web") {
                     web = true;
                 } else if v.eq("help") {
                     do_help();
-                } else if v.eq("render-mul") {
-                    cfg_render_mul = arg_parser
-                        .value()
-                        .expect("--render-mul expects float")
-                        .parse()
-                        .expect("--render-mul expects float");
-                } else if v.eq("render-limit") {
-                    render_limit = arg_parser
-                        .value()
-                        .expect("--render-limit expects u32")
-                        .parse()
-                        .expect("--render-limit expects u32");
-                } else if v.eq("img-render-mul") {
-                    cfg_render_mul_img = arg_parser
-                        .value()
-                        .expect("--img-render-mul expects float")
-                        .parse()
-                        .expect("--img-render-mul expects float");
-                } else if v.eq("img-render-limit") {
-                    render_limit_img = arg_parser
-                        .value()
-                        .expect("--img-render-limit expects u32")
-                        .parse()
-                        .expect("--img-render-limit expects u32");
-                } else if v.eq("invert") {
-                    invert = !invert;
-                } else if v.eq("sdf-downscale") {
-                    sdf_downscale = arg_parser
-                        .value()
-                        .expect("--sdf-downscale expects u32")
-                        .parse()
-                        .expect("--sdf-downscale expects u32");
-                } else if v.eq("sdf-border") {
-                    sdf_border = arg_parser
-                        .value()
-                        .expect("--sdf-border expects float")
-                        .parse()
-                        .expect("--sdf-border expects float");
-                } else if v.eq("sdf-smooth") {
-                    sdf_smooth = arg_parser
-                        .value()
-                        .expect("--sdf-smooth expects float")
-                        .parse()
-                        .expect("--sdf-smooth expects float");
-                } else if v.eq("atlas-perfchop") {
-                    atlas_perfchop = arg_parser
-                        .value()
-                        .expect("--atlas-perfchop expects usize")
-                        .parse()
-                        .expect("--atlas-perfchop expects usize");
-                } else if v.eq("atlas-min-size") {
-                    atlas_min_size = arg_parser
-                        .value()
-                        .expect("--atlas-min-size expects usize")
-                        .parse()
-                        .expect("--atlas-min-size expects usize");
-                } else if v.eq("atlas-max-size") {
-                    atlas_max_size = arg_parser
-                        .value()
-                        .expect("--atlas-max-size expects usize")
-                        .parse()
-                        .expect("--atlas-max-size expects usize");
+                } else if v.eq("volume") {
+                    let vp: String = parse_arg(&mut arg_parser, &vc);
+                    if inputs.is_empty() {
+                        // We don't want to generate an empty volume at the start just for specifying the first volume name.
+                        current_volume = vp;
+                    } else {
+                        inputs.push(InputNote::EndVolume(current_volume));
+                        current_volume = vp;
+                    }
                 } else if v.eq("metadata-file") {
                     let vp = arg_parser.value().expect("--metadata-file expects a path");
                     let ff = std::fs::read_to_string(&vp)
@@ -233,6 +217,28 @@ fn main() {
                     for kv in val.entries() {
                         metadata_override.insert(kv.0, kv.1.clone());
                     }
+                } else if v.eq("render-mul") {
+                    cfg_render_mul = parse_arg(&mut arg_parser, &vc);
+                } else if v.eq("render-limit") {
+                    render_limit = parse_arg(&mut arg_parser, &vc);
+                } else if v.eq("img-render-mul") {
+                    cfg_render_mul_img = parse_arg(&mut arg_parser, &vc);
+                } else if v.eq("img-render-limit") {
+                    render_limit_img = parse_arg(&mut arg_parser, &vc);
+                } else if v.eq("invert") {
+                    invert = !invert;
+                } else if v.eq("sdf-downscale") {
+                    sdf_downscale = parse_arg(&mut arg_parser, &vc);
+                } else if v.eq("sdf-border") {
+                    sdf_border = parse_arg(&mut arg_parser, &vc);
+                } else if v.eq("sdf-smooth") {
+                    sdf_smooth = parse_arg(&mut arg_parser, &vc);
+                } else if v.eq("atlas-perfchop") {
+                    atlas_perfchop = parse_arg(&mut arg_parser, &vc);
+                } else if v.eq("atlas-min-size") {
+                    atlas_min_size = parse_arg(&mut arg_parser, &vc);
+                } else if v.eq("atlas-max-size") {
+                    atlas_max_size = parse_arg(&mut arg_parser, &vc);
                 } else if v.eq("debug-shapesearly") {
                     debug_dump_shapes_early = true;
                 } else if v.eq("debug-shapeslate") {
@@ -256,17 +262,19 @@ fn main() {
                                 break;
                             }
                         } else {
-                            inputs.push(candidate);
+                            inputs.push(InputNote::Input(candidate));
                         }
                         page_no += 1;
                     }
                 } else {
-                    inputs.push(x.to_string());
+                    inputs.push(InputNote::Input(x.to_string()));
                 }
             }
         }
     }
     // -- options locked in --
+    // end current volume
+    inputs.push(InputNote::EndVolume(current_volume));
     let outdir = outdir.expect("outdir REQUIRED");
     _ = std::fs::create_dir_all(&outdir);
     let render_opts = RenderOpts {
@@ -279,7 +287,26 @@ fn main() {
         debug_dse: debug_dump_shapes_early,
         debug_bigbox: debug_bigbox,
     };
-    // -- rasterize --
+    // -- Page separation --
+    ProgressImpl.stage("page separation");
+    let mut input_pages: Vec<String> = Vec::new();
+    // Volume data. This is used in the .bytes emitter.
+    let mut volumes: Vec<(String, usize, usize)> = Vec::new();
+    {
+        let mut volume_start: usize = 0;
+        for file in inputs {
+            match file {
+                InputNote::EndVolume(volume) => {
+                    volumes.push((volume, volume_start, input_pages.len()));
+                    volume_start = input_pages.len();
+                }
+                InputNote::Input(name) => {
+                    input_pages.push(name);
+                }
+            }
+        }
+    }
+    // -- SVG rendering --
     ProgressImpl.stage("rendering");
     let mut shape_lookup = DBShapeLookup::default();
     let mut pages: Vec<DBPage> = Vec::new();
@@ -289,43 +316,40 @@ fn main() {
     };
     let mut max_sprite_count: usize = 0;
     let mut max_sprite_count_page: usize = 0;
-    for (page_idx, svgn) in inputs.iter().enumerate() {
-        if let Ok(svgd) = std::fs::read(svgn) {
-            ProgressImpl.status(&format!(
-                " {:<24} : ({:>3}%), total_shapes={:>6}",
-                svgn,
-                progress::percentage(page_idx, inputs.len()),
-                shape_lookup.shapes.len()
-            ));
-            let res = usvg::Tree::from_data(&svgd, &svg_opts).expect("svg should have parsed");
-            // render and insert sprites
-            let mut rendered: DBRenderedPage = render_svg(&res, page_idx, &render_opts);
-            if rendered.sprites.len() > max_sprite_count {
-                max_sprite_count = rendered.sprites.len();
-                max_sprite_count_page = page_idx;
-            }
-            // post-filter
-            if invert {
-                for sprite in &mut rendered.sprites {
-                    sprite.colour = [
-                        255 - sprite.colour[0],
-                        255 - sprite.colour[1],
-                        255 - sprite.colour[2],
-                        sprite.colour[3],
-                    ];
-                }
-            }
-            // complete
-            pages.push(shape_lookup.deduplicate(rendered));
-            ProgressImpl.status(&format!(
-                " {:<24} : ({:>3}%), total_shapes={:>6}",
-                svgn,
-                progress::percentage(page_idx, inputs.len()),
-                shape_lookup.shapes.len()
-            ));
-        } else {
-            break;
+    for (page_idx, svgn) in input_pages.iter().enumerate() {
+        ProgressImpl.status(&format!(
+            " {:<24} : ({:>3}%), total_shapes={:>6}",
+            svgn,
+            progress::percentage(page_idx, input_pages.len()),
+            shape_lookup.shapes.len()
+        ));
+        let svgd = std::fs::read(svgn).unwrap();
+        let res = usvg::Tree::from_data(&svgd, &svg_opts).expect("svg should have parsed");
+        // render and insert sprites
+        let mut rendered: DBRenderedPage = render_svg(&res, page_idx, &render_opts);
+        if rendered.sprites.len() > max_sprite_count {
+            max_sprite_count = rendered.sprites.len();
+            max_sprite_count_page = page_idx;
         }
+        // post-filter
+        if invert {
+            for sprite in &mut rendered.sprites {
+                sprite.colour = [
+                    255 - sprite.colour[0],
+                    255 - sprite.colour[1],
+                    255 - sprite.colour[2],
+                    sprite.colour[3],
+                ];
+            }
+        }
+        // complete
+        pages.push(shape_lookup.deduplicate(rendered));
+        ProgressImpl.status(&format!(
+            " {:<24} : ({:>3}%), total_shapes={:>6}",
+            svgn,
+            progress::percentage(page_idx, input_pages.len()),
+            shape_lookup.shapes.len()
+        ));
     }
     // -- SDF --
     ProgressImpl.stage("SDF conversions...");
@@ -374,31 +398,43 @@ fn main() {
 
         ProgressImpl.stage("emit...");
         // initialize atlased book
-        let book_atlased = DBBook {
+        let mut book_atlased = DBBook {
             metadata: metadata_override,
             atlases: atlas_builders.drain(..).map(|v| v.complete()).collect(),
-            pages: pages_atlased,
+            pages: vec![],
         };
-        let emitted = book_atlased.emit();
-        let emitted_len = emitted.len();
-        std::fs::write(&format!("{}/book.bytes", outdir), emitted).unwrap();
-        if !no_dae {
-            for i in 0..book_atlased.pages.len() {
-                std::fs::write(
-                    &format!("{}/page.{}.dae", outdir, i),
-                    booklib::collada::collada_write(&[book_atlased.page_dae(i)]),
-                )
-                .unwrap();
-                ProgressImpl.status(&format!(
-                    " DAE ({:>3}%)",
-                    progress::percentage(i, book_atlased.pages.len())
-                ));
+        let mut emitted_len = 0;
+        for (volume_name, volume_start, volume_end) in volumes {
+            book_atlased.pages.clear();
+            book_atlased.pages.extend(
+                pages_atlased[volume_start..volume_end]
+                    .iter()
+                    .map(|v| v.clone()),
+            );
+
+            let emitted = book_atlased.emit();
+            emitted_len += emitted.len();
+            std::fs::write(&format!("{}/{}.bytes", outdir, volume_name), emitted).unwrap();
+
+            if !no_dae {
+                for i in 0..book_atlased.pages.len() {
+                    std::fs::write(
+                        &format!("{}/{}.{}.dae", outdir, volume_name, i),
+                        booklib::collada::collada_write(&[book_atlased.page_dae(i)]),
+                    )
+                    .unwrap();
+                    ProgressImpl.status(&format!(
+                        " {:<24} DAE ({:>3}%)",
+                        volume_name,
+                        progress::percentage(i, book_atlased.pages.len())
+                    ));
+                }
             }
         }
 
         ProgressImpl.alert("book completed");
         println!("atlases: {}", book_atlased.atlases.len());
-        println!("pages: {}", book_atlased.pages.len());
+        println!("pages: {}", pages_atlased.len());
         println!(
             "max tris on one page: {} (pg. {})",
             (max_sprite_count * 2),
