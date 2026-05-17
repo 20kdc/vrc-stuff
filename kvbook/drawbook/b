@@ -4,4 +4,4 @@ echo deleting output
 rm -f out/*
 
 (cd .. ; cargo fmt)
-cargo run --release -- "pages/%d.svg" -o out "$@"
+cargo run --release -- -o out "$@"

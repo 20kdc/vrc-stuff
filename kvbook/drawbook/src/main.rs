@@ -44,6 +44,18 @@ fn do_help() {
     // input options
     println!("");
     println!("INPUT OPTIONS");
+    println!(
+        " --mupdf-w W: MuPDF reflow width, default {:?}",
+        inputlib::LAYOUT_A5_W
+    );
+    println!(
+        " --mupdf-h H: MuPDF reflow height, default {:?}",
+        inputlib::LAYOUT_A5_H
+    );
+    println!(
+        " --mupdf-em EM: MuPDF reflow EM, default {:?}",
+        inputlib::LAYOUT_A5_EM
+    );
     println!(" --volume NAME: separates into volumes that share atlases");
     println!(" --metadata-file FILE: merges a JSON object into metadata from a file");
     println!(" --metadata JSON: merges a JSON object into metadata from command line");
@@ -137,6 +149,10 @@ fn main() {
     let mut outdir: Option<String> = None;
     let mut no_dae = false;
     let mut web = false;
+    // input
+    let mut mupdf_w = inputlib::LAYOUT_A5_W;
+    let mut mupdf_h = inputlib::LAYOUT_A5_H;
+    let mut mupdf_em = inputlib::LAYOUT_A5_EM;
     // **ONLY** use in passing to shapeify_all!
     // Render coordinates are now per-shape.
     let mut cfg_render_mul: f32 = RENDER_MUL_DEFAULT;
@@ -188,6 +204,12 @@ fn main() {
                     web = true;
                 } else if v.eq("help") {
                     do_help();
+                } else if v.eq("mupdf-w") {
+                    mupdf_w = parse_arg(&mut arg_parser, &vc);
+                } else if v.eq("mupdf-h") {
+                    mupdf_h = parse_arg(&mut arg_parser, &vc);
+                } else if v.eq("mupdf-em") {
+                    mupdf_em = parse_arg(&mut arg_parser, &vc);
                 } else if v.eq("volume") {
                     let vp: String = parse_arg(&mut arg_parser, &vc);
                     if inputs.is_empty() {
@@ -288,7 +310,7 @@ fn main() {
     };
     // -- Page separation --
     ProgressImpl.stage("page separation");
-    let mut input_pages: Vec<String> = Vec::new();
+    let mut input_pages: Vec<(String, String)> = Vec::new();
     // Volume data. This is used in the .bytes emitter.
     let mut volumes: Vec<(String, usize, usize)> = Vec::new();
     {
@@ -300,7 +322,12 @@ fn main() {
                     volume_start = input_pages.len();
                 }
                 InputNote::Input(name) => {
-                    input_pages.push(name);
+                    let doc = inputlib::read(&name, mupdf_w, mupdf_h, mupdf_em)
+                        .expect(&format!("{} should read", name));
+                    for subpage in 0..doc.page_count() {
+                        input_pages
+                            .push((format!("{}:{}", name, subpage), doc.page_to_svg(subpage)));
+                    }
                 }
             }
         }
@@ -315,15 +342,15 @@ fn main() {
     };
     let mut max_sprite_count: usize = 0;
     let mut max_sprite_count_page: usize = 0;
-    for (page_idx, svgn) in input_pages.iter().enumerate() {
+    for (page_idx, (svgn, svgd)) in input_pages.iter().enumerate() {
         ProgressImpl.status(&format!(
             " {:<24} : ({:>3}%), total_shapes={:>6}",
             svgn,
             progress::percentage(page_idx, input_pages.len()),
             shape_lookup.shapes.len()
         ));
-        let svgd = std::fs::read(svgn).unwrap();
-        let res = usvg::Tree::from_data(&svgd, &svg_opts).expect("svg should have parsed");
+        let res = usvg::Tree::from_str(&svgd, &svg_opts)
+            .expect(&format!("svg {} should have parsed", svgn));
         // render and insert sprites
         let mut rendered: DBRenderedPage = render_svg(&res, page_idx, &render_opts);
         if rendered.sprites.len() > max_sprite_count {

@@ -25,6 +25,7 @@ There are a number of theoretical improvements and optimizations here. These hav
 ## Structure
 
 * `booklib`: Core processing and writer library.
+* `inputlib`: Handles poking `mupdf` to get SVG files.
 * `drawbook`: Core book converter.
 * `svgseparator`: Preprocesses an SVG with `usvg`, then splits into a set of simple 'one shape per file' objects for SDF rendition. Has an associated test program for diagnostics.
 * `testbook`: Godot 3.x project to render a converted book.

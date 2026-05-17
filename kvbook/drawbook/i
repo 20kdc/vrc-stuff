@@ -1,9 +1,0 @@
-#!/bin/sh
-rm -f book.pdf
-ln -s "$1" book.pdf
-shift
-mkdir -p pages
-echo deleting output
-rm -f pages/*.svg
-echo pdf2svg
-pdf2svg book.pdf pages/%d.svg all
