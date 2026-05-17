@@ -33,14 +33,17 @@ pub const LAYOUT_A5_W: f32 = 420f32;
 pub const LAYOUT_A5_H: f32 = 595f32;
 pub const LAYOUT_A5_EM: f32 = 11f32;
 
+/// Input options.
+#[derive(Clone, Copy, Debug)]
+pub struct InputOpts {
+    pub mupdf_w: f32,
+    pub mupdf_h: f32,
+    pub mupdf_em: f32,
+}
+
 /// Reads from a path.
 /// Note that a path is used for SVG autodetection.
-pub fn read(
-    path: &str,
-    layout_width: f32,
-    layout_height: f32,
-    layout_em: f32,
-) -> Result<Box<dyn PageHopper>, String> {
+pub fn read(path: &str, opts: &InputOpts) -> Result<Box<dyn PageHopper>, String> {
     if path.ends_with(".svg") {
         let s = std::fs::read_to_string(path).map_err(|v| format!("read SVG {:?}", v))?;
         Ok(Box::new(PageHopperSVG(s)))
@@ -49,7 +52,7 @@ pub fn read(
         if s.is_reflowable()
             .map_err(|v| format!("inputlib is_reflowable {:?}", v))?
         {
-            s.layout(layout_width, layout_height, layout_em)
+            s.layout(opts.mupdf_w, opts.mupdf_h, opts.mupdf_em)
                 .map_err(|v| format!("inputlib layout {:?}", v))?;
         }
         Ok(Box::new(PageHopperMuPDF(s)))

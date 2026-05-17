@@ -6,9 +6,11 @@ fn main() {
     assert!(a.next().is_none());
     let pages = inputlib::read(
         &src,
-        inputlib::LAYOUT_A5_W,
-        inputlib::LAYOUT_A5_H,
-        inputlib::LAYOUT_A5_EM,
+        &inputlib::InputOpts {
+            mupdf_w: inputlib::LAYOUT_A5_W,
+            mupdf_h: inputlib::LAYOUT_A5_H,
+            mupdf_em: inputlib::LAYOUT_A5_EM,
+        },
     )
     .unwrap();
     println!("{} pages", pages.page_count());

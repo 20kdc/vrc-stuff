@@ -41,9 +41,15 @@ fn do_help() {
     println!("        This is for downloading via VRCImageDownloader.");
     println!("        Implies --no-dae. Volumes are ignored.");
     println!(" --no-dae: don't make DAE files");
-    // input options
     println!("");
     println!("INPUT OPTIONS");
+    // input options
+    println!(" --volume NAME: separates into volumes that share atlases");
+    println!(" --metadata-file FILE: merges a JSON object into metadata from a file");
+    println!(" --metadata JSON: merges a JSON object into metadata from command line");
+    println!("");
+    println!("PER-FILE OPTIONS");
+    println!(" These affect following files, not preceding ones (put them at the start).");
     println!(
         " --mupdf-w W: MuPDF reflow width, default {:?}",
         inputlib::LAYOUT_A5_W
@@ -56,9 +62,6 @@ fn do_help() {
         " --mupdf-em EM: MuPDF reflow EM, default {:?}",
         inputlib::LAYOUT_A5_EM
     );
-    println!(" --volume NAME: separates into volumes that share atlases");
-    println!(" --metadata-file FILE: merges a JSON object into metadata from a file");
-    println!(" --metadata JSON: merges a JSON object into metadata from command line");
     // renderer
     println!("");
     println!("RENDERER OPTIONS");
@@ -141,7 +144,7 @@ fn parse_arg<
 enum InputNote {
     /// Volumes are converted into 'end volume' commands.
     EndVolume(String),
-    Input(String),
+    Input(String, inputlib::InputOpts),
 }
 
 fn main() {
@@ -151,9 +154,11 @@ fn main() {
     let mut no_dae = false;
     let mut web = false;
     // input
-    let mut mupdf_w = inputlib::LAYOUT_A5_W;
-    let mut mupdf_h = inputlib::LAYOUT_A5_H;
-    let mut mupdf_em = inputlib::LAYOUT_A5_EM;
+    let mut inopt = inputlib::InputOpts {
+        mupdf_w: inputlib::LAYOUT_A5_W,
+        mupdf_h: inputlib::LAYOUT_A5_H,
+        mupdf_em: inputlib::LAYOUT_A5_EM,
+    };
     // **ONLY** use in passing to shapeify_all!
     // Render coordinates are now per-shape.
     let mut cfg_render_mul: f32 = RENDER_MUL_DEFAULT;
@@ -207,11 +212,11 @@ fn main() {
                 } else if v.eq("help") {
                     do_help();
                 } else if v.eq("mupdf-w") {
-                    mupdf_w = parse_arg(&mut arg_parser, &vc);
+                    inopt.mupdf_w = parse_arg(&mut arg_parser, &vc);
                 } else if v.eq("mupdf-h") {
-                    mupdf_h = parse_arg(&mut arg_parser, &vc);
+                    inopt.mupdf_h = parse_arg(&mut arg_parser, &vc);
                 } else if v.eq("mupdf-em") {
-                    mupdf_em = parse_arg(&mut arg_parser, &vc);
+                    inopt.mupdf_em = parse_arg(&mut arg_parser, &vc);
                 } else if v.eq("volume") {
                     let vp: String = parse_arg(&mut arg_parser, &vc);
                     if inputs.is_empty() {
@@ -287,12 +292,12 @@ fn main() {
                                 break;
                             }
                         } else {
-                            inputs.push(InputNote::Input(candidate));
+                            inputs.push(InputNote::Input(candidate, inopt.clone()));
                         }
                         page_no += 1;
                     }
                 } else {
-                    inputs.push(InputNote::Input(x.to_string()));
+                    inputs.push(InputNote::Input(x.to_string(), inopt.clone()));
                 }
             }
         }
@@ -326,9 +331,9 @@ fn main() {
                     volumes.push((volume, volume_start, input_pages.len()));
                     volume_start = input_pages.len();
                 }
-                InputNote::Input(name) => {
-                    let doc = inputlib::read(&name, mupdf_w, mupdf_h, mupdf_em)
-                        .expect(&format!("{} should read", name));
+                InputNote::Input(name, inopts) => {
+                    let doc =
+                        inputlib::read(&name, &inopts).expect(&format!("{} should read", name));
                     for subpage in 0..doc.page_count() {
                         input_pages
                             .push((format!("{}:{}", name, subpage), doc.page_to_svg(subpage)));
