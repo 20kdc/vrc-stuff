@@ -40,6 +40,7 @@ fn do_help() {
     println!(" --web: Forces single 2k x 2k atlas w/ embedded data.");
     println!("        This is for downloading via VRCImageDownloader.");
     println!("        Implies --no-dae. Volumes are ignored.");
+    println!("        A book.bytes file is written for testing purposes.");
     println!(" --no-dae: don't make DAE files");
     println!("");
     println!("INPUT OPTIONS");
@@ -405,7 +406,8 @@ fn main() {
         ProgressImpl.stage("atlasing...");
         let res = highlevel::atlas_web(metadata_override, &sdf_shapes, &pages, &ProgressImpl)
             .expect("web should succeed");
-        std::fs::write(&format!("{}/book.png", outdir), res).unwrap();
+        std::fs::write(&format!("{}/atlas.0.png", outdir), res.0).unwrap();
+        std::fs::write(&format!("{}/book.bytes", outdir), res.1).unwrap();
     } else {
         // -- Atlasing --
         ProgressImpl.stage("atlasing...");
@@ -424,10 +426,10 @@ fn main() {
         ProgressImpl.stage("drawing atlases...");
         for (atlas_id, atlas_builder) in atlas_builders.iter().enumerate() {
             let atlas_pix = atlas_builder.render(&sdf_shapes);
-            total_pixels += (atlas_pix.width() * atlas_pix.height()) as u64;
+            total_pixels += (atlas_pix.size().0 * atlas_pix.size().1) as u64;
             std::fs::write(
                 &format!("{}/atlas.{}.png", outdir, atlas_id),
-                atlas_pix.encode_png().unwrap(),
+                highlevel::raster_png(&atlas_pix),
             )
             .unwrap();
         }

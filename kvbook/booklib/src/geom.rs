@@ -127,6 +127,9 @@ impl<E: Copy> Raster<E> {
     pub fn data_mut(&mut self) -> &mut [E] {
         &mut self.data
     }
+    pub fn take_data(self) -> Vec<E> {
+        self.data
+    }
     pub fn get_usize(&self, pos: V2<usize>, def: E) -> E {
         if pos.0 >= self.size.0 || pos.1 >= self.size.1 {
             def
@@ -165,6 +168,20 @@ impl<E: Copy> Raster<E> {
                     continue;
                 }
                 self.set_i32(V2(tx, ty), src.data[i + (j * src.size.0)]);
+            }
+        }
+    }
+    /// Blits to this raster a specific value.
+    pub fn fill_i32(&mut self, pos: Rect<i32>, col: E) {
+        for ty in pos.tl.1..pos.br.1 {
+            if ty < 0 || ty >= (self.size.1 as i32) {
+                continue;
+            }
+            for tx in pos.tl.0..pos.br.0 {
+                if tx < 0 || tx >= (self.size.0 as i32) {
+                    continue;
+                }
+                self.set_i32(V2(tx, ty), col);
             }
         }
     }

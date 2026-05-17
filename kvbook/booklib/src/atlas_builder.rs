@@ -3,7 +3,6 @@ use crate::geom::*;
 use crate::geom_atlas::*;
 use crate::progress::Progress;
 use std::collections::BTreeSet;
-use tiny_skia::Pixmap;
 
 #[derive(Clone)]
 pub enum AtlasableShape {
@@ -14,7 +13,7 @@ pub enum AtlasableShape {
     },
     Pixmap {
         /// SDF.
-        sdf: Pixmap,
+        sdf: Raster<[u8; 4]>,
         /// Size in reference units.
         size: V2<f32>,
     },
@@ -23,9 +22,9 @@ pub enum AtlasableShape {
 impl AtlasableShape {
     /// Returns size of the pixmap, or zero for not-applicable.
     /// This is used for sorting.
-    pub fn sort_size(&self) -> V2<u32> {
+    pub fn sort_size(&self) -> V2<usize> {
         match self {
-            Self::Pixmap { sdf: px, size: _ } => V2(px.width(), px.height()),
+            Self::Pixmap { sdf: px, size: _ } => px.size(),
             Self::Rectangle { size: _ } => V2(0, 0),
         }
     }
@@ -106,9 +105,7 @@ impl AtlasBuilder {
             AtlasableShape::Pixmap { sdf, size } => {
                 // Note the 2px border.
                 // This is compensated for when placing uv_tl/uv_br.
-                let pt = self
-                    .planner
-                    .place(V2(sdf.width() as usize + 2, sdf.height() as usize + 2));
+                let pt = self.planner.place(sdf.size() + V2(2, 2));
                 if let Some(pt) = pt {
                     if self.planner.free.len() >= atlas_perfchop {
                         progress.alert("--atlas-perfchop freelist limit reached");
@@ -117,8 +114,10 @@ impl AtlasBuilder {
                     DBAtlasedShape {
                         uv_tl: V2(pt.0 as u32, pt.1 as u32) + V2(1, 1),
                         uv_br: V2(
-                            pt.0 as u32 + 1 + sdf.width(),
-                            pt.1 as u32 + 1 + sdf.height(),
+                            // note that the V2 addition at the end counteracts the framing
+                            // there were a few buggy commits where that was done twice, oopsies
+                            pt.0 as u32 + (sdf.size().0 as u32),
+                            pt.1 as u32 + (sdf.size().1 as u32),
                         ) + V2(1, 1),
                         size: *size,
                     }
@@ -224,41 +223,24 @@ impl AtlasBuilder {
         (true, page)
     }
 
-    /// Renders the atlas to a pixmap.
-    pub fn render(&self, sdf_shapes: &[AtlasableShape]) -> Pixmap {
-        let mut atlas_pix =
-            Pixmap::new(self.planner.size.0 as u32, self.planner.size.1 as u32).unwrap();
-        atlas_pix.fill(tiny_skia::Color::BLACK);
+    /// Renders the atlas.
+    pub fn render(&self, sdf_shapes: &[AtlasableShape]) -> Raster<[u8; 4]> {
+        let mut atlas_pix = Raster::new_blank(self.planner.size, [0; 4]);
         for (local_id, v) in self.placements.iter().enumerate() {
             let global_id = self.inv_shape_map[local_id];
             match &sdf_shapes[global_id] {
                 AtlasableShape::Pixmap { sdf, size: _ } => {
-                    atlas_pix.draw_pixmap(
-                        v.uv_tl.0 as i32,
-                        v.uv_tl.1 as i32,
-                        sdf.as_ref(),
-                        &tiny_skia::PixmapPaint::default(),
-                        tiny_skia::Transform::identity(),
-                        None,
-                    );
+                    atlas_pix.copy_i32(sdf, V2(v.uv_tl.0 as i32, v.uv_tl.1 as i32));
                 }
                 AtlasableShape::Rectangle { size: _ } => {
-                    atlas_pix.fill_rect(
-                        // Rectangles are given a 1-pixel 'extra border'.
-                        // Really, we're rendering it this way just so that the rectangle gets moved properly in 'web' builds.
-                        tiny_skia::Rect::from_ltrb(
-                            v.uv_tl.0 as f32 - 1f32,
-                            v.uv_tl.1 as f32 - 1f32,
-                            v.uv_br.0 as f32 + 1f32,
-                            v.uv_br.1 as f32 + 1f32,
-                        )
-                        .unwrap(),
-                        &tiny_skia::Paint {
-                            shader: tiny_skia::Shader::SolidColor(tiny_skia::Color::WHITE),
-                            ..Default::default()
+                    // Rectangles are given a 1-pixel 'extra border'.
+                    // Really, we're rendering it this way just so that the rectangle gets moved properly in 'web' builds.
+                    atlas_pix.fill_i32(
+                        Rect {
+                            tl: V2(v.uv_tl.0 as i32 - 1, v.uv_tl.1 as i32 - 1),
+                            br: V2(v.uv_br.0 as i32 + 1, v.uv_br.1 as i32 + 1),
                         },
-                        tiny_skia::Transform::identity(),
-                        None,
+                        [255, 255, 255, 255],
                     );
                 }
             }

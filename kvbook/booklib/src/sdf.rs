@@ -177,7 +177,7 @@ pub fn sdf_to_pixmap(src: &Raster<f32>, step: i32) -> Pixmap {
                 // convert to step form
                 here = (here * step_f32) + 127.5f32;
                 let r = (here.clamp(0f32, 255f32) as i32).clamp(0, 255) as u8;
-                total.push(PremultipliedColorU8::from_rgba(r, r, r, 255).unwrap());
+                total.push(PremultipliedColorU8::from_rgba(0, 0, 0, r).unwrap());
             }
             total
         })

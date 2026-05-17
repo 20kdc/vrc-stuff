@@ -53,14 +53,21 @@ pub fn gen_sdf_shapes(opt: GenSDFShapesInput, progress: &dyn Progress) -> Vec<At
                     res.encode_png().unwrap(),
                 );
             }
-            let res_scaled = scale_pixmap(
-                &res,
-                downscale_size(&res, opt.sdf_downscale),
-                tiny_skia::FilterQuality::Bicubic,
-            );
+            let res_scaled_size = downscale_size(&res, opt.sdf_downscale);
+            let res_scaled = scale_pixmap(&res, res_scaled_size, tiny_skia::FilterQuality::Bicubic);
             progress.status(&format!(" last={:>6}", shape_id));
+            let fixit = res_scaled.take_demultiplied();
+            let fixed_cap = (res_scaled_size.0 as usize) * (res_scaled_size.1 as usize);
+            let mut fixed: Vec<[u8; 4]> = Vec::with_capacity(fixed_cap);
+            for i in 0..fixed_cap {
+                let b = i * 4;
+                fixed.push([fixit[b + 0], fixit[b + 1], fixit[b + 2], fixit[b + 3]]);
+            }
             AtlasableShape::Pixmap {
-                sdf: res_scaled,
+                sdf: Raster::new(
+                    fixed,
+                    V2(res_scaled_size.0 as usize, res_scaled_size.1 as usize),
+                ),
                 size,
             }
         })
@@ -137,9 +144,26 @@ pub fn atlas_pages(
     (atlas_builders, pages_atlased)
 }
 
+/// Raster to RGBA PNG.
+pub fn raster_png(raster: &Raster<[u8; 4]>) -> Vec<u8> {
+    let raw_data: &[u8] = zerocopy::transmute_ref!(raster.data());
+    let mut png_data = vec![];
+    let mut encoder = png::Encoder::new(
+        &mut png_data,
+        raster.size().0 as u32,
+        raster.size().1 as u32,
+    );
+    encoder.set_color(png::ColorType::Rgba);
+    encoder.set_depth(png::BitDepth::Eight);
+    let mut encoder = encoder.write_header().unwrap();
+    encoder.write_image_data(&raw_data).unwrap();
+    encoder.finish().unwrap();
+    png_data
+}
+
 /// 'Web format' exporter.
 /// The format here is pretty simple:
-/// We always create a 2048x2048-sized image, and no other files.
+/// We always create a 2048x2048-sized image (first return), and a debug book.bytes (second return).
 /// We store book data starting at the top-left. The bytes, in pixel order, are the exact bytes of the .bytes datafile.
 /// The atlas we build is shifted down so that the bottom-most image nearly touches the bottom of the atlas (with a pixel for border).
 pub fn atlas_web(
@@ -147,7 +171,7 @@ pub fn atlas_web(
     sdf_shapes: &[AtlasableShape],
     pages: &[DBPage],
     progress: &dyn Progress,
-) -> Result<Vec<u8>, String> {
+) -> Result<(Vec<u8>, Vec<u8>), String> {
     let mut pages_atlased: Vec<(u8, DBPage)> = Vec::new();
     let mut curr_atlas = AtlasBuilder::new(V2(2048, 8), sdf_shapes.len());
     curr_atlas.planner.web_mode = true;
@@ -197,7 +221,7 @@ pub fn atlas_web(
     }
     curr_atlas.planner.size = V2(2048, 2048);
     // Complete the atlas and prepare book data.
-    let rendered_atlas = curr_atlas.render(sdf_shapes);
+    let mut rendered_atlas = curr_atlas.render(sdf_shapes);
     let atlas = curr_atlas.complete();
     let book = DBBook {
         metadata,
@@ -213,21 +237,12 @@ pub fn atlas_web(
         ));
     }
     // Get rendered data
-    let mut raw_data = rendered_atlas.take_demultiplied();
+    let raw_data_unflattened = rendered_atlas.data_mut();
+    let raw_data: &mut [u8] = zerocopy::transmute_mut!(raw_data_unflattened);
     assert_eq!(raw_data.len(), 2048 * 2048 * 4);
-    // Do TMP colour transform (copy to alpha)
-    for i in 0..(2048 * 2048) {
-        raw_data[(i * 4) + 3] = raw_data[(i * 4) + 2];
-    }
     // Install book data
     raw_data[0..book_data.len()].copy_from_slice(&book_data);
     // Turn into PNG
-    let mut png_data = vec![];
-    let mut encoder = png::Encoder::new(&mut png_data, 2048, 2048);
-    encoder.set_color(png::ColorType::Rgba);
-    encoder.set_depth(png::BitDepth::Eight);
-    let mut encoder = encoder.write_header().unwrap();
-    encoder.write_image_data(&raw_data).unwrap();
-    encoder.finish().unwrap();
-    Ok(png_data)
+    let png_data = raster_png(&rendered_atlas);
+    Ok((png_data, book_data))
 }

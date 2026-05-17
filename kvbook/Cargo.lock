@@ -92,6 +92,7 @@ dependencies = [
  "png",
  "rayon",
  "tiny-skia",
+ "zerocopy",
 ]
 
 [[package]]
