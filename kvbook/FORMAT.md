@@ -91,3 +91,26 @@ struct {
 ```
 
 Note that the size of the sprite structure is the primary driver of the binary format's file size.
+
+## SDF Rendering Notes
+
+This describes the image arrangement for the SDF.
+
+The SDF data is contained in the alpha channel.
+
+For valid atlas regions, the colour data must be black, as the presence of the blue colour may be used as a signal in the shader to indicate truecolour image rendering. (Truecolour pixels are passed through to fragment colour/alpha _as-is_ for traditional blending. Black was chosen so that a non-truecolour atlas will be stable even in somewhat erroneous pipelines; a pure-black input will always decode as such even under compression or alpha premultiplication.
+
+Some key facts of the SDF transform are that:
+
+1. A key rendering property of the SDF is the 'line width'. This is the width in texture pixels from the centre of the outline (a=0.5) to a=0 or a=1.
+2. We need to determine the 'filter width'. This is how big the 'hypothetical ideal box filter' is in texture pixels.
+3. We need the 'desired blurriness'. This is a multiplier on the filter width (and can also paper over any implementation quirks).
+4. From these facts, we determine the 'range': the acceptable +/- deviation from the typical threshold of 0.5.
+
+![A diagram showing how the SDF width affects the SDF gradient, while the filter width is based on the ideal box filter](./sdfsamplediagram.svg)
+
+The original design considered the Unity TextMeshPro Mobile shader as the 'reference model' for rendering. Some problems arose: It does **not** appear use the `fwidth()` mechanism recommended by Valve for antialiasing, instead determining scale by the vertex W parameter and some given input scale factors.
+
+Suffice to say, I'm not actually sure how it functions at all; it looks like the second texture coordinate is used to vary the range as necessary, but this feels rather insufficient.
+
+Ultimately a principled derivative-based approach is assumed here, and the solution is to either assume it works 'well enough' in the TextMeshPro shader or introduce a new shader. Generation of the second texture coordinate will be kept primarily in case VRChat make good on their 'removing world shaders' warnings (because what everybody needs is making it _harder_ to optimize a world).

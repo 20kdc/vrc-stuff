@@ -29,11 +29,3 @@ There are a number of theoretical improvements and optimizations here. These hav
 * `drawbook`: Core book converter.
 * `svgseparator`: Preprocesses an SVG with `usvg`, then splits into a set of simple 'one shape per file' objects for SDF rendition. Has an associated test program for diagnostics.
 * `testbook`: Godot 3.x project to render a converted book.
-
-## Known Hard To Fix Issues
-
-* Strokes and fills are confused. _Requires patching resvg, switching rasterizers, or imitating resvg to fix :(_
-* Transparency is DOA.
-* Fullcolour raster images are nigh-impossible without doing one of:
-	* Mapping the image to a palette of layers (bad and not really fullcolour)
-	* Tracking which of either the image or anything occluded by the image 'survives' (crazy and hard)

@@ -42,9 +42,8 @@ pub fn gen_sdf_shapes(opt: GenSDFShapesInput, progress: &dyn Progress) -> Vec<At
             let shape_sdf = shape_to_sdf(shape);
 
             // This is 'magic' that needs to act in concert with the shader.
-            // It's important that it's scaled according to the 'total multiplier' so that it's spatially consistent.
-            let step_sdf_mul = (shape.render_mul() as f32) / (opt.sdf_downscale as f32);
-            let step: f32 = 1f32 / (opt.sdf_smooth * step_sdf_mul);
+            // The idea is that in texture space, this should produce a consistent width (see 'SDF width' in the diagram)
+            let step: f32 = 127.5f32 / (opt.sdf_smooth * opt.sdf_downscale as f32);
 
             let res = sdf_to_pixmap(&shape_sdf, (step as i32).max(1));
             if opt.debug_dump_shapes_late {

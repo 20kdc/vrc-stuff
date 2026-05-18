@@ -240,7 +240,7 @@ impl AtlasBuilder {
                             tl: V2(v.uv_tl.0 as i32 - 1, v.uv_tl.1 as i32 - 1),
                             br: V2(v.uv_br.0 as i32 + 1, v.uv_br.1 as i32 + 1),
                         },
-                        [255, 255, 255, 255],
+                        [0, 0, 0, 255],
                     );
                 }
             }
