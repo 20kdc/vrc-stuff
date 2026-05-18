@@ -39,6 +39,9 @@ Shader "z 20kdc kvtools/Fixed Colour" {
 		Tags { "RenderType"="Opaque" "VRCFallback"="Lightmapped" }
 		LOD 100
 
+		Lighting Off
+		Fog { Mode Off }
+
 		Pass {
 			CGPROGRAM
 			#pragma vertex vert

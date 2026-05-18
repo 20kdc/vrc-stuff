@@ -109,8 +109,4 @@ Some key facts of the SDF transform are that:
 
 ![A diagram showing how the SDF width affects the SDF gradient, while the filter width is based on the ideal box filter](./sdfsamplediagram.svg)
 
-The original design considered the Unity TextMeshPro Mobile shader as the 'reference model' for rendering. Some problems arose: It does **not** appear use the `fwidth()` mechanism recommended by Valve for antialiasing, instead determining scale by the vertex W parameter and some given input scale factors.
-
-Suffice to say, I'm not actually sure how it functions at all; it looks like the second texture coordinate is used to vary the range as necessary, but this feels rather insufficient.
-
-Ultimately a principled derivative-based approach is assumed here, and the solution is to either assume it works 'well enough' in the TextMeshPro shader or introduce a new shader. Generation of the second texture coordinate will be kept primarily in case VRChat make good on their 'removing world shaders' warnings (because what everybody needs is making it _harder_ to optimize a world).
+The original design considered the Unity TextMeshPro Mobile shader as the 'reference model' for rendering. However, it does **not** appear use the `fwidth()` mechanism recommended by Valve for antialiasing, instead determining scale by the vertex W parameter and the second texture coordinate input.

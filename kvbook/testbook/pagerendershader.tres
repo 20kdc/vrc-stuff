@@ -24,7 +24,7 @@ operator = 3
 
 [sub_resource type="VisualShaderNodeScalarOp" id=18]
 default_input_values = [ 0, 0.0, 1, 16.0 ]
-operator = 3
+operator = 2
 
 [sub_resource type="VisualShaderNodeVectorFunc" id=19]
 function = 6
@@ -36,8 +36,8 @@ input_name = "alpha"
 operator = 2
 
 [sub_resource type="VisualShaderNodeScalarOp" id=24]
-default_input_values = [ 0, 0.0, 1, 2.0 ]
-operator = 2
+default_input_values = [ 0, 0.0, 1, 128.0 ]
+operator = 3
 
 [sub_resource type="VisualShaderNodeScalarFunc" id=25]
 function = 18
@@ -144,11 +144,11 @@ void fragment() {
 	float n_out29p0 = SDFSmooth;
 
 // ScalarOp:26
-	float n_in26p1 = 2.00000;
-	float n_out26p0 = n_out29p0 * n_in26p1;
+	float n_in26p1 = 128.00000;
+	float n_out26p0 = n_out29p0 / n_in26p1;
 
 // ScalarOp:20
-	float n_out20p0 = n_out18p0 / n_out26p0;
+	float n_out20p0 = n_out18p0 * n_out26p0;
 
 // ScalarOp:19
 	float n_out19p0 = n_out8p0 / n_out20p0;
@@ -185,7 +185,7 @@ void light() {
 
 }
 "
-graph_offset = Vector2( -72.0208, -145.349 )
+graph_offset = Vector2( -760.419, 614.502 )
 mode = 1
 flags/light_only = false
 nodes/fragment/0/position = Vector2( 1240, 60 )
@@ -233,4 +233,4 @@ nodes/fragment/31/node = SubResource( 29 )
 nodes/fragment/31/position = Vector2( 1120, 260 )
 nodes/fragment/32/node = SubResource( 30 )
 nodes/fragment/32/position = Vector2( 340, 80 )
-nodes/fragment/connections = PoolIntArray( 15, 0, 16, 0, 14, 0, 16, 1, 16, 0, 13, 0, 17, 0, 18, 0, 8, 0, 19, 0, 19, 0, 11, 0, 18, 0, 20, 0, 17, 1, 18, 1, 13, 0, 21, 0, 21, 0, 17, 0, 24, 0, 25, 0, 3, 1, 8, 0, 20, 0, 19, 1, 11, 0, 27, 0, 27, 0, 25, 1, 3, 0, 28, 0, 26, 0, 20, 1, 29, 0, 26, 0, 30, 0, 0, 0, 7, 0, 30, 2, 3, 0, 30, 1, 31, 0, 0, 1, 25, 0, 31, 2, 3, 1, 31, 1, 28, 2, 32, 0, 32, 0, 30, 0, 32, 0, 31, 0 )
+nodes/fragment/connections = PoolIntArray( 15, 0, 16, 0, 14, 0, 16, 1, 16, 0, 13, 0, 17, 0, 18, 0, 8, 0, 19, 0, 19, 0, 11, 0, 17, 1, 18, 1, 13, 0, 21, 0, 21, 0, 17, 0, 24, 0, 25, 0, 3, 1, 8, 0, 20, 0, 19, 1, 11, 0, 27, 0, 27, 0, 25, 1, 3, 0, 28, 0, 29, 0, 26, 0, 30, 0, 0, 0, 7, 0, 30, 2, 3, 0, 30, 1, 31, 0, 0, 1, 25, 0, 31, 2, 3, 1, 31, 1, 28, 2, 32, 0, 32, 0, 30, 0, 32, 0, 31, 0, 18, 0, 20, 0, 26, 0, 20, 1 )

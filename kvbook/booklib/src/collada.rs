@@ -4,8 +4,7 @@ use std::fmt::Write;
 #[derive(Clone, Copy, Default)]
 pub struct ColladaVertex {
     pub pos: (f32, f32, f32),
-    pub normal: (f32, f32, f32),
-    pub st: (f32, f32),
+    pub st0: (f32, f32),
     /// IN LINEAR SPACE
     pub colour: (f32, f32, f32),
 }
@@ -115,37 +114,12 @@ pub fn collada_write(geom: &[ColladaGeometry]) -> String {
         );
         float_buf.clear();
         for vtx in &v.triangles {
-            float_buf.push(vtx.normal.0);
-            float_buf.push(vtx.normal.1);
-            float_buf.push(vtx.normal.2);
-        }
-        collada_write_float_array(
-            &mut target,
-            format!("{}-mesh-normals", v.name),
-            &float_buf,
-            &["X", "Y", "Z"],
-        );
-        float_buf.clear();
-        for vtx in &v.triangles {
-            float_buf.push(vtx.st.0);
-            float_buf.push(vtx.st.1);
+            float_buf.push(vtx.st0.0);
+            float_buf.push(vtx.st0.1);
         }
         collada_write_float_array(
             &mut target,
             format!("{}-mesh-map-0", v.name),
-            &float_buf,
-            &["S", "T"],
-        );
-        float_buf.clear();
-        // TexCoord1 is used for some control options in TextMeshPro, which we're not-so-secretly trying to support the shader of here.
-        for _ in &v.triangles {
-            float_buf.push(0.0f32);
-            // input to the scale adjust line
-            float_buf.push(1.0f32);
-        }
-        collada_write_float_array(
-            &mut target,
-            format!("{}-mesh-map-1", v.name),
             &float_buf,
             &["S", "T"],
         );
@@ -163,7 +137,7 @@ pub fn collada_write(geom: &[ColladaGeometry]) -> String {
         );
         let mut indices = String::new();
         // collada requires each separate input to have its own index
-        let attributes = 5;
+        let attributes = 3;
         for i in 0..(v.triangles.len() * attributes) {
             if i == 0 {
                 _ = writeln!(indices, "{}", i / attributes);
@@ -178,17 +152,13 @@ pub fn collada_write(geom: &[ColladaGeometry]) -> String {
    </vertices>
    <triangles count="{}">
     <input semantic="VERTEX" source="#{}-mesh-vertices" offset="0"/>
-    <input semantic="NORMAL" source="#{}-mesh-normals" offset="1"/>
-    <input semantic="TEXCOORD" source="#{}-mesh-map-0" offset="2" set="0"/>
-    <input semantic="TEXCOORD" source="#{}-mesh-map-1" offset="3" set="1"/>
-    <input semantic="COLOR" source="#{}-mesh-colors-Col" offset="4" set="0"/>
+    <input semantic="TEXCOORD" source="#{}-mesh-map-0" offset="1" set="0"/>
+    <input semantic="COLOR" source="#{}-mesh-colors-Col" offset="2" set="0"/>
     <p>{}</p>
    </triangles>"##,
             v.name,
             v.name,
             v.triangles.len() / 3,
-            v.name,
-            v.name,
             v.name,
             v.name,
             v.name,

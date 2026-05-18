@@ -197,26 +197,22 @@ impl DBBook {
             // CD
             let vtxa = ColladaVertex {
                 pos: Self::dae_transform(page, sprite.top_left.0, sprite.top_left.1),
-                normal: (0f32, 0f32, 1f32),
-                st: self.dae_transform_st(atlas_size, shape.uv_tl.0, shape.uv_tl.1),
+                st0: self.dae_transform_st(atlas_size, shape.uv_tl.0, shape.uv_tl.1),
                 colour,
             };
             let vtxb = ColladaVertex {
                 pos: Self::dae_transform(page, bottom_right.0, sprite.top_left.1),
-                normal: (0f32, 0f32, 1f32),
-                st: self.dae_transform_st(atlas_size, shape.uv_br.0, shape.uv_tl.1),
+                st0: self.dae_transform_st(atlas_size, shape.uv_br.0, shape.uv_tl.1),
                 colour,
             };
             let vtxc = ColladaVertex {
                 pos: Self::dae_transform(page, sprite.top_left.0, bottom_right.1),
-                normal: (0f32, 0f32, 1f32),
-                st: self.dae_transform_st(atlas_size, shape.uv_tl.0, shape.uv_br.1),
+                st0: self.dae_transform_st(atlas_size, shape.uv_tl.0, shape.uv_br.1),
                 colour,
             };
             let vtxd = ColladaVertex {
                 pos: Self::dae_transform(page, bottom_right.0, bottom_right.1),
-                normal: (0f32, 0f32, 1f32),
-                st: self.dae_transform_st(atlas_size, shape.uv_br.0, shape.uv_br.1),
+                st0: self.dae_transform_st(atlas_size, shape.uv_br.0, shape.uv_br.1),
                 colour,
             };
             // AB
