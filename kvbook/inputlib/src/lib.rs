@@ -8,7 +8,6 @@ pub trait PageHopper {
 }
 
 pub struct PageHopperSVG(pub String);
-pub struct PageHopperMuPDF(pub mupdf::Document);
 
 impl PageHopper for PageHopperSVG {
     fn page_count(&self) -> usize {
@@ -19,6 +18,10 @@ impl PageHopper for PageHopperSVG {
     }
 }
 
+#[cfg(feature = "mupdf")]
+pub struct PageHopperMuPDF(pub mupdf::Document);
+
+#[cfg(feature = "mupdf")]
 impl PageHopper for PageHopperMuPDF {
     fn page_count(&self) -> usize {
         self.0.page_count().unwrap() as usize
@@ -41,12 +44,22 @@ pub struct InputOpts {
     pub mupdf_em: f32,
 }
 
+pub fn read_svg(path: &str, _opts: &InputOpts) -> Result<Box<dyn PageHopper>, String> {
+    let s = std::fs::read_to_string(path).map_err(|v| format!("read SVG {:?}", v))?;
+    Ok(Box::new(PageHopperSVG(s)))
+}
+
+#[cfg(not(feature = "mupdf"))]
+pub fn read(path: &str, opts: &InputOpts) -> Result<Box<dyn PageHopper>, String> {
+    read_svg(path, opts)
+}
+
 /// Reads from a path.
 /// Note that a path is used for SVG autodetection.
+#[cfg(feature = "mupdf")]
 pub fn read(path: &str, opts: &InputOpts) -> Result<Box<dyn PageHopper>, String> {
     if path.ends_with(".svg") {
-        let s = std::fs::read_to_string(path).map_err(|v| format!("read SVG {:?}", v))?;
-        Ok(Box::new(PageHopperSVG(s)))
+        read_svg(path, opts)
     } else {
         let mut s = mupdf::Document::open(path).map_err(|v| format!("inputlib open {:?}", v))?;
         if s.is_reflowable()
