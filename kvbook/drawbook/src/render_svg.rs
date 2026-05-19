@@ -10,6 +10,7 @@ pub struct RenderOpts {
     pub render_limit_img: u32,
     pub cfg_render_mul: f32,
     pub cfg_render_mul_img: f32,
+    pub sdf_everything: bool,
     pub debug_dse: bool,
     pub debug_bigbox: bool,
     pub debug_noclip: bool,
@@ -85,9 +86,13 @@ impl SVGRenderable {
                         temp_canvas.encode_png().unwrap(),
                     );
                 }
-                let sps = match self.content {
-                    svgseparator::ContentKind::Image => ShapifyStrategy::BWPrinting,
-                    _ => ShapifyStrategy::AlphaClippedColourAverage,
+                let sps = if opts.sdf_everything {
+                    ShapifyStrategy::AlphaClippedColourAverage
+                } else {
+                    match self.content {
+                        svgseparator::ContentKind::Image => ShapifyStrategy::BWPrinting,
+                        _ => ShapifyStrategy::AlphaClippedColourAverage,
+                    }
                 };
                 results.extend(sps.shapeify(
                     temp_canvas,

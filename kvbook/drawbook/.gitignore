@@ -3,6 +3,7 @@
 /pages
 /out
 /*.pdf
+/*.svg
 /book.bin
 /atlas*.png
 /book.dae

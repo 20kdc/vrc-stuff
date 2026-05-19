@@ -91,6 +91,8 @@ fn do_help() {
     // sdf
     println!("");
     println!("SDF OPTIONS");
+    println!(" --sdf-everything: SDF things that don't look sane to SDF.",);
+    println!("   Use this if things that should be vectors aren't.",);
     println!(
         " --sdf-downscale VAL: SDF downscale from render, default {}",
         SDF_DOWNSCALE_DEFAULT
@@ -169,6 +171,7 @@ fn main() {
     // post-filter
     let mut invert: bool = false;
     // sdf
+    let mut sdf_everything: bool = false;
     let mut sdf_downscale: u32 = SDF_DOWNSCALE_DEFAULT;
     // Border in SDF pixels.
     let mut sdf_border: u32 = SDF_BORDER_DEFAULT;
@@ -256,6 +259,8 @@ fn main() {
                     render_limit_img = parse_arg(&mut arg_parser, &vc);
                 } else if v.eq("invert") {
                     invert = !invert;
+                } else if v.eq("sdf-everything") {
+                    sdf_everything = true;
                 } else if v.eq("sdf-downscale") {
                     sdf_downscale = parse_arg(&mut arg_parser, &vc);
                 } else if v.eq("sdf-border") {
@@ -315,6 +320,7 @@ fn main() {
         render_limit_img,
         cfg_render_mul,
         cfg_render_mul_img,
+        sdf_everything,
         debug_dse: debug_dump_shapes_early,
         debug_bigbox,
         debug_noclip,

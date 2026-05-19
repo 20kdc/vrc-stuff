@@ -6,7 +6,9 @@ Shader "z 20kdc kvtools/kvbook SDF" {
 	Properties {
 		_MainTex("SDF Texture", 2D) = "white" {}
 		_Inversion("Inversion", Range(0, 1)) = 0.0
-		_Smoothness("Smoothness", Range(0, 256)) = 50.0
+		_Smoothness("Smoothness", Range(0, 256)) = 1.0
+		[Toggle] _AlphaInRed ("Alpha In Red (Advanced use. Swizzle and compression must be adjusted.)", int) = 0
+		[Toggle] _Truecolour ("Colour Image Support (disabled with Alpha In Red)", int) = 1
 	}
 	SubShader {
 
@@ -27,6 +29,9 @@ Shader "z 20kdc kvtools/kvbook SDF" {
 		Pass {
 			CGPROGRAM
 
+			#pragma shader_feature _ALPHAINRED_ON
+			#pragma shader_feature _TRUECOLOUR_ON
+
 			#pragma vertex vert
 			#pragma fragment frag
 			#pragma target 3.0
@@ -34,6 +39,8 @@ Shader "z 20kdc kvtools/kvbook SDF" {
 			#include "UnityCG.cginc"
 
 			UNITY_DECLARE_TEX2D(_MainTex);
+			float4 _MainTex_TexelSize;
+
 			uniform fixed _Inversion;
 			uniform float _Smoothness;
 
@@ -68,19 +75,30 @@ Shader "z 20kdc kvtools/kvbook SDF" {
 				UNITY_SETUP_INSTANCE_ID(input);
 				fixed4 c = UNITY_SAMPLE_TEX2D(_MainTex, input.texcoord0);
 				float2 uvd = fwidth(input.texcoord0);
+#if _TRUECOLOUR_ON
 				if (c.b > 0.0) {
 					// truecolour
 					fixed3 invrgbsrc = c.rgb;
 					fixed3 invrgb = lerp(invrgbsrc.rgb, 1.0 - invrgbsrc.rgb, _Inversion);
 					return fixed4(invrgb, c.a);
 				} else {
+#endif
 					// SDF
-					float bandwidth = max(uvd.x, uvd.y) * _Smoothness;
-					fixed sdfAlpha = saturate(((c.a - 0.5) / bandwidth) + 0.5);
+					// smoothness should be in a texture-pixel-adjacent space
+					uvd *= _MainTex_TexelSize.zw;
+					float bandwidth = max(uvd.x, uvd.y) * _Smoothness / 16.0;
+#if _ALPHAINRED_ON
+					float sdfAlpha = c.r;
+#else
+					float sdfAlpha = c.a;
+#endif
+					sdfAlpha = saturate(((sdfAlpha - 0.5) / bandwidth) + 0.5);
 					fixed3 invrgbsrc = input.colour.rgb;
 					fixed3 invrgb = lerp(invrgbsrc.rgb, 1.0 - invrgbsrc.rgb, _Inversion);
 					return fixed4(invrgb, sdfAlpha * input.colour.a);
+#if _TRUECOLOUR_ON
 				}
+#endif
 			}
 
 			ENDCG
