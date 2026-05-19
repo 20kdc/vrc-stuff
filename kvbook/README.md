@@ -24,6 +24,7 @@ There are a number of theoretical improvements and optimizations here. These hav
 
 ## Structure
 
+* `geomlib`: Prelude, contains various useful mathematical tricks
 * `booklib`: Core processing and writer library.
 * `inputlib`: Handles poking `mupdf` to get SVG files.
 * `drawbook`: Core book converter.

@@ -1,5 +1,5 @@
 [package]
-name = "booklib"
+name = "geomlib"
 publish.workspace = true
 version.workspace = true
 edition.workspace = true
@@ -7,9 +7,3 @@ authors.workspace = true
 license.workspace = true
 
 [dependencies]
-json = "0.12.4"
-png = "0.18.1"
-rayon = "1.12.0"
-tiny-skia = "0.12.0"
-zerocopy = "0.8.48"
-geomlib = { path = "../geomlib" }

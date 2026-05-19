@@ -2,7 +2,7 @@
 //! It's then responsible for mapping those sprites into a global lookup table.
 
 use crate::docmodel::{DBPage, DBSprite};
-use crate::geom::{Raster, V2};
+use geomlib::*;
 use std::collections::HashMap;
 use std::hash::Hasher;
 use std::sync::Arc;

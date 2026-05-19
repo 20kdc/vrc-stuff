@@ -1,5 +1,5 @@
-use booklib::geom::V2;
 use booklib::rendered::*;
+use geomlib::*;
 use rayon::prelude::*;
 use tiny_skia::Pixmap;
 

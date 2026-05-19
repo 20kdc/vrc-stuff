@@ -14,5 +14,6 @@ resvg = "0.47.0"
 tiny-skia = "0.12.0"
 usvg = "0.47.0"
 booklib = { path = "../booklib" }
+geomlib = { path = "../geomlib" }
 inputlib = { path = "../inputlib" }
 svgseparator = { path = "../svgseparator" }

@@ -1,5 +1,5 @@
 use crate::collada::*;
-use crate::geom::V2;
+use geomlib::*;
 use std::collections::HashMap;
 
 /// This is the 'generic' sprite structure.

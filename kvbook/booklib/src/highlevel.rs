@@ -1,9 +1,9 @@
 use crate::atlas_builder::*;
 use crate::docmodel::*;
-use crate::geom::*;
 use crate::progress::*;
 use crate::rendered::*;
 use crate::sdf::{downscale_size, scale_pixmap, sdf_to_pixmap, shape_to_sdf};
+use geomlib::*;
 use rayon::prelude::*;
 
 pub struct GenSDFShapesInput<'a> {

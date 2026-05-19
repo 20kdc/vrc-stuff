@@ -1,7 +1,7 @@
 use crate::docmodel::*;
-use crate::geom::*;
 use crate::geom_atlas::*;
 use crate::progress::Progress;
+use geomlib::*;
 use std::collections::BTreeSet;
 
 #[derive(Clone)]

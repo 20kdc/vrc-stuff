@@ -1,4 +1,4 @@
-use crate::geom::{Raster, V2};
+use geomlib::*;
 use rayon::prelude::*;
 use std::collections::BTreeSet;
 use tiny_skia::{Pixmap, PremultipliedColorU8};

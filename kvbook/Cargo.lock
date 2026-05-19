@@ -88,6 +88,7 @@ checksum = "c4512299f36f043ab09a583e57bceb5a5aab7a73db1805848e8fef3c9e8c78b3"
 name = "booklib"
 version = "0.1.0"
 dependencies = [
+ "geomlib",
  "json",
  "png",
  "rayon",
@@ -291,6 +292,7 @@ name = "drawbook"
 version = "0.1.0"
 dependencies = [
  "booklib",
+ "geomlib",
  "inputlib",
  "json",
  "lexopt",
@@ -489,6 +491,10 @@ dependencies = [
  "quote",
  "syn 1.0.109",
 ]
+
+[[package]]
+name = "geomlib"
+version = "0.1.0"
 
 [[package]]
 name = "getrandom"

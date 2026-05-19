@@ -1,6 +1,6 @@
 //! Atlas planner core.
 
-use crate::geom::{Rect, V2};
+use geomlib::*;
 use rayon::prelude::*;
 use std::collections::BTreeSet;
 
