@@ -1,5 +1,4 @@
 use crate::geom::{Raster, V2};
-use crate::rendered::DBRenderedShape;
 use rayon::prelude::*;
 use std::collections::BTreeSet;
 use tiny_skia::{Pixmap, PremultipliedColorU8};
@@ -43,14 +42,8 @@ fn sdf_state_combinator(here: SDFState, other: SDFState, rel: V2<usize>) -> SDFS
 
 /// SDF via cellular automata.
 /// Note that the size may differ from the input if we 'think we can get away with it' (is_solid)
-pub fn shape_to_sdf(shape: &DBRenderedShape) -> Raster<f32> {
+pub fn shape_to_sdf(shape: &Raster<bool>) -> Raster<f32> {
     let sz = shape.size();
-    if shape.is_solid() {
-        // optimization: For solid rectangles, generate a single pixel 'solid rectangle' output.
-        // this is 'technically' a valid representation, which is important for cases like the 'debug snooping' in the Godot viewer.
-        // however there will likely be separate optimizations at play.
-        return Raster::new_blank(V2(1, 1), f32::INFINITY);
-    }
     // The state is made up of vertical and horizontal straight-line distances.
     let mut state: Raster<SDFState> = Raster::new_blank(shape.size(), SDFState::Idle(false));
     // We need queue swapping because otherwise it's possible for 'drilling' to occur.
@@ -65,16 +58,16 @@ pub fn shape_to_sdf(shape: &DBRenderedShape) -> Raster<f32> {
     for y in 0..sz.1 {
         for x in 0..sz.0 {
             // this marks the interior as valid
-            let v = shape.data().get_usize(V2(x, y), false);
+            let v = shape.get_usize(V2(x, y), false);
             let xyv2 = V2(x as i32, y as i32);
-            let n = shape.data().get_i32(xyv2 + V2(0, -1), false);
-            let ne = shape.data().get_i32(xyv2 + V2(1, -1), false);
-            let e = shape.data().get_i32(xyv2 + V2(1, 0), false);
-            let se = shape.data().get_i32(xyv2 + V2(1, 1), false);
-            let s = shape.data().get_i32(xyv2 + V2(0, 1), false);
-            let sw = shape.data().get_i32(xyv2 + V2(-1, 1), false);
-            let w = shape.data().get_i32(xyv2 + V2(-1, 0), false);
-            let nw = shape.data().get_i32(xyv2 + V2(-1, -1), false);
+            let n = shape.get_i32(xyv2 + V2(0, -1), false);
+            let ne = shape.get_i32(xyv2 + V2(1, -1), false);
+            let e = shape.get_i32(xyv2 + V2(1, 0), false);
+            let se = shape.get_i32(xyv2 + V2(1, 1), false);
+            let s = shape.get_i32(xyv2 + V2(0, 1), false);
+            let sw = shape.get_i32(xyv2 + V2(-1, 1), false);
+            let w = shape.get_i32(xyv2 + V2(-1, 0), false);
+            let nw = shape.get_i32(xyv2 + V2(-1, -1), false);
             let edge_h = if v { !(w && e) } else { w || e };
             let edge_v = if v { !(n && s) } else { n || s };
             let edge_d = if v {

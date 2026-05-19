@@ -5,6 +5,8 @@ use tiny_skia::Pixmap;
 
 pub struct RenderOpts {
     pub outdir: String,
+    pub no_fullcolour: bool,
+    pub fullcolour_blue: u8,
     pub sdf_border: u32,
     pub render_limit: u32,
     pub render_limit_img: u32,
@@ -88,9 +90,17 @@ impl SVGRenderable {
                 }
                 let sps = if opts.sdf_everything {
                     ShapifyStrategy::AlphaClippedColourAverage
+                } else if opts.fullcolour_blue == 0 {
+                    ShapifyStrategy::Fullcolour(opts.fullcolour_blue)
                 } else {
                     match self.content {
-                        svgseparator::ContentKind::Image => ShapifyStrategy::BWPrinting,
+                        svgseparator::ContentKind::Image => {
+                            if opts.no_fullcolour {
+                                ShapifyStrategy::BWPrinting
+                            } else {
+                                ShapifyStrategy::Fullcolour(opts.fullcolour_blue)
+                            }
+                        }
                         _ => ShapifyStrategy::AlphaClippedColourAverage,
                     }
                 };

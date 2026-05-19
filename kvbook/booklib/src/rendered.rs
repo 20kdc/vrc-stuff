@@ -6,14 +6,20 @@ use crate::geom::{Raster, V2};
 use std::collections::HashMap;
 use std::hash::Hasher;
 use std::sync::Arc;
-use tiny_skia::{Pixmap, PremultipliedColorU8};
+use tiny_skia::{ColorU8, Pixmap, PremultipliedColorU8};
+
+#[derive(Clone, PartialEq, Eq)]
+pub enum DBRenderedShapeData {
+    Bitmap(Raster<bool>),
+    Fullcolour(Raster<[u8; 4]>),
+}
 
 /// A 'rendered shape' is something we're planning to convert into a signed distance field.
 #[derive(Clone, PartialEq, Eq)]
 pub struct DBRenderedShape {
     hash: u64,
     is_solid: bool,
-    data: Raster<bool>,
+    data: DBRenderedShapeData,
     render_mul_bitsu32: u32,
 }
 impl std::hash::Hash for DBRenderedShape {
@@ -22,24 +28,40 @@ impl std::hash::Hash for DBRenderedShape {
     }
 }
 impl DBRenderedShape {
-    pub fn new(data: Raster<bool>, render_mul: f32) -> DBRenderedShape {
+    pub fn new(data: DBRenderedShapeData, render_mul: f32) -> DBRenderedShape {
         let mut state = std::hash::DefaultHasher::new();
-        for v in data.data() {
-            state.write_u8(*v as u8);
+        match &data {
+            DBRenderedShapeData::Bitmap(data) => {
+                for v in data.data() {
+                    state.write_u8(*v as u8);
+                }
+            }
+            DBRenderedShapeData::Fullcolour(data) => {
+                for v in data.data() {
+                    state.write(v);
+                }
+            }
         }
+        let is_solid = match &data {
+            DBRenderedShapeData::Bitmap(data) => data.area_eq_usize(V2(0, 0), data.size(), true),
+            DBRenderedShapeData::Fullcolour(_) => false,
+        };
         DBRenderedShape {
             // Notably, the hashing happens here.
             // This means that it happens during the (parallel) rendering stage, rather than the (sequential) matching stage.
             hash: state.finish(),
-            is_solid: data.area_eq_usize(V2(0, 0), data.size(), true),
+            is_solid,
             data,
             render_mul_bitsu32: render_mul.to_bits(),
         }
     }
     pub fn size(&self) -> V2<usize> {
-        self.data.size()
+        match &self.data {
+            DBRenderedShapeData::Bitmap(data) => data.size(),
+            DBRenderedShapeData::Fullcolour(data) => data.size(),
+        }
     }
-    pub fn data(&self) -> &Raster<bool> {
+    pub fn data(&self) -> &DBRenderedShapeData {
         &self.data
     }
     pub fn render_mul(&self) -> f32 {
@@ -49,16 +71,31 @@ impl DBRenderedShape {
         self.is_solid
     }
     pub fn to_pixmap(&self) -> Pixmap {
-        let col_black = PremultipliedColorU8::from_rgba(0, 0, 0, 255).unwrap();
-        let col_white = PremultipliedColorU8::from_rgba(255, 255, 255, 255).unwrap();
-        let mut downscale_check_canvas =
-            Pixmap::new(self.size().0 as u32, self.size().1 as u32).unwrap();
-        let mut downscale_check_mut = downscale_check_canvas.as_mut();
-        let downscale_check_pixels = downscale_check_mut.pixels_mut();
-        for i in self.data.data().iter().enumerate() {
-            downscale_check_pixels[i.0] = if *i.1 { col_white } else { col_black };
+        match &self.data {
+            DBRenderedShapeData::Bitmap(data) => {
+                let col_black = PremultipliedColorU8::from_rgba(0, 0, 0, 255).unwrap();
+                let col_white = PremultipliedColorU8::from_rgba(255, 255, 255, 255).unwrap();
+                let mut downscale_check_canvas =
+                    Pixmap::new(self.size().0 as u32, self.size().1 as u32).unwrap();
+                let mut downscale_check_mut = downscale_check_canvas.as_mut();
+                let downscale_check_pixels = downscale_check_mut.pixels_mut();
+                for i in data.data().iter().enumerate() {
+                    downscale_check_pixels[i.0] = if *i.1 { col_white } else { col_black };
+                }
+                downscale_check_canvas
+            }
+            DBRenderedShapeData::Fullcolour(data) => {
+                let mut downscale_check_canvas =
+                    Pixmap::new(self.size().0 as u32, self.size().1 as u32).unwrap();
+                let mut downscale_check_mut = downscale_check_canvas.as_mut();
+                let downscale_check_pixels = downscale_check_mut.pixels_mut();
+                for i in data.data().iter().enumerate() {
+                    let c = ColorU8::from_rgba(i.1[0], i.1[1], i.1[2], i.1[3]);
+                    downscale_check_pixels[i.0] = c.premultiply();
+                }
+                downscale_check_canvas
+            }
         }
-        downscale_check_canvas
     }
 }
 
@@ -95,14 +132,42 @@ pub fn dbrenderedsprite_new(
     Some(DBRenderedSprite {
         top_left: top_left + V2(crop_ul.0 as f32 / render_mul, crop_ul.1 as f32 / render_mul),
         shape: DBRenderedShape::new(
-            crop_me.extract_i32(
+            DBRenderedShapeData::Bitmap(crop_me.extract_i32(
                 V2(crop_ul.0 as i32, crop_ul.1 as i32),
                 crop_br - crop_ul,
                 false,
-            ),
+            )),
             render_mul,
         ),
         colour,
+    })
+}
+
+/// Creates a new rendered sprite.
+/// Handles auto-cropping and dead sprite elimination (returns None)
+pub fn dbrenderedsprite_new_fullcolour(
+    crop_me: &Raster<[u8; 4]>,
+    top_left: V2<f32>,
+    render_mul: f32,
+) -> Option<DBRenderedSprite> {
+    let (crop_ul, crop_br) = crop_me.find_crop_rectangle([0, 0, 0, 0]);
+
+    if crop_ul.0 >= crop_br.0 || crop_ul.1 >= crop_br.1 {
+        // Empty optimization
+        return None;
+    }
+
+    Some(DBRenderedSprite {
+        top_left: top_left + V2(crop_ul.0 as f32 / render_mul, crop_ul.1 as f32 / render_mul),
+        shape: DBRenderedShape::new(
+            DBRenderedShapeData::Fullcolour(crop_me.extract_i32(
+                V2(crop_ul.0 as i32, crop_ul.1 as i32),
+                crop_br - crop_ul,
+                [0, 0, 0, 0],
+            )),
+            render_mul,
+        ),
+        colour: [255, 255, 255, 255],
     })
 }
 
@@ -110,9 +175,9 @@ pub fn dbrenderedsprite_new(
 pub enum ShapifyStrategy {
     AlphaClippedColourAverage,
     /// Experimental strategy for greyscale images.
-    /// Not presently enabled; worked less well than hoped.
-    #[allow(dead_code)]
     BWPrinting,
+    /// Fullcolour (relies on magic shader technique)
+    Fullcolour(u8),
 }
 
 /// Core noise function.
@@ -220,6 +285,15 @@ impl ShapifyStrategy {
                     render_mul,
                     border as usize,
                 )
+            }
+            Self::Fullcolour(blue) => {
+                let mut data = Vec::with_capacity((src.width() as usize) * (src.height() as usize));
+                for pix in src.pixels() {
+                    let c = pix.demultiply();
+                    data.push([c.red(), c.green(), c.blue().max(*blue), c.alpha()]);
+                }
+                let crop_me = Raster::new(data, V2(src.width() as usize, src.height() as usize));
+                dbrenderedsprite_new_fullcolour(&crop_me, page_offset, render_mul)
             }
         }
     }

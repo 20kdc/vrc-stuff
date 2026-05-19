@@ -39,13 +39,29 @@ pub fn gen_sdf_shapes(opt: GenSDFShapesInput, progress: &dyn Progress) -> Vec<At
                 return AtlasableShape::Rectangle { size };
             }
 
-            let shape_sdf = shape_to_sdf(shape);
+            let res: tiny_skia::Pixmap = match shape.data() {
+                DBRenderedShapeData::Bitmap(shape_bitmap) => {
+                    let shape_sdf = shape_to_sdf(shape_bitmap);
 
-            // This is 'magic' that needs to act in concert with the shader.
-            // The idea is that in texture space, this should produce a consistent width (see 'SDF width' in the diagram)
-            let step: f32 = 127.5f32 / (opt.sdf_smooth * opt.sdf_downscale as f32);
+                    // This is 'magic' that needs to act in concert with the shader.
+                    // The idea is that in texture space, this should produce a consistent width (see 'SDF width' in the diagram)
+                    let step: f32 = 127.5f32 / (opt.sdf_smooth * opt.sdf_downscale as f32);
 
-            let res = sdf_to_pixmap(&shape_sdf, (step as i32).max(1));
+                    sdf_to_pixmap(&shape_sdf, (step as i32).max(1))
+                }
+                DBRenderedShapeData::Fullcolour(fullcolour) => {
+                    let mut fc = tiny_skia::Pixmap::new(
+                        fullcolour.size().0 as u32,
+                        fullcolour.size().1 as u32,
+                    )
+                    .unwrap();
+                    for i in fc.pixels_mut().iter_mut().enumerate() {
+                        let p = fullcolour.data()[i.0];
+                        *i.1 = tiny_skia::ColorU8::from_rgba(p[0], p[1], p[2], p[3]).premultiply();
+                    }
+                    fc
+                }
+            };
             if opt.debug_dump_shapes_late {
                 _ = std::fs::write(
                     format!("{}/debug.s{}.sdf.png", opt.outdir, shape_id),

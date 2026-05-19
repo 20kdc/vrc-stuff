@@ -10,6 +10,7 @@ use lexopt::ValueExt;
 use progress::ProgressImpl;
 use render_svg::*;
 
+const FULLCOLOUR_BLUE_DEFAULT: u8 = 8;
 const RENDER_MUL_DEFAULT: f32 = 16.0;
 const RENDER_MUL_IMG_DEFAULT: f32 = 16.0;
 const RENDER_LIMIT_DEFAULT: u32 = 512;
@@ -42,6 +43,11 @@ fn do_help() {
     println!("        Implies --no-dae. Volumes are ignored.");
     println!("        A book.bytes file is written for testing purposes.");
     println!(" --no-dae: don't make DAE files");
+    println!(" --no-fullcolour: shader is pure-SDF (no fullcolour image support)");
+    println!(" --fullcolour-blue V: shader relies on some blue being present to");
+    println!("  detect fullcolour black vs. SDF.");
+    println!("  if 0, the shader is assumed to be standard 'alpha over' w/ no SDF");
+    println!("  default is {}", FULLCOLOUR_BLUE_DEFAULT);
     println!("");
     println!("INPUT OPTIONS");
     // input options
@@ -155,6 +161,8 @@ fn main() {
     // output
     let mut outdir: Option<String> = None;
     let mut no_dae = false;
+    let mut no_fullcolour = false;
+    let mut fullcolour_blue: u8 = FULLCOLOUR_BLUE_DEFAULT;
     let mut web = false;
     // input
     let mut inopt = inputlib::InputOpts {
@@ -211,6 +219,10 @@ fn main() {
                 let vc = v.to_string();
                 if v.eq("no-dae") {
                     no_dae = true;
+                } else if v.eq("no-fullcolour") || v.eq("no-fullcolor") {
+                    no_fullcolour = true;
+                } else if v.eq("fullcolour-blue") || v.eq("fullcolor-blue") {
+                    fullcolour_blue = parse_arg(&mut arg_parser, &vc);
                 } else if v.eq("web") {
                     web = true;
                 } else if v.eq("help") {
@@ -315,6 +327,8 @@ fn main() {
     _ = std::fs::create_dir_all(&outdir);
     let render_opts = RenderOpts {
         outdir: outdir.clone(),
+        no_fullcolour,
+        fullcolour_blue,
         sdf_border,
         render_limit,
         render_limit_img,
