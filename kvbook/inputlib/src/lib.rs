@@ -1,32 +1,90 @@
 //! Represents the input library.
 
-#[cfg(feature = "mupdf")]
-pub struct PageHopperMuPDF(pub mupdf::Document, pub i32);
+use std::collections::VecDeque;
+use std::io::Read;
 
-#[cfg(feature = "mupdf")]
+/// We run MuPDF as a separate process due to complex build and licensing issues.
+/// Obviously, this does not insulate you from your obligations to MuPDF under the AGPL if running a hosted web service.
+pub struct PageHopperMuPDF {
+    process: std::process::Child,
+    line_bytes: Vec<u8>,
+    page_lines: Vec<String>,
+    pages: VecDeque<String>,
+}
+
 impl Iterator for PageHopperMuPDF {
     type Item = String;
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.1 >= self.0.page_count().unwrap() {
-            None
-        } else {
-            let page = self.0.load_page(self.1).unwrap();
-            self.1 += 1;
-            Some(page.to_svg(&mupdf::Matrix::IDENTITY).unwrap())
+    fn next(&mut self) -> Option<String> {
+        if let Some(v) = self.pages.pop_front() {
+            return Some(v);
         }
+        let mut chunk: [u8; 16384] = [0; 16384];
+        loop {
+            let tmp = self.process.stdout.as_mut().unwrap();
+            let sz = tmp.read(&mut chunk).unwrap();
+            if sz == 0 {
+                break;
+            }
+            // separate chunk into lines
+            for b in &chunk[0..sz] {
+                self.line_bytes.push(*b);
+                if *b == 10 {
+                    // add line
+                    let line = String::from_utf8_lossy(&self.line_bytes).into_owned();
+                    let is_end_of_page = line.trim().eq_ignore_ascii_case("</svg>");
+                    self.page_lines.push(line);
+                    self.line_bytes.clear();
+                    // if end of page, then we add the page to the pages hopper for retrieval (once we're not at risk of losing data)
+                    // notably, we can gain multiple pages in a single chunk in theory, so it's important this doesn't disturb consumption
+                    if is_end_of_page {
+                        let mut total = String::new();
+                        for v in self.page_lines.drain(..) {
+                            total.push_str(&v);
+                        }
+                        self.pages.push_back(total);
+                    }
+                }
+            }
+            if let Some(v) = self.pages.pop_front() {
+                return Some(v);
+            }
+        }
+        None
     }
 }
 
-pub const LAYOUT_A5_W: f32 = 420f32;
-pub const LAYOUT_A5_H: f32 = 595f32;
-pub const LAYOUT_A5_EM: f32 = 11f32;
+impl Drop for PageHopperMuPDF {
+    fn drop(&mut self) {
+        _ = self.process.wait();
+    }
+}
 
 /// Input options.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 pub struct InputOpts {
-    pub mupdf_w: f32,
-    pub mupdf_h: f32,
-    pub mupdf_em: f32,
+    pub mutool: Option<String>,
+    pub mudraw_opts: Vec<String>,
+}
+
+impl InputOpts {
+    pub fn find_mutool(&self) -> String {
+        if let Some(cmd) = &self.mutool {
+            return cmd.clone();
+        }
+        if let Ok(par) = std::env::current_exe() {
+            if let Some(parpar) = par.parent() {
+                let a = parpar.join("mutool");
+                if a.exists() {
+                    return a.to_string_lossy().into_owned();
+                }
+                let b = parpar.join("mutool.exe");
+                if b.exists() {
+                    return b.to_string_lossy().into_owned();
+                }
+            }
+        }
+        "mutool".to_string()
+    }
 }
 
 pub fn read_svg(path: &str, _opts: &InputOpts) -> Result<Box<dyn Iterator<Item = String>>, String> {
@@ -34,25 +92,33 @@ pub fn read_svg(path: &str, _opts: &InputOpts) -> Result<Box<dyn Iterator<Item =
     Ok(Box::new(Some(s).into_iter()))
 }
 
-#[cfg(not(feature = "mupdf"))]
-pub fn read(path: &str, opts: &InputOpts) -> Result<Box<dyn Iterator<Item = String>>, String> {
-    read_svg(path, opts)
-}
-
 /// Reads from a path.
 /// Note that a path is used for SVG autodetection.
-#[cfg(feature = "mupdf")]
 pub fn read(path: &str, opts: &InputOpts) -> Result<Box<dyn Iterator<Item = String>>, String> {
     if path.ends_with(".svg") {
         read_svg(path, opts)
     } else {
-        let mut s = mupdf::Document::open(path).map_err(|v| format!("inputlib open {:?}", v))?;
-        if s.is_reflowable()
-            .map_err(|v| format!("inputlib is_reflowable {:?}", v))?
-        {
-            s.layout(opts.mupdf_w, opts.mupdf_h, opts.mupdf_em)
-                .map_err(|v| format!("inputlib layout {:?}", v))?;
+        let mutool = opts.find_mutool();
+        let mut cmd = std::process::Command::new(&mutool);
+        cmd.arg("draw");
+        cmd.arg("-o");
+        cmd.arg("-");
+        cmd.arg("-F");
+        cmd.arg("svg");
+        for v in &opts.mudraw_opts {
+            cmd.arg(v);
         }
-        Ok(Box::new(PageHopperMuPDF(s, 0)))
+        cmd.arg("--");
+        cmd.arg(path);
+        cmd.stdout(std::process::Stdio::piped());
+        let child = cmd
+            .spawn()
+            .map_err(|v| format!("spawn mutool '{}': {:?}", mutool, v))?;
+        Ok(Box::new(PageHopperMuPDF {
+            process: child,
+            line_bytes: vec![],
+            page_lines: vec![],
+            pages: VecDeque::new(),
+        }))
     }
 }

@@ -59,18 +59,9 @@ fn do_help() {
     println!("");
     println!("PER-FILE OPTIONS");
     println!(" These affect following files, not preceding ones (put them at the start).");
-    println!(
-        " --mupdf-w W: MuPDF reflow width, default {:?}",
-        inputlib::LAYOUT_A5_W
-    );
-    println!(
-        " --mupdf-h H: MuPDF reflow height, default {:?}",
-        inputlib::LAYOUT_A5_H
-    );
-    println!(
-        " --mupdf-em EM: MuPDF reflow EM, default {:?}",
-        inputlib::LAYOUT_A5_EM
-    );
+    println!(" -m OPT: Option for 'mutool draw' (used for PDF->SVG conversion)");
+    println!(" -x: Reset -m options");
+    println!(" --mutool PATH: MuPDF mutool path");
     // renderer
     println!("");
     println!("RENDERER OPTIONS");
@@ -174,9 +165,8 @@ fn main() {
     let mut web = false;
     // input
     let mut inopt = inputlib::InputOpts {
-        mupdf_w: inputlib::LAYOUT_A5_W,
-        mupdf_h: inputlib::LAYOUT_A5_H,
-        mupdf_em: inputlib::LAYOUT_A5_EM,
+        mutool: None,
+        mudraw_opts: vec![],
     };
     // **ONLY** use in passing to shapeify_all!
     // Render coordinates are now per-shape.
@@ -221,6 +211,16 @@ fn main() {
                             .to_string_lossy()
                             .to_string(),
                     );
+                } else if v.eq(&'m') {
+                    inopt.mudraw_opts.push(
+                        arg_parser
+                            .value()
+                            .expect("-m should have parameter")
+                            .to_string_lossy()
+                            .to_string(),
+                    );
+                } else if v.eq(&'x') {
+                    inopt.mudraw_opts.clear();
                 } else {
                     panic!("unknown short arg {}, try --help", v);
                 }
@@ -237,12 +237,8 @@ fn main() {
                     web = true;
                 } else if v.eq("help") {
                     do_help();
-                } else if v.eq("mupdf-w") {
-                    inopt.mupdf_w = parse_arg(&mut arg_parser, &vc);
-                } else if v.eq("mupdf-h") {
-                    inopt.mupdf_h = parse_arg(&mut arg_parser, &vc);
-                } else if v.eq("mupdf-em") {
-                    inopt.mupdf_em = parse_arg(&mut arg_parser, &vc);
+                } else if v.eq("mutool") {
+                    inopt.mutool = Some(parse_arg(&mut arg_parser, &vc));
                 } else if v.eq("volume") {
                     let vp: String = parse_arg(&mut arg_parser, &vc);
                     if inputs.is_empty() {
@@ -371,8 +367,7 @@ fn main() {
                     let doc =
                         inputlib::read(&name, &inopts).expect(&format!("{} should read", name));
                     for page in doc.enumerate() {
-                        input_pages
-                            .push((format!("{}:{}", name, page.0), page.1));
+                        input_pages.push((format!("{}:{}", name, page.0), page.1));
                     }
                 }
             }

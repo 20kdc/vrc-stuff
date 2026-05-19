@@ -5,9 +5,3 @@ version.workspace = true
 edition.workspace = true
 authors.workspace = true
 license.workspace = true
-
-[features]
-mupdf = ["dep:mupdf"]
-
-[dependencies]
-mupdf = { version = "0.6.0", default-features = false, features = ["xps", "html", "epub", "system-fonts"], optional = true }
