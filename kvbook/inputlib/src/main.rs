@@ -7,9 +7,8 @@ fn main() {
     let pages = inputlib::read(
         &src,
         &inputlib::InputOpts {
-            mupdf_w: inputlib::LAYOUT_A5_W,
-            mupdf_h: inputlib::LAYOUT_A5_H,
-            mupdf_em: inputlib::LAYOUT_A5_EM,
+            mutool: None,
+            mudraw_opts: vec![],
         },
     )
     .unwrap();

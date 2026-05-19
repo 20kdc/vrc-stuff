@@ -73,13 +73,16 @@ impl InputOpts {
         }
         if let Ok(par) = std::env::current_exe() {
             if let Some(parpar) = par.parent() {
-                let a = parpar.join("mutool");
-                if a.exists() {
-                    return a.to_string_lossy().into_owned();
-                }
-                let b = parpar.join("mutool.exe");
-                if b.exists() {
-                    return b.to_string_lossy().into_owned();
+                let opts = vec![
+                    parpar.join("mutool"),
+                    parpar.join("mupdf/mutool"),
+                    parpar.join("mutool.exe"),
+                    parpar.join("mupdf/mutool.exe"),
+                ];
+                for a in opts {
+                    if a.exists() {
+                        return a.to_string_lossy().into_owned();
+                    }
                 }
             }
         }

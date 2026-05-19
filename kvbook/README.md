@@ -4,6 +4,14 @@ This is designed for reading well-typeset books in VR at the highest possible qu
 
 Also for toki pona dictionary charts.
 
+## Notes For Binary Packages
+
+If you're receiving this in a file called `kvbook-w64-package.zip`, this distribution contains a number of different pieces of software from various sources.
+
+The `mupdf/mutool.exe` file comes from the `mupdf.com` website. It should match `mupdf-1.27.0-windows.zip` with ZIP sha256 `f3e60b630453301914e52fb8ec001f6ab56cdb90daf39e533deae3ff214fcff8`.
+
+`drawbook.exe` uses a mess of Rust libraries. See `about.html`. If cargo-about generates incorrect licensing, someone should probably tell VRChat first (`VRChat_Data/StreamingAssets/Licenses/vrc_image_loader-licenses.html` etc).
+
 ## Principles
 
 There are some key insights that make this all possible.

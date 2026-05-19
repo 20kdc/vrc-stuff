@@ -1,5 +1,7 @@
 build: udon kip32 site
 
+# -- KIP32 --
+
 [working-directory: 'kip32']
 kip32: kip32-sdk kip32-sdk-examples kip32-rust-sdk
 	sdk/bin/kip32-libcqemu-gcc -g -O3 testing/muldiv.S testing/qemu_stdio.c testing/genrefdata.c -o testing/genrefdata.elf
@@ -52,13 +54,15 @@ site:
 site-srv: site
 	miniserve out
 
+# -- UDON CRATES --
+
 [working-directory: 'udon']
 udon:
 	cargo fmt
 	cargo build
 	cargo test -q
 
-# specialized
+# -- SPECIALIZED --
 
 [working-directory: 'kip32']
 kip32-idec:
@@ -69,10 +73,27 @@ kip32-idec:
 datamine2json:
 	./datamine2json.py
 
+kvbook-cargo-about:
+	cd kvbook/drawbook ; cargo about generate about.hbs > about.html
+
+# -- CLEAN --
+
 clean:
 	cd kip32/sdk ; ./clean
 	cargo clean --manifest-path site/generator/Cargo.toml
 	cargo clean --manifest-path udon/Cargo.toml
 
+# -- PACKAGES --
+
 kip32-sdk-src-package: clean
+	rm -f kip32-sdk-src-package.zip
 	zip kip32-sdk-src-package.zip -r kip32/sdk kip32/tools udon
+
+kvbook-w64-package:
+	cd kvbook/drawbook ; cargo build --target x86_64-pc-windows-gnu --release
+	cd kvbook/target/x86_64-pc-windows-gnu/release ; rm -rf mupdf ; mkdir -p mupdf
+	cd kvbook/target/x86_64-pc-windows-gnu/release/mupdf ; unzip /media/era3-sync/external/software/tooling/mupdf-1.27.0-windows.zip ; rm mupdf.exe mupdf-gl.exe
+	rm -f kvbook-w64-package.zip
+	cd kvbook ; zip ../kvbook-w64-package.zip README.md FORMAT.md sdfsamplediagram.svg flow.drawio.svg
+	cd kvbook/drawbook ; zip ../../kvbook-w64-package.zip about.html
+	cd kvbook/target/x86_64-pc-windows-gnu/release ; zip ../../../../kvbook-w64-package.zip -r mupdf drawbook.exe

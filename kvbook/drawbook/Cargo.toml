@@ -10,9 +10,9 @@ license.workspace = true
 json = "0.12.4"
 lexopt = "0.3.2"
 rayon = "1.12.0"
-resvg = "0.47.0"
+resvg = { version = "0.47.0", default-features = false, features = ["raster-images"] }
 tiny-skia = "0.12.0"
-usvg = "0.47.0"
+usvg = { version = "0.47.0", default-features = false, features = [] }
 booklib = { path = "../booklib" }
 geomlib = { path = "../geomlib" }
 inputlib = { path = "../inputlib" }
