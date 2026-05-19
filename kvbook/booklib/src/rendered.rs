@@ -12,6 +12,7 @@ use tiny_skia::{ColorU8, Pixmap, PremultipliedColorU8};
 pub enum DBRenderedShapeData {
     Bitmap(Raster<bool>),
     Fullcolour(Raster<[u8; 4]>),
+    Rectangle(V2<usize>),
 }
 
 /// A 'rendered shape' is a comparable copy of the _data_ of a sprite.
@@ -22,7 +23,6 @@ pub enum DBRenderedShapeData {
 #[derive(Clone, PartialEq, Eq)]
 pub struct DBRenderedShape {
     hash: u64,
-    is_solid: bool,
     data: DBRenderedShapeData,
     render_mul_bitsu32: u32,
 }
@@ -45,16 +45,16 @@ impl DBRenderedShape {
                     state.write(v);
                 }
             }
+            DBRenderedShapeData::Rectangle(size) => {
+                // what would even be written here?
+                state.write_usize(size.0);
+                state.write_usize(size.1);
+            }
         }
-        let is_solid = match &data {
-            DBRenderedShapeData::Bitmap(data) => data.area_eq_usize(V2(0, 0), data.size(), true),
-            DBRenderedShapeData::Fullcolour(_) => false,
-        };
         DBRenderedShape {
             // Notably, the hashing happens here.
             // This means that it happens during the (parallel) rendering stage, rather than the (sequential) matching stage.
             hash: state.finish(),
-            is_solid,
             data,
             render_mul_bitsu32: render_mul.to_bits(),
         }
@@ -63,6 +63,7 @@ impl DBRenderedShape {
         match &self.data {
             DBRenderedShapeData::Bitmap(data) => data.size(),
             DBRenderedShapeData::Fullcolour(data) => data.size(),
+            DBRenderedShapeData::Rectangle(size) => *size,
         }
     }
     pub fn data(&self) -> &DBRenderedShapeData {
@@ -70,9 +71,6 @@ impl DBRenderedShape {
     }
     pub fn render_mul(&self) -> f32 {
         f32::from_bits(self.render_mul_bitsu32)
-    }
-    pub fn is_solid(&self) -> bool {
-        self.is_solid
     }
     pub fn to_pixmap(&self) -> Pixmap {
         match &self.data {
@@ -99,6 +97,9 @@ impl DBRenderedShape {
                 }
                 downscale_check_canvas
             }
+            DBRenderedShapeData::Rectangle(size) => {
+                Pixmap::new(size.0 as u32, size.1 as u32).unwrap()
+            }
         }
     }
 }
@@ -122,20 +123,25 @@ pub fn dbrenderedsprite_new(
         return None;
     }
 
-    // This is the first 'solidity check'.
-    // There are two of these: One here, and one in DBRenderedShape.
-    // Arguably, it might be an idea to have a DBRenderedShapeData for rectangles.
-    if never_solid || !crop_me.area_eq_usize(crop_ul, crop_br, true) {
-        // Make sure to leave at least border_us pixels...
-        // **unless** it's a solid rectangle.
-        // If it's a solid rectangle, we want that to be plainly obvious down the line, so we allow these borders to be cropped off.
-        // This allows the SDF generator to be aware that it can, in fact, not generate an SDF at all.
-        crop_ul.0 = crop_ul.0.max(border) - border;
-        crop_ul.1 = crop_ul.1.max(border) - border;
-
-        crop_br.0 = (crop_br.0 + border).min(crop_me.size().0);
-        crop_br.1 = (crop_br.1 + border).min(crop_me.size().1);
+    if (!never_solid) && crop_me.area_eq_usize(crop_ul, crop_br, true) {
+        // This is a solid rectangle.
+        return Some(DBRenderedSprite {
+            top_left: top_left + V2(crop_ul.0 as f32 / render_mul, crop_ul.1 as f32 / render_mul),
+            shape: DBRenderedShape::new(
+                DBRenderedShapeData::Rectangle(crop_br - crop_ul),
+                render_mul,
+            ),
+            colour,
+        });
     }
+
+    // For anything that isn't a solid rectangle, make sure to leave at least border_us pixels.
+    // The SDF goes very wrong if you don't have these.'
+    crop_ul.0 = crop_ul.0.max(border) - border;
+    crop_ul.1 = crop_ul.1.max(border) - border;
+
+    crop_br.0 = (crop_br.0 + border).min(crop_me.size().0);
+    crop_br.1 = (crop_br.1 + border).min(crop_me.size().1);
 
     Some(DBRenderedSprite {
         top_left: top_left + V2(crop_ul.0 as f32 / render_mul, crop_ul.1 as f32 / render_mul),

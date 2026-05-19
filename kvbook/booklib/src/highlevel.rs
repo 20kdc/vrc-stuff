@@ -38,10 +38,6 @@ pub fn gen_sdf_shapes(opt: GenSDFShapesInput, progress: &dyn Progress) -> Vec<At
             let size = V2(shape.size().0 as f32, shape.size().1 as f32)
                 / V2(shape.render_mul(), shape.render_mul());
 
-            if shape.is_solid() {
-                return AtlasableShape::Rectangle { size };
-            }
-
             let res: Cow<Raster<[u8; 4]>> = match shape.data() {
                 DBRenderedShapeData::Bitmap(shape_bitmap) => {
                     let shape_sdf = shape_to_sdf(shape_bitmap);
@@ -60,6 +56,10 @@ pub fn gen_sdf_shapes(opt: GenSDFShapesInput, progress: &dyn Progress) -> Vec<At
                     Cow::Owned(sdfq)
                 }
                 DBRenderedShapeData::Fullcolour(fullcolour) => Cow::Borrowed(fullcolour),
+                DBRenderedShapeData::Rectangle(_) => {
+                    // In this particular case, we're not actually rasterizing anything at all.
+                    return AtlasableShape::Rectangle { size };
+                }
             };
             let res_scaled_size = downscale_size(res.size(), opt.sdf_downscale);
             let mut sdf = raster_scale(&res, res_scaled_size, opt.scaler);
