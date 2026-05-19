@@ -16,9 +16,9 @@ pub enum DBRenderedShapeData {
 
 /// A 'rendered shape' is a comparable copy of the _data_ of a sprite.
 /// This is the structure which gets deduplicated.
-/// It can either be a bitmap for future conversion to SDF, or it can be a fullcolour pixmap.
-/// If it's a fullcolour pixmap, it needs to be included in the atlas 'nearly as-is'.
-/// (Fullcolour pixmaps may still be downscaled.)
+/// It can be one of:
+/// A bitmap (next stage: converted to SDF and downscaled)
+/// A fullcolour pixmap (next stage: downscaled and alpha-extended)
 #[derive(Clone, PartialEq, Eq)]
 pub struct DBRenderedShape {
     hash: u64,

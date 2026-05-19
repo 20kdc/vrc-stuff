@@ -4,5 +4,6 @@ pub mod docmodel;
 pub mod geom_atlas;
 pub mod highlevel;
 pub mod progress;
+pub mod raster_helpers;
 pub mod rendered;
 pub mod sdf;

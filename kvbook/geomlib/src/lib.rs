@@ -6,3 +6,5 @@ pub use area::*;
 
 mod raster;
 pub use raster::*;
+
+mod scaler;

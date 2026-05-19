@@ -5,6 +5,7 @@ use booklib::atlas_builder::*;
 use booklib::docmodel::*;
 use booklib::highlevel;
 use booklib::progress::*;
+use booklib::raster_helpers::*;
 use booklib::rendered::*;
 use lexopt::ValueExt;
 use progress::ProgressImpl;
@@ -15,7 +16,7 @@ const RENDER_MUL_DEFAULT: f32 = 16.0;
 const RENDER_MUL_IMG_DEFAULT: f32 = 16.0;
 const RENDER_LIMIT_DEFAULT: u32 = 512;
 const RENDER_LIMIT_IMG_DEFAULT: u32 = 2048;
-const SDF_DOWNSCALE_DEFAULT: u32 = 4;
+const SDF_DOWNSCALE_DEFAULT: usize = 4;
 const SDF_BORDER_DEFAULT: u32 = 4;
 const SDF_SMOOTH_DEFAULT: f32 = 8f32;
 const ATLAS_PERFCHOP_DEFAULT: usize = 131072;
@@ -137,6 +138,7 @@ fn do_help() {
     println!(" --debug-shapeslate: writes debug.s*.png / debug.s*.sdf.png");
     println!(" --debug-bigbox: runs all renders in page AABB to debug transform issues");
     println!(" --debug-noclip: disables renderer page bounds clipping");
+    println!(" --debug-scaler-internal: downscales using internal box filter");
     std::process::exit(0);
 }
 
@@ -180,7 +182,8 @@ fn main() {
     let mut invert: bool = false;
     // sdf
     let mut sdf_everything: bool = false;
-    let mut sdf_downscale: u32 = SDF_DOWNSCALE_DEFAULT;
+    let mut sdf_downscale: usize = SDF_DOWNSCALE_DEFAULT;
+    let mut scaler: RasterScaler = RasterScaler::Skia;
     // Border in SDF pixels.
     let mut sdf_border: u32 = SDF_BORDER_DEFAULT;
     let mut sdf_smooth: f32 = SDF_SMOOTH_DEFAULT;
@@ -293,6 +296,8 @@ fn main() {
                     debug_bigbox = true;
                 } else if v.eq("debug-noclip") {
                     debug_noclip = true;
+                } else if v.eq("debug-scaler-internal") {
+                    scaler = RasterScaler::Internal;
                 } else {
                     panic!("unknown long arg {}, try --help", v);
                 }
@@ -389,6 +394,7 @@ fn main() {
             max_sprite_count_page = page_idx;
         }
         // post-filter
+        // TODO: This should really be handled sometime during rendering instead.
         if invert {
             for sprite in &mut rendered.sprites {
                 sprite.colour = [
@@ -417,6 +423,7 @@ fn main() {
             outdir: &outdir,
             debug_dump_shapes_late,
             sdf_downscale,
+            scaler,
             sdf_smooth,
         },
         &ProgressImpl,
@@ -449,7 +456,7 @@ fn main() {
             total_pixels += (atlas_pix.size().0 * atlas_pix.size().1) as u64;
             std::fs::write(
                 &format!("{}/atlas.{}.png", outdir, atlas_id),
-                highlevel::raster_png(&atlas_pix),
+                raster_png(&atlas_pix),
             )
             .unwrap();
         }

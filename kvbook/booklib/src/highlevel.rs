@@ -1,16 +1,19 @@
 use crate::atlas_builder::*;
 use crate::docmodel::*;
 use crate::progress::*;
+use crate::raster_helpers::*;
 use crate::rendered::*;
-use crate::sdf::{downscale_size, scale_pixmap, sdf_to_pixmap, shape_to_sdf};
+use crate::sdf::{downscale_size, sdf_to_pixmap, shape_to_sdf, truecolour_alphafix};
 use geomlib::*;
 use rayon::prelude::*;
+use std::borrow::Cow;
 
 pub struct GenSDFShapesInput<'a> {
     pub shape_lookup: &'a DBShapeLookup,
     pub outdir: &'a str,
     pub debug_dump_shapes_late: bool,
-    pub sdf_downscale: u32,
+    pub sdf_downscale: usize,
+    pub scaler: RasterScaler,
     pub sdf_smooth: f32,
 }
 
@@ -39,7 +42,7 @@ pub fn gen_sdf_shapes(opt: GenSDFShapesInput, progress: &dyn Progress) -> Vec<At
                 return AtlasableShape::Rectangle { size };
             }
 
-            let res: tiny_skia::Pixmap = match shape.data() {
+            let res: Cow<Raster<[u8; 4]>> = match shape.data() {
                 DBRenderedShapeData::Bitmap(shape_bitmap) => {
                     let shape_sdf = shape_to_sdf(shape_bitmap);
 
@@ -47,44 +50,27 @@ pub fn gen_sdf_shapes(opt: GenSDFShapesInput, progress: &dyn Progress) -> Vec<At
                     // The idea is that in texture space, this should produce a consistent width (see 'SDF width' in the diagram)
                     let step: f32 = 127.5f32 / (opt.sdf_smooth * opt.sdf_downscale as f32);
 
-                    sdf_to_pixmap(&shape_sdf, (step as i32).max(1))
-                }
-                DBRenderedShapeData::Fullcolour(fullcolour) => {
-                    let mut fc = tiny_skia::Pixmap::new(
-                        fullcolour.size().0 as u32,
-                        fullcolour.size().1 as u32,
-                    )
-                    .unwrap();
-                    for i in fc.pixels_mut().iter_mut().enumerate() {
-                        let p = fullcolour.data()[i.0];
-                        *i.1 = tiny_skia::ColorU8::from_rgba(p[0], p[1], p[2], p[3]).premultiply();
+                    let sdfq = sdf_to_pixmap(&shape_sdf, (step as i32).max(1));
+                    if opt.debug_dump_shapes_late {
+                        _ = std::fs::write(
+                            format!("{}/debug.s{}.sdf.png", opt.outdir, shape_id),
+                            raster_png(&sdfq),
+                        );
                     }
-                    fc
+                    Cow::Owned(sdfq)
                 }
+                DBRenderedShapeData::Fullcolour(fullcolour) => Cow::Borrowed(fullcolour),
             };
-            if opt.debug_dump_shapes_late {
-                _ = std::fs::write(
-                    format!("{}/debug.s{}.sdf.png", opt.outdir, shape_id),
-                    res.encode_png().unwrap(),
-                );
+            let res_scaled_size = downscale_size(res.size(), opt.sdf_downscale);
+            let mut sdf = raster_scale(&res, res_scaled_size, opt.scaler);
+            match shape.data() {
+                DBRenderedShapeData::Fullcolour(_) => {
+                    truecolour_alphafix(&mut sdf);
+                }
+                _ => {}
             }
-            let res_scaled_size = downscale_size(&res, opt.sdf_downscale);
-            let res_scaled = scale_pixmap(&res, res_scaled_size, tiny_skia::FilterQuality::Bicubic);
             progress.status(&format!(" last={:>6}", shape_id));
-            let fixit = res_scaled.take_demultiplied();
-            let fixed_cap = (res_scaled_size.0 as usize) * (res_scaled_size.1 as usize);
-            let mut fixed: Vec<[u8; 4]> = Vec::with_capacity(fixed_cap);
-            for i in 0..fixed_cap {
-                let b = i * 4;
-                fixed.push([fixit[b + 0], fixit[b + 1], fixit[b + 2], fixit[b + 3]]);
-            }
-            AtlasableShape::Pixmap {
-                sdf: Raster::new(
-                    fixed,
-                    V2(res_scaled_size.0 as usize, res_scaled_size.1 as usize),
-                ),
-                size,
-            }
+            AtlasableShape::Pixmap { sdf, size }
         })
         .collect()
 }
@@ -157,23 +143,6 @@ pub fn atlas_pages(
     }
     atlas_builders.push(curr_atlas);
     (atlas_builders, pages_atlased)
-}
-
-/// Raster to RGBA PNG.
-pub fn raster_png(raster: &Raster<[u8; 4]>) -> Vec<u8> {
-    let raw_data: &[u8] = zerocopy::transmute_ref!(raster.data());
-    let mut png_data = vec![];
-    let mut encoder = png::Encoder::new(
-        &mut png_data,
-        raster.size().0 as u32,
-        raster.size().1 as u32,
-    );
-    encoder.set_color(png::ColorType::Rgba);
-    encoder.set_depth(png::BitDepth::Eight);
-    let mut encoder = encoder.write_header().unwrap();
-    encoder.write_image_data(&raw_data).unwrap();
-    encoder.finish().unwrap();
-    png_data
 }
 
 /// 'Web format' exporter.

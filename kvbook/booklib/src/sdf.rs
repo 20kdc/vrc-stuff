@@ -1,7 +1,6 @@
 use geomlib::*;
 use rayon::prelude::*;
 use std::collections::BTreeSet;
-use tiny_skia::{Pixmap, PremultipliedColorU8};
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 enum SDFState {
@@ -157,55 +156,69 @@ pub fn shape_to_sdf(shape: &Raster<bool>) -> Raster<f32> {
 
 /// Makes an SDF from a shape.
 /// Note that the pixmap may be smaller than what came in if the shape is i.e. solid.
-pub fn sdf_to_pixmap(src: &Raster<f32>, step: i32) -> Pixmap {
+pub fn sdf_to_pixmap(src: &Raster<f32>, step: i32) -> Raster<[u8; 4]> {
     let sz = src.size();
     assert!(step > 0);
     let step_f32 = step as f32;
-    let rows: Vec<Vec<PremultipliedColorU8>> = (0..sz.1)
+    let rows: Vec<[u8; 4]> = (0..sz.1)
         .into_par_iter()
         .map(|y| {
-            let mut total: Vec<PremultipliedColorU8> = Vec::new();
+            let mut total: Vec<[u8; 4]> = Vec::new();
             for x in 0..sz.0 {
                 let mut here: f32 = src[V2(x, y)];
                 // convert to step form
                 here = (here * step_f32) + 127.5f32;
                 let r = (here.clamp(0f32, 255f32) as i32).clamp(0, 255) as u8;
-                total.push(PremultipliedColorU8::from_rgba(0, 0, 0, r).unwrap());
+                total.push([0, 0, 0, r]);
             }
             total
         })
+        .flatten()
         .collect();
-    let mut pixmap = Pixmap::new(sz.0 as u32, sz.1 as u32).unwrap();
-    let mut idx = 0;
-    for row in rows {
-        for pixel in row {
-            pixmap.pixels_mut()[idx] = pixel;
-            idx += 1;
+    Raster::new(rows, sz)
+}
+
+pub fn downscale_size(w: V2<usize>, fac: usize) -> V2<usize> {
+    V2((w.0 / fac).max(1), (w.1 / fac).max(1))
+}
+
+/// Reduces alpha-related 'haloing'.
+pub fn truecolour_alphafix(shape: &mut Raster<[u8; 4]>) {
+    let sz = shape.size();
+    for y in 0..sz.1 {
+        for x in 0..sz.0 {
+            let v = shape.get_usize(V2(x, y), [0; 4]);
+            if v[3] == 0 {
+                let xyv2 = V2(x as i32, y as i32);
+                let candidates: [V2<i32>; 8] = [
+                    V2(0, -1),
+                    V2(1, -1),
+                    V2(1, 0),
+                    V2(1, 1),
+                    V2(0, 1),
+                    V2(-1, 1),
+                    V2(-1, 0),
+                    V2(-1, -1),
+                ];
+                let mut best_candidate: [u8; 4] = [0; 4];
+                for ofs in candidates {
+                    let nw = shape.get_i32(xyv2 + ofs, [0; 4]);
+                    if nw[3] > best_candidate[3] {
+                        best_candidate = nw;
+                    }
+                }
+                if best_candidate[3] > 0 {
+                    shape.set_usize(
+                        V2(x, y),
+                        [
+                            best_candidate[0],
+                            best_candidate[1],
+                            best_candidate[2],
+                            v[3],
+                        ],
+                    );
+                }
+            }
         }
     }
-    pixmap
-}
-
-pub fn downscale_size(w: &Pixmap, fac: u32) -> V2<u32> {
-    V2((w.width() / fac).max(1), (w.height() / fac).max(1))
-}
-
-pub fn scale_pixmap(pixmap: &Pixmap, w: V2<u32>, filter: tiny_skia::FilterQuality) -> Pixmap {
-    let mut out = Pixmap::new(w.0, w.1).unwrap();
-    out.draw_pixmap(
-        0,
-        0,
-        pixmap.as_ref(),
-        &tiny_skia::PixmapPaint {
-            blend_mode: tiny_skia::BlendMode::Source,
-            quality: filter,
-            ..Default::default()
-        },
-        tiny_skia::Transform::identity().pre_scale(
-            w.0 as f32 / pixmap.width() as f32,
-            w.1 as f32 / pixmap.height() as f32,
-        ),
-        None,
-    );
-    out
 }
