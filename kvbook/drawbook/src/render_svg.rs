@@ -13,6 +13,7 @@ pub struct RenderOpts {
     pub cfg_render_mul: f32,
     pub cfg_render_mul_img: f32,
     pub sdf_everything: bool,
+    pub never_solid_below: f32,
     pub debug_dse: bool,
     pub debug_bigbox: bool,
     pub debug_noclip: bool,
@@ -39,7 +40,13 @@ impl SVGRenderable {
         let render_mul_limit = (render_limit as f32) / bbox_max_len;
         render_mul.min(render_mul_limit)
     }
-    pub fn render(&self, page_idx: usize, j: usize, opts: &RenderOpts) -> Vec<DBRenderedSprite> {
+    pub fn render(
+        &self,
+        page_idx: usize,
+        j: usize,
+        opts: &RenderOpts,
+        never_solid_below_fixed: f32,
+    ) -> Vec<DBRenderedSprite> {
         let mut results: Vec<DBRenderedSprite> = Vec::new();
         if let Some(bbox) = self.node.abs_layer_bounding_box() {
             // Fit render into limit (ignoring border)
@@ -104,11 +111,14 @@ impl SVGRenderable {
                         _ => ShapifyStrategy::AlphaClippedColourAverage,
                     }
                 };
+                // check if it hit never solid threshold
+                let never_solid = bbox_max_len < never_solid_below_fixed;
                 results.extend(sps.shapeify(
                     temp_canvas,
                     V2(adj_bbox.left(), adj_bbox.top()),
                     render_mul,
                     opts.sdf_border,
+                    never_solid,
                 ));
             }
         }
@@ -131,6 +141,12 @@ pub fn render_svg(tree: &usvg::Tree, page_idx: usize, render_opts: &RenderOpts) 
         sprites.push((tree, consider.1));
     })
     .expect("separator should not throw errors");
+    // figure out never solid below threshold
+    let mut never_solid_below_fixed = render_opts.never_solid_below;
+    if never_solid_below_fixed < 0f32 {
+        never_solid_below_fixed =
+            tree.size().width().max(tree.size().height()) / -never_solid_below_fixed;
+    }
     // render and insert sprites
     let rendered = sprites
         .par_iter()
@@ -141,7 +157,7 @@ pub fn render_svg(tree: &usvg::Tree, page_idx: usize, render_opts: &RenderOpts) 
                 page_size: (tree.size().width(), tree.size().height()),
                 content: *kind,
             };
-            renderable.render(page_idx, j, render_opts)
+            renderable.render(page_idx, j, render_opts, never_solid_below_fixed)
         })
         .flatten()
         .collect();

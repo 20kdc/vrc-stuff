@@ -4,9 +4,11 @@
 
 Shader "z 20kdc kvtools/kvbook SDF" {
 	Properties {
-		_MainTex("SDF Texture", 2D) = "white" {}
+		[NoScaleOffset] _MainTex("SDF Texture", 2D) = "white" {}
+		[Toggle] _InversionSupport ("Inversion Support", int) = 0
 		_Inversion("Inversion", Range(0, 1)) = 0.0
-		_Smoothness("Smoothness", Range(0, 256)) = 1.0
+		_Bias("SDF Bias (default 0.5)", float) = 0.5
+		_Smoothness("SDF Smoothness", Range(0, 256)) = 1.0
 		[Toggle] _AlphaInRed ("Alpha In Red (Advanced use. Swizzle and compression must be adjusted.)", int) = 0
 		[Toggle] _Truecolour ("Colour Image Support (disabled with Alpha In Red)", int) = 1
 	}
@@ -31,6 +33,7 @@ Shader "z 20kdc kvtools/kvbook SDF" {
 
 			#pragma shader_feature _ALPHAINRED_ON
 			#pragma shader_feature _TRUECOLOUR_ON
+			#pragma shader_feature _INVERSIONSUPPORT_ON
 
 			#pragma vertex vert
 			#pragma fragment frag
@@ -43,6 +46,7 @@ Shader "z 20kdc kvtools/kvbook SDF" {
 
 			uniform fixed _Inversion;
 			uniform float _Smoothness;
+			uniform float _Bias;
 
 			struct appdata {
 				UNITY_VERTEX_INPUT_INSTANCE_ID
@@ -71,16 +75,11 @@ Shader "z 20kdc kvtools/kvbook SDF" {
 				return o;
 			}
 
-			fixed4 frag(v2f input) : SV_Target {
-				UNITY_SETUP_INSTANCE_ID(input);
-				fixed4 c = UNITY_SAMPLE_TEX2D(_MainTex, input.texcoord0);
-				float2 uvd = fwidth(input.texcoord0);
+			fixed4 kvb_decoder(float2 uvd, fixed4 c, fixed4 incol) {
 #if _TRUECOLOUR_ON
 				if (c.b > 0.0) {
 					// truecolour
-					fixed3 invrgbsrc = c.rgb;
-					fixed3 invrgb = lerp(invrgbsrc.rgb, 1.0 - invrgbsrc.rgb, _Inversion);
-					return fixed4(invrgb, c.a);
+					return c * incol;
 				} else {
 #endif
 					// SDF
@@ -92,12 +91,21 @@ Shader "z 20kdc kvtools/kvbook SDF" {
 #else
 					float sdfAlpha = c.a;
 #endif
-					sdfAlpha = saturate(((sdfAlpha - 0.5) / bandwidth) + 0.5);
-					fixed3 invrgbsrc = input.colour.rgb;
-					fixed3 invrgb = lerp(invrgbsrc.rgb, 1.0 - invrgbsrc.rgb, _Inversion);
-					return fixed4(invrgb, sdfAlpha * input.colour.a);
+					sdfAlpha = saturate(((sdfAlpha - 0.5) / bandwidth) + _Bias);
+					return fixed4(incol.rgb, sdfAlpha * incol.a);
 #if _TRUECOLOUR_ON
 				}
+#endif
+			}
+
+			fixed4 frag(v2f input) : SV_Target {
+				UNITY_SETUP_INSTANCE_ID(input);
+				fixed4 c = UNITY_SAMPLE_TEX2D(_MainTex, input.texcoord0);
+				c = kvb_decoder(fwidth(input.texcoord0), c, input.colour);
+#if _INVERSIONSUPPORT_ON
+				return fixed4(lerp(c.rgb, 1.0 - c.rgb, _Inversion), c.a);
+#else
+				return c;
 #endif
 			}
 

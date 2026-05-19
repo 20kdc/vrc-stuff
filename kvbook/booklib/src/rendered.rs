@@ -113,6 +113,7 @@ pub fn dbrenderedsprite_new(
     top_left: V2<f32>,
     render_mul: f32,
     border: usize,
+    never_solid: bool,
 ) -> Option<DBRenderedSprite> {
     let (mut crop_ul, mut crop_br) = crop_me.find_crop_rectangle(false);
 
@@ -121,7 +122,10 @@ pub fn dbrenderedsprite_new(
         return None;
     }
 
-    if !crop_me.area_eq_usize(crop_ul, crop_br, true) {
+    // This is the first 'solidity check'.
+    // There are two of these: One here, and one in DBRenderedShape.
+    // Arguably, it might be an idea to have a DBRenderedShapeData for rectangles.
+    if never_solid || !crop_me.area_eq_usize(crop_ul, crop_br, true) {
         // Make sure to leave at least border_us pixels...
         // **unless** it's a solid rectangle.
         // If it's a solid rectangle, we want that to be plainly obvious down the line, so we allow these borders to be cropped off.
@@ -216,6 +220,7 @@ impl ShapifyStrategy {
         page_offset: V2<f32>,
         render_mul: f32,
         border: u32,
+        never_solid: bool,
     ) -> Option<DBRenderedSprite> {
         match self {
             Self::AlphaClippedColourAverage => {
@@ -256,6 +261,7 @@ impl ShapifyStrategy {
                     page_offset,
                     render_mul,
                     border as usize,
+                    never_solid,
                 )
             }
             Self::BWPrinting => {
@@ -288,6 +294,7 @@ impl ShapifyStrategy {
                     page_offset,
                     render_mul,
                     border as usize,
+                    never_solid,
                 )
             }
             Self::Fullcolour(blue) => {

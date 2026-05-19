@@ -16,6 +16,7 @@ const RENDER_MUL_DEFAULT: f32 = 16.0;
 const RENDER_MUL_IMG_DEFAULT: f32 = 16.0;
 const RENDER_LIMIT_DEFAULT: u32 = 512;
 const RENDER_LIMIT_IMG_DEFAULT: u32 = 2048;
+const NEVER_SOLID_BELOW_DEFAULT: f32 = -16f32;
 const SDF_DOWNSCALE_DEFAULT: usize = 4;
 const SDF_BORDER_DEFAULT: u32 = 4;
 const SDF_SMOOTH_DEFAULT: f32 = 8f32;
@@ -98,8 +99,13 @@ fn do_help() {
     // sdf
     println!("");
     println!("SDF OPTIONS");
-    println!(" --sdf-everything: SDF things that don't look sane to SDF.",);
-    println!("   Use this if things that should be vectors aren't.",);
+    println!(" --sdf-everything: SDF things that don't look sane to SDF.");
+    println!("  Use this if things that should be vectors aren't.");
+    println!(" --never-solid-below VAL: Any object below this size in page units,");
+    println!("  is never considered 'solid' (rectangle).");
+    println!("  Use if 'l' is being converted and causing trouble.");
+    println!("  If under 0, negated and a divisor of page size.");
+    println!("  Default: {}", NEVER_SOLID_BELOW_DEFAULT);
     println!(
         " --sdf-downscale VAL: SDF downscale from render, default {}",
         SDF_DOWNSCALE_DEFAULT
@@ -182,6 +188,7 @@ fn main() {
     let mut invert: bool = false;
     // sdf
     let mut sdf_everything: bool = false;
+    let mut never_solid_below: f32 = NEVER_SOLID_BELOW_DEFAULT;
     let mut sdf_downscale: usize = SDF_DOWNSCALE_DEFAULT;
     let mut scaler: RasterScaler = RasterScaler::Skia;
     // Border in SDF pixels.
@@ -276,6 +283,8 @@ fn main() {
                     invert = !invert;
                 } else if v.eq("sdf-everything") {
                     sdf_everything = true;
+                } else if v.eq("never-solid-below") {
+                    never_solid_below = parse_arg(&mut arg_parser, &vc);
                 } else if v.eq("sdf-downscale") {
                     sdf_downscale = parse_arg(&mut arg_parser, &vc);
                 } else if v.eq("sdf-border") {
@@ -340,6 +349,7 @@ fn main() {
         cfg_render_mul,
         cfg_render_mul_img,
         sdf_everything,
+        never_solid_below,
         debug_dse: debug_dump_shapes_early,
         debug_bigbox,
         debug_noclip,
