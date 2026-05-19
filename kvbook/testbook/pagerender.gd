@@ -81,6 +81,12 @@ func _input(event):
 			if key.scancode == KEY_RIGHT:
 				page += 1
 				update()
+			if key.scancode == KEY_F:
+				if material == preload("pagerendermaterial.tres"):
+					material = null
+				else:
+					material = preload("pagerendermaterial.tres")
+				update()
 			if key.scancode == KEY_M:
 				debug = !debug
 				update()
