@@ -354,7 +354,7 @@ fn main() {
         debug_bigbox,
         debug_noclip,
     };
-    // -- Page separation --
+    // -- Page separation and SVG rendering --
     ProgressImpl.stage("page separation");
     let mut input_pages: Vec<(String, String)> = Vec::new();
     // Volume data. This is used in the .bytes emitter.
@@ -370,9 +370,9 @@ fn main() {
                 InputNote::Input(name, inopts) => {
                     let doc =
                         inputlib::read(&name, &inopts).expect(&format!("{} should read", name));
-                    for subpage in 0..doc.page_count() {
+                    for page in doc.enumerate() {
                         input_pages
-                            .push((format!("{}:{}", name, subpage), doc.page_to_svg(subpage)));
+                            .push((format!("{}:{}", name, page.0), page.1));
                     }
                 }
             }

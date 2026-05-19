@@ -1,34 +1,19 @@
 //! Represents the input library.
 
-pub trait PageHopper {
-    /// Gets the page count.
-    fn page_count(&self) -> usize;
-    /// Gets a page as SVG text.
-    fn page_to_svg(&self, page: usize) -> String;
-}
-
-pub struct PageHopperSVG(pub String);
-
-impl PageHopper for PageHopperSVG {
-    fn page_count(&self) -> usize {
-        1
-    }
-    fn page_to_svg(&self, _page: usize) -> String {
-        self.0.clone()
-    }
-}
+#[cfg(feature = "mupdf")]
+pub struct PageHopperMuPDF(pub mupdf::Document, pub i32);
 
 #[cfg(feature = "mupdf")]
-pub struct PageHopperMuPDF(pub mupdf::Document);
-
-#[cfg(feature = "mupdf")]
-impl PageHopper for PageHopperMuPDF {
-    fn page_count(&self) -> usize {
-        self.0.page_count().unwrap() as usize
-    }
-    fn page_to_svg(&self, page: usize) -> String {
-        let page = self.0.load_page(page as i32).unwrap();
-        page.to_svg(&mupdf::Matrix::IDENTITY).unwrap()
+impl Iterator for PageHopperMuPDF {
+    type Item = String;
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.1 >= self.0.page_count().unwrap() {
+            None
+        } else {
+            let page = self.0.load_page(self.1).unwrap();
+            self.1 += 1;
+            Some(page.to_svg(&mupdf::Matrix::IDENTITY).unwrap())
+        }
     }
 }
 
@@ -44,20 +29,20 @@ pub struct InputOpts {
     pub mupdf_em: f32,
 }
 
-pub fn read_svg(path: &str, _opts: &InputOpts) -> Result<Box<dyn PageHopper>, String> {
+pub fn read_svg(path: &str, _opts: &InputOpts) -> Result<Box<dyn Iterator<Item = String>>, String> {
     let s = std::fs::read_to_string(path).map_err(|v| format!("read SVG {:?}", v))?;
-    Ok(Box::new(PageHopperSVG(s)))
+    Ok(Box::new(Some(s).into_iter()))
 }
 
 #[cfg(not(feature = "mupdf"))]
-pub fn read(path: &str, opts: &InputOpts) -> Result<Box<dyn PageHopper>, String> {
+pub fn read(path: &str, opts: &InputOpts) -> Result<Box<dyn Iterator<Item = String>>, String> {
     read_svg(path, opts)
 }
 
 /// Reads from a path.
 /// Note that a path is used for SVG autodetection.
 #[cfg(feature = "mupdf")]
-pub fn read(path: &str, opts: &InputOpts) -> Result<Box<dyn PageHopper>, String> {
+pub fn read(path: &str, opts: &InputOpts) -> Result<Box<dyn Iterator<Item = String>>, String> {
     if path.ends_with(".svg") {
         read_svg(path, opts)
     } else {
@@ -68,6 +53,6 @@ pub fn read(path: &str, opts: &InputOpts) -> Result<Box<dyn PageHopper>, String>
             s.layout(opts.mupdf_w, opts.mupdf_h, opts.mupdf_em)
                 .map_err(|v| format!("inputlib layout {:?}", v))?;
         }
-        Ok(Box::new(PageHopperMuPDF(s)))
+        Ok(Box::new(PageHopperMuPDF(s, 0)))
     }
 }

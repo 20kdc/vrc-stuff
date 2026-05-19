@@ -13,9 +13,8 @@ fn main() {
         },
     )
     .unwrap();
-    println!("{} pages", pages.page_count());
-    for i in 0..pages.page_count() {
-        println!(" {}", i);
-        std::fs::write(format!("{}/{}.svg", dst, i), pages.page_to_svg(i)).unwrap();
+    for page in pages.enumerate() {
+        println!(" {}", page.0);
+        std::fs::write(format!("{}/{}.svg", dst, page.0), page.1).unwrap();
     }
 }
