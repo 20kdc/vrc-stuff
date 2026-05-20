@@ -14,20 +14,38 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://data/atlasedbook.gd"
 }, {
+"base": "Reference",
+"class": "AtlasedBookLoader",
+"language": "GDScript",
+"path": "res://data/atlasedbook_loader.gd"
+}, {
+"base": "Reference",
+"class": "AtlasedBookPageAccess",
+"language": "GDScript",
+"path": "res://data/atlasedbook_pageaccess.gd"
+}, {
 "base": "Node",
 "class": "IPCTaskBase",
 "language": "GDScript",
 "path": "res://ipc/taskbase.gd"
+}, {
+"base": "Control",
+"class": "PageRenderView",
+"language": "GDScript",
+"path": "res://renderer/pagerender.gd"
 } ]
 _global_script_class_icons={
 "AtlasedBook": "",
-"IPCTaskBase": ""
+"AtlasedBookLoader": "",
+"AtlasedBookPageAccess": "",
+"IPCTaskBase": "",
+"PageRenderView": ""
 }
 
 [application]
 
 config/name="testbook"
-run/main_scene="res://entry.tscn"
+run/main_scene="res://app_viewer.tscn"
 config/icon="res://icon.png"
 
 [autoload]

@@ -1,0 +1,41 @@
+[gd_scene load_steps=2 format=2]
+
+[ext_resource path="res://renderer/renderer_options.gd" type="Script" id=1]
+
+[node name="Label" type="VBoxContainer"]
+margin_right = 94.0
+margin_bottom = 592.0
+script = ExtResource( 1 )
+
+[node name="bkg" type="CheckBox" parent="."]
+margin_right = 115.0
+margin_bottom = 16.0
+text = "Background"
+
+[node name="bkgc" type="ColorPickerButton" parent="."]
+margin_top = 20.0
+margin_right = 115.0
+margin_bottom = 46.0
+
+[node name="content" type="CheckBox" parent="."]
+margin_top = 50.0
+margin_right = 115.0
+margin_bottom = 66.0
+text = "Content"
+
+[node name="debug" type="CheckBox" parent="."]
+margin_top = 70.0
+margin_right = 115.0
+margin_bottom = 86.0
+text = "Debug"
+
+[node name="fco" type="CheckBox" parent="."]
+margin_top = 90.0
+margin_right = 115.0
+margin_bottom = 106.0
+text = "Disable Shader"
+
+[node name="Label" type="Label" parent="."]
+margin_top = 110.0
+margin_right = 115.0
+margin_bottom = 124.0

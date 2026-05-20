@@ -1,0 +1,82 @@
+[gd_scene load_steps=6 format=2]
+
+[ext_resource path="res://renderer/pagerender.gd" type="Script" id=1]
+[ext_resource path="res://renderer/pagerendermaterial.tres" type="Material" id=2]
+[ext_resource path="res://renderer/renderer_options.tscn" type="PackedScene" id=3]
+[ext_resource path="res://app_viewer.gd" type="Script" id=4]
+[ext_resource path="res://theming/groupbox.tres" type="StyleBox" id=5]
+
+[node name="Control" type="PanelContainer"]
+material = ExtResource( 2 )
+anchor_right = 1.0
+anchor_bottom = 1.0
+script = ExtResource( 4 )
+
+[node name="VBoxContainer" type="VBoxContainer" parent="."]
+margin_left = 4.0
+margin_top = 4.0
+margin_right = 1020.0
+margin_bottom = 596.0
+
+[node name="HBoxContainer" type="HBoxContainer" parent="VBoxContainer"]
+margin_right = 1016.0
+margin_bottom = 26.0
+
+[node name="LineEdit" type="LineEdit" parent="VBoxContainer/HBoxContainer"]
+unique_name_in_owner = true
+margin_right = 970.0
+margin_bottom = 26.0
+size_flags_horizontal = 3
+size_flags_vertical = 3
+text = "../drawbook/out/book.bytes"
+
+[node name="Button" type="Button" parent="VBoxContainer/HBoxContainer"]
+margin_left = 974.0
+margin_right = 1016.0
+margin_bottom = 26.0
+text = "Load"
+
+[node name="HSplitContainer" type="HSplitContainer" parent="VBoxContainer"]
+margin_top = 30.0
+margin_right = 1016.0
+margin_bottom = 592.0
+rect_clip_content = true
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="VBoxContainer" type="VBoxContainer" parent="VBoxContainer/HSplitContainer"]
+margin_right = 123.0
+margin_bottom = 562.0
+
+[node name="ItemList" type="ItemList" parent="VBoxContainer/HSplitContainer/VBoxContainer"]
+unique_name_in_owner = true
+margin_right = 123.0
+margin_bottom = 426.0
+size_flags_vertical = 3
+
+[node name="PanelContainer" type="PanelContainer" parent="VBoxContainer/HSplitContainer/VBoxContainer"]
+margin_top = 430.0
+margin_right = 123.0
+margin_bottom = 562.0
+custom_styles/panel = ExtResource( 5 )
+
+[node name="Label" parent="VBoxContainer/HSplitContainer/VBoxContainer/PanelContainer" instance=ExtResource( 3 )]
+margin_left = 4.0
+margin_top = 4.0
+margin_right = 119.0
+margin_bottom = 128.0
+target = NodePath("../../../page")
+
+[node name="page" type="Control" parent="VBoxContainer/HSplitContainer"]
+unique_name_in_owner = true
+material = ExtResource( 2 )
+margin_left = 147.0
+margin_right = 1016.0
+margin_bottom = 562.0
+rect_clip_content = true
+focus_mode = 1
+script = ExtResource( 1 )
+
+[connection signal="text_entered" from="VBoxContainer/HBoxContainer/LineEdit" to="." method="_on_LineEdit_text_entered"]
+[connection signal="pressed" from="VBoxContainer/HBoxContainer/Button" to="." method="_on_Button_pressed"]
+[connection signal="item_selected" from="VBoxContainer/HSplitContainer/VBoxContainer/ItemList" to="." method="_on_ItemList_item_selected"]

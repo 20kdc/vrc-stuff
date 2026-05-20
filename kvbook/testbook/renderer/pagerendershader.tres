@@ -1,4 +1,4 @@
-[gd_resource type="VisualShader" load_steps=23 format=2]
+[gd_resource type="VisualShader" load_steps=24 format=2]
 
 [sub_resource type="VisualShaderNodeScalarOp" id=8]
 default_input_values = [ 0, 0.0, 1, 0.5 ]
@@ -59,6 +59,9 @@ source = 2
 [sub_resource type="VisualShaderNodeCompare" id=30]
 function = 2
 
+[sub_resource type="VisualShaderNodeVectorOp" id=31]
+operator = 2
+
 [sub_resource type="VisualShaderNodeInput" id=6]
 input_name = "color"
 
@@ -99,11 +102,14 @@ void fragment() {
 // Input:7
 	vec3 n_out7p0 = COLOR.rgb;
 
+// VectorOp:33
+	vec3 n_out33p0 = n_out3p0 * n_out7p0;
+
 // VectorSwitch:30
 	vec3 n_out30p0;
 	if(n_out32p0)
 	{
-		n_out30p0 = n_out3p0;
+		n_out30p0 = n_out33p0;
 	}
 	else
 	{
@@ -185,14 +191,14 @@ void light() {
 
 }
 "
-graph_offset = Vector2( -760.419, 614.502 )
+graph_offset = Vector2( 5.80017, -172.101 )
 mode = 1
 flags/light_only = false
 nodes/fragment/0/position = Vector2( 1240, 60 )
 nodes/fragment/3/node = SubResource( 1 )
 nodes/fragment/3/position = Vector2( -200, 140 )
 nodes/fragment/7/node = SubResource( 6 )
-nodes/fragment/7/position = Vector2( 840, 160 )
+nodes/fragment/7/position = Vector2( 540, 140 )
 nodes/fragment/8/node = SubResource( 9 )
 nodes/fragment/8/position = Vector2( 40, 240 )
 nodes/fragment/11/node = SubResource( 8 )
@@ -233,4 +239,6 @@ nodes/fragment/31/node = SubResource( 29 )
 nodes/fragment/31/position = Vector2( 1120, 260 )
 nodes/fragment/32/node = SubResource( 30 )
 nodes/fragment/32/position = Vector2( 340, 80 )
-nodes/fragment/connections = PoolIntArray( 15, 0, 16, 0, 14, 0, 16, 1, 16, 0, 13, 0, 17, 0, 18, 0, 8, 0, 19, 0, 19, 0, 11, 0, 17, 1, 18, 1, 13, 0, 21, 0, 21, 0, 17, 0, 24, 0, 25, 0, 3, 1, 8, 0, 20, 0, 19, 1, 11, 0, 27, 0, 27, 0, 25, 1, 3, 0, 28, 0, 29, 0, 26, 0, 30, 0, 0, 0, 7, 0, 30, 2, 3, 0, 30, 1, 31, 0, 0, 1, 25, 0, 31, 2, 3, 1, 31, 1, 28, 2, 32, 0, 32, 0, 30, 0, 32, 0, 31, 0, 18, 0, 20, 0, 26, 0, 20, 1 )
+nodes/fragment/33/node = SubResource( 31 )
+nodes/fragment/33/position = Vector2( 720, -20 )
+nodes/fragment/connections = PoolIntArray( 15, 0, 16, 0, 14, 0, 16, 1, 16, 0, 13, 0, 17, 0, 18, 0, 8, 0, 19, 0, 19, 0, 11, 0, 17, 1, 18, 1, 13, 0, 21, 0, 21, 0, 17, 0, 24, 0, 25, 0, 3, 1, 8, 0, 20, 0, 19, 1, 11, 0, 27, 0, 27, 0, 25, 1, 3, 0, 28, 0, 29, 0, 26, 0, 30, 0, 0, 0, 7, 0, 30, 2, 31, 0, 0, 1, 25, 0, 31, 2, 3, 1, 31, 1, 28, 2, 32, 0, 32, 0, 30, 0, 32, 0, 31, 0, 18, 0, 20, 0, 26, 0, 20, 1, 3, 0, 33, 0, 7, 0, 33, 1, 33, 0, 30, 1 )
