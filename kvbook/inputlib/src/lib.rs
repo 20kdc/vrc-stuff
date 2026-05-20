@@ -99,7 +99,11 @@ impl InputOpts {
             .spawn()
             .map_err(|v| format!("spawn mutool '{}': {:?}", mutool, v))?;
         let mut s = String::new();
-        child.stderr.unwrap().read_to_string(&mut s).map_err(|v| format!("read mutool output '{}': {:?}", mutool, v))?;
+        child
+            .stderr
+            .unwrap()
+            .read_to_string(&mut s)
+            .map_err(|v| format!("read mutool output '{}': {:?}", mutool, v))?;
         if let Some(cut) = s.find('\n') {
             s.truncate(cut);
         }
@@ -107,9 +111,15 @@ impl InputOpts {
     }
 }
 
+/// Read SVG(s). Note that if we see NUL, we separate by this.
+/// This is so that a single file can be written with all the SVGs in it.
 pub fn read_svg(path: &str, _opts: &InputOpts) -> Result<Box<dyn Iterator<Item = String>>, String> {
     let s = std::fs::read_to_string(path).map_err(|v| format!("read SVG {:?}", v))?;
-    Ok(Box::new(Some(s).into_iter()))
+    let mut total = Vec::new();
+    for v in s.split('\x00') {
+        total.push(v.to_string());
+    }
+    Ok(Box::new(total.into_iter()))
 }
 
 /// Reads from a path.

@@ -11,8 +11,8 @@ func _on_Button_pressed():
 	reload_book()
 
 func reload_book():
-	var le := $"%LineEdit"
-	book = AtlasedBookLoader.load(le.text, le.text.ends_with(".png"))
+	var le := $"%filebox"
+	book = AtlasedBookLoader.load(le.path, le.path.ends_with(".png"))
 	page_count = 0
 	if book != null:
 		page_count = book.page_count
@@ -35,5 +35,5 @@ func _on_ItemList_item_selected(index):
 	current_page = index
 	page_update()
 
-func _on_LineEdit_text_entered(_new_text):
+func _on_filebox_file_selected(_path):
 	reload_book()

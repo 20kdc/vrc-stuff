@@ -1,12 +1,51 @@
-[gd_scene format=2]
+[gd_scene load_steps=3 format=2]
+
+[ext_resource path="res://renderer/pagerender.gd" type="Script" id=1]
+[ext_resource path="res://renderer/renderer_options.tscn" type="PackedScene" id=2]
 
 [node name="app_processor" type="PanelContainer"]
 anchor_right = 1.0
 anchor_bottom = 1.0
 
-[node name="Label" type="Label" parent="."]
+[node name="HSplitContainer" type="HSplitContainer" parent="."]
 margin_left = 4.0
-margin_top = 293.0
+margin_top = 4.0
 margin_right = 1020.0
-margin_bottom = 307.0
-text = "todo"
+margin_bottom = 596.0
+
+[node name="VBoxContainer" type="VBoxContainer" parent="HSplitContainer"]
+margin_bottom = 592.0
+
+[node name="HBoxContainer" type="HBoxContainer" parent="HSplitContainer"]
+margin_left = 24.0
+margin_right = 1016.0
+margin_bottom = 592.0
+
+[node name="VBoxContainer" type="VBoxContainer" parent="HSplitContainer/HBoxContainer"]
+margin_right = 123.0
+margin_bottom = 592.0
+
+[node name="Label2" type="Label" parent="HSplitContainer/HBoxContainer/VBoxContainer"]
+margin_right = 123.0
+margin_bottom = 14.0
+text = "preview"
+align = 1
+
+[node name="ItemList" type="ItemList" parent="HSplitContainer/HBoxContainer/VBoxContainer"]
+margin_top = 18.0
+margin_right = 123.0
+margin_bottom = 456.0
+size_flags_vertical = 3
+
+[node name="Label" parent="HSplitContainer/HBoxContainer/VBoxContainer" instance=ExtResource( 2 )]
+margin_top = 460.0
+margin_right = 123.0
+target = NodePath("../../PageRenderView")
+
+[node name="PageRenderView" type="Control" parent="HSplitContainer/HBoxContainer"]
+margin_left = 127.0
+margin_right = 992.0
+margin_bottom = 592.0
+size_flags_horizontal = 3
+size_flags_vertical = 3
+script = ExtResource( 1 )

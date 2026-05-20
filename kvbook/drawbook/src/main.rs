@@ -139,6 +139,7 @@ fn do_help() {
     println!("");
     println!("IPC INTERNAL");
     println!(" --ipc-test: immediately exits with test information");
+    println!(" --ipc-inputlib: stop immediately after pagesep and write SVGs");
     println!("");
     std::process::exit(0);
 }
@@ -157,6 +158,20 @@ enum InputNote {
     /// Volumes are converted into 'end volume' commands.
     EndVolume(String),
     Input(String, inputlib::InputOpts),
+}
+
+/// This exists so that the IPC protocol can avoid writing files.
+/// Writing files is expensive on Windows because it's a bad OS.
+fn write_file(outdir: &Option<String>, filename: &str, data: &[u8]) {
+    if let Some(outdir) = outdir {
+        std::fs::write(&format!("{}/{}", outdir, filename), data).unwrap();
+    } else {
+        println!("{}", filename);
+        println!(
+            "{}",
+            base64::Engine::encode(&base64::engine::general_purpose::STANDARD, data)
+        )
+    }
 }
 
 fn main() {
@@ -197,6 +212,8 @@ fn main() {
     let mut debug_dump_shapes_late = false;
     let mut debug_bigbox = false;
     let mut debug_noclip = false;
+    // ipc
+    let mut ipc_inputlib = false;
     // files
     let mut current_volume: String = "book".to_string();
     let mut inputs: Vec<InputNote> = Vec::new();
@@ -324,6 +341,8 @@ fn main() {
                         }
                     }
                     return;
+                } else if v.eq("ipc-inputlib") {
+                    ipc_inputlib = true;
                 } else {
                     panic!("unknown long arg {}, try --help", v);
                 }
@@ -354,8 +373,12 @@ fn main() {
     // -- options locked in --
     // end current volume
     inputs.push(InputNote::EndVolume(current_volume));
-    let outdir = outdir.expect("outdir REQUIRED");
-    _ = std::fs::create_dir_all(&outdir);
+
+    // create outdir
+    if let Some(outdir) = &outdir {
+        _ = std::fs::create_dir_all(outdir);
+    }
+
     let render_opts = RenderOpts {
         outdir: outdir.clone(),
         no_fullcolour,
@@ -393,6 +416,15 @@ fn main() {
                 }
             }
         }
+    }
+    // stop here if inputlib mode
+    if ipc_inputlib {
+        for v in input_pages.iter().enumerate() {
+            write_file(&outdir, &format!("{}.svg", v.0), v.1.1.as_bytes());
+        }
+        // make IPC stop looking for files
+        println!("STATISTICS");
+        return;
     }
     // -- SVG rendering --
     ProgressImpl.stage("rendering");
@@ -459,8 +491,8 @@ fn main() {
         ProgressImpl.stage("atlasing...");
         let res = highlevel::atlas_web(metadata_override, &sdf_shapes, &pages, &ProgressImpl)
             .expect("web should succeed");
-        std::fs::write(&format!("{}/atlas.0.png", outdir), res.0).unwrap();
-        std::fs::write(&format!("{}/book.bytes", outdir), res.1).unwrap();
+        write_file(&outdir, "atlas.0.png", &res.0);
+        write_file(&outdir, "book.bytes", &res.1);
     } else {
         // -- Atlasing --
         ProgressImpl.stage("atlasing...");
@@ -480,11 +512,11 @@ fn main() {
         for (atlas_id, atlas_builder) in atlas_builders.iter().enumerate() {
             let atlas_pix = atlas_builder.render(&sdf_shapes);
             total_pixels += (atlas_pix.size().0 * atlas_pix.size().1) as u64;
-            std::fs::write(
-                &format!("{}/atlas.{}.png", outdir, atlas_id),
-                raster_png(&atlas_pix),
-            )
-            .unwrap();
+            write_file(
+                &outdir,
+                &format!("atlas.{}.png", atlas_id),
+                &raster_png(&atlas_pix),
+            );
         }
 
         ProgressImpl.stage("emit...");
@@ -505,15 +537,15 @@ fn main() {
 
             let emitted = book_atlased.emit();
             emitted_len += emitted.len();
-            std::fs::write(&format!("{}/{}.bytes", outdir, volume_name), emitted).unwrap();
+            write_file(&outdir, &format!("{}.bytes", volume_name), &emitted);
 
             if !no_dae {
                 for i in 0..book_atlased.pages.len() {
-                    std::fs::write(
-                        &format!("{}/{}.{}.dae", outdir, volume_name, i),
-                        booklib::collada::collada_write(&[book_atlased.page_dae(i)]),
-                    )
-                    .unwrap();
+                    write_file(
+                        &outdir,
+                        &format!("{}.{}.dae", volume_name, i),
+                        booklib::collada::collada_write(&[book_atlased.page_dae(i)]).as_bytes(),
+                    );
                     ProgressImpl.status(&format!(
                         " {:<24} DAE ({:>3}%)",
                         volume_name,
@@ -524,6 +556,8 @@ fn main() {
         }
 
         ProgressImpl.alert("book completed");
+        // IPC has to be aware of this string
+        println!("STATISTICS");
         println!("atlases: {}", book_atlased.atlases.len());
         println!("pages: {}", pages_atlased.len());
         println!(

@@ -4,7 +4,7 @@ use rayon::prelude::*;
 use tiny_skia::Pixmap;
 
 pub struct RenderOpts {
-    pub outdir: String,
+    pub outdir: Option<String>,
     pub no_fullcolour: bool,
     pub fullcolour_blue: u8,
     pub sdf_border: u32,
@@ -90,10 +90,12 @@ impl SVGRenderable {
                 &mut temp_canvas.as_mut(),
             ) {
                 if opts.debug_dse {
-                    _ = std::fs::write(
-                        format!("{}/debug.dse.p{}.s{}.png", opts.outdir, page_idx, j),
-                        temp_canvas.encode_png().unwrap(),
-                    );
+                    if let Some(outdir) = &opts.outdir {
+                        _ = std::fs::write(
+                            format!("{}/debug.dse.p{}.s{}.png", outdir, page_idx, j),
+                            temp_canvas.encode_png().unwrap(),
+                        );
+                    }
                 }
                 let sps = if opts.sdf_everything {
                     ShapifyStrategy::AlphaClippedColourAverage

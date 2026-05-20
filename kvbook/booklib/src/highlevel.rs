@@ -10,7 +10,7 @@ use std::borrow::Cow;
 
 pub struct GenSDFShapesInput<'a> {
     pub shape_lookup: &'a DBShapeLookup,
-    pub outdir: &'a str,
+    pub outdir: &'a Option<String>,
     pub debug_dump_shapes_late: bool,
     pub sdf_downscale: usize,
     pub scaler: RasterScaler,
@@ -27,11 +27,13 @@ pub fn gen_sdf_shapes(opt: GenSDFShapesInput, progress: &dyn Progress) -> Vec<At
         .enumerate()
         .map(|(shape_id, shape)| {
             if opt.debug_dump_shapes_late {
-                let downscale_check_canvas = shape.to_pixmap();
-                _ = std::fs::write(
-                    format!("{}/debug.s{}.png", opt.outdir, shape_id),
-                    downscale_check_canvas.encode_png().unwrap(),
-                );
+                if let Some(outdir) = opt.outdir {
+                    let downscale_check_canvas = shape.to_pixmap();
+                    _ = std::fs::write(
+                        format!("{}/debug.s{}.png", outdir, shape_id),
+                        downscale_check_canvas.encode_png().unwrap(),
+                    );
+                }
             }
 
             // Convert from render units into reference units.
@@ -48,10 +50,12 @@ pub fn gen_sdf_shapes(opt: GenSDFShapesInput, progress: &dyn Progress) -> Vec<At
 
                     let sdfq = sdf_to_pixmap(&shape_sdf, (step as i32).max(1));
                     if opt.debug_dump_shapes_late {
-                        _ = std::fs::write(
-                            format!("{}/debug.s{}.sdf.png", opt.outdir, shape_id),
-                            raster_png(&sdfq),
-                        );
+                        if let Some(outdir) = opt.outdir {
+                            _ = std::fs::write(
+                                format!("{}/debug.s{}.sdf.png", outdir, shape_id),
+                                raster_png(&sdfq),
+                            );
+                        }
                     }
                     Cow::Owned(sdfq)
                 }

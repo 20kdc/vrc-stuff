@@ -10,18 +10,18 @@ pub struct ProgressImpl;
 impl booklib::progress::Progress for ProgressImpl {
     fn stage(&self, stage: &'static str) {
         let mut lock = STAGE_CURRENT.lock().unwrap();
-        let mut stdout = std::io::stdout().lock();
+        let mut stdout = std::io::stderr().lock();
         _ = write!(stdout, "\n{}", stage);
         _ = stdout.flush();
         *lock = stage;
     }
     fn status(&self, status: &str) {
-        let mut stdout = std::io::stdout().lock();
+        let mut stdout = std::io::stderr().lock();
         _ = write!(stdout, "\r{}{} ", *STAGE_CURRENT.lock().unwrap(), status);
         _ = stdout.flush();
     }
     fn alert(&self, status: &str) {
-        let mut stdout = std::io::stdout().lock();
+        let mut stdout = std::io::stderr().lock();
         _ = write!(stdout, "\n ** {} **\n", status);
         _ = stdout.flush();
     }

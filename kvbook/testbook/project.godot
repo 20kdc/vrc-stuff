@@ -25,6 +25,11 @@ _global_script_classes=[ {
 "path": "res://data/atlasedbook_pageaccess.gd"
 }, {
 "base": "Node",
+"class": "FileBox",
+"language": "GDScript",
+"path": "res://controls/filebox.gd"
+}, {
+"base": "Node",
 "class": "IPCTaskBase",
 "language": "GDScript",
 "path": "res://ipc/taskbase.gd"
@@ -43,6 +48,7 @@ _global_script_class_icons={
 "AtlasedBook": "",
 "AtlasedBookLoader": "",
 "AtlasedBookPageAccess": "",
+"FileBox": "",
 "IPCTaskBase": "",
 "IPCTaskTest": "",
 "PageRenderView": ""
