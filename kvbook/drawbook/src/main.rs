@@ -136,6 +136,10 @@ fn do_help() {
     println!(" --debug-bigbox: runs all renders in page AABB to debug transform issues");
     println!(" --debug-noclip: disables renderer page bounds clipping");
     println!(" --debug-scaler-internal: downscales using internal box filter");
+    println!("");
+    println!("IPC INTERNAL");
+    println!(" --ipc-test: immediately exits with test information");
+    println!("");
     std::process::exit(0);
 }
 
@@ -303,6 +307,23 @@ fn main() {
                     debug_noclip = true;
                 } else if v.eq("debug-scaler-internal") {
                     scaler = RasterScaler::Internal;
+                } else if v.eq("ipc-test") {
+                    // INVOKE-OK is a magic string which tells the caller that we are at least responding.
+                    println!("Hello from drawbook Rust binary (INVOKE-OK)");
+                    let my_mutool = inopt.find_mutool();
+                    println!("MuPDF mutool: {}", my_mutool);
+                    println!("Testing version...");
+                    match inopt.mutool_version() {
+                        Err(err) => {
+                            println!("ERROR: {}", err);
+                            println!(" *** Only SVG support is available ***");
+                        }
+                        Ok(ok) => {
+                            println!("OK: {}", ok);
+                            println!(" *** ALL SYSTEMS GO ***");
+                        }
+                    }
+                    return;
                 } else {
                     panic!("unknown long arg {}, try --help", v);
                 }

@@ -45,4 +45,4 @@ margin_bottom = 224.0
 text = "Processor"
 icon = ExtResource( 4 )
 script = ExtResource( 3 )
-app_path = "res://app_processor.tscn"
+app_path = "res://app_processor_test.tscn"

@@ -23,3 +23,7 @@ func find_me():
 		if f.file_exists(v):
 			return v
 	return null
+
+func launch_task(task: IPCTaskBase, who, what: String, binds = []):
+	task.connect("completed", who, what, binds)
+	add_child(task)

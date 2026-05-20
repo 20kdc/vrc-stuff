@@ -88,6 +88,23 @@ impl InputOpts {
         }
         "mutool".to_string()
     }
+
+    pub fn mutool_version(&self) -> Result<String, String> {
+        let mutool = self.find_mutool();
+        let mut cmd = std::process::Command::new(&mutool);
+        cmd.arg("--version");
+        cmd.stdout(std::process::Stdio::null());
+        cmd.stderr(std::process::Stdio::piped());
+        let child = cmd
+            .spawn()
+            .map_err(|v| format!("spawn mutool '{}': {:?}", mutool, v))?;
+        let mut s = String::new();
+        child.stderr.unwrap().read_to_string(&mut s).map_err(|v| format!("read mutool output '{}': {:?}", mutool, v))?;
+        if let Some(cut) = s.find('\n') {
+            s.truncate(cut);
+        }
+        Ok(s)
+    }
 }
 
 pub fn read_svg(path: &str, _opts: &InputOpts) -> Result<Box<dyn Iterator<Item = String>>, String> {
