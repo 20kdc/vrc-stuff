@@ -8,15 +8,40 @@
 
 config_version=4
 
+_global_script_classes=[ {
+"base": "Reference",
+"class": "AtlasedBook",
+"language": "GDScript",
+"path": "res://data/atlasedbook.gd"
+}, {
+"base": "Node",
+"class": "IPCTaskBase",
+"language": "GDScript",
+"path": "res://ipc/taskbase.gd"
+} ]
+_global_script_class_icons={
+"AtlasedBook": "",
+"IPCTaskBase": ""
+}
+
 [application]
 
 config/name="testbook"
 run/main_scene="res://entry.tscn"
 config/icon="res://icon.png"
 
+[autoload]
+
+Drawbook="*res://ipc/drawbook.gd"
+
+[debug]
+
+gdscript/warnings/integer_division=false
+
 [gui]
 
 common/drop_mouse_on_gui_input_disabled=true
+theme/custom="res://theming/theme.tres"
 
 [physics]
 
