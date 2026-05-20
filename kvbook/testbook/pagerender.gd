@@ -6,31 +6,15 @@ const SPRITE_SIZE: int = 8
 var page: int = 0
 var book: AtlasedBook
 var page_count: int
-var atlases: Dictionary
 var shapes: Dictionary
 var debug: bool = false
-
-func get_atlas(i: int) -> ImageTexture:
-	if atlases.has(i):
-		return atlases[i]
-	var img := Image.new()
-	if img.load("../drawbook/out/atlas." + str(i) + ".png") != OK:
-		return null
-	var atlas = ImageTexture.new()
-	atlas.create_from_image(img, Texture.FLAG_FILTER)
-	atlases[i] = atlas
-	return atlas
 
 func _ready():
 	reload()
 
 func reload():
-	var file = File.new()
-	file.open("../drawbook/out/book.bytes", File.READ)
-	var all_data = file.get_buffer(file.get_len())
-	book = AtlasedBook.new(all_data)
+	book = AtlasedBook.new("../drawbook/out/book.bytes", false)
 	print("file version: 0x%x" % [book.version])
-	atlases = {}
 	shapes = {}
 
 func _gui_input(event):
@@ -69,13 +53,12 @@ func _draw():
 		_drawpass(1)
 
 func _drawpass(drawpass: int):
-	var page_info: Dictionary = book.pages[page]
-	var buf := book.buf
-	buf.seek(page_info["sprites_ofs"])
-	var page_sprites: int = page_info["sprites_count"]
-	var atlas_id: int = page_info["atlas_id"]
-	var page_size: Vector2 = page_info["size"]
-	for v in range(page_sprites):
+	var atlas_id := book.page_atlases[page]
+	var page_size := book.page_sizes[page]
+	var buf := StreamPeerBuffer.new()
+	buf.big_endian = false
+	buf.data_array = book.page_sprites[page]
+	for _v in range(buf.get_size() / 8):
 		# read sprite details
 		var shape_id = buf.get_16() & 0xFFFF
 		var tlx = float(((buf.get_16() + 0x8000) & 0xFFFF) - 0x8000) / 32767.0
@@ -84,11 +67,11 @@ func _drawpass(drawpass: int):
 		var colour_index = buf.get_16() & 0xFFFFF
 		var mod = book.palette[colour_index]
 		# get shape
-		var shape_info: Array = book.atlases[atlas_id][shape_id]
+		var shape_info: Array = book.atlas_shapes[atlas_id][shape_id]
 		var src: Rect2 = shape_info[0]
 		var size: Vector2 = shape_info[1]
-		var atlas = get_atlas(atlas_id)
-		src = Rect2(src.position * atlas.get_size(), src.size * atlas.get_size())
+		var atlas = book.atlas_textures[atlas_id]
+		src = Rect2(src.position, src.size)
 		# target region
 		var targ := Rect2(tl, size)
 		# actual draw code
