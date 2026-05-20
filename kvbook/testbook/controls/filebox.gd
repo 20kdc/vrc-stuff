@@ -26,6 +26,6 @@ func _on_Button2_pressed():
 	$FileDialog.current_file = path.get_file()
 	$FileDialog.popup_centered(get_viewport().size / 2)
 
-func _on_FileDialog_file_selected(path):
-	set_path(path)
-	emit_signal("file_selected", path)
+func _on_FileDialog_file_selected(p2):
+	set_path(p2)
+	emit_signal("file_selected", p2)

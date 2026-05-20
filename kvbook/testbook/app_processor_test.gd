@@ -2,7 +2,7 @@ extends PanelContainer
 
 func _ready():
 	$"%Device".text += "\ndrawbook: " + Drawbook.find_me() + "\n"
-	Drawbook.launch_task(IPCTaskTest.new(), self, "done")
+	$task_test.submit(IPCTaskTest.new(), self, "done")
 
 func done(result):
 	var fail = null

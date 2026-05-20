@@ -4,6 +4,7 @@ extends Node
 
 const DEBUG_ON_MAIN_THREAD = false
 
+var description: String = "Observing"
 var thread: Thread
 
 signal completed(val)
@@ -21,6 +22,25 @@ func _ready_intern(_userdata):
 # Implement task here!
 func _task():
 	pass
+
+func files_parse(output: Array) -> Dictionary:
+	var res2 := ""
+	if output.size() > 0:
+		res2 = output[0]
+	var fn = null
+	var total := {}
+	for line in res2.split("\n"):
+		var linex: String = line
+		linex = linex.strip_edges()
+		if linex == "STATISTICS":
+			break
+		elif fn == null:
+			if linex != "":
+				fn = linex
+		else:
+			total[fn] = Marshalls.base64_to_raw(linex)
+			fn = null
+	return total
 
 func _process(_delta):
 	if thread != null and thread.is_active() and not thread.is_alive():

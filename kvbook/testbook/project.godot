@@ -30,9 +30,19 @@ _global_script_classes=[ {
 "path": "res://controls/filebox.gd"
 }, {
 "base": "Node",
+"class": "IPCCancellableTask",
+"language": "GDScript",
+"path": "res://ipc/cancellable_task.gd"
+}, {
+"base": "Node",
 "class": "IPCTaskBase",
 "language": "GDScript",
 "path": "res://ipc/taskbase.gd"
+}, {
+"base": "IPCTaskBase",
+"class": "IPCTaskCompile",
+"language": "GDScript",
+"path": "res://ipc/task_compile.gd"
 }, {
 "base": "IPCTaskBase",
 "class": "IPCTaskTest",
@@ -49,7 +59,9 @@ _global_script_class_icons={
 "AtlasedBookLoader": "",
 "AtlasedBookPageAccess": "",
 "FileBox": "",
+"IPCCancellableTask": "",
 "IPCTaskBase": "",
+"IPCTaskCompile": "",
 "IPCTaskTest": "",
 "PageRenderView": ""
 }

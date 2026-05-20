@@ -2,8 +2,11 @@
 # This singleton must live!
 extends Node
 
-var task_queue := []
-var has_current_task = false
+var current_task = null
+
+var last_task_id: int = 0
+
+signal current_task_updated()
 
 func get_project_or_executable_path():
 	if OS.has_feature("editor"):
@@ -27,13 +30,27 @@ func find_me():
 			return v
 	return null
 
-func launch_task(task: IPCTaskBase, who, what: String, binds = []):
+func alloc_task_id() -> int:
+	last_task_id += 1
+	return last_task_id
+
+# Tries to launch a task.
+# This may fail if a task is already running.
+# Use an IPCCancellableTask wrapper for eventual execution.
+func try_task(task: IPCTaskBase, who, what: String, binds = []) -> bool:
+	if current_task != null:
+		return false
+	current_task = "Running: " + task.description
 	task.connect("completed", who, what, binds)
-	task_queue.push_back(task)
+	task.connect("completed", self, "_clear_current_task")
+	add_child(task)
+	emit_signal("current_task_updated")
+	return true
 
 func _clear_current_task(_ignore):
 	workspace_clear()
-	has_current_task = false
+	current_task = null
+	emit_signal("current_task_updated")
 
 func _ready():
 	print("workspace manager booting @ " + OS.get_user_data_dir())
@@ -41,15 +58,6 @@ func _ready():
 	dir.open("user://")
 	dir.make_dir_recursive("TempFilesWillBeDeleted")
 	workspace_clear()
-
-func _process(_delta):
-	if not has_current_task:
-		if task_queue.size() > 0:
-			var task = task_queue[0]
-			task_queue.remove(0)
-			has_current_task = true
-			task.connect("completed", self, "_clear_current_task")
-			add_child(task)
 
 func workspace_clear():
 	var dir := Directory.new()
