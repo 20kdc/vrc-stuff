@@ -22,6 +22,8 @@ func reload_book():
 	page_update()
 
 func page_update():
+	if current_page >= 0 and current_page < page_count:
+		$"%ItemList".select(current_page)
 	var page: PageRenderView = $"%page"
 	if book != null:
 		page.page = AtlasedBookPageAccess.new(book, current_page)
