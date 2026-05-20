@@ -2,10 +2,10 @@ class_name AtlasedBookPageAccess
 extends Reference
 
 var book: AtlasedBook
-var buf := StreamPeerBuffer.new()
 
 var atlas_id: int
 var page_size: Vector2
+var sprite_ofs: int
 var sprite_count: int
 
 var sprite_shape_id: int
@@ -24,12 +24,12 @@ func _init(bk: AtlasedBook, page: int):
 		# in-range
 		atlas_id = bk.page_atlases[page]
 		page_size = bk.page_sizes[page]
-		buf.big_endian = false
-		buf.data_array = bk.page_sprites[page]
-		sprite_count = buf.get_size() / 8
+		sprite_ofs = bk.page_sprites_ofs[page]
+		sprite_count = bk.page_sprites_count[page]
 
 func read_sprite(sprite: int):
-	buf.seek(sprite * 8)
+	var buf := book.buf
+	buf.seek(sprite_ofs + (sprite * 8))
 	# read sprite details
 	sprite_shape_id = buf.get_16() & 0xFFFF
 	var tlx = float(((buf.get_16() + 0x8000) & 0xFFFF) - 0x8000) / 32767.0

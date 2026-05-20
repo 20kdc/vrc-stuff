@@ -1,10 +1,11 @@
-[gd_scene load_steps=6 format=2]
+[gd_scene load_steps=7 format=2]
 
 [ext_resource path="res://theming/desktop.tres" type="StyleBox" id=1]
 [ext_resource path="res://theming/book_ico.png" type="Texture" id=2]
 [ext_resource path="res://app_starter.gd" type="Script" id=3]
 [ext_resource path="res://theming/proc_ico.png" type="Texture" id=4]
 [ext_resource path="res://theming/word.png" type="Texture" id=5]
+[ext_resource path="res://mt_debug.gd" type="Script" id=6]
 
 [node name="Control" type="PanelContainer"]
 anchor_right = 1.0
@@ -17,9 +18,9 @@ margin_bottom = 600.0
 
 [node name="HBoxContainer" type="VBoxContainer" parent="HFlowContainer"]
 margin_left = 456.0
-margin_top = 188.0
+margin_top = 178.0
 margin_right = 567.0
-margin_bottom = 412.0
+margin_bottom = 422.0
 
 [node name="TextureRect" type="TextureRect" parent="HFlowContainer/HBoxContainer"]
 margin_right = 111.0
@@ -46,3 +47,10 @@ text = "Processor"
 icon = ExtResource( 4 )
 script = ExtResource( 3 )
 app_path = "res://app_processor_test.tscn"
+
+[node name="CheckBox" type="CheckBox" parent="HFlowContainer/HBoxContainer"]
+margin_top = 228.0
+margin_right = 111.0
+margin_bottom = 244.0
+text = "MT_DEBUG"
+script = ExtResource( 6 )

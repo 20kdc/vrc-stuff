@@ -2,15 +2,13 @@
 class_name IPCTaskBase
 extends Node
 
-const DEBUG_ON_MAIN_THREAD = false
-
 var description: String = "Observing"
 var thread: Thread
 
 signal completed(val)
 
 func _ready():
-	if DEBUG_ON_MAIN_THREAD:
+	if Drawbook.debug_on_main_thread:
 		emit_signal("completed", _task())
 	else:
 		thread = Thread.new()
@@ -23,24 +21,27 @@ func _ready_intern(_userdata):
 func _task():
 	pass
 
-func files_parse(output: Array) -> Dictionary:
-	var res2 := ""
-	if output.size() > 0:
-		res2 = output[0]
-	var fn = null
-	var total := {}
-	for line in res2.split("\n"):
-		var linex: String = line
-		linex = linex.strip_edges()
-		if linex == "STATISTICS":
+# 'Pile' format stops Godot from crashing due to stdio overwhelming pool vectors
+func read_pile(path: String) -> Dictionary:
+	var f := File.new()
+	var dict := {}
+	if f.open(path, File.READ) != OK:
+		return dict
+	var metadata := PoolByteArray()
+	while true:
+		var x = f.get_buffer(1)
+		if len(x) != 1:
 			break
-		elif fn == null:
-			if linex != "":
-				fn = linex
-		else:
-			total[fn] = Marshalls.base64_to_raw(linex)
-			fn = null
-	return total
+		if x[0] == 0:
+			break
+		metadata.push_back(x[0])
+	var metadata_json = metadata.get_string_from_utf8()
+	var parse := JSON.parse(metadata_json)
+	if typeof(parse.result) == TYPE_ARRAY:
+		for v in parse.result:
+			var buf = f.get_buffer(v[1])
+			dict[v[0]] = Marshalls.raw_to_base64(buf)
+	return dict
 
 func _process(_delta):
 	if thread != null and thread.is_active() and not thread.is_alive():

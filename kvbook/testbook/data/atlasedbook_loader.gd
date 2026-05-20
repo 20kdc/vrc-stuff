@@ -5,26 +5,12 @@ const LUMP_METADATA = 0
 const LUMP_PALETTE = 1
 const LUMP_ATLAS0 = 2
 
-static func load(path: String, web: bool):
-	var f := StreamPeerBuffer.new()
-	f.big_endian = false
+func get_atlas(_idx: int) -> Image:
+	return null
 
-	var web_image: Image = null
-	if web:
-		web_image = Image.new()
-		if web_image.load(path) != OK:
-			return null
-		f.data_array = web_image.data["data"]
-	else:
-		var file := File.new()
-		if file.open(path, File.READ) != OK:
-			return null
-		f.data_array = file.get_buffer(file.get_len())
-		file.close()
-
-	var path_base_dir := path.get_base_dir()
-
+func load_data(f: StreamPeerBuffer):
 	var res := AtlasedBook.new()
+	res.buf = f
 
 	var atlas_count = f.get_16() & 0xFFFF
 	res.version = f.get_16() & 0xFFFF
@@ -47,7 +33,7 @@ static func load(path: String, web: bool):
 		var cg := f.get_8() & 0xFF
 		var cb := f.get_8() & 0xFF
 		var ca := f.get_8() & 0xFF
-		res.palette_add(Color8(cr, cg, cb, ca))
+		res.palette.push_back(Color8(cr, cg, cb, ca))
 
 	# read atlases
 	for atlas in range(atlas_count):
@@ -56,12 +42,7 @@ static func load(path: String, web: bool):
 		var this_atlas_shapes = []
 		var shape_count = lump_len[atlas_lump] / 16
 
-		var img: Image = null
-		if web_image != null:
-			img = web_image
-		else:
-			img = Image.new()
-			img.load(path_base_dir + "/atlas." + str(atlas) + ".png")
+		var img: Image = get_atlas(atlas)
 
 		var itex: ImageTexture = ImageTexture.new()
 		itex.create_from_image(img, 4)
@@ -92,7 +73,9 @@ static func load(path: String, web: bool):
 		var atlas_id := f.get_8() & 0xFF
 		var page_w := f.get_float()
 		var page_h := f.get_float()
-		var sprites: PoolByteArray = f.get_data(page_lump_len - 9)[1]
-		res.page_add(atlas_id, Vector2(page_w, page_h), sprites)
+		res.page_atlases.push_back(atlas_id)
+		res.page_sizes.push_back(Vector2(page_w, page_h))
+		res.page_sprites_ofs.push_back(f.get_position())
+		res.page_sprites_count.push_back((page_lump_len - 9) / 8)
 
 	return res

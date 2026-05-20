@@ -1,3 +1,4 @@
+mod fileout;
 mod progress;
 mod render_svg;
 
@@ -7,6 +8,7 @@ use booklib::highlevel;
 use booklib::progress::*;
 use booklib::raster_helpers::*;
 use booklib::rendered::*;
+use fileout::*;
 use lexopt::ValueExt;
 use progress::ProgressImpl;
 use render_svg::*;
@@ -140,6 +142,7 @@ fn do_help() {
     println!("IPC INTERNAL");
     println!(" --ipc-test: immediately exits with test information");
     println!(" --ipc-inputlib: stop immediately after pagesep and write SVGs");
+    println!(" --ipc-pile FILE: like outdir, but IPC-friendly 'pile file'");
     println!("");
     std::process::exit(0);
 }
@@ -160,24 +163,10 @@ enum InputNote {
     Input(String, inputlib::InputOpts),
 }
 
-/// This exists so that the IPC protocol can avoid writing files.
-/// Writing files is expensive on Windows because it's a bad OS.
-fn write_file(outdir: &Option<String>, filename: &str, data: &[u8]) {
-    if let Some(outdir) = outdir {
-        std::fs::write(&format!("{}/{}", outdir, filename), data).unwrap();
-    } else {
-        println!("{}", filename);
-        println!(
-            "{}",
-            base64::Engine::encode(&base64::engine::general_purpose::STANDARD, data)
-        )
-    }
-}
-
 fn main() {
     // -- options --
     // output
-    let mut outdir: Option<String> = None;
+    let mut outdir: Option<Fileout> = None;
     let mut no_dae = false;
     let mut no_fullcolour = false;
     let mut fullcolour_blue: u8 = FULLCOLOUR_BLUE_DEFAULT;
@@ -225,13 +214,13 @@ fn main() {
         match arg {
             lexopt::Arg::Short(v) => {
                 if v.eq(&'o') {
-                    outdir = Some(
+                    outdir = Some(Fileout::Dir(
                         arg_parser
                             .value()
                             .expect("-o should have parameter")
                             .to_string_lossy()
                             .to_string(),
-                    );
+                    ));
                 } else if v.eq(&'m') {
                     inopt.mudraw_opts.push(
                         arg_parser
@@ -343,6 +332,15 @@ fn main() {
                     return;
                 } else if v.eq("ipc-inputlib") {
                     ipc_inputlib = true;
+                } else if v.eq("ipc-pile") {
+                    outdir = Some(Fileout::Pile(
+                        vec![],
+                        arg_parser
+                            .value()
+                            .expect("--ipc-pile should have parameter")
+                            .to_string_lossy()
+                            .to_string(),
+                    ));
                 } else {
                     panic!("unknown long arg {}, try --help", v);
                 }
@@ -374,13 +372,12 @@ fn main() {
     // end current volume
     inputs.push(InputNote::EndVolume(current_volume));
 
-    // create outdir
-    if let Some(outdir) = &outdir {
-        _ = std::fs::create_dir_all(outdir);
-    }
+    let mut outdir = outdir.expect("must have output");
+    outdir.begin();
 
+    // create outdir
     let render_opts = RenderOpts {
-        outdir: outdir.clone(),
+        outdir: outdir.debug_path(),
         no_fullcolour,
         fullcolour_blue,
         sdf_border,
@@ -420,10 +417,9 @@ fn main() {
     // stop here if inputlib mode
     if ipc_inputlib {
         for v in input_pages.iter().enumerate() {
-            write_file(&outdir, &format!("{}.svg", v.0), v.1.1.as_bytes());
+            outdir.write(&format!("{}.svg", v.0), v.1.1.as_bytes().to_vec());
         }
-        // make IPC stop looking for files
-        println!("STATISTICS");
+        outdir.finish();
         return;
     }
     // -- SVG rendering --
@@ -478,7 +474,7 @@ fn main() {
     let sdf_shapes: Vec<AtlasableShape> = highlevel::gen_sdf_shapes(
         highlevel::GenSDFShapesInput {
             shape_lookup: &shape_lookup,
-            outdir: &outdir,
+            outdir: &outdir.debug_path(),
             debug_dump_shapes_late,
             sdf_downscale,
             scaler,
@@ -491,8 +487,8 @@ fn main() {
         ProgressImpl.stage("atlasing...");
         let res = highlevel::atlas_web(metadata_override, &sdf_shapes, &pages, &ProgressImpl)
             .expect("web should succeed");
-        write_file(&outdir, "atlas.0.png", &res.0);
-        write_file(&outdir, "book.bytes", &res.1);
+        outdir.write("atlas.0.png", res.0);
+        outdir.write("book.bytes", res.1);
     } else {
         // -- Atlasing --
         ProgressImpl.stage("atlasing...");
@@ -512,11 +508,7 @@ fn main() {
         for (atlas_id, atlas_builder) in atlas_builders.iter().enumerate() {
             let atlas_pix = atlas_builder.render(&sdf_shapes);
             total_pixels += (atlas_pix.size().0 * atlas_pix.size().1) as u64;
-            write_file(
-                &outdir,
-                &format!("atlas.{}.png", atlas_id),
-                &raster_png(&atlas_pix),
-            );
+            outdir.write(&format!("atlas.{}.png", atlas_id), raster_png(&atlas_pix));
         }
 
         ProgressImpl.stage("emit...");
@@ -537,14 +529,15 @@ fn main() {
 
             let emitted = book_atlased.emit();
             emitted_len += emitted.len();
-            write_file(&outdir, &format!("{}.bytes", volume_name), &emitted);
+            outdir.write(&format!("{}.bytes", volume_name), emitted);
 
             if !no_dae {
                 for i in 0..book_atlased.pages.len() {
-                    write_file(
-                        &outdir,
+                    outdir.write(
                         &format!("{}.{}.dae", volume_name, i),
-                        booklib::collada::collada_write(&[book_atlased.page_dae(i)]).as_bytes(),
+                        booklib::collada::collada_write(&[book_atlased.page_dae(i)])
+                            .as_bytes()
+                            .to_vec(),
                     );
                     ProgressImpl.status(&format!(
                         " {:<24} DAE ({:>3}%)",
@@ -567,5 +560,6 @@ fn main() {
         );
         println!("texture VRAM: {:?}mb", (total_pixels as f32) / 1000000.0);
         println!(".bytes (RAM): {:?}mb", (emitted_len as f32) / 1000000.0);
+        outdir.finish();
     }
 }

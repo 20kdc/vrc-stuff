@@ -2,8 +2,8 @@
 # This singleton must live!
 extends Node
 
+var debug_on_main_thread: bool = false
 var current_task = null
-
 var last_task_id: int = 0
 
 signal current_task_updated()
