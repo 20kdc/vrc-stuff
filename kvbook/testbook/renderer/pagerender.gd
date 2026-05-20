@@ -9,6 +9,8 @@ var draw_content: bool = true
 var draw_debug: bool = false
 var draw_fullcolouronly: bool = false setget _set_drawfullcolouronly
 
+export var keyboard_recipient: NodePath
+
 var camera_pos: Vector2
 var camera_zoom: float = 1.0
 
@@ -53,6 +55,11 @@ func _gui_input(event):
 				camera_zoom = 1.0
 				update()
 				accept_event()
+	elif event is InputEventKey:
+		var rcpt = get_node_or_null(keyboard_recipient)
+		if rcpt != null:
+			accept_event()
+			rcpt._gui_input(event)
 
 func _draw():
 	_drawpass(0)

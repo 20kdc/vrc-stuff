@@ -76,6 +76,7 @@ margin_bottom = 562.0
 rect_clip_content = true
 focus_mode = 1
 script = ExtResource( 1 )
+keyboard_recipient = NodePath("../VBoxContainer/ItemList")
 
 [connection signal="text_entered" from="VBoxContainer/HBoxContainer/LineEdit" to="." method="_on_LineEdit_text_entered"]
 [connection signal="pressed" from="VBoxContainer/HBoxContainer/Button" to="." method="_on_Button_pressed"]

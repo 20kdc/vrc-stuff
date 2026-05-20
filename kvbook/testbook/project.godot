@@ -45,7 +45,7 @@ _global_script_class_icons={
 [application]
 
 config/name="testbook"
-run/main_scene="res://app_viewer.tscn"
+run/main_scene="res://entry.tscn"
 config/icon="res://icon.png"
 
 [autoload]

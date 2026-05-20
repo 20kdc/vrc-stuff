@@ -119,6 +119,7 @@ region = Rect2( 0, 0, 16384, 16 )
 Button/colors/font_color = Color( 0, 0, 0, 1 )
 Button/colors/font_color_focus = Color( 0, 0, 0, 1 )
 Button/colors/font_color_hover = Color( 0, 0, 0, 1 )
+Button/constants/hseparation = 4
 Button/styles/disabled = SubResource( 3 )
 Button/styles/focus = SubResource( 4 )
 Button/styles/hover = SubResource( 1 )
