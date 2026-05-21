@@ -12,6 +12,8 @@ The `mupdf/mutool.exe` file comes from the `mupdf.com` website. It should match 
 
 `drawbook.exe` uses a mess of Rust libraries. See `about.html`. If cargo-about generates incorrect licensing, someone should probably tell VRChat first (`VRChat_Data/StreamingAssets/Licenses/vrc_image_loader-licenses.html` etc).
 
+`testbook.exe` uses some version of Godot 3.x. Adding a proper licensing information file will be figured out before release.
+
 ## Principles
 
 There are some key insights that make this all possible.

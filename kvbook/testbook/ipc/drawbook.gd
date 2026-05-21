@@ -18,17 +18,21 @@ func get_project_or_executable_path():
 func find_me():
 	var my_path = get_project_or_executable_path()
 	var candidates = []
-	if OS.has_feature("windows"):
-		# 'feature'
+	if OS.get_name() == "Windows":
 		candidates.push_back(my_path + "/drawbook.bat")
 		candidates.push_back(my_path + "/drawbook.exe")
+		candidates.push_back(my_path + "/drawbook")
 	else:
 		candidates.push_back(my_path + "/drawbook")
+		candidates.push_back(my_path + "/drawbook.bat")
+		candidates.push_back(my_path + "/drawbook.exe")
+	var d := Directory.new()
+	d.change_dir(my_path)
 	for v in candidates:
-		var f = File.new()
-		if f.file_exists(v):
+		# print(v)
+		if d.file_exists(v):
 			return v
-	return null
+	return "drawbook.exe"
 
 func alloc_task_id() -> int:
 	last_task_id += 1

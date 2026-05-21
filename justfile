@@ -90,10 +90,15 @@ kip32-sdk-src-package: clean
 	zip kip32-sdk-src-package.zip -r kip32/sdk kip32/tools udon
 
 kvbook-w64-package:
+	# build drawbook itself
 	cd kvbook/drawbook ; cargo build --target x86_64-pc-windows-gnu --release
+	# build testbook
+	cd kvbook/testbook ; godot --no-window --export w64 ../target/x86_64-pc-windows-gnu/release/testbook.exe
+	# add mupdf
 	cd kvbook/target/x86_64-pc-windows-gnu/release ; rm -rf mupdf ; mkdir -p mupdf
 	cd kvbook/target/x86_64-pc-windows-gnu/release/mupdf ; unzip /media/era3-sync/external/software/tooling/mupdf-1.27.0-windows.zip ; rm mupdf.exe mupdf-gl.exe
+	# build ZIP
 	rm -f kvbook-w64-package.zip
 	cd kvbook ; zip ../kvbook-w64-package.zip README.md FORMAT.md sdfsamplediagram.svg flow.drawio.svg
 	cd kvbook/drawbook ; zip ../../kvbook-w64-package.zip about.html
-	cd kvbook/target/x86_64-pc-windows-gnu/release ; zip ../../../../kvbook-w64-package.zip -r mupdf drawbook.exe
+	cd kvbook/target/x86_64-pc-windows-gnu/release ; zip ../../../../kvbook-w64-package.zip -r mupdf drawbook.exe testbook.exe testbook.pck
