@@ -42,6 +42,7 @@ fn do_help() {
     println!("");
     println!("OUTPUT OPTIONS");
     println!(" -o OUTDIR: output directory, created if it doesn't exist");
+    println!(" -q: quiet (stage messages only, no live progress)");
     println!(" --web: Forces single 2k x 2k atlas w/ embedded data.");
     println!("        This is for downloading via VRCImageDownloader.");
     println!("        Implies --no-dae. Volumes are ignored.");
@@ -167,6 +168,7 @@ fn main() {
     // -- options --
     // output
     let mut outdir: Option<Fileout> = None;
+    let mut quiet = false;
     let mut no_dae = false;
     let mut no_fullcolour = false;
     let mut fullcolour_blue: u8 = FULLCOLOUR_BLUE_DEFAULT;
@@ -221,6 +223,8 @@ fn main() {
                             .to_string_lossy()
                             .to_string(),
                     ));
+                } else if v.eq(&'q') {
+                    quiet = true;
                 } else if v.eq(&'m') {
                     inopt.mudraw_opts.push(
                         arg_parser
@@ -369,6 +373,7 @@ fn main() {
         }
     }
     // -- options locked in --
+    let progress = ProgressImpl {quiet};
     // end current volume
     inputs.push(InputNote::EndVolume(current_volume));
 
@@ -392,7 +397,7 @@ fn main() {
         debug_noclip,
     };
     // -- Page separation and SVG rendering --
-    ProgressImpl.stage("page separation");
+    progress.stage("page separation");
     let mut input_pages: Vec<(String, String)> = Vec::new();
     // Volume data. This is used in the .bytes emitter.
     let mut volumes: Vec<(String, usize, usize)> = Vec::new();
@@ -423,7 +428,7 @@ fn main() {
         return;
     }
     // -- SVG rendering --
-    ProgressImpl.stage("rendering");
+    progress.stage("rendering");
     let mut shape_lookup = DBShapeLookup::default();
     let mut pages: Vec<DBPage> = Vec::new();
     let svg_opts = usvg::Options {
@@ -433,7 +438,7 @@ fn main() {
     let mut max_sprite_count: usize = 0;
     let mut max_sprite_count_page: usize = 0;
     for (page_idx, (svgn, svgd)) in input_pages.iter().enumerate() {
-        ProgressImpl.status(&format!(
+        progress.status(&format!(
             " {:<24} : ({:>3}%), total_shapes={:>6}",
             svgn,
             progress::percentage(page_idx, input_pages.len()),
@@ -461,7 +466,7 @@ fn main() {
         }
         // complete
         pages.push(shape_lookup.deduplicate(rendered));
-        ProgressImpl.status(&format!(
+        progress.status(&format!(
             " {:<24} : ({:>3}%), total_shapes={:>6}",
             svgn,
             progress::percentage(page_idx, input_pages.len()),
@@ -469,7 +474,7 @@ fn main() {
         ));
     }
     // -- SDF --
-    ProgressImpl.stage("SDF conversions...");
+    progress.stage("SDF conversions...");
     // 'rectangle' entries are None.
     let sdf_shapes: Vec<AtlasableShape> = highlevel::gen_sdf_shapes(
         highlevel::GenSDFShapesInput {
@@ -480,18 +485,18 @@ fn main() {
             scaler,
             sdf_smooth,
         },
-        &ProgressImpl,
+        &progress,
     );
 
     if web {
-        ProgressImpl.stage("atlasing...");
-        let res = highlevel::atlas_web(metadata_override, &sdf_shapes, &pages, &ProgressImpl)
+        progress.stage("atlasing...");
+        let res = highlevel::atlas_web(metadata_override, &sdf_shapes, &pages, &progress)
             .expect("web should succeed");
         outdir.write("atlas.0.png", res.0);
         outdir.write("book.bytes", res.1);
     } else {
         // -- Atlasing --
-        ProgressImpl.stage("atlasing...");
+        progress.stage("atlasing...");
         let (mut atlas_builders, pages_atlased) = highlevel::atlas_pages(
             highlevel::AtlasPagesInput {
                 sdf_shapes: &sdf_shapes,
@@ -500,18 +505,18 @@ fn main() {
                 atlas_max_size,
                 atlas_perfchop,
             },
-            &ProgressImpl,
+            &progress,
         );
 
         let mut total_pixels: u64 = 0;
-        ProgressImpl.stage("drawing atlases...");
+        progress.stage("drawing atlases...");
         for (atlas_id, atlas_builder) in atlas_builders.iter().enumerate() {
             let atlas_pix = atlas_builder.render(&sdf_shapes);
             total_pixels += (atlas_pix.size().0 * atlas_pix.size().1) as u64;
             outdir.write(&format!("atlas.{}.png", atlas_id), raster_png(&atlas_pix));
         }
 
-        ProgressImpl.stage("emit...");
+        progress.stage("emit...");
         // initialize atlased book
         let mut book_atlased = DBBook {
             metadata: metadata_override,
@@ -539,7 +544,7 @@ fn main() {
                             .as_bytes()
                             .to_vec(),
                     );
-                    ProgressImpl.status(&format!(
+                    progress.status(&format!(
                         " {:<24} DAE ({:>3}%)",
                         volume_name,
                         progress::percentage(i, book_atlased.pages.len())
@@ -548,7 +553,7 @@ fn main() {
             }
         }
 
-        ProgressImpl.alert("book completed");
+        progress.alert("book completed");
         // IPC has to be aware of this string
         println!("STATISTICS");
         println!("atlases: {}", book_atlased.atlases.len());

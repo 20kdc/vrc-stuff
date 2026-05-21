@@ -117,7 +117,11 @@ pub fn read_svg(path: &str, _opts: &InputOpts) -> Result<Box<dyn Iterator<Item =
     let s = std::fs::read_to_string(path).map_err(|v| format!("read SVG {:?}", v))?;
     let mut total = Vec::new();
     for v in s.split('\x00') {
-        total.push(v.to_string());
+        let page = v.trim();
+        if page.is_empty() {
+            continue;
+        }
+        total.push(page.to_string());
     }
     Ok(Box::new(total.into_iter()))
 }

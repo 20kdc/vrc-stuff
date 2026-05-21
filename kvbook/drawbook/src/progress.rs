@@ -5,7 +5,9 @@ use std::sync::Mutex;
 
 static STAGE_CURRENT: Mutex<&'static str> = Mutex::new("");
 
-pub struct ProgressImpl;
+pub struct ProgressImpl {
+    pub quiet: bool
+}
 
 impl booklib::progress::Progress for ProgressImpl {
     fn stage(&self, stage: &'static str) {
@@ -16,6 +18,9 @@ impl booklib::progress::Progress for ProgressImpl {
         *lock = stage;
     }
     fn status(&self, status: &str) {
+        if self.quiet {
+            return;
+        }
         let mut stdout = std::io::stderr().lock();
         _ = write!(stdout, "\r{}{} ", *STAGE_CURRENT.lock().unwrap(), status);
         _ = stdout.flush();
