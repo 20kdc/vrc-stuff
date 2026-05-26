@@ -1,0 +1,9 @@
+<Project>
+	<PropertyGroup>
+		<!-- 9.0 is what Unity compiles this with. -->
+		<LangVersion>9.0</LangVersion>
+		<TargetFramework>netstandard2.0</TargetFramework>
+		<ImplicitUsings>false</ImplicitUsings>
+		<Nullable>enable</Nullable>
+	</PropertyGroup>
+</Project>

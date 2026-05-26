@@ -1,0 +1,3 @@
+<Project Sdk="Microsoft.NET.Sdk">
+	<Import Project="../kvbspEmbed.props" />
+</Project>

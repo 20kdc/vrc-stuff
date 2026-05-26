@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Collections.Generic;
 using UnityEngine;
+using KDCVRCBSP.ECL;
 
 namespace KDCVRCBSP {
 	/**
@@ -182,49 +183,17 @@ namespace KDCVRCBSP {
 
 		// -- Loader Assist --
 
-		public List<(string, bool)> TokenizeEntities(string entityLump) {
-			char[] whitespace = new char[33];
-			for (int i = 0; i < 33; i++)
-				whitespace[i] = (char) i;
-			List<(string, bool)> tokens = new();
-			while (entityLump.Length >= 0) {
-				entityLump = entityLump.TrimStart(whitespace);
-				if (entityLump.Length == 0)
-					break;
-				if (entityLump.StartsWith('"')) {
-					int endPoint = entityLump.IndexOf('\"', 1);
-					string token = entityLump.Substring(1, endPoint - 1);
-					tokens.Add((token, true));
-					entityLump = entityLump.Substring(endPoint + 1);
-				} else {
-					int endPoint = entityLump.IndexOfAny(whitespace);
-					if (endPoint == -1) {
-						tokens.Add((entityLump, false));
-						break;
-					} else {
-						tokens.Add((entityLump.Substring(0, endPoint), false));
-						entityLump = entityLump.Substring(endPoint);
-					}
-				}
-			}
-			return tokens;
-		}
-
 		public void ParseEntities(string entityLump, float worldScale) {
-			List<(string, bool)> tokens = TokenizeEntities(entityLump);
+			List<string> tokens = MapTokenizer.Tokenize(entityLump);
 			// We try to be extremely permissive.
 			List<(string, string)> currentEntity = new();
 			string key = null;
-			foreach (var (text, quoted) in tokens) {
-				if (quoted) {
-					if (key != null) {
-						currentEntity.Add((key, text));
-						key = null;
-					} else {
-						key = text;
-					}
-				} else if (text == "{") {
+			foreach (var text in tokens) {
+				// Debug.Log(text);
+				if (key != null) {
+					currentEntity.Add((key, text));
 					key = null;
+				} else if (text == "{") {
 					currentEntity = new();
 				} else if (text == "}") {
 					Entity entData = new Entity {
@@ -232,6 +201,8 @@ namespace KDCVRCBSP {
 					};
 					entData.FillCore(worldScale);
 					entities.Add(entData);
+				} else {
+					key = text;
 				}
 			}
 		}
