@@ -6,7 +6,7 @@ namespace KDCVRCBSP.Tests {
     public class Program {
 		public static void Main(string[] args) {
 			Console.WriteLine("class library tests");
-			List<string> lst = MapTokenizer.Tokenize("hello world [] [ ] \"some \\\\ \\\"stew\\\"\" // invisible\nvisible");
+			List<string> lst = MapParsing.Tokenize("hello world [] [ ] \"some \\\\ \\\"stew\\\"\" // invisible\nvisible");
 			AssertEq(lst[0], "hello", "lst");
 			AssertEq(lst[1], "world", "lst");
 			AssertEq(lst[2], "[]", "lst");

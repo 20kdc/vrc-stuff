@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 
 namespace KDCVRCBSP.ECL {
-	public static class MapTokenizer {
+	public static class MapParsing {
 		/// Tokenizes the given .map data or entity lump.
 		/// There are various different parsers, and none of them really totally agree.
 		///

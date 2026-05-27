@@ -184,7 +184,7 @@ namespace KDCVRCBSP {
 		// -- Loader Assist --
 
 		public void ParseEntities(string entityLump, float worldScale) {
-			List<string> tokens = MapTokenizer.Tokenize(entityLump);
+			List<string> tokens = MapParsing.Tokenize(entityLump);
 			// We try to be extremely permissive.
 			List<(string, string)> currentEntity = new();
 			string key = null;
