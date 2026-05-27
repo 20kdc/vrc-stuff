@@ -1,3 +1,5 @@
+using System;
+
 namespace KDCVRCBSP.ECL {
 	/// Two doubles.
 	public struct Vector2d {
@@ -30,7 +32,11 @@ namespace KDCVRCBSP.ECL {
 
 		public static Vector2d operator /(Vector2d a, double b) => (a.x / b, a.y / b);
 
-		// -- Other --
+		// -- Fancy ops --
+
+		public double Length => Math.Sqrt((x * x) + (y * y));
+
+		public Vector2d Normalized => (this.x == 0 && this.y == 0) ? new Vector2d(0, 0) : this / Length;
 
 		public double Sum => x + y;
 

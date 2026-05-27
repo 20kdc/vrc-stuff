@@ -1,3 +1,5 @@
+using System;
+
 namespace KDCVRCBSP.ECL {
 	/// Three doubles.
 	public struct Vector3d {
@@ -31,10 +33,22 @@ namespace KDCVRCBSP.ECL {
 
 		public static Vector3d operator /(Vector3d a, double b) => (a.x / b, a.y / b, a.z / b);
 
-		// -- Other --
+		// -- Fancy ops --
+
+		public double Length => Math.Sqrt((x * x) + (y * y) + (z * z));
+
+		public Vector3d Normalized => (this.x == 0 && this.y == 0 && this.z == 0) ? new Vector3d(0, 0, 0) : this / Length;
 
 		public double Sum => x + y + z;
 
 		public double Dot(Vector3d other) => (this * other).Sum;
+
+		// -- Custom --
+
+		public Vector3d Cross(Vector3d b) => new Vector3d {
+			x = (y * b.z) - (z * b.y),
+			y = (z * b.x) - (x * b.z),
+			z = (x * b.y) - (y * b.x)
+		};
 	}
 }
