@@ -1,16 +1,16 @@
 namespace KDCVRCBSP.ECL {
 	using System.Collections.Generic;
 	using System.Runtime.CompilerServices;
-	using VectorD = Vector3d;
+	using VectorD = Vector2d;
 
-	/// Plane in 3D space.
-	public struct Plane3d {
+	/// Plane in 2D space.
+	public struct Plane2d {
 		/// Normal vector pointing 'upwards' relative to this plane.
 		public VectorD normal;
 		/// Distance.
 		public double distance;
 
-		public Plane3d(VectorD normal, double distance) {
+		public Plane2d(VectorD normal, double distance) {
 			this.normal = normal;
 			this.distance = distance;
 		}

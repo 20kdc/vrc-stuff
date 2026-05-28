@@ -1,0 +1,2 @@
+meld ../KDCVRCBSP.ECL/Geometry/Vector2d.cs ../KDCVRCBSP.ECL/Geometry/Vector3d.cs &
+meld ../KDCVRCBSP.ECL/Geometry/Plane2d.cs ../KDCVRCBSP.ECL/Geometry/Plane3d.cs &
