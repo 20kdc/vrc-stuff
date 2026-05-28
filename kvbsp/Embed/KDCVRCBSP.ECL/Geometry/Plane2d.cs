@@ -10,6 +10,7 @@ namespace KDCVRCBSP.ECL {
 		/// Distance.
 		public double distance;
 
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public Plane2d(VectorD normal, double distance) {
 			this.normal = normal;
 			this.distance = distance;
@@ -19,25 +20,29 @@ namespace KDCVRCBSP.ECL {
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public double SignedDistance(VectorD point) => point.Dot(normal) - distance;
 
-		/// Gets the signed distance of a ray's origin to this plane along its normal.
-		/// See SnapPointToPlaneAlongNormal for how this is used.
-		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		public double RaySignedDistance(VectorD point, VectorD rayNormal) {
-			// If this is 1, then it's equivalent to the plane normal (which has a 1:1 relation to SignedDistance).
-			// If this is 0.5, then twice as much of the ray normal has to be 'travelled' to navigate up the plane.
-			double travelDiv = normal.Dot(rayNormal);
-			return SignedDistance(point) / travelDiv;
-		}
-
 		/// Snaps a point to this plane while constraining it to the given normal.
 		/// This has various fascinating uses.
 		/// For example, given a ray parallel to plane A, you can snap it onto plane B.
 		/// This creates an intersecting point.
-		/// Given the intersection normal, you now have a ray which encodes the intersection between A and B.
+		/// Given the intersection ray normal, you now have a ray which encodes the intersection between A and B.
 		/// This allows you to create one more (final) intersection, which completes a tri-plane intersection.
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public VectorD SnapPointToPlaneAlongNormal(VectorD point, VectorD snapNormal) {
-			return point - (snapNormal * RaySignedDistance(point, snapNormal));
+			return SnapPointToPlaneUsingTravelVector(point, NormalToTravelVector(snapNormal));
+		}
+
+		/// Like SnapPointToPlaneAlongNormal, but assumes a pre-compiled travel vector.
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public VectorD SnapPointToPlaneUsingTravelVector(VectorD point, VectorD travelVector) {
+			return point - (travelVector * SignedDistance(point));
+		}
+
+		/// This scales an intersecting normal into a 'travel vector'.
+		/// Adding this to a point will increase that point's SignedDistance by 1.
+		/// See SnapPointToPlaneAlongNormal for how this is used.
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public VectorD NormalToTravelVector(VectorD snapNormal) {
+			return snapNormal / normal.Dot(snapNormal);
 		}
 
 		/// Cuts a winding. Everything on the positive edge of the plane is lost.

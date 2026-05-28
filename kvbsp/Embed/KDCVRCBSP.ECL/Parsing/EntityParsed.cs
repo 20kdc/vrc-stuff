@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 
 namespace KDCVRCBSP.ECL {
 	/// Represents a parsed map entity.
@@ -16,10 +17,29 @@ namespace KDCVRCBSP.ECL {
 		/// A brush is a list of brush sides.
 		public sealed class BrushSide {
 			public string texture = "";
-			public Plane3d plane;
-			public double sX, sY, sZ, sO, tX, tY, tZ, tO;
+
+			/// Source vertices (for precision)
+			/// Observed TB behaviour is to carry these over.
+			public Vector3d vertexA, vertexB, vertexC;
+
+			/// Plane.
+			public Plane3d Plane {
+				[MethodImpl(MethodImplOptions.AggressiveInlining)]
+				get => new Plane3d(vertexA, vertexB, vertexC);
+			}
+
+			/// Unnormalized (i.e. immediately usable) texture matrix.
+			public Vector3d texSAxis, texTAxis;
+
+			/// 'Rotation' reference value.
+			public double rotation;
+
+			/// Basis for texture matrix.
+			public Vector2d texOffset;
+
+			[MethodImpl(MethodImplOptions.AggressiveInlining)]
 			public Vector2d MapUV(Vector3d i) {
-				return (sO + (i.x * sX) + (i.y * sY) + (i.z * sZ), tO + (i.x * tX) + (i.y * tY) + (i.z * tZ));
+				return texOffset + new Vector2d((i * texSAxis).Sum, (i * texTAxis).Sum);
 			}
 		}
 	}
