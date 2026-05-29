@@ -66,7 +66,7 @@ namespace KDCVRCBSP.Tests {
 			{
 				// Run the 2D test.
 				List<Vector2d> pentagonCopy = pentagonBase.ToList();
-				Test.Assert(new Plane2d(new Vector2d(1, 0), 4).CutWinding(pentagonCopy, 0.01d), "plane should have cut the pentagon");
+				Test.Assert(new Plane2d(new Vector2d(1, 0), 4).CutWinding(pentagonCopy, null, 0.01d), "plane should have cut the pentagon");
 				Test.AssertListEq(pentagonCopy, new Vector2d[] {
 					new Vector2d(4 + 0, 2),
 					new Vector2d(4 + 0, 0),
@@ -77,7 +77,7 @@ namespace KDCVRCBSP.Tests {
 			{
 				// Run the 3D test.
 				List<Vector3d> pentagonCopy = pentagonBase.Select(a => new Vector3d(a.x, a.y, a.x + a.y)).ToList();
-				Test.Assert(new Plane3d(new Vector3d(1, 0, 0), 4).CutWinding(pentagonCopy, 0.01d), "plane should have cut the pentagon");
+				Test.Assert(new Plane3d(new Vector3d(1, 0, 0), 4).CutWinding(pentagonCopy, null, 0.01d), "plane should have cut the pentagon");
 				Test.AssertListEq(pentagonCopy, new Vector3d[] {
 					new Vector3d(4 + 0, 2, 6),
 					new Vector3d(4 + 0, 0, 4),

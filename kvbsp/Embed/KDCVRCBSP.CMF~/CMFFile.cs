@@ -12,6 +12,15 @@ namespace KDCVRCBSP.CMF {
 		public List<string> materials = new();
 		public List<Entity> entities = new();
 
+		public int EnsureMaterial(string str) {
+			int materialIndex = materials.IndexOf(str);
+			if (materialIndex == -1) {
+				materialIndex = materials.Count;
+				materials.Add(str);
+			}
+			return materialIndex;
+		}
+
 		public void EmitStr(MemoryStream ms, string str) {
 			ms.Write(new UTF8Encoding(false).GetBytes(str));
 			ms.WriteByte(0);

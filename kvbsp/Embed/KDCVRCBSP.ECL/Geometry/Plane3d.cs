@@ -60,9 +60,10 @@ namespace KDCVRCBSP.ECL {
 		}
 
 		/// Cuts a winding. Everything on the positive edge of the plane is lost.
+		/// (If posLst is provided, a second winding is created there.)
 		/// Winding order is maintained.
 		/// If false is returned, the plane did not intersect the winding.
-		public bool CutWinding(List<VectorD> lst, double epsilon) {
+		public bool CutWinding(List<VectorD> lst, List<VectorD> posLst, double epsilon) {
 			if (lst.Count == 0)
 				return false;
 			bool wasCut = false;
@@ -83,6 +84,8 @@ namespace KDCVRCBSP.ECL {
 				bool preserveA = sideA <= 0;
 				if (!preserveA) {
 					lst.RemoveAt(indexA);
+					if (posLst != null)
+						posLst.Add(pointA);
 					wasCut = true;
 				} else {
 					indexA++;
@@ -98,7 +101,10 @@ namespace KDCVRCBSP.ECL {
 					double travel = distB - distA;
 					// Well, it's this.
 					double lerpPtr = (-distA) / travel;
-					lst.Insert(indexA, pointA.LerpUnclamped(pointB, lerpPtr));
+					VectorD intermediate = pointA.LerpUnclamped(pointB, lerpPtr);
+					lst.Insert(indexA, intermediate);
+					if (posLst != null)
+						posLst.Add(intermediate);
 					wasCut = true;
 					indexA++;
 				}

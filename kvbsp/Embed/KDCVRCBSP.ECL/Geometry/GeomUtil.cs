@@ -71,6 +71,8 @@ namespace KDCVRCBSP.ECL {
 			return res;
 		}
 
+		// -- Debug --
+
 		public static List<List<Vector3d>> DebugChopConvex(Plane3d[] planes, double epsilon) {
 			List<List<Vector3d>> faces = new();
 			for (int i = 0; i < planes.Length; i++) {
@@ -78,7 +80,7 @@ namespace KDCVRCBSP.ECL {
 				for (int j = 0; j < planes.Length; j++) {
 					if (i == j)
 						continue;
-					planes[j].CutWinding(winding, epsilon);
+					planes[j].CutWinding(winding, null, epsilon);
 					if (winding.Count < 3)
 						break;
 				}

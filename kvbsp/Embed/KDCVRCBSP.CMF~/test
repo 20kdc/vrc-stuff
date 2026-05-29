@@ -9,12 +9,12 @@ build_level_i() {
 	shift
 	shift
 	echo "building: $MAP_PATH -> $CMF_PATH"
-	dotnet run --no-restore -- "$NARBACULAR/$MAP_PATH" "$NARBACULAR/$CMF_PATH" --texdir "$NARBACULAR/video/" "$@"
+	dotnet run --no-restore -- "$MAP_PATH" "$NARBACULAR/$CMF_PATH" --texdir "$NARBACULAR/video/" "$@"
 }
 
 build_level() {
 	# no longer using --digipen-wad, binary matching seems kinda impossible (?)
-	build_level_i "RMF/$1.map" "levels/$1.cmf" --minify
+	build_level_i "$NARBACULAR/RMF/$1.map" "levels/$1.cmf" --minify
 }
 
 if [ "$1" = "" ]; then
@@ -29,7 +29,8 @@ if [ "$1" = "" ]; then
 	build_level PolishingUp
 	build_level VeryVertical
 elif [ "$1" = "expie" ]; then
-	build_level_i expie/onetest.map expie/onetest_net.cmf
+	build_level_i "$NARBACULAR/expie/onetest.map" expie/onetest_net.cmf
+	build_level_i "compilertest.map" levels/ctest.cmf
 else
 	echo "unknown submode $1"
 fi

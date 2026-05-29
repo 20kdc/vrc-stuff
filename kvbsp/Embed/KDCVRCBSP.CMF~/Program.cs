@@ -56,6 +56,17 @@ namespace KDCVRCBSP.CMF {
 				output = input.Substring(0, input.Length - 3) + "cmf";
 			}
 			List<EntityParsed> parsedEntities = MapParsing.Parse(File.ReadAllText(input));
+			// -- 'Preprocessor' --
+			foreach (EntityParsed ent in parsedEntities) {
+				foreach (var brush in ent.brushes) {
+					foreach (var face in brush) {
+						var texSize = GetTexSize(face.texture, textures, texdir);
+						face.texOffset /= texSize;
+						face.texSAxis /= texSize.x;
+						face.texTAxis /= texSize.y;
+					}
+				}
+			}
 			CMFFile cmf = new();
 			foreach (EntityParsed ent in parsedEntities) {
 				CMFFile.Entity cmfEnt = new();
@@ -95,23 +106,18 @@ namespace KDCVRCBSP.CMF {
 						for (int cutter = brush.Count - 1; cutter >= 0; cutter--) {
 							if (cutter == face)
 								continue;
-							planes[cutter].CutWinding(winding, 0.0078125d);
+							planes[cutter].CutWinding(winding, null, 0.0078125d);
 						}
 						if (winding.Count < 3)
 							continue;
 						CMFFile.Polygon poly = new();
-						poly.materialIndex = cmf.materials.IndexOf(faceDat.texture);
-						var texSize = GetTexSize(faceDat.texture, textures, texdir);
-						if (poly.materialIndex == -1) {
-							poly.materialIndex = cmf.materials.Count;
-							cmf.materials.Add(faceDat.texture);
-						}
+						poly.materialIndex = cmf.EnsureMaterial(faceDat.texture);
 						// convert into CMF coordinate system
 						poly.plane = new Plane3d(new Vector3d(facePlane.normal.x, facePlane.normal.z, facePlane.normal.y), -facePlane.distance);
 						foreach (Vector3d vec in winding) {
 							// also convert into CMF coordinate system
 							Vector3d vecConv = new Vector3d(vec.x, vec.z, vec.y);
-							poly.vertices.Add((vecConv, faceDat.MapUV(vec) / texSize));
+							poly.vertices.Add((vecConv, faceDat.MapUV(vec)));
 						}
 						cmfEnt.polygons.Add(poly);
 					}
