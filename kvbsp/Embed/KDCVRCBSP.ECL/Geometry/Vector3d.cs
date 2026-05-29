@@ -164,9 +164,10 @@ namespace KDCVRCBSP.ECL {
 		public double Dot(Self other) => (this * other).Sum;
 
 		/// Linearly interpolate, unclamped.
-		/// We use a method which should guarantee F=0 and F=1 equivalence regardless of rounding mode.
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		public Self LerpUnclamped(Self other, double fac) => (this * (1 - fac)) + (other * fac);
+		public Self LerpUnclamped(Self other, double fac) => this + ((other - this) * fac);
+		// This looked like it would be more numerically stable. It really isn't.
+		//public Self LerpUnclamped(Self other, double fac) => (this * (1 - fac)) + (other * fac);
 
 		// -- Custom --
 

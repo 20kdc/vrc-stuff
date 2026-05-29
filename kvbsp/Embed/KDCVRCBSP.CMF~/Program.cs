@@ -101,22 +101,26 @@ namespace KDCVRCBSP.CMF {
 				}
 
 				List<Convex3d<EntityParsed.BrushSide>> brushesConvexes = new();
+				// We create a new Geo2Context for each entity.
+				// Unless you're trying to write a 'literal' BSP file, YOU SHOULD BE DOING THIS
+				Geo2Context g2 = new Geo2Context();
 				foreach (var brush in ent.brushes) {
-					var cvx = EntityParsed.BrushConvex<EntityParsed.BrushSide>(brush, v => v, 0.125d, 65536d);
+					var cvx = EntityParsed.BrushConvex<EntityParsed.BrushSide>(g2, brush, v => v);
 					if (cvx != null)
 						brushesConvexes.Add(cvx);
 				}
 				for (int cvxIdx = 0; cvxIdx < brushesConvexes.Count; cvxIdx++) {
 					var cvx = brushesConvexes[cvxIdx];
 					IReadOnlyList<Convex3d<EntityParsed.BrushSide>.Face> faces = cvx.faces;
-					//if (chop)
-					//	faces = cvx.ChopFaces(brushesConvexes, cvxIdx);
+					if (chop)
+						faces = cvx.ChopFaces(brushesConvexes);
 					// Continue...
 					foreach (var face in faces) {
 						CMFFile.Polygon poly = new();
 						poly.materialIndex = cmf.EnsureMaterial(face.data.texture);
 						// convert into CMF coordinate system
-						poly.plane = new Plane3d(new Vector3d(face.plane.normal.x, face.plane.normal.z, face.plane.normal.y), -face.plane.distance);
+						Plane3d facePlane = g2.FromPlaneIndex(face.planeIndex);
+						poly.plane = new Plane3d(new Vector3d(facePlane.normal.x, facePlane.normal.z, facePlane.normal.y), -facePlane.distance);
 						foreach (Vector3d vec in face.winding) {
 							// also convert into CMF coordinate system
 							Vector3d vecConv = new Vector3d(vec.x, vec.z, vec.y);

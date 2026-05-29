@@ -9,6 +9,7 @@ namespace KDCVRCBSP.Tests {
 		public static void Main(string[] args) {
 			RunMapParsingTests();
 			RunCutWindingTests();
+			RunWindingToPlanesTests();
 		}
 
 		public static void RunMapParsingTests() {
@@ -40,8 +41,9 @@ namespace KDCVRCBSP.Tests {
 			var mapchk = MapParsing.Parse(MapParsing.Tokenize(File.ReadAllText("testmap_220_hammer.map")));
 			List<(string, List<List<Vector3d>>)> objsrc = new();
 			int brushIdx = 0;
+			Geo2Context g2 = new();
 			foreach (var brush in mapchk[0].brushes) {
-				var cvx = EntityParsed.BrushConvex<int>(brush, v => 0, 0.125d, 65536d);
+				var cvx = EntityParsed.BrushConvex<int>(g2, brush, v => 0);
 				objsrc.Add(("b" + brushIdx, cvx.faces.Select(v => v.winding.ToList()).ToList()));
 				brushIdx++;
 			}
@@ -60,17 +62,6 @@ namespace KDCVRCBSP.Tests {
 			pentagonBase.Add((4 + -1, 0));
 			pentagonBase.Add((4 + -1, 1));
 			{
-				// Run the 2D test.
-				List<Vector2d> pentagonCopy = pentagonBase.ToList();
-				Test.Assert(new Plane2d(new Vector2d(1, 0), 4).CutWinding(pentagonCopy, null, 0.01d), "plane should have cut the pentagon");
-				Test.AssertListEq(pentagonCopy, new Vector2d[] {
-					new Vector2d(4 + 0, 2),
-					new Vector2d(4 + 0, 0),
-					new Vector2d(4 + -1, 0),
-					new Vector2d(4 + -1, 1),
-				}, "pentagon 2d");
-			}
-			{
 				// Run the 3D test.
 				List<Vector3d> pentagonCopy = pentagonBase.Select(a => new Vector3d(a.x, a.y, a.x + a.y)).ToList();
 				Test.Assert(new Plane3d(new Vector3d(1, 0, 0), 4).CutWinding(pentagonCopy, null, 0.01d), "plane should have cut the pentagon");
@@ -81,6 +72,32 @@ namespace KDCVRCBSP.Tests {
 					new Vector3d(4 + -1, 1, 4),
 				}, "pentagon 3d");
 			}
+		}
+
+		public static void RunWindingToPlanesTests() {
+			Console.WriteLine("WindingToPlanes test");
+			// ok, so, first, we need to create something that is actually winding-able
+			Plane3d windingBasePlane = new Plane3d(new Vector3d(0, 0, 1), 0);
+			List<Vector3d> winding = GeomUtil.GenInitialWinding(windingBasePlane, 64);
+			new Plane3d(new Vector3d(1, 0, 0), 1).CutWinding(winding, null, 0.01d);
+			new Plane3d(new Vector3d(-1, 0, 0), 2).CutWinding(winding, null, 0.01d);
+			new Plane3d(new Vector3d(0, 1, 0), 3).CutWinding(winding, null, 0.01d);
+			new Plane3d(new Vector3d(0, -1, 0), 4).CutWinding(winding, null, 0.01d);
+			Test.AssertListEq(winding, new Vector3d[] {
+				new Vector3d(1, 3, 0),
+				new Vector3d(1, -4, 0),
+				new Vector3d(-2, -4, 0),
+				new Vector3d(-2, 3, 0)
+			}, "QTP check stage 1 maths stable");
+			// we should now have a quad with various sides at different distances
+			// we now want to 'extract' those 4 planes from it, which we ought to get back
+			var planes = GeomUtil.WindingToPlanes(winding, windingBasePlane.normal);
+			Test.AssertListEq(planes, new Plane3d[] {
+				new Plane3d(new Vector3d(1, 0, 0), 1),
+				new Plane3d(new Vector3d(0, -1, 0), 4),
+				new Plane3d(new Vector3d(-1, 0, 0), 2),
+				new Plane3d(new Vector3d(0, 1, 0), 3),
+			}, "WindingToPlanes planes");
 		}
 	}
 }

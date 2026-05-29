@@ -23,14 +23,14 @@ namespace KDCVRCBSP.ECL {
 
 		/// Creates a ConvexFace3d list from a list of brush sides.
 		/// Returns null if the brush has less than the minimum amount of faces to be a solid (ConvexCollapseLimit)
-		public static Convex3d<D> BrushConvex<D>(IList<BrushSide> src, Func<BrushSide, D> map, double epsilon, double initialWinding) {
+		public static Convex3d<D> BrushConvex<D>(Geo2Context g2, IList<BrushSide> src, Func<BrushSide, D> map) {
 			Plane3d[] planes = new Plane3d[src.Count];
 			D[] datas = new D[src.Count];
 			for (int i = 0; i < planes.Length; i++) {
 				planes[i] = src[i].Plane;
 				datas[i] = map(src[i]);
 			}
-			return Convex3d<D>.FromPlanes(planes, datas, epsilon, initialWinding);
+			return Convex3d<D>.FromPlanes(g2, planes, datas);
 		}
 
 		/// A brush side represents a side of a brush.

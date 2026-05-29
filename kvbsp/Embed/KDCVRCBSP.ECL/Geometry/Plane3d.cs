@@ -25,6 +25,10 @@ namespace KDCVRCBSP.ECL {
 			distance = normal.Dot(vertexB);
 		}
 
+		public override string ToString() {
+			return "P3D" + (normal.x, normal.y, normal.z, distance);
+		}
+
 		/// Gets the signed distance of a point to this plane.
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public double SignedDistance(VectorD point) => point.Dot(normal) - distance;
@@ -62,7 +66,7 @@ namespace KDCVRCBSP.ECL {
 		/// Cuts a winding. Everything on the positive edge of the plane is lost.
 		/// (If posLst is provided, a second winding is created there.)
 		/// Winding order is maintained.
-		/// If false is returned, the plane did not intersect the winding.
+		/// If false is returned, the plane did not cut the winding.
 		public bool CutWinding(List<VectorD> lst, List<VectorD> posLst, double epsilon) {
 			if (lst.Count == 0)
 				return false;
@@ -80,16 +84,19 @@ namespace KDCVRCBSP.ECL {
 				double distB = SignedDistance(pointB);
 				int sideA = GeomUtil.SignedDistanceToSide(distA, epsilon);
 				int sideB = GeomUtil.SignedDistanceToSide(distB, epsilon);
-				// If point A on or underneath the plane, it's in the final geometry.
-				bool preserveA = sideA <= 0;
-				if (!preserveA) {
+				// If point A is on or underneath the plane, it's in the final (below) geometry.
+				// Otherwise, it's removed.
+				if (sideA > 0) {
 					lst.RemoveAt(indexA);
-					if (posLst != null)
-						posLst.Add(pointA);
 					wasCut = true;
 				} else {
 					indexA++;
 				}
+				// For posLst, the point is included if it's on or above the plane.
+				if (sideA >= 0)
+					if (posLst != null)
+						posLst.Add(pointA);
+
 				// indexA is now the insertion point (if inserting) or the next index (if not).
 				// The next question is if the line between points A and B crosses through the plane.
 				if ((sideA < 0 && sideB > 0) || (sideA > 0 && sideB < 0)) {

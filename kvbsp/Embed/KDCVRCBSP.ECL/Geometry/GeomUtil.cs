@@ -71,6 +71,19 @@ namespace KDCVRCBSP.ECL {
 			return res;
 		}
 
+		/// Turns a winding into a set of planes for the edges.
+		public static List<Plane3d> WindingToPlanes(List<Vector3d> winding, Vector3d normal) {
+			List<Plane3d> planes = new();
+			for (int i = 0; i < winding.Count; i++) {
+				int j = (i + 1) % winding.Count;
+				Vector3d a = winding[i];
+				Vector3d b = winding[j];
+				Vector3d planeNormal = (a - b).Cross(normal).Normalized;
+				planes.Add(new Plane3d(planeNormal, planeNormal.Dot(a)));
+			}
+			return planes;
+		}
+
 		// -- Debug --
 
 		/// OBJ test (to check winding chopper in practice)
