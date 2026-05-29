@@ -17,6 +17,7 @@ namespace KDCVRCBSP.CMF {
 			bool isWaitingForTexdir = false;
 			bool isWaitingForExtract = false;
 			bool digipenWad = false;
+			bool minify = false;
 			Dictionary<string, Vector2d> textures = new();
 			foreach (string s in args) {
 				if (isWaitingForTexdir) {
@@ -36,6 +37,8 @@ namespace KDCVRCBSP.CMF {
 						isWaitingForExtract = true;
 					} else if (s == "--digipen-wad") {
 						digipenWad = true;
+					} else if (s == "--minify") {
+						minify = true;
 					} else {
 						throw new Exception("unknown switch");
 					}
@@ -68,9 +71,17 @@ namespace KDCVRCBSP.CMF {
 					} else if (pair.Item1 == "mapversion") {
 						// csg.exe absorbs this too
 						continue;
-					} else if (digipenWad && pair.Item1 == "wad") {
-						cmfEnt.pairs.Add(("wad", CMFFile.ConsistentWADPath));
-						continue;
+					} else if (pair.Item1 == "wad") {
+						if (minify) {
+							// minify writes an empty wad key
+							// the game definitely doesn't care about the value (it's nonsense)
+							// but it might check the pair, and the one in the CMF header needs to at least be an empty string
+							cmfEnt.pairs.Add(("wad", ""));
+							continue;
+						} else if (digipenWad) {
+							cmfEnt.pairs.Add(("wad", CMFFile.ConsistentWADPath));
+							continue;
+						}
 					}
 					cmfEnt.pairs.Add(pair);
 				}
@@ -107,7 +118,7 @@ namespace KDCVRCBSP.CMF {
 				}
 				cmf.entities.Add(cmfEnt);
 			}
-			File.WriteAllBytes(output, cmf.Emit());
+			File.WriteAllBytes(output, cmf.Emit(!minify));
 		}
 		public static Vector2d GetTexSize(string tex, Dictionary<string, Vector2d> cache, string texdir) {
 			if (cache.ContainsKey(tex)) {

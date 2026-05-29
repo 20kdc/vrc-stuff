@@ -17,19 +17,23 @@ namespace KDCVRCBSP.CMF {
 			ms.WriteByte(0);
 		}
 
-		public byte[] Emit() {
+		public byte[] Emit(bool ver3) {
 			MemoryStream ms = new MemoryStream();
 			ms.WriteByte((byte) 'C');
 			ms.WriteByte((byte) 'M');
 			ms.WriteByte((byte) 'F');
-			ms.WriteByte((byte) 3);
-			// dummy 'preview image'
-			// this is here for binary equivalence checks
-			ms.Write(BitConverter.GetBytes((int) 128));
-			ms.Write(BitConverter.GetBytes((int) 128));
-			byte[] dummy = BitConverter.GetBytes((uint) 0xFF808080);
-			for (int i = 0; i < 128 * 128; i++)
-				ms.Write(dummy);
+			if (ver3) {
+				ms.WriteByte((byte) 3);
+				// dummy 'preview image'
+				// this is here for binary equivalence checks
+				ms.Write(BitConverter.GetBytes((int) 128));
+				ms.Write(BitConverter.GetBytes((int) 128));
+				byte[] dummy = BitConverter.GetBytes((uint) 0xFF808080);
+				for (int i = 0; i < 128 * 128; i++)
+					ms.Write(dummy);
+			} else {
+				ms.WriteByte((byte) 2);
+			}
 			// continue
 			ms.Write(BitConverter.GetBytes((int) 1));
 			ms.Write(BitConverter.GetBytes((int) entities.Count));

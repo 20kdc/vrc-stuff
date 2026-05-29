@@ -13,7 +13,8 @@ build_level_i() {
 }
 
 build_level() {
-	build_level_i "RMF/$1.map" "levels/$1.cmf" --digipen-wad
+	# no longer using --digipen-wad, binary matching seems kinda impossible (?)
+	build_level_i "RMF/$1.map" "levels/$1.cmf" --minify
 }
 
 if [ "$1" = "" ]; then
