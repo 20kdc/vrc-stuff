@@ -8,6 +8,9 @@ using KDCVRCBSP.ECL;
 
 namespace KDCVRCBSP.CMF {
 	public class CMFFile {
+		/// for binary equivalence test reasons, we write the same WAD path that was used by NMS.
+		public const string ConsistentWADPath = "\\projects\\digipen\\nuclear monkey software\\narbacular drop\\cvsprojects\\world craft\\wads\\narbaculardrop.wad";
+
 		public List<string> materials = new();
 		public List<Entity> entities = new();
 
@@ -22,15 +25,18 @@ namespace KDCVRCBSP.CMF {
 			ms.WriteByte((byte) 'M');
 			ms.WriteByte((byte) 'F');
 			ms.WriteByte((byte) 3);
-			// nearly empty 'preview image'
-			ms.Write(BitConverter.GetBytes((int) 1));
-			ms.Write(BitConverter.GetBytes((int) 1));
-			ms.Write(BitConverter.GetBytes((uint) 0xFFFF00FF));
+			// dummy 'preview image'
+			// this is here for binary equivalence checks
+			ms.Write(BitConverter.GetBytes((int) 128));
+			ms.Write(BitConverter.GetBytes((int) 128));
+			byte[] dummy = BitConverter.GetBytes((uint) 0xFF808080);
+			for (int i = 0; i < 128 * 128; i++)
+				ms.Write(dummy);
 			// continue
 			ms.Write(BitConverter.GetBytes((int) 1));
 			ms.Write(BitConverter.GetBytes((int) entities.Count));
 			ms.Write(BitConverter.GetBytes((int) materials.Count));
-			EmitStr(ms, "narbaculardrop.wad");
+			EmitStr(ms, ConsistentWADPath);
 			foreach (string s in materials) {
 				EmitStr(ms, s);
 			}

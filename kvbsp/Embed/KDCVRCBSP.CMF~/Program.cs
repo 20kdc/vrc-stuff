@@ -43,9 +43,20 @@ namespace KDCVRCBSP.CMF {
 			CMFFile cmf = new();
 			foreach (EntityParsed ent in parsedEntities) {
 				CMFFile.Entity cmfEnt = new();
+				// because hammer duplicates classname
+				bool didSetClassname = false;
 				foreach (var pair in ent.pairs) {
-					if (pair.Item1 == "classname") {
+					if (pair.Item1 == "classname" && !didSetClassname) {
 						cmfEnt.classname = pair.Item2;
+						didSetClassname = true;
+						// first classname is ignored for pairs
+						// my guess is that real ND csg.exe requires classname to be first key
+						continue;
+					} else if (pair.Item1 == "mapversion") {
+						// csg.exe absorbs this too
+						continue;
+					} else if (pair.Item1 == "wad") {
+						cmfEnt.pairs.Add(("wad", CMFFile.ConsistentWADPath));
 						continue;
 					}
 					cmfEnt.pairs.Add(pair);

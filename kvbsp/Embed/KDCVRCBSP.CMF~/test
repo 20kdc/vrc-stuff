@@ -4,7 +4,7 @@ if [ "$NARBACULAR" = "" ]; then
 fi
 build_level() {
 	echo "building: $1"
-	dotnet run "$NARBACULAR/RMF/$1.map" "$NARBACULAR/levels/$1.cmf" --texdir "$NARBACULAR/video/"
+	dotnet run --no-restore -- "$NARBACULAR/RMF/$1.map" "$NARBACULAR/levels/$1.cmf" --texdir "$NARBACULAR/video/"
 }
 
 # build original level set (converted to MAP via Hammer 3.4)
