@@ -1,0 +1,5 @@
+#!/bin/sh
+if [ "$NARBACULAR" = "" ]; then
+	NARBACULAR="/home/t20kdc/.wine/drive_c/Program Files (x86)/Narbacular Drop"
+fi
+dotnet run --no-restore -- --extract "$NARBACULAR/extract_test/"

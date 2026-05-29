@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Text;
 using KDCVRCBSP.ECL;
 
 /// 'Simple and silly' test program to mess with BSP compilation techniques.
@@ -11,18 +12,27 @@ namespace KDCVRCBSP.CMF {
 		public static void Main(string[] args) {
 			string input = "";
 			string output = "";
-			string texdir = "/home/t20kdc/.wine/drive_c/Program Files (x86)/Narbacular Drop/video/";
+			string texdir = "video/";
 			bool switches = true;
 			bool isWaitingForTexdir = false;
+			bool isWaitingForExtract = false;
 			Dictionary<string, Vector2d> textures = new();
 			foreach (string s in args) {
 				if (isWaitingForTexdir) {
 					texdir = s;
+					isWaitingForTexdir = false;
+				} if (isWaitingForExtract) {
+					// extract File.ore
+					byte[] ore = File.ReadAllBytes(s + "File.ore");
+					ExtractORE(ore, 0, s);
+					return;
 				} else if (switches && s.StartsWith("-")) {
 					if (s == "--") {
 						switches = false;
 					} else if (s == "--texdir") {
 						isWaitingForTexdir = true;
+					} else if (s == "--extract") {
+						isWaitingForExtract = true;
 					} else {
 						throw new Exception("unknown switch");
 					}
@@ -108,6 +118,43 @@ namespace KDCVRCBSP.CMF {
 			Vector2d texSize = new Vector2d(w, h);
 			cache[tex] = texSize;
 			return texSize;
+		}
+		public static string ORECStr(byte[] data, ref int at) {
+			int start = at;
+			while (true) {
+				byte v = data[at++];
+				if (v == 0)
+					break;
+			}
+			return UTF8Encoding.Latin1.GetString(data, start, at - (start + 1));
+		}
+		public static void ExtractORE(byte[] data, int at, string pfx) {
+			int cur = at;
+			int filesAt = at + BitConverter.ToInt32(data, cur);
+			cur += 4;
+			int dirCount = BitConverter.ToInt32(data, cur);
+			cur += 4;
+			for (int i = 0; i < dirCount; i++) {
+				string dirName = ORECStr(data, ref cur);
+				int dirOfs = at + BitConverter.ToInt32(data, cur);
+				cur += 4;
+				Directory.CreateDirectory(pfx + dirName);
+				ExtractORE(data, dirOfs, pfx + dirName + "/");
+			}
+			cur = filesAt;
+			int fileCount = BitConverter.ToInt32(data, cur);
+			cur += 4;
+			for (int i = 0; i < fileCount; i++) {
+				string fileName = ORECStr(data, ref cur);
+				int fileOfs = filesAt + BitConverter.ToInt32(data, cur);
+				cur += 4;
+				int fileLen = BitConverter.ToInt32(data, cur);
+				cur += 4;
+				byte[] fileData = new byte[fileLen];
+				Console.WriteLine("extract: " + pfx + fileName);
+				Buffer.BlockCopy(data, fileOfs, fileData, 0, fileLen);
+				File.WriteAllBytes(pfx + fileName, fileData);
+			}
 		}
 	}
 }
