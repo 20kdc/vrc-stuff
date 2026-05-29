@@ -18,6 +18,7 @@ namespace KDCVRCBSP.CMF {
 			bool isWaitingForExtract = false;
 			bool digipenWad = false;
 			bool minify = false;
+			bool chop = false;
 			Dictionary<string, Vector2d> textures = new();
 			foreach (string s in args) {
 				if (isWaitingForTexdir) {
@@ -39,6 +40,8 @@ namespace KDCVRCBSP.CMF {
 						digipenWad = true;
 					} else if (s == "--minify") {
 						minify = true;
+					} else if (s == "--chop") {
+						chop = true;
 					} else {
 						throw new Exception("unknown switch");
 					}
@@ -56,7 +59,7 @@ namespace KDCVRCBSP.CMF {
 				output = input.Substring(0, input.Length - 3) + "cmf";
 			}
 			List<EntityParsed> parsedEntities = MapParsing.Parse(File.ReadAllText(input));
-			// -- 'Preprocessor' --
+			// -- 'preprocess' UVs  --
 			foreach (EntityParsed ent in parsedEntities) {
 				foreach (var brush in ent.brushes) {
 					foreach (var face in brush) {
@@ -96,28 +99,28 @@ namespace KDCVRCBSP.CMF {
 					}
 					cmfEnt.pairs.Add(pair);
 				}
+
+				List<Convex3d<EntityParsed.BrushSide>> brushesConvexes = new();
 				foreach (var brush in ent.brushes) {
-					var planes = EntityParsed.BrushPlanes(brush);
-					for (int face = 0; face < brush.Count; face++) {
-						var faceDat = brush[face];
-						var facePlane = planes[face];
-						var winding = GeomUtil.GenInitialWinding(facePlane, 65536d);
-						// Reversing the cut order here improves closeness to csg.exe output for some reason.
-						for (int cutter = brush.Count - 1; cutter >= 0; cutter--) {
-							if (cutter == face)
-								continue;
-							planes[cutter].CutWinding(winding, null, 0.0078125d);
-						}
-						if (winding.Count < 3)
-							continue;
+					var cvx = EntityParsed.BrushConvex<EntityParsed.BrushSide>(brush, v => v, 0.125d, 65536d);
+					if (cvx != null)
+						brushesConvexes.Add(cvx);
+				}
+				for (int cvxIdx = 0; cvxIdx < brushesConvexes.Count; cvxIdx++) {
+					var cvx = brushesConvexes[cvxIdx];
+					IReadOnlyList<Convex3d<EntityParsed.BrushSide>.Face> faces = cvx.faces;
+					//if (chop)
+					//	faces = cvx.ChopFaces(brushesConvexes, cvxIdx);
+					// Continue...
+					foreach (var face in faces) {
 						CMFFile.Polygon poly = new();
-						poly.materialIndex = cmf.EnsureMaterial(faceDat.texture);
+						poly.materialIndex = cmf.EnsureMaterial(face.data.texture);
 						// convert into CMF coordinate system
-						poly.plane = new Plane3d(new Vector3d(facePlane.normal.x, facePlane.normal.z, facePlane.normal.y), -facePlane.distance);
-						foreach (Vector3d vec in winding) {
+						poly.plane = new Plane3d(new Vector3d(face.plane.normal.x, face.plane.normal.z, face.plane.normal.y), -face.plane.distance);
+						foreach (Vector3d vec in face.winding) {
 							// also convert into CMF coordinate system
 							Vector3d vecConv = new Vector3d(vec.x, vec.z, vec.y);
-							poly.vertices.Add((vecConv, faceDat.MapUV(vec)));
+							poly.vertices.Add((vecConv, face.data.MapUV(vec)));
 						}
 						cmfEnt.polygons.Add(poly);
 					}
@@ -126,6 +129,7 @@ namespace KDCVRCBSP.CMF {
 			}
 			File.WriteAllBytes(output, cmf.Emit(!minify));
 		}
+
 		public static Vector2d GetTexSize(string tex, Dictionary<string, Vector2d> cache, string texdir) {
 			if (cache.ContainsKey(tex)) {
 				return cache[tex];

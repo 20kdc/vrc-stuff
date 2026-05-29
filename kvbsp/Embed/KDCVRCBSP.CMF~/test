@@ -30,7 +30,7 @@ if [ "$1" = "" ]; then
 	build_level VeryVertical
 elif [ "$1" = "expie" ]; then
 	build_level_i "$NARBACULAR/expie/onetest.map" expie/onetest_net.cmf
-	build_level_i "compilertest.map" levels/ctest.cmf
+	build_level_i "compilertest.map" levels/ctest.cmf --chop --minify
 else
 	echo "unknown submode $1"
 fi

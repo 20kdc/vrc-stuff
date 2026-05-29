@@ -9,6 +9,11 @@ namespace KDCVRCBSP.ECL {
 	public struct Vector3d {
 		public double x, y, z;
 
+		public static Self Zero {
+			[MethodImpl(MethodImplOptions.AggressiveInlining)]
+			get => new Self(0, 0, 0);
+		}
+
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public Vector3d(double x, double y, double z) {
 			this.x = x;
@@ -141,6 +146,12 @@ namespace KDCVRCBSP.ECL {
 			[MethodImpl(MethodImplOptions.AggressiveInlining)]
 			get => Math.Sqrt((x * x) + (y * y) + (z * z));
 		}
+
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public Self Min(Self o) => new Self(Math.Min(x, o.x), Math.Min(y, o.y), Math.Min(z, o.z));
+
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public Self Max(Self o) => new Self(Math.Max(x, o.x), Math.Max(y, o.y), Math.Max(z, o.z));
 
 		// -- Fancy ops --
 

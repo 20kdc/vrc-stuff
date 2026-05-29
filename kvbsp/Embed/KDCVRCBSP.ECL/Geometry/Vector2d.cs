@@ -9,6 +9,11 @@ namespace KDCVRCBSP.ECL {
 	public struct Vector2d {
 		public double x, y;
 
+		public static Self Zero {
+			[MethodImpl(MethodImplOptions.AggressiveInlining)]
+			get => new Self(0, 0);
+		}
+
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public Vector2d(double x, double y) {
 			this.x = x;
@@ -100,6 +105,12 @@ namespace KDCVRCBSP.ECL {
 			[MethodImpl(MethodImplOptions.AggressiveInlining)]
 			get => Math.Sqrt((x * x) + (y * y));
 		}
+
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public Self Min(Self o) => new Self(Math.Min(x, o.x), Math.Min(y, o.y));
+
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public Self Max(Self o) => new Self(Math.Max(x, o.x), Math.Max(y, o.y));
 
 		// -- Fancy ops --
 

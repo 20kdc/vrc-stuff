@@ -73,23 +73,6 @@ namespace KDCVRCBSP.ECL {
 
 		// -- Debug --
 
-		public static List<List<Vector3d>> DebugChopConvex(Plane3d[] planes, double epsilon) {
-			List<List<Vector3d>> faces = new();
-			for (int i = 0; i < planes.Length; i++) {
-				var winding = GenInitialWinding(planes[i], 65536d);
-				for (int j = 0; j < planes.Length; j++) {
-					if (i == j)
-						continue;
-					planes[j].CutWinding(winding, null, epsilon);
-					if (winding.Count < 3)
-						break;
-				}
-				if (winding.Count > 2)
-					faces.Add(winding);
-			}
-			return faces;
-		}
-
 		/// OBJ test (to check winding chopper in practice)
 		public static List<String> DebugMakeOBJ(List<(string, List<List<Vector3d>>)> objects) {
 			int vertices = 0;

@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Numerics;
 using KDCVRCBSP.ECL;
 
 namespace KDCVRCBSP.Tests {
@@ -42,11 +41,8 @@ namespace KDCVRCBSP.Tests {
 			List<(string, List<List<Vector3d>>)> objsrc = new();
 			int brushIdx = 0;
 			foreach (var brush in mapchk[0].brushes) {
-				List<Plane3d> facePlanes = new();
-				foreach (var side in brush)
-					facePlanes.Add(side.Plane);
-				var faces = GeomUtil.DebugChopConvex(facePlanes.ToArray(), 0.125d);
-				objsrc.Add(("b" + brushIdx, faces));
+				var cvx = EntityParsed.BrushConvex<int>(brush, v => 0, 0.125d, 65536d);
+				objsrc.Add(("b" + brushIdx, cvx.faces.Select(v => v.winding.ToList()).ToList()));
 				brushIdx++;
 			}
 			File.WriteAllLines("../../../netbin/testmap_brushes.obj", GeomUtil.DebugMakeOBJ(objsrc));
