@@ -20,6 +20,9 @@ namespace KDCVRCBSP.ECL {
 		/// Distance epsilon, used for comparing co-planarity in various circumstances (among other things)
 		public double distanceEpsilon = 1d / 32d;
 
+		/// Broadphase epsilon. This is supplied to AABB3d.Intersects.
+		public double broadphaseEpsilon = 0.5d;
+
 		/// Normal epsilon, used for comparing normals in co-planarity checks.
 		/// The check expected here is Normal.Dot(OtherNormal) > normalEpsilon
 		public double normalEpsilon = 1d - (1d / 32d);

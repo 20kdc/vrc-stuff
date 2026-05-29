@@ -40,13 +40,16 @@ namespace KDCVRCBSP.ECL {
 		};
 
 		/// If this AABB intersects with another.
+		/// If 'margin' is above 0, it biases in favour of intersect.
+		/// If below 0, it biases against intersect.
+		/// Beware that use of the margin may make 'zero' AABBs intersect each other.
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		public bool Intersects(AABB3d other) {
-			if (min.x >= other.max.x || max.x <= other.min.x)
+		public bool Intersects(AABB3d other, double margin) {
+			if (min.x >= (other.max.x + margin) || max.x <= (other.min.x - margin))
 				return false;
-			if (min.y >= other.max.y || max.y <= other.min.y)
+			if (min.y >= (other.max.y + margin) || max.y <= (other.min.y - margin))
 				return false;
-			if (min.z >= other.max.z || max.z <= other.min.z)
+			if (min.z >= (other.max.z + margin) || max.z <= (other.min.z - margin))
 				return false;
 			return true;
 		}

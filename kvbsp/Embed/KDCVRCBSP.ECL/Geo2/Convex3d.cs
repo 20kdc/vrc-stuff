@@ -100,7 +100,7 @@ namespace KDCVRCBSP.ECL {
 					continue;
 				}
 				// N^2 algorithm moment. Such is life.
-				if (!cutterBrush.bounds.Intersects(bounds))
+				if (!cutterBrush.bounds.Intersects(bounds, g2.broadphaseEpsilon))
 					continue;
 				// Cut up each of our faces.
 				List<Face> newFaces = new();
