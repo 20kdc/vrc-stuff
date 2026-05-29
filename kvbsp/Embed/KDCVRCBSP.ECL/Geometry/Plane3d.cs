@@ -2,6 +2,7 @@ namespace KDCVRCBSP.ECL {
 	using System.Collections.Generic;
 	using System.Runtime.CompilerServices;
 	using VectorD = Vector3d;
+	using Self = Plane3d;
 
 	/// Plane in 3D space.
 	public struct Plane3d {
@@ -27,6 +28,11 @@ namespace KDCVRCBSP.ECL {
 		/// Gets the signed distance of a point to this plane.
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public double SignedDistance(VectorD point) => point.Dot(normal) - distance;
+
+		public Self Flipped {
+			[MethodImpl(MethodImplOptions.AggressiveInlining)]
+			get => new Self(normal * -1, -distance);
+		}
 
 		/// Snaps a point to this plane while constraining it to the given normal.
 		/// This has various fascinating uses.

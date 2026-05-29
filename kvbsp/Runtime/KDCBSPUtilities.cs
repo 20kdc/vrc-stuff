@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering;
 using VRC.SDKBase;
+using KDCVRCBSP.ECL;
 
 namespace KDCVRCBSP {
 	/**
@@ -89,6 +90,38 @@ namespace KDCVRCBSP {
 				layer++;
 			}
 			return layer;
+		}
+
+		// -- FromECL conv --
+
+		public static Vector2 FromECL(Vector2d src) {
+			return new Vector2((float) src.x, (float) src.y);
+		}
+
+		public static Vector3 FromECL(Vector3d src) {
+			return new Vector3((float) src.x, (float) src.y, (float) src.z);
+		}
+
+		public static Plane FromECL(Plane3d plane) {
+			// Note the inversion of distance.
+			// The ECL uses the same plane definition as Godot and ID (N=(1,0,0) D=32 means the X+ plane at (32,0,0))
+			// Unity's plane definition is such that the same input would mean an X+ plane at (-32,0,0).
+			return new Plane(FromECL(plane.normal), (float) -plane.distance);
+		}
+
+		// -- ToECL conv --
+
+		public static Vector2d ToECL(Vector2 src) {
+			return new Vector2d(src.x, src.y);
+		}
+
+		public static Vector3d ToECL(Vector3 src) {
+			return new Vector3d(src.x, src.y, src.z);
+		}
+
+		public static Plane3d ToECL(Plane plane) {
+			// See FromECL for rationale
+			return new Plane3d(ToECL(plane.normal), -plane.distance);
 		}
 	}
 }

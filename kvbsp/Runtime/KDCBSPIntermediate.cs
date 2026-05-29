@@ -336,6 +336,9 @@ namespace KDCVRCBSP {
 			// [TRANSFORM]
 			// So, here's an oddity for you: I don't know why distance has to be inverted.
 			// It clearly does, so that's a start, but I don't know why.
+			// UPDATE: The reason is because Unity's definition of `distance` is bad.
+			// One would think that a point on P exists at (N * D).
+			// However, according to the field doc for `distance`, by Unity logic, it is actually at (N * -D).
 			return new Plane(new Vector3(nX, nZ, nY), d / -worldScale);
 		}
 
@@ -351,110 +354,39 @@ namespace KDCVRCBSP {
 
 		/// Converts a brush to faces.
 		public List<Face> BrushToFaces(Brush brush, float worldScale) {
-			List<Plane> planes = new();
-			foreach (var side in brush.sides)
-				planes.Add(side.plane);
+			Plane3d[] planes = new Plane3d[brush.sides.Length];
+			for (int i = 0; i < brush.sides.Length; i++)
+				planes[i] = KDCBSPUtilities.ToECL(brush.sides[i].plane);
 			List<Face> res = new();
 			float epsilon = 0.05f / worldScale;
 			float initQuadSize = 131072 / worldScale;
 			for (int i = 0; i < brush.sides.Length; i++) {
 				// create initial
-				List<Vector3> winding = GenInitialWinding(brush.sides[i].plane, initQuadSize);
+				List<Vector3d> winding = GeomUtil.GenInitialWinding(planes[i], initQuadSize);
 				// cut
 				for (int j = 0; j < brush.sides.Length; j++) {
 					if (j == i)
 						continue;
-					winding = CutWinding(winding, brush.sides[j].plane, epsilon);
+					planes[j].CutWinding(winding, epsilon);
+					if (winding.Count < 3)
+						break;
 				}
-				if (winding.Count == 0)
+				if (winding.Count < 3)
 					continue;
+
+				// convert from ECL to Unity
+				Vector3[] windingConv = new Vector3[winding.Count];
+				for (int j = 0; j < windingConv.Length; j++) {
+					// int revIndex = winding.Count - (j + 1);
+					windingConv[j] = KDCBSPUtilities.FromECL(winding[j]);
+				}
+
 				res.Add(new Face {
 					texInfo = brush.sides[i].texInfo,
-					winding = winding.ToArray()
+					winding = windingConv
 				});
 			}
 			return res;
-		}
-
-		// Creates an initial winding for a given plane.
-		public static List<Vector3> GenInitialWinding(Plane p, float q) {
-			// This algorithm in particular is subject to numerical stability issues.
-			// If you're getting precision issues with collision: LOOK HERE FIRST!
-			// float q = 1024;
-			List<Vector3> res = new();
-			var nx = Math.Abs(p.normal.x);
-			var ny = Math.Abs(p.normal.y);
-			var nz = Math.Abs(p.normal.z);
-			if (nx > ny && nx > nz) {
-				// X-major
-				res.Add(p.ClosestPointOnPlane(new Vector3( 0,  q, -q)));
-				res.Add(p.ClosestPointOnPlane(new Vector3( 0,  q,  q)));
-				res.Add(p.ClosestPointOnPlane(new Vector3( 0, -q,  q)));
-				res.Add(p.ClosestPointOnPlane(new Vector3( 0, -q, -q)));
-			} else if (ny > nz) {
-				// Y-major
-				res.Add(p.ClosestPointOnPlane(new Vector3( q,  0, -q)));
-				res.Add(p.ClosestPointOnPlane(new Vector3( q,  0,  q)));
-				res.Add(p.ClosestPointOnPlane(new Vector3(-q,  0,  q)));
-				res.Add(p.ClosestPointOnPlane(new Vector3(-q,  0, -q)));
-			} else {
-				// Z-major
-				res.Add(p.ClosestPointOnPlane(new Vector3( q, -q,  0)));
-				res.Add(p.ClosestPointOnPlane(new Vector3( q,  q,  0)));
-				res.Add(p.ClosestPointOnPlane(new Vector3(-q,  q,  0)));
-				res.Add(p.ClosestPointOnPlane(new Vector3(-q, -q,  0)));
-			}
-			// hacky way to do this without much more work
-			Plane p2 = new Plane(res[0], res[1], res[2]);
-			if (Vector3.Dot(p.normal, p2.normal) < 0.5f)
-				res.Reverse();
-			p2 = new Plane(res[0], res[1], res[2]);
-			if ((Vector3.Dot(p.normal, p2.normal) < 0.9f) || (Math.Abs(p.distance - p2.distance) > 0.1f))
-				throw new Exception("GenInitialWinding created bad winding for " + p + ", resulted in " + p2);
-			return res;
-		}
-
-		// Cuts a winding. Everything on the positive edge of the plane is lost.
-		// Winding order is maintained.
-		public static List<Vector3> CutWinding(List<Vector3> lst, Plane p, float epsilon) {
-			List<Vector3> res = new();
-			for (int i = 0; i < lst.Count; i++) {
-				int j = (i + 1) % lst.Count;
-				// We handle the winding as a series of edges.
-				// We're considered 'responsible' for the first point.
-				var pi = lst[i];
-				var si = SideOfPoint(p, pi, epsilon);
-				var pj = lst[j];
-				var sj = SideOfPoint(p, pj, epsilon);
-				// Determine the intersection type.
-				if (si <= 0) {
-					// I is negative or on plane, so will always be preserved.
-					res.Add(pi);
-				}
-				if ((si < 0 && sj > 0) || (si > 0 && sj < 0)) {
-					// Line crosses through plane.
-					// One of these points will be deleted entirely. The line that crosses back through the plane will generate its own intersection point.
-					// 'Raycast' didn't work(?), so don't use it.
-					// Let's say that the line is headed positive. distI = -2, distJ = 1.
-					// Therefore, travel = 3, and the desired lerp value is 0.6666r.
-					float distI = p.GetDistanceToPoint(pi);
-					float distJ = p.GetDistanceToPoint(pj);
-					float travel = distJ - distI;
-					// Well, it's this.
-					float lerpPtr = (-distI) / travel;
-					res.Add(Vector3.LerpUnclamped(pi, pj, lerpPtr));
-				}
-			}
-			return res;
-		}
-
-		public static int SideOfPoint(Plane p, Vector3 point, float epsilon) {
-			float dist = p.GetDistanceToPoint(point);
-			if (Math.Abs(dist) < epsilon)
-				return 0;
-			if (dist < 0)
-				return -1;
-			return 1;
 		}
 	}
 }

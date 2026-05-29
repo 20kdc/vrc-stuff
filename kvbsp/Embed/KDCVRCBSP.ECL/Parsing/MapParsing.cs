@@ -126,8 +126,8 @@ namespace KDCVRCBSP.ECL {
 		/// Parses the given map.
 		public static List<EntityParsed> Parse(IEnumerator<string> tokens) {
 			List<EntityParsed> result = new();
-			EntityParsed? hasEntity = null;
-			string? hasKey = null;
+			EntityParsed hasEntity = null;
+			string hasKey = null;
 			Vector3d[] pointBuf = new Vector3d[3];
 			double[] stBuf = new double[8];
 			while (tokens.MoveNext()) {
