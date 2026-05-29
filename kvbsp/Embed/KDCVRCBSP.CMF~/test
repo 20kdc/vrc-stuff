@@ -1,0 +1,20 @@
+#!/bin/sh
+if [ "$NARBACULAR" = "" ]; then
+	NARBACULAR="/home/t20kdc/.wine/drive_c/Program Files (x86)/Narbacular Drop"
+fi
+build_level() {
+	echo "building: $1"
+	dotnet run "$NARBACULAR/RMF/$1.map" "$NARBACULAR/levels/$1.cmf" --texdir "$NARBACULAR/video/"
+}
+
+# build original level set (converted to MAP via Hammer 3.4)
+build_level artroom
+build_level BoulderDash
+build_level FireWithFire
+build_level HallwayToHell
+build_level LedgeLadder
+build_level LongHaul
+build_level LongHaul2
+build_level PolishingUp
+build_level VeryVertical
+

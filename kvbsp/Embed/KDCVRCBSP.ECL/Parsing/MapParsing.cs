@@ -120,6 +120,9 @@ namespace KDCVRCBSP.ECL {
 			return tokens;
 		}
 
+		/// Tokenizes and parses the given map.
+		public static List<EntityParsed> Parse(string map) => Parse(Tokenize(map));
+
 		/// Parses the given map.
 		public static List<EntityParsed> Parse(IEnumerable<string> tokens) => Parse(tokens.GetEnumerator());
 

@@ -13,6 +13,14 @@ namespace KDCVRCBSP.ECL {
 		/// A brush is the fundamental geometric primitive, representing a convex object.
 		public List<List<BrushSide>> brushes = new();
 
+		/// Pre-compiles brush planes for efficiency.
+		public static Plane3d[] BrushPlanes(IList<BrushSide> src) {
+			Plane3d[] res = new Plane3d[src.Count];
+			for (int i = 0; i < res.Length; i++)
+				res[i] = src[i].Plane;
+			return res;
+		}
+
 		/// A brush side represents a side of a brush.
 		/// A brush is a list of brush sides.
 		public sealed class BrushSide {

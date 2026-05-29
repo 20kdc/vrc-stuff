@@ -6,7 +6,7 @@ using System.Numerics;
 using KDCVRCBSP.ECL;
 
 namespace KDCVRCBSP.Tests {
-    public class Program {
+	public class Program {
 		public static void Main(string[] args) {
 			RunMapParsingTests();
 			RunCutWindingTests();
@@ -86,5 +86,5 @@ namespace KDCVRCBSP.Tests {
 				}, "pentagon 3d");
 			}
 		}
-    }
+	}
 }
