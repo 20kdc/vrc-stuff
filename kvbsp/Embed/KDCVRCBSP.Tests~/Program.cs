@@ -9,6 +9,7 @@ namespace KDCVRCBSP.Tests {
 		public static void Main(string[] args) {
 			RunMapParsingTests();
 			RunCutWindingTests();
+			RunPlanePoolTests();
 			RunWindingToPlanesTests();
 		}
 
@@ -72,6 +73,15 @@ namespace KDCVRCBSP.Tests {
 					new Vector3d(4 + -1, 1, 4),
 				}, "pentagon 3d");
 			}
+		}
+
+		public static void RunPlanePoolTests() {
+			Console.WriteLine("Plane pool test");
+			Geo2Context g2c = new();
+			int pa = g2c.ToPlaneIndex(new Plane3d(new Vector3d(1, 0, 0), 1));
+			int pb = g2c.ToPlaneIndex(new Plane3d(new Vector3d(-1, 0, 0), -1));
+			Test.AssertEq(g2c.FlipPlaneIndex(pa), pb, "flipped planes must use the same underlying raw index");
+			Test.AssertEq(g2c.FlipPlaneIndex(pb), pa, "flipped planes must use the same underlying raw index");
 		}
 
 		public static void RunWindingToPlanesTests() {
