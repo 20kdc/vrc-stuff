@@ -1,8 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
-using System.Numerics;
 using System.Text;
 using KDCVRCBSP.ECL;
 
@@ -36,7 +34,14 @@ namespace KDCVRCBSP.CMF {
 			ms.Write(BitConverter.GetBytes((int) 1));
 			ms.Write(BitConverter.GetBytes((int) entities.Count));
 			ms.Write(BitConverter.GetBytes((int) materials.Count));
-			EmitStr(ms, ConsistentWADPath);
+			// wadPath is just copied from wad key of worldspawn
+			// failing this we use the 'digipen wadpath'
+			string wadPath = ConsistentWADPath;
+			if (entities.Count > 0)
+				foreach (var pair in entities[0].pairs)
+					if (pair.Item1 == "wad")
+						wadPath = pair.Item2;
+			EmitStr(ms, wadPath);
 			foreach (string s in materials) {
 				EmitStr(ms, s);
 			}

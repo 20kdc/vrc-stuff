@@ -16,6 +16,7 @@ namespace KDCVRCBSP.CMF {
 			bool switches = true;
 			bool isWaitingForTexdir = false;
 			bool isWaitingForExtract = false;
+			bool digipenWad = false;
 			Dictionary<string, Vector2d> textures = new();
 			foreach (string s in args) {
 				if (isWaitingForTexdir) {
@@ -33,6 +34,8 @@ namespace KDCVRCBSP.CMF {
 						isWaitingForTexdir = true;
 					} else if (s == "--extract") {
 						isWaitingForExtract = true;
+					} else if (s == "--digipen-wad") {
+						digipenWad = true;
 					} else {
 						throw new Exception("unknown switch");
 					}
@@ -65,7 +68,7 @@ namespace KDCVRCBSP.CMF {
 					} else if (pair.Item1 == "mapversion") {
 						// csg.exe absorbs this too
 						continue;
-					} else if (pair.Item1 == "wad") {
+					} else if (digipenWad && pair.Item1 == "wad") {
 						cmfEnt.pairs.Add(("wad", CMFFile.ConsistentWADPath));
 						continue;
 					}
@@ -77,7 +80,8 @@ namespace KDCVRCBSP.CMF {
 						var faceDat = brush[face];
 						var facePlane = planes[face];
 						var winding = GeomUtil.GenInitialWinding(facePlane, 65536d);
-						for (int cutter = 0; cutter < brush.Count; cutter++) {
+						// Reversing the cut order here improves closeness to csg.exe output for some reason.
+						for (int cutter = brush.Count - 1; cutter >= 0; cutter--) {
 							if (cutter == face)
 								continue;
 							planes[cutter].CutWinding(winding, 0.0078125d);
@@ -92,9 +96,9 @@ namespace KDCVRCBSP.CMF {
 							cmf.materials.Add(faceDat.texture);
 						}
 						// convert into CMF coordinate system
-						poly.plane = new Plane3d(new Vector3d(facePlane.normal.x, facePlane.normal.z, facePlane.normal.y), facePlane.distance);
+						poly.plane = new Plane3d(new Vector3d(facePlane.normal.x, facePlane.normal.z, facePlane.normal.y), -facePlane.distance);
 						foreach (Vector3d vec in winding) {
-							// convert into CMF coordinate system
+							// also convert into CMF coordinate system
 							Vector3d vecConv = new Vector3d(vec.x, vec.z, vec.y);
 							poly.vertices.Add((vecConv, faceDat.MapUV(vec) / texSize));
 						}
