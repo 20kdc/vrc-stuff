@@ -184,26 +184,13 @@ namespace KDCVRCBSP {
 		// -- Loader Assist --
 
 		public void ParseEntities(string entityLump, float worldScale) {
-			List<string> tokens = MapParsing.Tokenize(entityLump);
-			// We try to be extremely permissive.
-			List<(string, string)> currentEntity = new();
-			string key = null;
-			foreach (var text in tokens) {
-				// Debug.Log(text);
-				if (key != null) {
-					currentEntity.Add((key, text));
-					key = null;
-				} else if (text == "{") {
-					currentEntity = new();
-				} else if (text == "}") {
-					Entity entData = new Entity {
-						pairs = currentEntity
-					};
-					entData.FillCore(worldScale);
-					entities.Add(entData);
-				} else {
-					key = text;
-				}
+			List<EntityParsed> lumpParsed = MapParsing.Parse(MapParsing.Tokenize(entityLump));
+			foreach (var entParsed in lumpParsed) {
+				Entity entData = new Entity {
+					pairs = entParsed.pairs
+				};
+				entData.FillCore(worldScale);
+				entities.Add(entData);
 			}
 		}
 
