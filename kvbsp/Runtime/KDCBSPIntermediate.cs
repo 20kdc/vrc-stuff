@@ -354,7 +354,7 @@ namespace KDCVRCBSP {
 				for (int j = 0; j < brush.sides.Length; j++) {
 					if (j == i)
 						continue;
-					planes[j].CutWinding(winding, epsilon);
+					planes[j].CutWinding(winding, null, epsilon);
 					if (winding.Count < 3)
 						break;
 				}
