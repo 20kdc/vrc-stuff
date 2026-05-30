@@ -109,7 +109,7 @@ namespace KDCVRCBSP {
 			foreach (var c in custom)
 				postProcessThese.Add(c);
 
-			if (compSettings == null || entity.model < 0 || entity.model >= importContext.bsp.models.Length)
+			if (compSettings == null || entity.model == null)
 				return entGO;
 
 			compSettings.ParseEntityOverrides(entity);
@@ -129,7 +129,7 @@ namespace KDCVRCBSP {
 			ModSEF(ref visStaticFlags, compSettings.batchingStatic, StaticEditorFlags.BatchingStatic);
 			ModSEF(ref visStaticFlags, compSettings.reflectionProbeStatic, StaticEditorFlags.ReflectionProbeStatic);
 
-			var model = importContext.bsp.models[entity.model];
+			var model = entity.model;
 			// we always get this -- we may need it for concave evaluation or for visuals or both
 			var triangles = GetBSPTriangles(importContext.bsp, model);
 

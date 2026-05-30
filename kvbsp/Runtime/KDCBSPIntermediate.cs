@@ -22,39 +22,23 @@ namespace KDCVRCBSP {
 		/// In an array in case it needs to be easily cached.
 		public TexInfo[] texInfos;
 
-		/// Models. Entities point to these (or implicitly in the case of model 0, aka worldspawn).
-		public Model[] models;
-
 		public class Entity: ROEntityKeys {
 			// Auto-parsed early
-			public string classname;
-			public string targetname;
-			public Vector3 origin;
+			public readonly string classname;
+			public readonly string targetname;
+			// Nullable (can have no brush model at all)
+			public readonly Model model;
+			public readonly float worldScale;
+			public readonly Vector3 origin;
 			/// This is how much to translate model positions by to turn them into entity-relative positions.
 			/// This accounts for things like auto-origin.
-			public Vector3 internalTranslation;
-			/// -1 means not a brush model.
-			public int model;
+			/// It would be nice to eventually get rid of this, but we need to ensure 1:1 correspondance between models and entities first.
+			public readonly Vector3 internalTranslation;
 
 			public bool IsWorldspawn => classname == "worldspawn";
 
-			public Entity() {
-			}
-
-			public Entity(EntityKeys sourceKeys) : base(sourceKeys) {
-			}
-
-			public Vector3 GetVector3Position(string key, Vector3 defaultVal, float worldScale) {
-				string[] s3 = this[key].Split(' ');
-				if (s3.Length == 3)
-					if (float.TryParse(s3[0], out var x))
-						if (float.TryParse(s3[1], out var y))
-							if (float.TryParse(s3[2], out var z))
-								return TransformPosition(x, y, z, worldScale);
-				return defaultVal;
-			}
-
-			public void FillCore(float worldScale) {
+			public Entity(EntityKeys sourceKeys, float worldScale, Model[] models) : base(sourceKeys) {
+				this.worldScale = worldScale;
 				string detectedClassname = this["classname"];
 				if (detectedClassname == "") {
 					classname = "info_unknown";
@@ -67,13 +51,37 @@ namespace KDCVRCBSP {
 				string detectedModel = this["model"];
 				if (detectedModel.StartsWith("*")) {
 					if (int.TryParse(detectedModel.Substring(1), out var result)) {
-						model = result;
+						if (result >= 0 && result < models.Length) {
+							model = models[result];
+						} else {
+							model = null;
+						}
+					} else {
+						model = null;
 					}
 				} else {
-					model = IsWorldspawn ? 0 : -1;
+					model = IsWorldspawn ? models[0] : null;
 				}
 
-				origin = GetVector3Position("origin", Vector3.zero, worldScale);
+				Vector3 statedOrigin = GetVector3Position("origin", Vector3.zero);
+
+				// Apply auto-origin.
+				if ((model != null) && GetBool("_kdcbsp_autoorigin", false)) {
+					origin = (model.mins + model.maxs) / 2;
+					internalTranslation = statedOrigin - origin;
+				} else {
+					origin = statedOrigin;
+				}
+			}
+
+			public Vector3 GetVector3Position(string key, Vector3 defaultVal) {
+				string[] s3 = this[key].Split(' ');
+				if (s3.Length == 3)
+					if (float.TryParse(s3[0], out var x))
+						if (float.TryParse(s3[1], out var y))
+							if (float.TryParse(s3[2], out var z))
+								return TransformPosition(x, y, z, worldScale);
+				return defaultVal;
 			}
 
 			/// Transforms a position accounting for internal translation/rotation.
@@ -102,7 +110,7 @@ namespace KDCVRCBSP {
 			}
 		}
 
-		public struct Model {
+		public class Model {
 			public Vector3 mins, maxs, origin;
 			public Face[] faces;
 			// If explicit UV-mapped face support is required, add 'UVFace' struct and appropriate array here.
@@ -157,39 +165,23 @@ namespace KDCVRCBSP {
 
 		// -- Loader Assist --
 
-		public void ParseEntities(string entityLump, float worldScale) {
+		public void ParseEntities(string entityLump, float worldScale, Model[] models) {
 			List<EntityParsed> lumpParsed = MapParser.Parse(entityLump);
 			EntityParsed.EnsureWorldspawn(lumpParsed);
 			foreach (var entParsed in lumpParsed) {
-				Entity entData = new Entity(entParsed.pairs);
-				entData.FillCore(worldScale);
+				Entity entData = new Entity(entParsed.pairs, worldScale, models);
 				entities.Add(entData);
 				if ((worldspawn == null) && entData.IsWorldspawn)
 					worldspawn = entData;
 			}
 		}
 
-		public void SetupBrushEntityOrigins() {
-			for (int i = 0; i < entities.Count; i++) {
-				var entity = entities[i];
-				if (entity["_kdcbsp_autoorigin"] != "1")
-					continue;
-				if (entity.model < 0 && entity.model > models.Length)
-					continue;
-				var mdl = models[entity.model];
-				var oldOrigin = entity.origin;
-				entity.origin = (mdl.mins + mdl.maxs) / 2;
-				entity.internalTranslation = oldOrigin - entity.origin;
-				entities[i] = entity;
-			}
-		}
-
 		public void GetEntityBox(Entity entity, out Vector3 centre, out Vector3 size) {
 			centre = Vector3.zero;
 			size = Vector3.zero;
-			if (entity.model < 0 && entity.model > models.Length)
+			var mdl = entity.model;
+			if (mdl == null)
 				return;
-			var mdl = models[entity.model];
 			var bspCentre = (mdl.mins + mdl.maxs) / 2;
 			centre = entity.InternalTransformFixupPos(bspCentre);
 			size = Vector3.Max(mdl.maxs, mdl.mins) - Vector3.Min(mdl.maxs, mdl.mins);

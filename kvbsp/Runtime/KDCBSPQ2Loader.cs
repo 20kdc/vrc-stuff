@@ -13,12 +13,6 @@ namespace KDCVRCBSP {
 		public static KDCBSPIntermediate Load(byte[] bsp, float worldScale, bool qbism) {
 			KDCBSPIntermediate res = new();
 
-			int entsOffset = BitConverter.ToInt32(bsp, 8);
-			int entsLength = BitConverter.ToInt32(bsp, 12);
-			// We bet on treating NUL as whitespace.
-			string entitiesLump = new UTF8Encoding(false).GetString(bsp, entsOffset, entsLength);
-			res.ParseEntities(entitiesLump, worldScale);
-
 			Plane[] planes;
 			foreach ((int idx, int pos) in StructArray(bsp, 1, 20, out planes)) {
 				float nX = BitConverter.ToSingle(bsp, pos);
@@ -119,10 +113,14 @@ namespace KDCVRCBSP {
 				};
 			}
 
-			// Despite lump order, models *must* be processed last.
+			// Despite lump order, models *must* be processed just before entities.
 			// This is because we have to assemble lots of details out of everything else in the file.
+			// Then, entities need to have models ready.
 
-			foreach ((int idx, int pos) in StructArray(bsp, 13, 48, out res.models)) {
+			/// Models. Entities point to these (or implicitly in the case of model 0, aka worldspawn).
+			KDCBSPIntermediate.Model[] models;
+
+			foreach ((int idx, int pos) in StructArray(bsp, 13, 48, out models)) {
 				int firstFace = BitConverter.ToInt32(bsp, pos + 40);
 				int numFaces = BitConverter.ToInt32(bsp, pos + 44);
 				KDCBSPIntermediate.Face[] modelFaces = new KDCBSPIntermediate.Face[numFaces];
@@ -141,7 +139,7 @@ namespace KDCVRCBSP {
 				KDCBSPIntermediate.Brush[] modelBrushes = new KDCBSPIntermediate.Brush[brushNums.Count];
 				for (int i = 0; i < modelBrushes.Length; i++)
 					modelBrushes[i] = brushes[brushNums[i]];
-				res.models[idx] = new KDCBSPIntermediate.Model {
+				models[idx] = new KDCBSPIntermediate.Model {
 					mins = GetPosition(bsp, pos + 0, worldScale),
 					maxs = GetPosition(bsp, pos + 12, worldScale),
 					origin = GetPosition(bsp, pos + 24, worldScale),
@@ -150,7 +148,11 @@ namespace KDCVRCBSP {
 				};
 			}
 
-			res.SetupBrushEntityOrigins();
+			int entsOffset = BitConverter.ToInt32(bsp, 8);
+			int entsLength = BitConverter.ToInt32(bsp, 12);
+			// We bet on treating NUL as whitespace.
+			string entitiesLump = new UTF8Encoding(false).GetString(bsp, entsOffset, entsLength);
+			res.ParseEntities(entitiesLump, worldScale, models);
 
 			return res;
 		}
