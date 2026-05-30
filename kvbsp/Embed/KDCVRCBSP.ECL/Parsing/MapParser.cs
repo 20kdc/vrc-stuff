@@ -2,120 +2,159 @@ using System;
 using System.Collections.Generic;
 
 namespace KDCVRCBSP.ECL {
-	public static class MapParser {
-		/// Tokenizes the given .map data or entity lump.
-		/// There are various different parsers, and none of them really totally agree.
-		///
-		/// Some useful notes:
-		///
-		/// * True QBSPs do not consider tokens as having types.
-		///   This is to say, in a true QBSP, '"{"' is the same as '{'.
-		/// * True vanilla QBSP1:
-		///   * Knows about ';' and '#' line comments.
-		///   * No string escapes or block comments.
-		///   * Considers all bytes <= 32 to be whitespace.
-		/// * True vanilla QBSP2:
-		///   * Aware of QBSP1's comments plus '//' lines and '/*' blocks, but still not string escapes.
-		///   * Same whitespace rule.
-		/// * TrenchBroom:
-		///   * Aware of '//' and ';' line comments, but not '/*' block comments.
-		///     * Single '/' might get discarded. This never comes up in a valid map.
-		///     * Considers /// to be a 'meaningful' (metadata) comment.
-		///   * Extremely strict about whitespace; space and tab are the only valid whitespace.
-		///   * TrenchBroom WILL WRITE '//' comments
-		/// * This parser:
-		///   * Knows about ';', '#', '//' line comments
-		///   * No block comments (like QBSP1, TrenchBroom)
-		///   * Has string escapes, but will fallback if it doesn't understand an escape
-		///     (This is a workaround for Narbacular Drop. '"next_level" "Levels\hallwaytohell.cmf"' indeed)
-		///   * Considers all chars <= 32 to be whitespace.
-		public static List<string> Tokenize(string entityLump) {
-			char[] whitespace = new char[33];
+	/// Tokenizes and parses the given .map data or entity lump.
+	/// There are various different parsers, and none of them really totally agree.
+	///
+	/// Some useful notes:
+	///
+	/// * True QBSPs do not consider tokens as having types.
+	///   This is to say, in a true QBSP, '"{"' is the same as '{'.
+	/// * True vanilla QBSP1:
+	///   * Knows about ';' and '#' line comments.
+	///   * No string escapes or block comments.
+	///   * Considers all bytes <= 32 to be whitespace.
+	/// * True vanilla QBSP2:
+	///   * Aware of QBSP1's comments plus '//' lines and '/*' blocks, but still not string escapes.
+	///   * Same whitespace rule.
+	/// * TrenchBroom:
+	///   * Aware of '//' and ';' line comments, but not '/*' block comments.
+	///     * Single '/' might get discarded. This never comes up in a valid map.
+	///     * Considers /// to be a 'meaningful' (metadata) comment.
+	///   * Extremely strict about whitespace; space and tab are the only valid whitespace.
+	///   * TrenchBroom WILL WRITE '//' comments
+	/// * This parser:
+	///   * Knows about ';', '#', '//' line comments
+	///   * No block comments (like QBSP1, TrenchBroom)
+	///   * Has string escapes, but will fallback if it doesn't understand an escape
+	///     (This is a workaround for Narbacular Drop. '"next_level" "Levels\hallwaytohell.cmf"' indeed)
+	///   * Considers all chars <= 32 to be whitespace.
+	public class MapParser {
+		private static char[] whitespace = new char[33];
+		private static char[] quoteOrEscape = new char[] {'\"', '\\'};
+
+		static MapParser() {
 			for (int i = 0; i < 33; i++)
 				whitespace[i] = (char) i;
-			List<string> tokens = new();
-			while (entityLump.Length >= 0) {
-				entityLump = entityLump.TrimStart(whitespace);
-				if (entityLump.Length == 0)
-					break;
-				if (entityLump.StartsWith("//") || entityLump.StartsWith(";")) {
-					// Something like a line comment that does not 'interrupt' an existing token is read as a line comment.
-					int endPoint = entityLump.IndexOf('\n');
-					if (endPoint == -1)
-						break;
-					entityLump = entityLump.Substring(endPoint + 1);
-				} else if (entityLump.StartsWith("\"")) {
-					entityLump = entityLump.Substring(1);
-					// Quoted string.
-					string token = "";
-					while (entityLump.Length > 0) {
-						// something not an escape
-						int endPointQ = entityLump.IndexOf('\"');
-						if (endPointQ == 0) {
-							// end of string
-							entityLump = entityLump.Substring(1);
-							break;
-						}
-						int endPointE = entityLump.IndexOf('\\');
-						if (endPointE == 0) {
-							if (entityLump.Length >= 2) {
-								// escape?
-								string escape = entityLump.Substring(1, 1);
-								// is this escape one we know?
-								bool escapeAccepted = false;
-								if (escape == "\\" || escape == "\"") {
-									// verbatim
-									escapeAccepted = true;
-								}
-								if (escapeAccepted) {
-									token += escape;
-									entityLump = entityLump.Substring(2);
-								} else {
-									// Narbacular Drop fix: Pretend unhandled escapes aren't escapes
-									token += "\\";
-									entityLump = entityLump.Substring(1);
-								}
-								continue;
-							} else {
-								// escape at end of stream
-								token += entityLump;
-								entityLump = "";
-								break;
-							}
-						}
-						// no immediate quote or escape
-						int endPoint;
-						if (endPointE == -1)
-							endPoint = endPointQ;
-						else if (endPointQ == -1)
-							endPoint = endPointE;
-						else
-							endPoint = Math.Min(endPointE, endPointQ);
+		}
 
+		public readonly string lump;
+		public int position = 0;
+
+		/// Current token.
+		public string current = "";
+
+		public MapParser(string lump) {
+			this.lump = lump;
+		}
+
+		/// Returns the current line number.
+		public int LineNumber {
+			get {
+				int ln = 1;
+				for (int i = 0; i < position; i++)
+					if (lump[i] == '\n')
+						ln++;
+				return ln;
+			}
+		}
+
+		/// Skips whitespace and comments.
+		public void SkipWhitespace() {
+			while (position < lump.Length) {
+				if (lump[position] > 32) {
+					int remaining = lump.Length - position;
+					char ch0 = lump[position];
+					char ch1 = (remaining >= 2) ? lump[position + 1] : (char) 0;
+					if (ch0 == ';' || (ch0 == '/' && ch1 == '/')) {
+						// Line comment.
+						int endPoint = lump.IndexOf('\n', position);
 						if (endPoint == -1) {
-							token += entityLump;
-							entityLump = "";
-							break;
+							position = lump.Length;
+							return;
 						}
-						string segment = entityLump.Substring(0, endPoint);
-						entityLump = entityLump.Substring(endPoint);
-						token += segment;
-					}
-					tokens.Add(token);
-				} else {
-					// Unquoted token.
-					int endPoint = entityLump.IndexOfAny(whitespace);
-					if (endPoint == -1) {
-						tokens.Add(entityLump);
-						break;
+						position = endPoint + 1;
+						continue;
 					} else {
-						string token = entityLump.Substring(0, endPoint);
-						// Console.WriteLine("debug: unquoted token " + token);
-						tokens.Add(token);
-						entityLump = entityLump.Substring(endPoint);
+						// No, this is definitely a token.
+						break;
 					}
 				}
+				position++;
 			}
+		}
+
+		/// Reads the next token from the stream.
+		public bool NextToken() {
+			// This handles skipping all line comments/etc.
+			// After this we either have a token or no tokens remain.
+			SkipWhitespace();
+			if (position >= lump.Length)
+				return false;
+			// What happens now depends on the first character.
+			char ch0 = lump[position];
+			if (ch0 == '\"') {
+				// Quoted string.
+				position++;
+				current = "";
+				// Breaking from this look should only happen if early EOF is hit.
+				while (position < lump.Length) {
+					// 'regular content' phase
+					{
+						int nextPtr = lump.IndexOfAny(quoteOrEscape, position);
+						if (nextPtr == -1)
+							break;
+						// complete all regular chars up to nextPtr
+						current += lump.Substring(position, nextPtr - position);
+						position = nextPtr;
+					}
+					// special phase
+					char nxp = lump[position];
+					if (nxp == '\\') {
+						if (position >= (lump.Length - 1))
+							break;
+						char escape = lump[position + 1];
+						bool escapeAccepted = false;
+						if (escape == '\\' || escape == '\"') {
+							// verbatim
+							escapeAccepted = true;
+						}
+						if (escapeAccepted) {
+							position += 2;
+							current += escape;
+						} else {
+							// Narbacular Drop fix: Pretend unhandled escapes aren't escapes
+							current += "\\";
+							position++;
+						}
+					} else {
+						// if (nxp == '"')
+						position++;
+						return true;
+					}
+				}
+				// Early EOF
+				current += lump.Substring(position);
+				return true;
+			} else {
+				// Unquoted.
+				int endPoint = lump.IndexOfAny(whitespace, position);
+				if (endPoint == -1) {
+					current = lump.Substring(position);
+					position = lump.Length;
+				} else {
+					current = lump.Substring(position, endPoint - position);
+					position = endPoint;
+				}
+				return true;
+			}
+		}
+
+		/// Tokenizes to a string list.
+		public static List<string> Tokenize(string entityLump) {
+			MapParser parser = new MapParser(entityLump);
+			List<string> tokens = new();
+			while (parser.NextToken())
+				tokens.Add(parser.current);
 			return tokens;
 		}
 
