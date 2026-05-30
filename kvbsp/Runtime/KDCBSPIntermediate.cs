@@ -187,7 +187,7 @@ namespace KDCVRCBSP {
 			List<EntityParsed> lumpParsed = MapParser.Parse(entityLump);
 			foreach (var entParsed in lumpParsed) {
 				Entity entData = new Entity {
-					pairs = entParsed.pairs
+					pairs = new(entParsed.pairs)
 				};
 				entData.FillCore(worldScale);
 				entities.Add(entData);
