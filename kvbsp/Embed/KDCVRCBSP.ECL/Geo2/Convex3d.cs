@@ -99,6 +99,15 @@ namespace KDCVRCBSP.ECL {
 			return new Convex3d<D>(g2, faces);
 		}
 
+		/// These flags are used to control ChopFaces.
+		public enum ChopFlags: int {
+			/// If this is not present, the face can't be chopped.
+			CanBeChopped = 1,
+			/// If this is not present, the face can't chop other geometry.
+			/// If not every face in the brush has this set, a special codepath has to be used.
+			CanChop = 2
+		}
+
 		/// Performs the BSP 'chop' stage to create a list of chopped faces.
 		/// The convex list is assumed to contain the current brush.
 		/// Notably, this may return the original face list.
@@ -114,69 +123,76 @@ namespace KDCVRCBSP.ECL {
 				// N^2 algorithm moment. Such is life.
 				if (!cutterBrush.bounds.Intersects(bounds, g2.broadphaseEpsilon))
 					continue;
+				// TODO ASSEMBLE CUTTER FACES LIST AND DETERMINE IF PARTIAL CHOP MODE (AREAPORTAL) NEEDED
 				// Cut up each of our faces.
 				List<Face> newFaces = new();
 				foreach (Face oldFace in oldFaces) {
-					// First, create intersection winding.
-					List<Vector3d> intersectionWinding = new(oldFace.winding);
-					// If the cutter brush has a face coplanar with ours, we need to know this.
-					// Mostly, we're doing a subtraction operation.
-					// But for a coplanar face we will keep the intersection of the 'winner'.
-					bool overlapped = false;
-					List<List<Vector3d>> debugDoBadDirectCut = g2.debugChopFacesDoBadDirectCut ? new() : null;
-					int oldFacePlaneIndexFlipped = g2.FlipPlaneIndex(oldFace.planeIndex);
-					foreach (Face cutterFace in cutterBrush.faces) {
-						if (cutterFace.planeIndex == oldFace.planeIndex) {
-							// Note we set this only if they face the same way.
-							// If they face opposite ways, they're supposed to cancel out.
-							overlapped = true;
-							continue;
-						} else if (cutterFace.planeIndex == oldFacePlaneIndexFlipped) {
-							continue;
-						}
-						var cutterPlane = g2.FromPlaneIndex(cutterFace.planeIndex);
-						List<Vector3d> subWinding = debugDoBadDirectCut != null ? new() : null;
-						cutterPlane.CutWinding(intersectionWinding, subWinding, g2.distanceEpsilon);
-						if (subWinding != null)
-							debugDoBadDirectCut.Add(subWinding);
-						if (intersectionWinding.Count < WindingCollapseLimit)
-							break;
-					}
-					if (intersectionWinding.Count < WindingCollapseLimit) {
-						// Does not intersect at all.
-						newFaces.Add(oldFace);
-						continue;
-					}
-					if (debugDoBadDirectCut != null) {
-						// For debugging issues, we can use this method instead.
-						// This can cause excessive cutting from unrelated faces we can't easily prove don't intersect.
-						foreach (var flakeWinding in debugDoBadDirectCut)
-							if (flakeWinding.Count >= WindingCollapseLimit)
-								newFaces.Add(new Face(g2, oldFace.planeIndex, flakeWinding, oldFace.data));
-					} else {
-						// Ok, so now we have the fun bit. This face DEFINITELY intersects the cutter brush.
-						// To avoid generating unnecessary splits from random other geometry,
-						//  we need to make a series of cut planes from the winding.
-						Plane3d oldFacePlane = g2.FromPlaneIndex(oldFace.planeIndex);
-						List<Plane3d> cutPlanes = GeomUtil.WindingToPlanes(intersectionWinding, oldFacePlane.normal);
-						List<Vector3d> remainderWinding = new(oldFace.winding);
-						foreach (var plane in cutPlanes) {
-							// Below the plane gets cut up into basically a copy of intersectionWinding.
-							List<Vector3d> flakeWinding = new();
-							plane.CutWinding(remainderWinding, flakeWinding, g2.distanceEpsilon);
-							if (flakeWinding.Count >= WindingCollapseLimit)
-								newFaces.Add(new Face(g2, oldFace.planeIndex, flakeWinding, oldFace.data));
-							if (remainderWinding.Count < WindingCollapseLimit)
-								break;
-						}
-					}
-					// Overlapped 'winner' logic.
-					if (overlapped && afterSelf)
-						newFaces.Add(new Face(g2, oldFace.planeIndex, intersectionWinding, oldFace.data));
+					// TODO HANDLE CHOP FLAGS
+					ChopFaceByFullBrush(g2, newFaces, oldFace, cutterBrush.faces, afterSelf);
 				}
 				oldFaces = newFaces;
 			}
 			return oldFaces;
+		}
+
+		/// Chops a face by a 'full brush' (where all faces can chop).
+		public static void ChopFaceByFullBrush(Geo2Context g2, List<Face> dest, Face oldFace, IReadOnlyList<Face> cutterFaces, bool afterSelf) {
+			// First, create intersection winding.
+			List<Vector3d> intersectionWinding = new(oldFace.winding);
+			// If the cutter brush has a face coplanar with ours, we need to know this.
+			// Mostly, we're doing a subtraction operation.
+			// But for a coplanar face we will keep the intersection of the 'winner'.
+			bool overlapped = false;
+			List<List<Vector3d>> debugDoBadDirectCut = g2.debugChopFacesDoBadDirectCut ? new() : null;
+			int oldFacePlaneIndexFlipped = g2.FlipPlaneIndex(oldFace.planeIndex);
+			foreach (Face cutterFace in cutterFaces) {
+				if (cutterFace.planeIndex == oldFace.planeIndex) {
+					// Note we set this only if they face the same way.
+					// If they face opposite ways, they're supposed to cancel out.
+					overlapped = true;
+					continue;
+				} else if (cutterFace.planeIndex == oldFacePlaneIndexFlipped) {
+					continue;
+				}
+				var cutterPlane = g2.FromPlaneIndex(cutterFace.planeIndex);
+				List<Vector3d> subWinding = debugDoBadDirectCut != null ? new() : null;
+				cutterPlane.CutWinding(intersectionWinding, subWinding, g2.distanceEpsilon);
+				if (subWinding != null)
+					debugDoBadDirectCut.Add(subWinding);
+				if (intersectionWinding.Count < WindingCollapseLimit)
+					break;
+			}
+			if (intersectionWinding.Count < WindingCollapseLimit) {
+				// Does not intersect at all.
+				dest.Add(oldFace);
+				return;
+			}
+			if (debugDoBadDirectCut != null) {
+				// For debugging issues, we can use this method instead.
+				// This can cause excessive cutting from unrelated faces we can't easily prove don't intersect.
+				foreach (var flakeWinding in debugDoBadDirectCut)
+					if (flakeWinding.Count >= WindingCollapseLimit)
+						dest.Add(new Face(g2, oldFace.planeIndex, flakeWinding, oldFace.data));
+			} else {
+				// Ok, so now we have the fun bit. This face DEFINITELY intersects the cutter brush.
+				// To avoid generating unnecessary splits from random other geometry,
+				//  we need to make a series of cut planes from the winding.
+				Plane3d oldFacePlane = g2.FromPlaneIndex(oldFace.planeIndex);
+				List<Plane3d> cutPlanes = GeomUtil.WindingToPlanes(intersectionWinding, oldFacePlane.normal);
+				List<Vector3d> remainderWinding = new(oldFace.winding);
+				foreach (var plane in cutPlanes) {
+					// Below the plane gets cut up into basically a copy of intersectionWinding.
+					List<Vector3d> flakeWinding = new();
+					plane.CutWinding(remainderWinding, flakeWinding, g2.distanceEpsilon);
+					if (flakeWinding.Count >= WindingCollapseLimit)
+						dest.Add(new Face(g2, oldFace.planeIndex, flakeWinding, oldFace.data));
+					if (remainderWinding.Count < WindingCollapseLimit)
+						break;
+				}
+			}
+			// Overlapped 'winner' logic.
+			if (overlapped && afterSelf)
+				dest.Add(new Face(g2, oldFace.planeIndex, intersectionWinding, oldFace.data));
 		}
 	}
 }
