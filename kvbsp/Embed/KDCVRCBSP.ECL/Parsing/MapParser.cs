@@ -43,6 +43,10 @@ namespace KDCVRCBSP.ECL {
 		/// Current token.
 		public string current = "";
 
+		/// Pushback flag.
+		/// If enabled, NextToken will simply reset the flag and return true.
+		public bool pushback = false;
+
 		public MapParser(string lump) {
 			this.lump = lump;
 		}
@@ -85,6 +89,10 @@ namespace KDCVRCBSP.ECL {
 
 		/// Reads the next token from the stream.
 		public bool NextToken() {
+			if (pushback) {
+				pushback = false;
+				return true;
+			}
 			// This handles skipping all line comments/etc.
 			// After this we either have a token or no tokens remain.
 			SkipWhitespace();
@@ -149,30 +157,15 @@ namespace KDCVRCBSP.ECL {
 			}
 		}
 
-		/// Tokenizes to a string list.
-		public static List<string> Tokenize(string entityLump) {
-			MapParser parser = new MapParser(entityLump);
-			List<string> tokens = new();
-			while (parser.NextToken())
-				tokens.Add(parser.current);
-			return tokens;
-		}
-
-		/// Tokenizes and parses the given map.
-		public static List<EntityParsed> Parse(string map) => Parse(Tokenize(map));
-
-		/// Parses the given map.
-		public static List<EntityParsed> Parse(IEnumerable<string> tokens) => Parse(tokens.GetEnumerator());
-
-		/// Parses the given map.
-		public static List<EntityParsed> Parse(IEnumerator<string> tokens) {
+		/// Parses the map.
+		public List<EntityParsed> ParseMap() {
 			List<EntityParsed> result = new();
 			EntityParsed hasEntity = null;
 			string hasKey = null;
 			Vector3d[] pointBuf = new Vector3d[3];
 			double[] stBuf = new double[8];
-			while (tokens.MoveNext()) {
-				string token = tokens.Current;
+			while (NextToken()) {
+				string token = current;
 				if (hasEntity != null) {
 					if (hasKey != null) {
 						// value takes precedence to allow for "{" and "}" as values
@@ -189,9 +182,9 @@ namespace KDCVRCBSP.ECL {
 							while (true) {
 								// if we hit early EOF, we abandon this brush.
 								// the entity will remain in the result
-								if (!tokens.MoveNext())
+								if (!NextToken())
 									return result;
-								token = tokens.Current;
+								token = current;
 								if (token == "(" || token == "}")
 									break;
 							}
@@ -202,26 +195,26 @@ namespace KDCVRCBSP.ECL {
 								// Note we only check '(' for the second/third vectors
 								// This is because of the check above for end of brush.
 								if (i != 0)
-									tokens.MoveNext(); // (
+									NextToken(); // (
 
-								if (!tokens.MoveNext())
+								if (!NextToken())
 									return result;
-								double x1 = double.Parse(tokens.Current);
-								if (!tokens.MoveNext())
+								double x1 = double.Parse(current);
+								if (!NextToken())
 									return result;
-								double y1 = double.Parse(tokens.Current);
-								if (!tokens.MoveNext())
+								double y1 = double.Parse(current);
+								if (!NextToken())
 									return result;
-								double z1 = double.Parse(tokens.Current);
+								double z1 = double.Parse(current);
 								pointBuf[i] = new Vector3d(x1, y1, z1);
 
-								if (!tokens.MoveNext()) // )
+								if (!NextToken()) // )
 									return result;
 							}
 							// texture
-							if (!tokens.MoveNext())
+							if (!NextToken())
 								return result;
-							string texture = tokens.Current;
+							string texture = current;
 							// Gets filled in with texture info
 							EntityParsed.BrushSide brushSide = new EntityParsed.BrushSide {
 								vertexA = pointBuf[0],
@@ -235,34 +228,34 @@ namespace KDCVRCBSP.ECL {
 							//  * Q2 adds extra metadata we don't care about.
 							//  * rotation is basically useless in V220 (editor-only). but xscale/yscale isn't!
 							//  * everything's arranged in such a way that the 'smart move' is to apply xscale/yscale always
-							if (!tokens.MoveNext())
+							if (!NextToken())
 								return result;
-							if (tokens.Current == "[") {
+							if (current == "[") {
 								// V220: [ x y z w ] [ x y z w ] rotation
 								for (int q = 0; q < 8; q++) {
-									if (!tokens.MoveNext())
+									if (!NextToken())
 										return result;
-									stBuf[q] = double.Parse(tokens.Current);
+									stBuf[q] = double.Parse(current);
 									if (q == 3) {
-										if (!tokens.MoveNext()) // ]
+										if (!NextToken()) // ]
 											return result;
-										if (tokens.Current != "]")
-											throw new Exception("Expected ], got " + tokens.Current);
-										if (!tokens.MoveNext()) // [
+										if (current != "]")
+											throw new Exception("Expected ], got " + current);
+										if (!NextToken()) // [
 											return result;
-										if (tokens.Current != "[")
-											throw new Exception("Expected [, got " + tokens.Current);
+										if (current != "[")
+											throw new Exception("Expected [, got " + current);
 									}
 								}
-								if (!tokens.MoveNext()) // ]
+								if (!NextToken()) // ]
 									return result;
-								if (tokens.Current != "]")
-									throw new Exception("Expected ], got " + tokens.Current);
+								if (current != "]")
+									throw new Exception("Expected ], got " + current);
 								// remaining: rotation
 								// we skip rotation
-								if (!tokens.MoveNext())
+								if (!NextToken())
 									return result;
-								double.Parse(tokens.Current);
+								double.Parse(current);
 								brushSide.texSAxis = new Vector3d(stBuf[0], stBuf[1], stBuf[2]);
 								brushSide.texTAxis = new Vector3d(stBuf[4], stBuf[5], stBuf[6]);
 								brushSide.texOffset = new Vector2d(stBuf[3], stBuf[7]);
@@ -272,13 +265,13 @@ namespace KDCVRCBSP.ECL {
 
 								// ID: xshift yshift rotation
 								// initial MoveNext does not happen because current token is already xshift
-								double xShift = double.Parse(tokens.Current);
-								if (!tokens.MoveNext())
+								double xShift = double.Parse(current);
+								if (!NextToken())
 									return result;
-								double yShift = double.Parse(tokens.Current);
-								if (!tokens.MoveNext())
+								double yShift = double.Parse(current);
+								if (!NextToken())
 									return result;
-								double rotation = double.Parse(tokens.Current);
+								double rotation = double.Parse(current);
 
 								double rotRadians = (rotation / 180.0) * Math.PI;
 								double sin = Math.Sin(rotRadians);
@@ -313,14 +306,14 @@ namespace KDCVRCBSP.ECL {
 								brushSide.texOffset = new Vector2d(xShift, yShift);
 							}
 							// xscale yscale
-							if (!tokens.MoveNext())
+							if (!NextToken())
 								return result;
-							double xScale = double.Parse(tokens.Current);
+							double xScale = double.Parse(current);
 							if (xScale == 0)
 								xScale = 1;
-							if (!tokens.MoveNext())
+							if (!NextToken())
 								return result;
-							double yScale = double.Parse(tokens.Current);
+							double yScale = double.Parse(current);
 							if (yScale == 0)
 								yScale = 1;
 							// apply scale
@@ -344,6 +337,21 @@ namespace KDCVRCBSP.ECL {
 				}
 			}
 			return result;
+		}
+
+		/// Tokenizes to a string list.
+		public static List<string> Tokenize(string entityLump) {
+			MapParser parser = new MapParser(entityLump);
+			List<string> tokens = new();
+			while (parser.NextToken())
+				tokens.Add(parser.current);
+			return tokens;
+		}
+
+		/// Tokenizes and parses the given map.
+		public static List<EntityParsed> Parse(string map) {
+			MapParser parser = new(map);
+			return parser.ParseMap();
 		}
 	}
 }

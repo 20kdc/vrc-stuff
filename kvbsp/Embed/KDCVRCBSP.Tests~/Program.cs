@@ -37,7 +37,7 @@ namespace KDCVRCBSP.Tests {
 
 			// alright, let's parse these two complex maps to make sure they parse
 			Console.WriteLine(" testmap id?");
-			MapParser.Parse(MapParser.Tokenize(File.ReadAllText("testmap_id_tb.map")));
+			MapParser.Parse(File.ReadAllText("testmap_id_tb.map"));
 			Console.WriteLine(" testmap v220?");
 			var mapchk = MapParser.Parse(File.ReadAllText("testmap_220_hammer.map"));
 			List<(string, List<List<Vector3d>>)> objsrc = new();
