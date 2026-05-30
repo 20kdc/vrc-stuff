@@ -11,6 +11,10 @@ namespace KDCVRCBSP {
 	 * If not, it's solved either here or in KDCBSPImporter.
 	 */
 	public class KDCBSPIntermediate {
+		private Entity worldspawn;
+
+		public Entity Worldspawn => worldspawn;
+
 		/// Parsed entities.
 		public List<Entity> entities = new();
 
@@ -21,8 +25,7 @@ namespace KDCVRCBSP {
 		/// Models. Entities point to these (or implicitly in the case of model 0, aka worldspawn).
 		public Model[] models;
 
-		public struct Entity {
-			public List<(string, string)> pairs;
+		public class Entity: EntityKeys {
 			// Auto-parsed early
 			public string classname;
 			public string targetname;
@@ -35,13 +38,10 @@ namespace KDCVRCBSP {
 
 			public bool IsWorldspawn => classname == "worldspawn";
 
-			public string this[string key] {
-				get {
-					foreach (var (tkey, tvalue) in pairs)
-						if (key == tkey)
-							return tvalue;
-					return "";
-				}
+			public Entity() {
+			}
+
+			public Entity(EntityKeys sourceKeys) : base(sourceKeys) {
 			}
 
 			public Vector3 GetVector3Position(string key, Vector3 defaultVal, float worldScale) {
@@ -51,32 +51,6 @@ namespace KDCVRCBSP {
 						if (float.TryParse(s3[1], out var y))
 							if (float.TryParse(s3[2], out var z))
 								return TransformPosition(x, y, z, worldScale);
-				return defaultVal;
-			}
-
-			public bool GetBool(string key, bool defaultVal) {
-				if (this[key] == "1")
-					return true;
-				if (this[key] == "0")
-					return false;
-				return defaultVal;
-			}
-
-			public int GetInt(string key, int defaultVal) {
-				if (int.TryParse(this[key], out var val))
-					return val;
-				return defaultVal;
-			}
-
-			public E GetEnum<E>(string key, E defaultVal) where E : struct {
-				if (Enum.TryParse<E>(this[key], out E res))
-					return res;
-				return defaultVal;
-			}
-
-			public float GetFloat(string key, float defaultVal) {
-				if (float.TryParse(this[key], out var val))
-					return val;
 				return defaultVal;
 			}
 
@@ -185,12 +159,13 @@ namespace KDCVRCBSP {
 
 		public void ParseEntities(string entityLump, float worldScale) {
 			List<EntityParsed> lumpParsed = MapParser.Parse(entityLump);
+			EntityParsed.EnsureWorldspawn(lumpParsed);
 			foreach (var entParsed in lumpParsed) {
-				Entity entData = new Entity {
-					pairs = new(entParsed.pairs)
-				};
+				Entity entData = new Entity(entParsed.pairs);
 				entData.FillCore(worldScale);
 				entities.Add(entData);
+				if ((worldspawn == null) && entData.IsWorldspawn)
+					worldspawn = entData;
 			}
 		}
 
@@ -221,23 +196,6 @@ namespace KDCVRCBSP {
 		}
 
 		// -- High-level Getters --
-
-		public Entity Worldspawn {
-			get {
-				foreach (Entity e in entities)
-					if (e.IsWorldspawn)
-						return e;
-				// Synthetic worldspawn
-				List<(string, string)> keys = new();
-				keys.Add(("classname", "worldspawn"));
-				Entity synthetic = new Entity {
-					pairs = keys
-				};
-				// since it's synthetic, we can use a fake worldScale here
-				synthetic.FillCore(64.0f);
-				return synthetic;
-			}
-		}
 
 		/// Gets TexInfo or a fake one.
 		/// This is useful because nodraw faces don't necessarily have valid TexInfos.

@@ -5,13 +5,21 @@ using System.Runtime.CompilerServices;
 
 namespace KDCVRCBSP.ECL {
 	/// Represents entity key/value pairs.
-	public sealed class EntityKeys: IReadOnlyList<(string, string)> {
+	public class EntityKeys: IReadOnlyList<(string, string)> {
 		/// Underlying key list.
 		private List<(string, string)> backingList = new();
 
 		/// Maps a key to its value.
 		/// Contains the *LAST* value in the list
 		private Dictionary<string, string> backingDict = new();
+
+		public EntityKeys() {
+		}
+
+		public EntityKeys(IEnumerable<(string, string)> copyThis) {
+			foreach (var pair in copyThis)
+				Add(pair);
+		}
 
 		public string this[string key] {
 			get {
@@ -115,6 +123,12 @@ namespace KDCVRCBSP.ECL {
 		public E GetEnum<E>(string key, E defaultVal) where E : struct {
 			if (Enum.TryParse<E>(this[key], out E res))
 				return res;
+			return defaultVal;
+		}
+
+		public float GetFloat(string key, float defaultVal) {
+			if (float.TryParse(this[key], out var val))
+				return val;
 			return defaultVal;
 		}
 

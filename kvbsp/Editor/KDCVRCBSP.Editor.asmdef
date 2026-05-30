@@ -2,7 +2,8 @@
 	"name": "KDCVRCBSP.Editor",
 	"rootNamespace": "",
 	"references": [
-		"KDCVRCBSP"
+		"KDCVRCBSP",
+		"KDCVRCBSP.ECL"
 	],
 	"includePlatforms": [
 		"Editor"
