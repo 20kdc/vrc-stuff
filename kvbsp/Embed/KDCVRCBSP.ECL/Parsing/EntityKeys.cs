@@ -4,21 +4,24 @@ using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 
 namespace KDCVRCBSP.ECL {
-	/// Represents entity key/value pairs.
-	public class EntityKeys: IReadOnlyList<(string, string)> {
+	/// Read-only entity keys.
+	/// This is useful where modification of entity keys isn't useful.
+	public class ROEntityKeys: IReadOnlyList<(string, string)> {
 		/// Underlying key list.
-		private List<(string, string)> backingList = new();
+		protected List<(string, string)> backingList = new();
 
 		/// Maps a key to its value.
 		/// Contains the *LAST* value in the list
-		private Dictionary<string, string> backingDict = new();
+		protected Dictionary<string, string> backingDict = new();
 
-		public EntityKeys() {
+		public ROEntityKeys() {
 		}
 
-		public EntityKeys(IEnumerable<(string, string)> copyThis) {
-			foreach (var pair in copyThis)
-				Add(pair);
+		public ROEntityKeys(IEnumerable<(string, string)> copyThis) {
+			foreach (var pair in copyThis) {
+				backingList.Add(pair);
+				backingDict[pair.Item1] = pair.Item2;
+			}
 		}
 
 		public string this[string key] {
@@ -27,11 +30,6 @@ namespace KDCVRCBSP.ECL {
 					return value;
 				}
 				return "";
-			}
-			set {
-				Remove(key);
-				backingDict[key] = value;
-				backingList.Add((key, value));
 			}
 		}
 
@@ -51,14 +49,6 @@ namespace KDCVRCBSP.ECL {
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public IEnumerator<(string, string)> GetEnumerator() => backingList.GetEnumerator();
 
-		/// Adds a pair.
-		/// Everything else is optimized around both this and the simple field lookup case.
-		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		public void Add((string, string) pair) {
-			backingList.Add(pair);
-			backingDict[pair.Item1] = pair.Item2;
-		}
-
 		/// Returns the index of a given key.
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public int IndexOf(string key, int startIndex = 0) {
@@ -68,30 +58,6 @@ namespace KDCVRCBSP.ECL {
 				startIndex++;
 			}
 			return -1;
-		}
-
-		/// Remove all uses of the given key.
-		public void Remove(string key) {
-			backingDict.Remove(key);
-			int idx = 0;
-			while (true) {
-				idx = IndexOf(key, idx);
-				if (idx == -1)
-					break;
-				backingList.RemoveAt(idx);
-			}
-		}
-
-		/// Remove the key at the given index.
-		public void RemoveAt(int index) {
-			string key = backingList[index].Item1;
-			backingList.RemoveAt(index);
-			backingDict.Remove(key);
-			// Note we use the **last** value received here.
-			// This is consistent with how Add works here
-			foreach (var pair in backingList)
-				if (pair.Item1 == key)
-					backingDict[key] = pair.Item2;
 		}
 
 		// -- Parser-Getters --
@@ -136,6 +102,62 @@ namespace KDCVRCBSP.ECL {
 			if (double.TryParse(this[key], out var val))
 				return val;
 			return defaultVal;
+		}
+	}
+
+	/// Represents entity key/value pairs.
+	public class EntityKeys: ROEntityKeys {
+		public EntityKeys(): base() {
+		}
+
+		public EntityKeys(IEnumerable<(string, string)> copyThis): base(copyThis) {
+		}
+
+		/// Shadowing here is a pretty messy trick, but it has the desired effect.
+		public new string this[string key] {
+			get {
+				if (backingDict.TryGetValue(key, out string value)) {
+					return value;
+				}
+				return "";
+			}
+			set {
+				Remove(key);
+				backingDict[key] = value;
+				backingList.Add((key, value));
+			}
+		}
+
+		/// Adds a pair.
+		/// Everything else is optimized around both this and the simple field lookup case.
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public void Add((string, string) pair) {
+			backingList.Add(pair);
+			backingDict[pair.Item1] = pair.Item2;
+		}
+
+		/// Remove all uses of the given key.
+		public void Remove(string key) {
+			backingDict.Remove(key);
+			int idx = 0;
+			while (true) {
+				idx = IndexOf(key, idx);
+				if (idx == -1)
+					break;
+				backingList.RemoveAt(idx);
+			}
+		}
+
+		/// Remove the key at the given index.
+		public void RemoveAt(int index) {
+			string key = backingList[index].Item1;
+			backingList.RemoveAt(index);
+			backingDict.Remove(key);
+			// Note we use the **last** value received here.
+			// This is consistent with how Add works here
+			foreach (var pair in backingList)
+				if (pair.Item1 == key)
+					backingDict[key] = pair.Item2;
 		}
 	}
 }

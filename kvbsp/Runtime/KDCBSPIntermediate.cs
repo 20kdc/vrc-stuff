@@ -25,7 +25,7 @@ namespace KDCVRCBSP {
 		/// Models. Entities point to these (or implicitly in the case of model 0, aka worldspawn).
 		public Model[] models;
 
-		public class Entity: EntityKeys {
+		public class Entity: ROEntityKeys {
 			// Auto-parsed early
 			public string classname;
 			public string targetname;
