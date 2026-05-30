@@ -1,9 +1,8 @@
 using System;
 using System.Collections.Generic;
-using System.Security.Cryptography;
 
 namespace KDCVRCBSP.ECL {
-	public static class MapParsing {
+	public static class MapParser {
 		/// Tokenizes the given .map data or entity lump.
 		/// There are various different parsers, and none of them really totally agree.
 		///

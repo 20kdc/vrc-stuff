@@ -19,6 +19,8 @@ namespace KDCVRCBSP.CMF {
 			bool digipenWad = false;
 			bool minify = false;
 			bool chop = false;
+			// We enable tbsim by default because it will have no effect on campaign maps.
+			bool tbsim = true;
 			Dictionary<string, Vector2d> textures = new();
 			foreach (string s in args) {
 				if (isWaitingForTexdir) {
@@ -42,6 +44,8 @@ namespace KDCVRCBSP.CMF {
 						minify = true;
 					} else if (s == "--chop") {
 						chop = true;
+					} else if (s == "--no-tbsim") {
+						tbsim = false;
 					} else {
 						throw new Exception("unknown switch");
 					}
@@ -58,8 +62,8 @@ namespace KDCVRCBSP.CMF {
 					throw new Exception("If omitting output filename, need input to have '.map' at end of name");
 				output = input.Substring(0, input.Length - 3) + "cmf";
 			}
-			List<EntityParsed> parsedEntities = MapParsing.Parse(File.ReadAllText(input));
-			// -- 'preprocess' UVs  --
+			List<EntityParsed> parsedEntities = MapParser.Parse(File.ReadAllText(input));
+			// preprocessing: UV scaling
 			foreach (EntityParsed ent in parsedEntities) {
 				foreach (var brush in ent.brushes) {
 					foreach (var face in brush) {
@@ -70,6 +74,10 @@ namespace KDCVRCBSP.CMF {
 					}
 				}
 			}
+			// preprocessing: TrenchBroom simulation
+			if (tbsim)
+				TrenchBroom.FullSimulateExport(parsedEntities);
+			// -- CMF --
 			CMFFile cmf = new();
 			foreach (EntityParsed ent in parsedEntities) {
 				CMFFile.Entity cmfEnt = new();
@@ -102,10 +110,11 @@ namespace KDCVRCBSP.CMF {
 
 				List<Convex3d<EntityParsed.BrushSide>> brushesConvexes = new();
 				// We create a new Geo2Context for each entity.
-				// Unless you're trying to write a 'literal' BSP file, YOU SHOULD BE DOING THIS
+				// Unless you're trying to write a 'literal' BSP file,
+				//  you should be doing this to save on plane lookups.
 				Geo2Context g2 = new Geo2Context();
 				foreach (var brush in ent.brushes) {
-					var cvx = EntityParsed.BrushConvex<EntityParsed.BrushSide>(g2, brush, v => v);
+					var cvx = Convex3d<EntityParsed.BrushSide>.FromBrush(g2, brush, v => v);
 					if (cvx != null)
 						brushesConvexes.Add(cvx);
 				}

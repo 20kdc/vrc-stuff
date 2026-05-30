@@ -18,7 +18,7 @@ namespace KDCVRCBSP.Tests {
 
 			List<string> lst;
 
-			lst = MapParsing.Tokenize("hello world [] [ ] \"some \\\\ \\\"stew\\\"\" // invisible\nvisible");
+			lst = MapParser.Tokenize("hello world [] [ ] \"some \\\\ \\\"stew\\\"\" // invisible\nvisible");
 			Test.AssertListEq(lst, new string[] {
 				"hello",
 				"world",
@@ -29,7 +29,7 @@ namespace KDCVRCBSP.Tests {
 				"visible"
 			}.ToList(), "basic rules test");
 
-			lst = MapParsing.Tokenize("\"next_level\" \"Levels\\hallwaytohell.cmf\"");
+			lst = MapParser.Tokenize("\"next_level\" \"Levels\\hallwaytohell.cmf\"");
 			Test.AssertListEq(lst, new string[] {
 				"next_level",
 				"Levels\\hallwaytohell.cmf"
@@ -37,14 +37,14 @@ namespace KDCVRCBSP.Tests {
 
 			// alright, let's parse these two complex maps to make sure they parse
 			Console.WriteLine(" testmap id?");
-			MapParsing.Parse(MapParsing.Tokenize(File.ReadAllText("testmap_id_tb.map")));
+			MapParser.Parse(MapParser.Tokenize(File.ReadAllText("testmap_id_tb.map")));
 			Console.WriteLine(" testmap v220?");
-			var mapchk = MapParsing.Parse(MapParsing.Tokenize(File.ReadAllText("testmap_220_hammer.map")));
+			var mapchk = MapParser.Parse(File.ReadAllText("testmap_220_hammer.map"));
 			List<(string, List<List<Vector3d>>)> objsrc = new();
 			int brushIdx = 0;
 			Geo2Context g2 = new();
 			foreach (var brush in mapchk[0].brushes) {
-				var cvx = EntityParsed.BrushConvex<int>(g2, brush, v => 0);
+				var cvx = Convex3d<int>.FromBrush(g2, brush, v => 0);
 				objsrc.Add(("b" + brushIdx, cvx.faces.Select(v => v.winding.ToList()).ToList()));
 				brushIdx++;
 			}

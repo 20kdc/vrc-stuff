@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 
@@ -7,11 +6,22 @@ namespace KDCVRCBSP.ECL {
 	/// A parsed map is simply a list of entities, so it's a big deal that we get these right.
 	public sealed class EntityParsed {
 		/// List of key/value pairs.
-		public List<(string, string)> pairs = new();
+		public EntityKeys pairs = new();
 
 		/// List of brushes as lists of brush sides.
 		/// A brush is the fundamental geometric primitive, representing a convex object.
 		public List<List<BrushSide>> brushes = new();
+
+		/// Ensures worldspawn exists, creating it if it doesn't.
+		public static EntityParsed EnsureWorldspawn(List<EntityParsed> entities) {
+			foreach (EntityParsed ep in entities)
+				if (ep.pairs["classname"] == "worldspawn")
+					return ep;
+			EntityParsed worldspawn = new EntityParsed();
+			worldspawn.pairs["classname"] = "worldspawn";
+			entities.Insert(0, worldspawn);
+			return worldspawn;
+		}
 
 		/// Pre-compiles brush planes for efficiency.
 		public static Plane3d[] BrushPlanes(IList<BrushSide> src) {
@@ -19,18 +29,6 @@ namespace KDCVRCBSP.ECL {
 			for (int i = 0; i < res.Length; i++)
 				res[i] = src[i].Plane;
 			return res;
-		}
-
-		/// Creates a ConvexFace3d list from a list of brush sides.
-		/// Returns null if the brush has less than the minimum amount of faces to be a solid (ConvexCollapseLimit)
-		public static Convex3d<D> BrushConvex<D>(Geo2Context g2, IList<BrushSide> src, Func<BrushSide, D> map) {
-			Plane3d[] planes = new Plane3d[src.Count];
-			D[] datas = new D[src.Count];
-			for (int i = 0; i < planes.Length; i++) {
-				planes[i] = src[i].Plane;
-				datas[i] = map(src[i]);
-			}
-			return Convex3d<D>.FromPlanes(g2, planes, datas);
 		}
 
 		/// A brush side represents a side of a brush.

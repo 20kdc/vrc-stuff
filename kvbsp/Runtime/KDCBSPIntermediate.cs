@@ -184,7 +184,7 @@ namespace KDCVRCBSP {
 		// -- Loader Assist --
 
 		public void ParseEntities(string entityLump, float worldScale) {
-			List<EntityParsed> lumpParsed = MapParsing.Parse(MapParsing.Tokenize(entityLump));
+			List<EntityParsed> lumpParsed = MapParser.Parse(entityLump);
 			foreach (var entParsed in lumpParsed) {
 				Entity entData = new Entity {
 					pairs = entParsed.pairs

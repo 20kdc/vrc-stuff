@@ -1,5 +1,5 @@
+using System;
 using System.Collections.Generic;
-using System.Linq;
 
 namespace KDCVRCBSP.ECL {
 	/// A set of faces with windings and associated data.
@@ -33,6 +33,18 @@ namespace KDCVRCBSP.ECL {
 				}
 			}
 			bounds = boundsAdj;
+		}
+
+		/// Creates a Convex3d from a list of brush sides.
+		/// Returns null if the brush has less than the minimum amount of faces to be a solid (ConvexCollapseLimit)
+		public static Convex3d<D> FromBrush(Geo2Context g2, IList<EntityParsed.BrushSide> src, Func<EntityParsed.BrushSide, D> map) {
+			Plane3d[] planes = new Plane3d[src.Count];
+			D[] datas = new D[src.Count];
+			for (int i = 0; i < planes.Length; i++) {
+				planes[i] = src[i].Plane;
+				datas[i] = map(src[i]);
+			}
+			return FromPlanes(g2, planes, datas);
 		}
 
 		/// Convex face.
