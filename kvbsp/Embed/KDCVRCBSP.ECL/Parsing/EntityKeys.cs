@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Net.Http.Headers;
 using System.Runtime.CompilerServices;
 
 namespace KDCVRCBSP.ECL {
@@ -60,49 +61,45 @@ namespace KDCVRCBSP.ECL {
 			return -1;
 		}
 
-		// -- Parser-Getters --
+		// -- TryGet --
 
-		public Vector3d GetVector(string key, Vector3d defaultVal) {
+		public bool TryGetInt(string key, out int val) => int.TryParse(this[key], out val);
+		public bool TryGetFloat(string key, out float val) => float.TryParse(this[key], out val);
+		public bool TryGetDouble(string key, out double val) => double.TryParse(this[key], out val);
+
+		public bool TryGetVector3d(string key, out Vector3d val) {
 			string[] s3 = this[key].Split(' ');
-			if (s3.Length == 3)
-				if (float.TryParse(s3[0], out var x))
-					if (float.TryParse(s3[1], out var y))
-						if (float.TryParse(s3[2], out var z))
-							return new Vector3d(x, y, z);
-			return defaultVal;
-		}
-
-		public bool GetBool(string key, bool defaultVal) {
-			if (this[key] == "1")
+			if (s3.Length == 3 && double.TryParse(s3[0], out var x) && double.TryParse(s3[1], out var y) && double.TryParse(s3[2], out var z)) {
+				val = new Vector3d(x, y, z);
 				return true;
-			if (this[key] == "0")
-				return false;
-			return defaultVal;
+			}
+			val = Vector3d.Zero;
+			return false;
 		}
 
-		public int GetInt(string key, int defaultVal) {
-			if (int.TryParse(this[key], out var val))
-				return val;
-			return defaultVal;
+		public bool TryGetBool(string key, out bool val) {
+			string sv = this[key];
+			if (sv == "1") {
+				val = true;
+				return true;
+			} else if (sv == "0") {
+				val = false;
+				return true;
+			}
+			val = false;
+			return false;
 		}
 
-		public E GetEnum<E>(string key, E defaultVal) where E : struct {
-			if (Enum.TryParse<E>(this[key], out E res))
-				return res;
-			return defaultVal;
-		}
+		public bool TryGetEnum<E>(string key, out E val) where E : struct => Enum.TryParse<E>(this[key], out val);
 
-		public float GetFloat(string key, float defaultVal) {
-			if (float.TryParse(this[key], out var val))
-				return val;
-			return defaultVal;
-		}
+		// -- Get --
 
-		public double GetDouble(string key, double defaultVal) {
-			if (double.TryParse(this[key], out var val))
-				return val;
-			return defaultVal;
-		}
+		public int GetInt(string key, int defaultVal) => TryGetInt(key, out var res) ? res : defaultVal;
+		public float GetFloat(string key, float defaultVal) => TryGetFloat(key, out var res) ? res : defaultVal;
+		public double GetDouble(string key, double defaultVal) => TryGetDouble(key, out var res) ? res : defaultVal;
+		public Vector3d GetVector3d(string key, Vector3d defaultVal) => TryGetVector3d(key, out var res) ? res : defaultVal;
+		public bool GetBool(string key, bool defaultVal) => TryGetBool(key, out var res) ? res : defaultVal;
+		public E GetEnum<E>(string key, E defaultVal) where E : struct => TryGetEnum<E>(key, out var res) ? res : defaultVal;
 	}
 
 	/// Represents entity key/value pairs.
