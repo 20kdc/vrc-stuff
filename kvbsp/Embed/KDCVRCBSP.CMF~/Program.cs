@@ -122,7 +122,11 @@ namespace KDCVRCBSP.CMF {
 					var cvx = brushesConvexes[cvxIdx];
 					IReadOnlyList<Convex3d<EntityParsed.BrushSide>.Face> faces = cvx.faces;
 					if (chop)
-						faces = cvx.ChopFaces(brushesConvexes);
+						faces = cvx.ChopFaces(brushesConvexes, (f) => {
+							if (f.data.texture.Equals("aaatrigger", StringComparison.InvariantCultureIgnoreCase))
+								return 0;
+							return ConvexChopFlags.CanBeChopped | ConvexChopFlags.CanChop;
+						});
 					// Continue...
 					foreach (var face in faces) {
 						CMFFile.Polygon poly = new();

@@ -1,15 +1,17 @@
 #!/bin/sh
-if [ "$NARBACULAR" = "" ]; then
-	NARBACULAR="/home/t20kdc/.wine/drive_c/Program Files (x86)/Narbacular Drop"
-fi
+. ./common.sh
 
 build_level_i() {
 	MAP_PATH="$1"
 	CMF_PATH="$2"
 	shift
 	shift
-	echo "building: $MAP_PATH -> $CMF_PATH"
-	dotnet run --no-restore -- "$MAP_PATH" "$NARBACULAR/$CMF_PATH" --texdir "$NARBACULAR/video/" "$@"
+	if [ -e "$MAP_PATH" ]; then
+		echo "building: $MAP_PATH -> $CMF_PATH"
+		dotnet run --no-restore -- "$MAP_PATH" "$NARBACULAR/$CMF_PATH" --texdir "$NARBACULAR/video/" "$@"
+	else
+		echo "$MAP_PATH did not exist and was not built."
+	fi
 }
 
 build_level() {

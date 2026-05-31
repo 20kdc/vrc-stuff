@@ -30,9 +30,6 @@ namespace KDCVRCBSP.ECL {
 		/// Initial winding size.
 		public double initialWindingSize = 65536d;
 
-		/// Debug switch to use a chop faces method that is liable to generate extra geometry.
-		public bool debugChopFacesDoBadDirectCut = false;
-
 		/// Converts a plane to a plane index.
 		/// A plane index is NOT a direct index into the PlanesRaw array.
 		/// It may be negative, which indicates negation.
