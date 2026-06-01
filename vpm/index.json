@@ -133,6 +133,18 @@
 					"license": "Unlicense",
 					"zipSHA256": "a04875f64db31ca94f83cb480f44b1e17a2ff5ae8ba215e005aee6f080b59679",
 					"url": "https://raw.githubusercontent.com/20kdc/vrc-stuff/refs/heads/main/vpm/t20kdc.vrc-tools-1.2.0.zip"
+				},
+				"1.2.1": {
+					"name": "t20kdc.vrc-tools",
+					"displayName": "t20kdc VRC Tools",
+					"version": "1.2.1",
+					"author": {
+						"name": "t20kdc"
+					},
+					"description": "Contains (stable) utilities for building VRChat worlds.",
+					"license": "Unlicense",
+					"zipSHA256": "8873862478470042314f43b0db411e2c419ec4a6ceb817ebde62fb915fb65ef8",
+					"url": "https://raw.githubusercontent.com/20kdc/vrc-stuff/refs/heads/main/vpm/t20kdc.vrc-tools-1.2.1.zip"
 				}
 			}
 		}
