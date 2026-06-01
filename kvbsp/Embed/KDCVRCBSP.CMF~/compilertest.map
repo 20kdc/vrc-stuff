@@ -25,7 +25,7 @@
 {
 "classname" "collidable_geometry"
 "sfx_type" "0"
-"_kvbsp_partition" "1"
+"_kvbsp_partition" "-256 320 32"
 // brush 0
 {
 ( 384 512 576 ) ( 384 -512 576 ) ( 384 512 -64 ) metal_panel1 [ 0 1 0 0 ] [ 0 0 -1 0 ] 270 1 1

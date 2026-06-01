@@ -28,7 +28,7 @@ namespace KDCVRCBSP.ECL {
 			return "P3D" + (normal.x, normal.y, normal.z, distance);
 		}
 
-		public bool IsAxisAligned => (normal.x == 0 && normal.y == 0) || (normal.y == 0 && normal.z == 0) && (normal.z == 0 && normal.x == 0);
+		public bool IsAxisAligned => (normal.x == 0 && normal.y == 0) || (normal.y == 0 && normal.z == 0) || (normal.z == 0 && normal.x == 0);
 
 		/// Gets the signed distance of a point to this plane.
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]

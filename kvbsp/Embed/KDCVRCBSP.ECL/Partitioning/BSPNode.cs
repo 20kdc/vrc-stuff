@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Threading;
 
 namespace KDCVRCBSP.ECL {
 	/// Say the line!
@@ -39,15 +38,24 @@ namespace KDCVRCBSP.ECL {
 
 		/// Build a BSP tree.
 		/// Note the 'split history'. In a leaf node, this is turned directly into a convex.
-		public static BSPNode<D> Build(Geo2Context g2, IReadOnlyList<Convex3d<D>.Face> splitFaces, IReadOnlyList<Convex3d<D>.Face> detailFaces, int[] splitHistory) {
+		public static BSPNode<D> Build(Geo2Context g2, IReadOnlyList<Convex3d<D>.Face> splitFaces, IReadOnlyList<Convex3d<D>.Face> otherFaces, int[] splitHistory, Predicate<Convex3d<D>.Face> isSolid) {
 			if (splitFaces.Count == 0) {
+				// Are there any solid faces poking out of this leaf?
+				// Something worth noting is that we don't have to worry about planes in our split history not being part of our actual extent.
+				// This is because if they aren't, the faces won't be there either.
+				foreach (var face in otherFaces)
+					foreach (int planeIndex in splitHistory)
+						if (face.planeIndex == planeIndex)
+							if (isSolid(face))
+								return null;
+				// Now build the leaf.
 				var leafLists = new List<BSPPortal<D>>[splitHistory.Length];
 				for (int i = 0; i < leafLists.Length; i++)
 					leafLists[i] = new List<BSPPortal<D>>();
 				Plane3d[] fixSplitHistory = new Plane3d[splitHistory.Length];
 				for (int i = 0; i < fixSplitHistory.Length; i++)
 					fixSplitHistory[i] = g2.FromPlaneIndex(splitHistory[i]);
-				return new BSPLeaf<D>(Convex3d<List<BSPPortal<D>>>.FromPlanes(g2, fixSplitHistory, leafLists, true), detailFaces);
+				return new BSPLeaf<D>(Convex3d<List<BSPPortal<D>>>.FromPlanes(g2, fixSplitHistory, leafLists, true), otherFaces);
 			}
 			// Pick plane to cut by.
 			int splitPlaneIndex = splitFaces[0].planeIndex;
@@ -57,17 +65,19 @@ namespace KDCVRCBSP.ECL {
 			int[] newSplitHistoryAbove = new int[splitHistory.Length + 1];
 			splitHistory.CopyTo(newSplitHistoryBelow, 0);
 			splitHistory.CopyTo(newSplitHistoryAbove, 0);
+			// Something critically important is that the split plane for each proto-leaf must point **OUTSIDE** of the proto-leaf.
+			// Otherwise, it'll clip away the proto-leaf itself. Which is bad.
 			newSplitHistoryBelow[splitHistory.Length] = splitPlaneIndex;
 			newSplitHistoryAbove[splitHistory.Length] = g2.FlipPlaneIndex(splitPlaneIndex);
 			// Prepare lists.
 			List<Convex3d<D>.Face> belowSplitFaces = new();
-			List<Convex3d<D>.Face> belowDetailFaces = new();
+			List<Convex3d<D>.Face> belowOtherFaces = new();
 			List<Convex3d<D>.Face> aboveSplitFaces = new();
-			List<Convex3d<D>.Face> aboveDetailFaces = new();
+			List<Convex3d<D>.Face> aboveOtherFaces = new();
 			foreach (var face in splitFaces)
-				TransferFace(splitPlane, splitPlaneIndex, face, belowSplitFaces, aboveSplitFaces, belowDetailFaces, aboveDetailFaces);
-			foreach (var face in detailFaces)
-				TransferFace(splitPlane, splitPlaneIndex, face, belowDetailFaces, aboveDetailFaces, belowDetailFaces, aboveDetailFaces);
+				TransferFace(splitPlane, splitPlaneIndex, face, belowSplitFaces, aboveSplitFaces, belowOtherFaces, aboveOtherFaces);
+			foreach (var face in otherFaces)
+				TransferFace(splitPlane, splitPlaneIndex, face, belowOtherFaces, aboveOtherFaces, belowOtherFaces, aboveOtherFaces);
 			// this is making performance so much worse
 			/*
 			if (false) {
@@ -84,8 +94,12 @@ namespace KDCVRCBSP.ECL {
 				return new BSPSplit<D>(splitPlane, below[0], above);
 			} 
 			*/
-			BSPNode<D> below = Build(g2, belowSplitFaces, belowDetailFaces, newSplitHistoryBelow);
-			BSPNode<D> above = Build(g2, aboveSplitFaces, aboveDetailFaces, newSplitHistoryAbove);
+			BSPNode<D> below = Build(g2, belowSplitFaces, belowOtherFaces, newSplitHistoryBelow, isSolid);
+			BSPNode<D> above = Build(g2, aboveSplitFaces, aboveOtherFaces, newSplitHistoryAbove, isSolid);
+			if (below == null)
+				return above;
+			else if (above == null)
+				return below;
 			return new BSPSplit<D>(splitPlane, below, above);
 		}
 
@@ -93,17 +107,15 @@ namespace KDCVRCBSP.ECL {
 		/// Note the importance of the special 'on plane' class.
 		/// This is how we prevent splitting by the same plane twice.
 		public static void TransferFace(Plane3d splitPlane, int splitPlaneIndex, Convex3d<D>.Face face, List<Convex3d<D>.Face> below, List<Convex3d<D>.Face> above, List<Convex3d<D>.Face> belowOnPlane, List<Convex3d<D>.Face> aboveOnPlane) {
-			if (face.planeIndex == splitPlaneIndex) {
-				// On-plane, agrees with direction. Send to above.
+			if (face.planeIndex == splitPlaneIndex || face.g2.FlipPlaneIndex(face.planeIndex) == splitPlaneIndex) {
+				// On-plane goes to both.
+				// This is necessary so that leaves know they have solids poking out of them so they can refuse to build.
 				aboveOnPlane.Add(face);
-				return;
-			} else if (face.g2.FlipPlaneIndex(face.planeIndex) == splitPlaneIndex) {
-				// On-plane, inverse direction. Send to below.
 				belowOnPlane.Add(face);
 				return;
 			}
-			// Determine which of below/above to punt this face to based on what a cut does.
-			(int belowCount, int aboveCount) = splitPlane.CutWindingSim(face.winding, face.g2.distanceEpsilon);
+            // Determine which of below/above to punt this face to based on what a cut does.
+            (_, int belowCount, int aboveCount) = splitPlane.CutWindingSim(face.winding, face.g2.distanceEpsilon);
 			if (belowCount >= Convex3d<D>.WindingCollapseLimit)
 				below.Add(face);
 			if (aboveCount >= Convex3d<D>.WindingCollapseLimit)
@@ -145,7 +157,34 @@ namespace KDCVRCBSP.ECL {
 						if (winding.Count < Convex3d<D>.WindingCollapseLimit)
 							continue;
 						// PORTAL CONFIRMED!
-						var portal = new BSPPortal<D>(leafA, leafB, winding);
+						var windingPlanes = Plane3d.WindingToPlanes(winding, g2.FromPlaneIndex(leafAFace.planeIndex).normal);
+						List<Convex3d<D>.Face> faces = new();
+						// find covering faces on both sides
+						void FaceCross(Convex3d<D>.Face face) {
+							// must be on either plane
+							if (face.planeIndex != leafAFace.planeIndex && face.planeIndex != leafBFace.planeIndex)
+								return;
+							// since on-plane faces are now in both leaves, this will just happen
+							if (faces.Contains(face))
+								return;
+							// must survive cutting
+							var lst = new List<Vector3d>(face.winding);
+							foreach (Plane3d cutPlane in windingPlanes) {
+								cutPlane.CutWinding(lst, null, g2.distanceEpsilon);
+								if (lst.Count < Convex3d<D>.WindingCollapseLimit)
+									break;
+							}
+							if (lst.Count < Convex3d<D>.WindingCollapseLimit)
+								return;
+							// close enough, let's OK it
+							faces.Add(face);
+						}
+						foreach (var face in leafA.faces)
+							FaceCross(face);
+						foreach (var face in leafB.faces)
+							FaceCross(face);
+						// add portals
+						var portal = new BSPPortal<D>(leafA, leafB, winding, faces);
 						leafAFace.data.Add(portal);
 						leafBFace.data.Add(portal);
 						break;
@@ -177,6 +216,9 @@ namespace KDCVRCBSP.ECL {
 			}
 			return GeomUtil.DebugMakePRT(portals);
 		}
+
+		/// Finds the leaf for a given position.
+		public abstract BSPLeaf<D> Find(Geo2Context g2, Vector3d pos);
 	}
 	/// BSP split.
 	public sealed class BSPSplit<D> : BSPNode<D> {
@@ -193,11 +235,23 @@ namespace KDCVRCBSP.ECL {
 			above.AddLeaves(leaves);
 			below.AddLeaves(leaves);
 		}
+
+		public override BSPLeaf<D> Find(Geo2Context g2, Vector3d pos) {
+			double sd = plane.SignedDistance(pos);
+			if (sd > g2.distanceEpsilon) {
+				return above.Find(g2, pos);
+			} else if (sd < -g2.distanceEpsilon) {
+				return below.Find(g2, pos);
+			} else {
+				BSPLeaf<D> aboveLeaf = above.Find(g2, pos);
+				BSPLeaf<D> belowLeaf = below.Find(g2, pos);
+				return aboveLeaf.convex.SignedDistance(pos) < belowLeaf.convex.SignedDistance(pos) ? aboveLeaf : belowLeaf;
+			}
+		}
 	}
 	public sealed class BSPLeaf<D> : BSPNode<D> {
 		/// Faces inside this leaf.
-		/// It was, somewhat arbitrarily, chosen that a face may only ever be inside one leaf.
-		/// (On-plane faces end up in the leaf that agrees with their direction.)
+		/// Beware: On-plane faces end up in both leaves.
 		public readonly IReadOnlyList<Convex3d<D>.Face> faces;
 		/// This convex's data represents portals.
 		/// It may otherwise be unenclosed.
@@ -213,18 +267,45 @@ namespace KDCVRCBSP.ECL {
 		public override void AddLeaves(List<BSPLeaf<D>> leaves) {
 			leaves.Add(this);
 		}
+
+		public override BSPLeaf<D> Find(Geo2Context g2, Vector3d pos) {
+			return this;
+		}
+
+		/// Explores from this leaf using the portalization data.
+		/// Note the 'canPass' function. This function is allowed to (for instance) register portals it refuses access to for future analysis.
+		public void Explore(List<BSPLeaf<D>> explored, HashSet<BSPLeaf<D>> seen, Predicate<(BSPLeaf<D>, BSPPortal<D>)> canPass) {
+			Queue<BSPLeaf<D>> toExplore = new();
+			seen.Add(this);
+			toExplore.Enqueue(this);
+			while (toExplore.Count > 0) {
+				var exploring = toExplore.Dequeue();
+				explored.Add(exploring);
+				foreach (var cf in exploring.convex.faces) {
+					foreach (var portal in cf.data) {
+						if (!canPass((exploring, portal)))
+							continue;
+						if (seen.Add(portal.above))
+							toExplore.Enqueue(portal.above);
+						if (seen.Add(portal.below))
+							toExplore.Enqueue(portal.below);
+					}
+				}
+			}
+		}
 	}
 
 	/// Represents a portal between two leaves.
-	/// Exists 'in the context of' its parent leaf.
 	public sealed class BSPPortal<D> {
-		public readonly BSPLeaf<D> below;
-		public readonly BSPLeaf<D> above;
-		public readonly IReadOnlyList<Vector3d> winding;
-		public BSPPortal(BSPLeaf<D> below, BSPLeaf<D> above, IReadOnlyList<Vector3d> winding) {
+		public readonly BSPLeaf<D> below, above;
+		public readonly IReadOnlyList<Vector3d> windingBelow;
+		/// Coplanar faces from either portal side that which at least partially cover the portal.
+		public readonly IReadOnlyList<Convex3d<D>.Face> faces;
+		public BSPPortal(BSPLeaf<D> below, BSPLeaf<D> above, IReadOnlyList<Vector3d> windingBelow, IReadOnlyList<Convex3d<D>.Face> faces) {
 			this.below = below;
 			this.above = above;
-			this.winding = winding;
+			this.windingBelow = windingBelow;
+			this.faces = faces;
 		}
 	}
 }

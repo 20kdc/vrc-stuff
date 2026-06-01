@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 
 namespace KDCVRCBSP.ECL {
 	/// A set of faces with windings and associated data.
@@ -82,6 +81,16 @@ namespace KDCVRCBSP.ECL {
 				(facesBelow.Count < ConvexCollapseLimit) ? null : new Convex3d<D>(g2, facesBelow),
 				(facesAbove.Count < ConvexCollapseLimit) ? null : new Convex3d<D>(g2, facesAbove)
 			);
+		}
+
+		/// Signed distance to convex.
+		/// Think like signed distance fields.
+		/// Or clouds! We all like clouds, right?
+		public double SignedDistance(Vector3d pos) {
+			double v = double.NegativeInfinity;
+			foreach (var face in faces)
+				v = Math.Max(v, g2.FromPlaneIndex(face.planeIndex).SignedDistance(pos));
+			return v;
 		}
 
 		/// Convex face.

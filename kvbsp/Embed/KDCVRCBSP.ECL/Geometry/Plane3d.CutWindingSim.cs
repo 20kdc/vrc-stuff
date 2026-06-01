@@ -4,7 +4,8 @@ namespace KDCVRCBSP.ECL {
 
 	public partial struct Plane3d {
 		/// Simulates cutting a winding.
-		public (int, int) CutWindingSim(IReadOnlyList<VectorD> lst, double epsilon) {
+		public (bool, int, int) CutWindingSim(IReadOnlyList<VectorD> lst, double epsilon) {
+			bool wasCut = false;
 			int negCount = 0;
 			int posCount = 0;
 			// We store this because we'll need it for the line between the last and first point.
@@ -21,8 +22,11 @@ namespace KDCVRCBSP.ECL {
 				int sideB = GeomUtil.SignedDistanceToSide(distB, epsilon);
 				// If point A is on or underneath the plane, it's in the final (below) geometry.
 				// Otherwise, it's removed.
-				if (sideA <= 0)
+				if (sideA <= 0) {
 					negCount++;
+				} else {
+					wasCut = true;
+				}
 				// For posLst, the point is included if it's on or above the plane.
 				if (sideA >= 0)
 					posCount++;
@@ -32,9 +36,10 @@ namespace KDCVRCBSP.ECL {
 				if ((sideA < 0 && sideB > 0) || (sideA > 0 && sideB < 0)) {
 					negCount++;
 					posCount++;
+					wasCut = true;
 				}
 			}
-			return (negCount, posCount);
+			return (wasCut, negCount, posCount);
 		}
 	}
 }
