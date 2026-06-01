@@ -89,7 +89,7 @@ namespace KDCVRCBSP.ECL {
 		}
 
 		/// Turns a winding into a set of planes for the edges.
-		public static List<(Self, D)> WindingToPlanesMD<D>(List<(VectorD, D)> winding, VectorD normal) {
+		public static List<(Self, D)> WindingToPlanesMD<D>(IReadOnlyList<(VectorD, D)> winding, VectorD normal) {
 			List<(Self, D)> planes = new();
 			for (int i = 0; i < winding.Count; i++) {
 				int j = (i + 1) % winding.Count;

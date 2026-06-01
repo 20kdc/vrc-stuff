@@ -17,13 +17,13 @@ margin_right = 1024.0
 margin_bottom = 600.0
 
 [node name="HBoxContainer" type="VBoxContainer" parent="HFlowContainer"]
-margin_left = 456.0
-margin_top = 178.0
-margin_right = 567.0
-margin_bottom = 422.0
+margin_left = 457.0
+margin_top = 180.0
+margin_right = 566.0
+margin_bottom = 420.0
 
 [node name="TextureRect" type="TextureRect" parent="HFlowContainer/HBoxContainer"]
-margin_right = 111.0
+margin_right = 109.0
 margin_bottom = 128.0
 rect_min_size = Vector2( 0, 128 )
 texture = ExtResource( 5 )
@@ -32,25 +32,25 @@ stretch_mode = 4
 
 [node name="Button" type="Button" parent="HFlowContainer/HBoxContainer"]
 margin_top = 132.0
-margin_right = 111.0
-margin_bottom = 176.0
+margin_right = 109.0
+margin_bottom = 170.0
 text = "Viewer"
 icon = ExtResource( 2 )
 script = ExtResource( 3 )
 app_path = "res://app_viewer.tscn"
 
 [node name="Button2" type="Button" parent="HFlowContainer/HBoxContainer"]
-margin_top = 180.0
-margin_right = 111.0
-margin_bottom = 224.0
+margin_top = 174.0
+margin_right = 109.0
+margin_bottom = 212.0
 text = "Processor"
 icon = ExtResource( 4 )
 script = ExtResource( 3 )
 app_path = "res://app_processor_test.tscn"
 
 [node name="CheckBox" type="CheckBox" parent="HFlowContainer/HBoxContainer"]
-margin_top = 228.0
-margin_right = 111.0
-margin_bottom = 244.0
+margin_top = 216.0
+margin_right = 109.0
+margin_bottom = 240.0
 text = "MT_DEBUG"
 script = ExtResource( 6 )

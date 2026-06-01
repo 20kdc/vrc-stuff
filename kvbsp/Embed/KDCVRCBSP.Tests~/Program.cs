@@ -101,7 +101,7 @@ namespace KDCVRCBSP.Tests {
 			}, "QTP check stage 1 maths stable");
 			// we should now have a quad with various sides at different distances
 			// we now want to 'extract' those 4 planes from it, which we ought to get back
-			var planes = GeomUtil.WindingToPlanes(winding, windingBasePlane.normal);
+			var planes = Plane3d.WindingToPlanes(winding, windingBasePlane.normal);
 			Test.AssertListEq(planes, new Plane3d[] {
 				new Plane3d(new Vector3d(1, 0, 0), 1),
 				new Plane3d(new Vector3d(0, -1, 0), 4),

@@ -1,7 +1,7 @@
 namespace KDCVRCBSP.ECL {
-    using System.Collections.Generic;
-    using System.Runtime.CompilerServices;
-    using VectorD = Vector3d;
+	using System.Collections.Generic;
+	using System.Runtime.CompilerServices;
+	using VectorD = Vector3d;
 	using Self = AABB3d;
 
 	/// Bounding box.

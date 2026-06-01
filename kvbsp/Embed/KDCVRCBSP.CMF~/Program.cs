@@ -136,7 +136,16 @@ namespace KDCVRCBSP.CMF {
 
 				// _kvbsp_partition enables doing proper partitioning and thus dead brush elimination.
 				if (ent.pairs.GetBool("_kvbsp_partition", false)) {
-					BSPNode<EntityParsed.BrushSide> tree = BSPNode<EntityParsed.BrushSide>.Build(g2, faces, Array.Empty<Convex3d<EntityParsed.BrushSide>.Face>(), Array.Empty<Convex3d<EntityParsed.BrushSide>.Face>());
+					Console.WriteLine("Presorting face list...");
+					BSPNode<EntityParsed.BrushSide>.PresortFaceList(faces);
+					Console.WriteLine("Building tree (" + faces.Count + " splitting faces...)");
+					BSPNode<EntityParsed.BrushSide> tree = BSPNode<EntityParsed.BrushSide>.Build(g2, faces, Array.Empty<Convex3d<EntityParsed.BrushSide>.Face>(), Array.Empty<int>());
+					List<BSPLeaf<EntityParsed.BrushSide>> leaves = new();
+					tree.AddLeaves(leaves);
+					Console.WriteLine("Portalizing (" + leaves.Count + " leaves)...");
+					BSPNode<EntityParsed.BrushSide>.Portalize(leaves);
+					File.WriteAllLines(output + ".leaves.obj", BSPNode<EntityParsed.BrushSide>.MakeLeafOBJ(leaves));
+					File.WriteAllLines(output + ".prt", BSPNode<EntityParsed.BrushSide>.MakePRT(leaves));
 					// TODO: Use the tree for something.
 				}
 

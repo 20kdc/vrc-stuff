@@ -91,5 +91,35 @@ namespace KDCVRCBSP.ECL {
 			}
 			return res;
 		}
+
+		/// Create portalfile.
+		public static List<string> DebugMakePRT(List<(object, object, List<Vector3d>)> portals) {
+			int leafCount = 0;
+			Dictionary<object, int> leafNumbers = new();
+			List<string> finale = new();
+			foreach (var portal in portals) {
+				int leafANo, leafBNo;
+				if (leafNumbers.ContainsKey(portal.Item1)) {
+					leafANo = leafNumbers[portal.Item1];
+				} else {
+					leafANo = leafCount++;
+					leafNumbers[portal.Item1] = leafANo;
+				}
+				if (leafNumbers.ContainsKey(portal.Item2)) {
+					leafBNo = leafNumbers[portal.Item2];
+				} else {
+					leafBNo = leafCount++;
+					leafNumbers[portal.Item2] = leafBNo;
+				}
+				string totality = $"{portal.Item3.Count} {leafANo} {leafBNo}";
+				foreach (var pt in portal.Item3)
+					totality += $" {pt.x} {pt.y} {pt.z}";
+				finale.Add(totality);
+			}
+			finale.Insert(0, "PRT1");
+			finale.Insert(1, leafCount.ToString());
+			finale.Insert(2, portals.Count.ToString());
+			return finale;
+		}
 	}
 }
