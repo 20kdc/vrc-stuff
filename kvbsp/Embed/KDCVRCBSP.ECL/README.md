@@ -4,19 +4,20 @@ The Quake-style MAP/BSP toolchain is an easy-to-operate auto-optimizing mechanis
 
 However, usually these are derived from the QBSP lineage.
 
-These are my personal notes on the process of producing an effective complete toolchain.
+These are my personal notes on the process of producing a BSP compiler library, specialized for the goal of VRChat world development.
 
-This toolchain is philosophically closest to Quake 1 QBSP, though it is somewhat distinct, intentionally (for various reasons) and unintentionally (for other various reasons).
+The result is arguably incomplete for Quake use, but as complete as it needs to be for Unity which can't use most of its capabilities anyway.
+
+This library is philosophically closest to Quake 1 QBSP, though it is somewhat distinct, intentionally (for various reasons) and unintentionally (for other various reasons).
 
 In particular:
 
 * The only contents flag that exists is 'solid', and it results in leaves being deleted early for efficiency and sanity reasons.
 * The 'chop stage' focuses entirely on faces and not at all on brushes.
 	* The Quake 2 approach, at least, is to focus entirely on brushes, even through the BSP stage, and then 'clean up' by re-merging faces as possible. This seems _horribly_ inefficient, and I'd argue key parts of this design are probably more to do with old BSP compilers needing to support Z-less draw ordering (essentially 'segs' from DOOM; in either case, to prevent 'quirks'). Targetting accelerated Z-buffer-capable hardware as we are, we aren't bound by that requirement.
+		* Mobile hardware optimizations aren't really under our control owing to material switching.
 	* A key invariant I wish to preserve is that an areaportal face is entirely and completely unimpeded in its ability to both not be chopped and in its ability to chop any eligible face. This is because the sides of areaportals will eventually become _separate meshes entirely,_ so having any common faces between them will result in unnecessary overdraw (or worse).
-		* This is to say, while we usually want to chop **less** than Quake 2 QBSP (only faces that are hidden or overlapping, to reduce overdraw and to avoid lighting problems or z-fighting), in the case of areaportals, we actually need to take drastic action and chop absolutely anything along their edges.
-
-A decent knowledge of game-programming-related mathematics is involved, but algebra (being something I never got around to) will not be found in this document.
+		* This is to say, while we usually want to chop _less_ than Quake 2 QBSP (only faces that are hidden or overlapping, to reduce overdraw and to avoid lighting problems or z-fighting), in the case of areaportals, we actually need to take drastic action and chop absolutely anything along their edges.
 
 ## Core Mathematical Primitives
 
@@ -156,7 +157,7 @@ The goal here is build speed, as the actual BSP tree won't get used for anything
 
 The face list is sorted so that axis-aligned planes are always first in the split order. This is to 'contain' the possible damage from miscalculation. The other criteria is plane distance from the average of the AABB centre of each face passed to the sorter. The idea here is that the mechanism will prioritize the centre of a level first to reduce tree depth, and then promptly fail into a near-linear tree, with more complex (i.e. non-AA) faces being kept as close to the leaves as possible.
 
-Another goal was to outright delete; rather, not create; solid leaves. This means they don't have to be considered for portalization.
+Another goal was to outright delete; rather, not create; solid leaves. This means they don't have to be considered for portalization or any future stage.
 
 The basic build function receives a list of 'split faces' and a list of 'other faces'. It picks a plane using the split faces list and then splits these lists into above/below sub-lists. However, on-plane faces; since they include the split face itself, among other problems; are also sent to the 'other' list.
 
