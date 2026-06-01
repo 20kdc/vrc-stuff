@@ -48,6 +48,42 @@ namespace KDCVRCBSP.ECL {
 			return FromPlanes(g2, planes, datas);
 		}
 
+		/// Remaps data.
+		public Convex3d<E> MapData<E>(Func<D, E> fn) {
+			List<Convex3d<E>.Face> newFaces = new();
+			foreach (Face f in faces)
+				newFaces.Add(f.WithData(fn(f.data)));
+			return new Convex3d<E>(g2, newFaces);
+		}
+
+		/// Cuts a convex to create up to two new convexes.
+		public (Convex3d<D>, Convex3d<D>) Cut(int planeIdx, D planeData) {
+			var plane = g2.FromPlaneIndex(planeIdx);
+			var planeFlipIdx = g2.FlipPlaneIndex(planeIdx);
+			var winding = GeomUtil.GenInitialWinding(plane, g2.initialWindingSize);
+			List<Face> facesBelow = new();
+			List<Face> facesAbove = new();
+			foreach (var face in this.faces) {
+				g2.FromPlaneIndex(face.planeIndex).CutWinding(winding, null, g2.distanceEpsilon);
+				(var faceBelow, var faceAbove) = face.Cut(plane);
+				if (faceBelow != null)
+					facesBelow.Add(faceBelow);
+				if (faceAbove != null)
+					facesAbove.Add(faceAbove);
+			}
+			// If the winding survived, include it and its copy.
+			if (winding.Count >= WindingCollapseLimit) {
+				facesBelow.Add(new Face(g2, planeIdx, winding, planeData));
+				List<Vector3d> windingRev = new(winding);
+				windingRev.Reverse();
+				facesAbove.Add(new Face(g2, planeFlipIdx, windingRev, planeData));
+			}
+			return (
+				(facesBelow.Count < ConvexCollapseLimit) ? null : new Convex3d<D>(g2, facesBelow),
+				(facesAbove.Count < ConvexCollapseLimit) ? null : new Convex3d<D>(g2, facesAbove)
+			);
+		}
+
 		/// Convex face.
 		/// This can be used with or without the parent convex.
 		public sealed class Face {
@@ -57,12 +93,24 @@ namespace KDCVRCBSP.ECL {
 			public readonly D data;
 			public readonly AABB3d bounds;
 
+			private Face(Geo2Context g2, int planeIndex, IReadOnlyList<Vector3d> winding, D data, AABB3d bounds) {
+				this.g2 = g2;
+				this.planeIndex = planeIndex;
+				this.winding = winding;
+				this.data = data;
+				this.bounds = bounds;
+			}
+
 			public Face(Geo2Context g2, int planeIndex, IReadOnlyList<Vector3d> winding, D data) {
 				this.g2 = g2;
 				this.planeIndex = planeIndex;
 				this.winding = winding;
-				this.bounds = new AABB3d(winding);
 				this.data = data;
+				this.bounds = new AABB3d(winding);
+			}
+
+			public Convex3d<E>.Face WithData<E>(E newData) {
+				return new(g2, planeIndex, winding, newData, bounds);
 			}
 
 			/// Cuts this face in two by a plane.
@@ -81,7 +129,8 @@ namespace KDCVRCBSP.ECL {
 
 		/// Creates a convex out of planes.
 		/// Returns null if the brush has less than the minimum amount of faces to be a solid (ConvexCollapseLimit)
-		public static Convex3d<D> FromPlanes(Geo2Context g2, Plane3d[] planes, D[] associated) {
+		/// Unless acceptUnbounded is true.
+		public static Convex3d<D> FromPlanes(Geo2Context g2, Plane3d[] planes, D[] associated, bool acceptUnbounded = false) {
 			List<Face> faces = new();
 			for (int i = 0; i < planes.Length; i++) {
 				var winding = GeomUtil.GenInitialWinding(planes[i], g2.initialWindingSize);
@@ -95,7 +144,7 @@ namespace KDCVRCBSP.ECL {
 				if (winding.Count >= WindingCollapseLimit)
 					faces.Add(new Face(g2, g2.ToPlaneIndex(planes[i]), winding, associated[i]));
 			}
-			if (faces.Count < ConvexCollapseLimit)
+			if ((faces.Count < ConvexCollapseLimit) && !acceptUnbounded)
 				return null;
 			return new Convex3d<D>(g2, faces);
 		}

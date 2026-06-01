@@ -10,7 +10,7 @@
 // entity 1
 {
 "classname" "player_respawn"
-"origin" "-256 320 0"
+"origin" "-256 320 32"
 }
 // entity 2
 {
@@ -25,6 +25,7 @@
 {
 "classname" "collidable_geometry"
 "sfx_type" "0"
+"_kvbsp_partition" "1"
 // brush 0
 {
 ( 384 512 576 ) ( 384 -512 576 ) ( 384 512 -64 ) metal_panel1 [ 0 1 0 0 ] [ 0 0 -1 0 ] 270 1 1

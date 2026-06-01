@@ -112,35 +112,48 @@ namespace KDCVRCBSP.CMF {
 				// We create a new Geo2Context for each entity.
 				// Unless you're trying to write a 'literal' BSP file,
 				//  you should be doing this to save on plane lookups.
-				Geo2Context g2 = new Geo2Context();
+				Geo2Context g2 = new();
 				foreach (var brush in ent.brushes) {
 					var cvx = Convex3d<EntityParsed.BrushSide>.FromBrush(g2, brush, v => v);
 					if (cvx != null)
 						brushesConvexes.Add(cvx);
 				}
+
+				// Collate all faces.
+				List<Convex3d<EntityParsed.BrushSide>.Face> faces = new();
 				for (int cvxIdx = 0; cvxIdx < brushesConvexes.Count; cvxIdx++) {
 					var cvx = brushesConvexes[cvxIdx];
-					IReadOnlyList<Convex3d<EntityParsed.BrushSide>.Face> faces = cvx.faces;
+					IReadOnlyList<Convex3d<EntityParsed.BrushSide>.Face> brushFaces = cvx.faces;
 					if (chop)
-						faces = cvx.ChopFaces(brushesConvexes, (f) => {
+						brushFaces = cvx.ChopFaces(brushesConvexes, (f) => {
 							if (f.data.texture.Equals("aaatrigger", StringComparison.InvariantCultureIgnoreCase))
 								return 0;
 							return ConvexChopFlags.CanBeChopped | ConvexChopFlags.CanChop;
 						});
-					// Continue...
-					foreach (var face in faces) {
-						CMFFile.Polygon poly = new();
-						poly.materialIndex = cmf.EnsureMaterial(face.data.texture);
+					foreach (var f in brushFaces)
+						faces.Add(f);
+				}
+
+				// _kvbsp_partition enables doing proper partitioning and thus dead brush elimination.
+				if (ent.pairs.GetBool("_kvbsp_partition", false)) {
+					BSPNode<EntityParsed.BrushSide> tree = BSPNode<EntityParsed.BrushSide>.Build(g2, faces, Array.Empty<Convex3d<EntityParsed.BrushSide>.Face>(), Array.Empty<Convex3d<EntityParsed.BrushSide>.Face>());
+					// TODO: Use the tree for something.
+				}
+
+				// Continue...
+				foreach (var face in faces) {
+					Plane3d facePlane = g2.FromPlaneIndex(face.planeIndex);
+					var poly = new CMFFile.Polygon {
+						materialIndex = cmf.EnsureMaterial(face.data.texture),
 						// convert into CMF coordinate system
-						Plane3d facePlane = g2.FromPlaneIndex(face.planeIndex);
-						poly.plane = new Plane3d(new Vector3d(facePlane.normal.x, facePlane.normal.z, facePlane.normal.y), -facePlane.distance);
-						foreach (Vector3d vec in face.winding) {
-							// also convert into CMF coordinate system
-							Vector3d vecConv = new Vector3d(vec.x, vec.z, vec.y);
-							poly.vertices.Add((vecConv, face.data.MapUV(vec)));
-						}
-						cmfEnt.polygons.Add(poly);
+						plane = new Plane3d(new Vector3d(facePlane.normal.x, facePlane.normal.z, facePlane.normal.y), -facePlane.distance)
+					};
+					foreach (Vector3d vec in face.winding) {
+						// also convert into CMF coordinate system
+						Vector3d vecConv = new(vec.x, vec.z, vec.y);
+						poly.vertices.Add((vecConv, face.data.MapUV(vec)));
 					}
+					cmfEnt.polygons.Add(poly);
 				}
 				cmf.entities.Add(cmfEnt);
 			}
