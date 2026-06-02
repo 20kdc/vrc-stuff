@@ -54,5 +54,19 @@ namespace KDCVRCBSP.ECL {
 				return false;
 			return true;
 		}
+
+		/// If this AABB contains a point.
+		/// If 'margin' is above 0, it biases in favour of intersect.
+		/// If below 0, it biases against intersect.
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public bool Contains(Vector3d other, double margin) {
+			if (min.x >= (other.x + margin) || max.x <= (other.x - margin))
+				return false;
+			if (min.y >= (other.y + margin) || max.y <= (other.y - margin))
+				return false;
+			if (min.z >= (other.z + margin) || max.z <= (other.z - margin))
+				return false;
+			return true;
+		}
 	}
 }

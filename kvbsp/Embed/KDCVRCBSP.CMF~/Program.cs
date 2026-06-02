@@ -113,8 +113,10 @@ namespace KDCVRCBSP.CMF {
 						if (cvx != null)
 							brushesConvexes.Add(cvx);
 					}
-					foreach (var face in MaybeChop(brushesConvexes, chop))
-						ConvertFace(cmfEnt.polygons, cmf, face, ent.pairs.GetInt("_lightslice", 0));
+					var faces = MaybeChop(brushesConvexes, chop);
+					var tJuncPoints = GeomUtil.FacePoints(faces);
+					foreach (var face in faces)
+						ConvertFace(cmfEnt.polygons, tJuncPoints, cmf, face, ent.pairs.GetInt("_lightslice", 0));
 				}
 				// clean up worldspawn geometry
 				var worldFaces = MaybeChop(worldBrushes, chop);
@@ -122,11 +124,12 @@ namespace KDCVRCBSP.CMF {
 				// ugh this generates so many entities
 				// but so does their func_wall stuff so idk
 				int worldLightSlice = worldspawn.pairs.GetInt("_lightslice", 0);
+				var worldTJuncPoints = GeomUtil.FacePoints(worldFaces);
 				foreach (var face in worldFaces) {
 					CMFFile.Entity thisWall = new();
 					thisWall.classname = "collidable_geometry";
 					thisWall.pairs.Add(("sfx_type", "" + worldspawn.pairs.GetInt("_type:" + face.data.texture, 0)));
-					ConvertFace(thisWall.polygons, cmf, face, worldLightSlice);
+					ConvertFace(thisWall.polygons, worldTJuncPoints, cmf, face, worldLightSlice);
 					if (thisWall.polygons.Count == 0)
 						continue;
 					cmf.entities.Add(thisWall);
@@ -181,8 +184,9 @@ namespace KDCVRCBSP.CMF {
 						Partition(output, g2, parsedEntities, faces);
 
 					// Continue...
+					var tJuncPoints = GeomUtil.FacePoints(faces);
 					foreach (var face in faces)
-						ConvertFace(cmfEnt.polygons, cmf, face, ent.pairs.GetInt("_lightslice", 0));
+						ConvertFace(cmfEnt.polygons, tJuncPoints, cmf, face, ent.pairs.GetInt("_lightslice", 0));
 					cmf.entities.Add(cmfEnt);
 				}
 			}
@@ -240,7 +244,7 @@ namespace KDCVRCBSP.CMF {
 			}
 		}
 
-		public static void ConvertFace(List<CMFFile.Polygon> polygons, CMFFile cmf, Convex3d<EntityParsed.BrushSide>.Face face, int lightSlice) {
+		public static void ConvertFace(List<CMFFile.Polygon> polygons, List<Vector3d> tJuncPoints, CMFFile cmf, Convex3d<EntityParsed.BrushSide>.Face face, int lightSlice) {
 			// "noclip" will be deleted here.
 			if (face.data.texture.Equals("noclip", StringComparison.InvariantCultureIgnoreCase))
 				return;
@@ -266,6 +270,8 @@ namespace KDCVRCBSP.CMF {
 			// convert into CMF coordinate system
 			var cmfPlane = new Plane3d(new Vector3d(facePlane.normal.x, facePlane.normal.z, facePlane.normal.y), -facePlane.distance);
 			foreach (var winding in windings) {
+				if (tJuncPoints != null)
+					GeomUtil.FixTJunctions(winding, face.bounds, tJuncPoints, g2.broadphaseEpsilon, g2.distanceEpsilon);
 				var poly = new CMFFile.Polygon {
 					materialIndex = materialIndex,
 					// convert into CMF coordinate system

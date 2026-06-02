@@ -39,6 +39,13 @@ namespace KDCVRCBSP.ECL {
 			get => new Self(normal * -1, -distance);
 		}
 
+		/// Snaps point to plane using plane normal.
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public VectorD SnapPointToPlane(VectorD point) {
+			// The normal itself is a valid travel vector (it's rather how the whole construction works)
+			return SnapPointToPlaneUsingTravelVector(point, normal);
+		}
+
 		/// Snaps a point to this plane while constraining it to the given normal.
 		/// This has various fascinating uses.
 		/// For example, given a ray parallel to plane A, you can snap it onto plane B.

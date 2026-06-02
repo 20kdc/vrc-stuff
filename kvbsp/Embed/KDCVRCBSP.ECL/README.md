@@ -187,6 +187,9 @@ Determining what to use this for is left for the caller (read: the Unity code th
 
 ## T-junction processing
 
-This is the final big scary TODO. Realistically, this is an element of a 'geometry post-process' stage that handles anything that's the last step before user code gets to play with the data; tasks like vertex-lighting-split might go here if they can be justified.
+Realistically, this is an element of a 'geometry post-process' stage that handles anything that's the last step before user code gets to play with the data; tasks like vertex-lighting-split might go here if they can be justified for the target.
 
-Once this is completed, then the relatively less scary work of integration can be performed. And then switching the system on and catching bugs can be performed.
+In short, all of the vertices produced so far are amassed into a point cloud.
+
+Just before geometry output, each winding edge is then tested to see if a point in the cloud is on the edge but not at either of its endpoints. If this is the case, a vertex is inserted. This is done in a points-outer winding-inner configuration in the current setup, because most points will be rejected by the AABB check. If a proper point tree datastructure is added, this'll be swapped around again.
+
