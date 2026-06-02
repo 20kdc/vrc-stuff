@@ -77,109 +77,182 @@ namespace KDCVRCBSP.CMF {
 			// preprocessing: TrenchBroom simulation
 			if (tbsim)
 				TrenchBroom.FullSimulateExport(parsedEntities);
-			// -- CMF --
+			var worldspawn = EntityParsed.EnsureWorldspawn(parsedEntities);
 			CMFFile cmf = new();
-			foreach (EntityParsed ent in parsedEntities) {
-				CMFFile.Entity cmfEnt = new();
-				// because hammer duplicates classname
-				bool didSetClassname = false;
-				foreach (var pair in ent.pairs) {
-					if (pair.Item1 == "classname" && !didSetClassname) {
-						cmfEnt.classname = pair.Item2;
-						didSetClassname = true;
-						// first classname is ignored for pairs
-						// my guess is that real ND csg.exe requires classname to be first key
-						continue;
-					} else if (pair.Item1 == "mapversion") {
-						// csg.exe absorbs this too
-						continue;
-					} else if (pair.Item1 == "wad") {
-						if (minify) {
-							// minify writes an empty wad key
-							// the game definitely doesn't care about the value (it's nonsense)
-							// but it might check the pair, and the one in the CMF header needs to at least be an empty string
-							cmfEnt.pairs.Add(("wad", ""));
-							continue;
-						} else if (digipenWad) {
-							cmfEnt.pairs.Add(("wad", CMFFile.ConsistentWADPath));
-							continue;
+			if (worldspawn.pairs.GetBool("_kvbsp", false)) {
+				// 'modern pipeline'
+				// worldspawn and func_group get really special treatment to simulate a normal compile flow
+				List<Convex3d<EntityParsed.BrushSide>> worldBrushes = new();
+				Geo2Context g2 = new();
+				foreach (EntityParsed ent in parsedEntities) {
+					var classname = ent.pairs["classname"];
+					if (classname == "func_group" || classname == "worldspawn") {
+						// dump contents to world brushes
+						foreach (var brush in ent.brushes) {
+							var cvx = Convex3d<EntityParsed.BrushSide>.FromBrush(g2, brush, v => v);
+							if (cvx != null)
+								worldBrushes.Add(cvx);
 						}
 					}
-					cmfEnt.pairs.Add(pair);
-				}
-
-				List<Convex3d<EntityParsed.BrushSide>> brushesConvexes = new();
-				// We create a new Geo2Context for each entity.
-				// Unless you're trying to write a 'literal' BSP file,
-				//  you should be doing this to save on plane lookups.
-				Geo2Context g2 = new();
-				foreach (var brush in ent.brushes) {
-					var cvx = Convex3d<EntityParsed.BrushSide>.FromBrush(g2, brush, v => v);
-					if (cvx != null)
-						brushesConvexes.Add(cvx);
-				}
-
-				// Collate all faces.
-				List<Convex3d<EntityParsed.BrushSide>.Face> faces = new();
-				for (int cvxIdx = 0; cvxIdx < brushesConvexes.Count; cvxIdx++) {
-					var cvx = brushesConvexes[cvxIdx];
-					IReadOnlyList<Convex3d<EntityParsed.BrushSide>.Face> brushFaces = cvx.faces;
-					if (chop)
-						brushFaces = cvx.ChopFaces(brushesConvexes, (f) => {
-							if (f.data.texture.Equals("aaatrigger", StringComparison.InvariantCultureIgnoreCase))
-								return 0;
-							return ConvexChopFlags.CanBeChopped | ConvexChopFlags.CanChop;
-						});
-					foreach (var f in brushFaces)
-						faces.Add(f);
-				}
-
-				// _kvbsp_partition enables doing proper partitioning and thus dead brush elimination.
-				if (ent.pairs.TryGetVector3d("_kvbsp_partition", out var partitionVec)) {
-					Console.WriteLine("Presorting face list...");
-					BSPNode<EntityParsed.BrushSide>.PresortFaceList(faces);
-					Console.WriteLine("Building tree (" + faces.Count + " splitting faces...)");
-					BSPNode<EntityParsed.BrushSide> tree = BSPNode<EntityParsed.BrushSide>.Build(g2, faces, Array.Empty<Convex3d<EntityParsed.BrushSide>.Face>(), Array.Empty<int>(), (_) => true);
-					if (tree == null) {
-						Console.WriteLine("All leaves were solid?");
-					} else {
-						List<BSPLeaf<EntityParsed.BrushSide>> leaves = new();
-						tree.AddLeaves(leaves);
-						Console.WriteLine("Portalizing (" + leaves.Count + " leaves)...");
-						BSPNode<EntityParsed.BrushSide>.Portalize(leaves);
-						File.WriteAllLines(output + ".leaves.obj", BSPNode<EntityParsed.BrushSide>.MakeLeafOBJ(leaves));
-						File.WriteAllLines(output + ".prt", BSPNode<EntityParsed.BrushSide>.MakePRT(leaves));
-						var startLeaf = tree.Find(g2, partitionVec);
-						// alright, find what we'll let live
-						List<BSPLeaf<EntityParsed.BrushSide>> allSurvivingLeaves = new();
-						startLeaf.Explore(allSurvivingLeaves, new(), (_) => true);
-						faces.Clear();
-						HashSet<Convex3d<EntityParsed.BrushSide>.Face> seenFaces = new();
-						foreach (var leaf in allSurvivingLeaves)
-							foreach (var face in leaf.faces)
-								if (seenFaces.Add(face))
-									faces.Add(face);
+					// 'delete' func_group
+					if (classname == "func_group")
+						continue;
+					CMFFile.Entity cmfEnt = new();
+					cmfEnt.classname = classname;
+					foreach (var pair in ent.pairs)
+						cmfEnt.pairs.Add(pair);
+					cmf.entities.Add(cmfEnt);
+					// don't do brushes again for worldspawn
+					if (classname == "worldspawn")
+						continue;
+					// compile this entity's brushes directly
+					List<Convex3d<EntityParsed.BrushSide>> brushesConvexes = new();
+					foreach (var brush in ent.brushes) {
+						var cvx = Convex3d<EntityParsed.BrushSide>.FromBrush(g2, brush, v => v);
+						if (cvx != null)
+							brushesConvexes.Add(cvx);
 					}
+					foreach (var face in MaybeChop(brushesConvexes, chop))
+						cmfEnt.polygons.Add(ConvertFace(cmf, face));
 				}
-
-				// Continue...
-				foreach (var face in faces) {
-					Plane3d facePlane = g2.FromPlaneIndex(face.planeIndex);
-					var poly = new CMFFile.Polygon {
-						materialIndex = cmf.EnsureMaterial(face.data.texture),
-						// convert into CMF coordinate system
-						plane = new Plane3d(new Vector3d(facePlane.normal.x, facePlane.normal.z, facePlane.normal.y), -facePlane.distance)
-					};
-					foreach (Vector3d vec in face.winding) {
-						// also convert into CMF coordinate system
-						Vector3d vecConv = new(vec.x, vec.z, vec.y);
-						poly.vertices.Add((vecConv, face.data.MapUV(vec)));
+				// clean up worldspawn geometry
+				var worldFaces = MaybeChop(worldBrushes, chop);
+				Partition(output, g2, parsedEntities, worldFaces);
+				// ugh this generates so many entities
+				// but so does their func_wall stuff so idk
+				foreach (var face in worldFaces) {
+					// "noclip" will be deleted here.
+					if (face.data.texture.Equals("noclip", StringComparison.InvariantCultureIgnoreCase))
+						continue;
+					CMFFile.Entity thisWall = new();
+					thisWall.classname = "collidable_geometry";
+					thisWall.pairs.Add(("sfx_type", "" + worldspawn.pairs.GetInt("_type:" + face.data.texture, 0)));
+					thisWall.polygons.Add(ConvertFace(cmf, face));
+					cmf.entities.Add(thisWall);
+				}
+			} else {
+				// 'traditional' CMF pipeline
+				foreach (EntityParsed ent in parsedEntities) {
+					CMFFile.Entity cmfEnt = new();
+					// because hammer duplicates classname
+					bool didSetClassname = false;
+					foreach (var pair in ent.pairs) {
+						if (pair.Item1 == "classname" && !didSetClassname) {
+							cmfEnt.classname = pair.Item2;
+							didSetClassname = true;
+							// first classname is ignored for pairs
+							// my guess is that real ND csg.exe requires classname to be first key
+							continue;
+						} else if (pair.Item1 == "mapversion") {
+							// csg.exe absorbs this too
+							continue;
+						} else if (pair.Item1 == "wad") {
+							if (minify) {
+								// minify writes an empty wad key
+								// the game definitely doesn't care about the value (it's nonsense)
+								// but it might check the pair, and the one in the CMF header needs to at least be an empty string
+								cmfEnt.pairs.Add(("wad", ""));
+								continue;
+							} else if (digipenWad) {
+								cmfEnt.pairs.Add(("wad", CMFFile.ConsistentWADPath));
+								continue;
+							}
+						}
+						cmfEnt.pairs.Add(pair);
 					}
-					cmfEnt.polygons.Add(poly);
+
+					List<Convex3d<EntityParsed.BrushSide>> brushesConvexes = new();
+					// We create a new Geo2Context for each entity.
+					// Unless you're trying to write a 'literal' BSP file,
+					//  you should be doing this to save on plane lookups.
+					Geo2Context g2 = new();
+					foreach (var brush in ent.brushes) {
+						var cvx = Convex3d<EntityParsed.BrushSide>.FromBrush(g2, brush, v => v);
+						if (cvx != null)
+							brushesConvexes.Add(cvx);
+					}
+
+					// Collate all faces.
+					List<Convex3d<EntityParsed.BrushSide>.Face> faces = MaybeChop(brushesConvexes, chop);
+
+					// _kvbsp_partition enables doing proper partitioning and thus dead brush elimination.
+					if (ent.pairs.GetBool("_kvbsp_partition", false))
+						Partition(output, g2, parsedEntities, faces);
+
+					// Continue...
+					foreach (var face in faces)
+						cmfEnt.polygons.Add(ConvertFace(cmf, face));
+					cmf.entities.Add(cmfEnt);
 				}
-				cmf.entities.Add(cmfEnt);
 			}
 			File.WriteAllBytes(output, cmf.Emit(!minify));
+		}
+
+		public static List<Convex3d<EntityParsed.BrushSide>.Face> MaybeChop(List<Convex3d<EntityParsed.BrushSide>> brushesConvexes, bool chop) {
+			List<Convex3d<EntityParsed.BrushSide>.Face> faces = new();
+			for (int cvxIdx = 0; cvxIdx < brushesConvexes.Count; cvxIdx++) {
+				var cvx = brushesConvexes[cvxIdx];
+				IReadOnlyList<Convex3d<EntityParsed.BrushSide>.Face> brushFaces = cvx.faces;
+				if (chop)
+					brushFaces = cvx.ChopFaces(brushesConvexes, (f) => {
+						if (f.data.texture.Equals("aaatrigger", StringComparison.InvariantCultureIgnoreCase))
+							return 0;
+						return ConvexChopFlags.CanBeChopped | ConvexChopFlags.CanChop;
+					});
+				foreach (var f in brushFaces)
+					faces.Add(f);
+			}
+			return faces;
+		}
+
+		public static void Partition(string output, Geo2Context g2, List<EntityParsed> parsedEntities, List<Convex3d<EntityParsed.BrushSide>.Face> faces) {
+			Vector3d partitionVec = Vector3d.Zero;
+			foreach (var subEnt in parsedEntities) {
+				if (subEnt.pairs["classname"] == "player_respawn") {
+					partitionVec = subEnt.pairs.GetVector3d("origin", Vector3d.Zero);
+					break;
+				}
+			}
+			Console.WriteLine("Presorting face list...");
+			BSPNode<EntityParsed.BrushSide>.PresortFaceList(faces);
+			Console.WriteLine("Building tree (" + faces.Count + " splitting faces...)");
+			BSPNode<EntityParsed.BrushSide> tree = BSPNode<EntityParsed.BrushSide>.Build(g2, faces, Array.Empty<Convex3d<EntityParsed.BrushSide>.Face>(), Array.Empty<int>(), (_) => true);
+			if (tree == null) {
+				Console.WriteLine("All leaves were solid?");
+			} else {
+				List<BSPLeaf<EntityParsed.BrushSide>> leaves = new();
+				tree.AddLeaves(leaves);
+				Console.WriteLine("Portalizing (" + leaves.Count + " leaves)...");
+				BSPNode<EntityParsed.BrushSide>.Portalize(leaves);
+				File.WriteAllLines(output + ".leaves.obj", BSPNode<EntityParsed.BrushSide>.MakeLeafOBJ(leaves));
+				File.WriteAllLines(output + ".prt", BSPNode<EntityParsed.BrushSide>.MakePRT(leaves));
+				var startLeaf = tree.Find(g2, partitionVec);
+				// alright, find what we'll let live
+				List<BSPLeaf<EntityParsed.BrushSide>> allSurvivingLeaves = new();
+				startLeaf.Explore(allSurvivingLeaves, new(), (_) => true);
+				faces.Clear();
+				HashSet<Convex3d<EntityParsed.BrushSide>.Face> seenFaces = new();
+				foreach (var leaf in allSurvivingLeaves)
+					foreach (var face in leaf.faces)
+						if (seenFaces.Add(face))
+							faces.Add(face);
+			}
+		}
+
+		public static CMFFile.Polygon ConvertFace(CMFFile cmf, Convex3d<EntityParsed.BrushSide>.Face face) {
+			var g2 = face.g2;
+			Plane3d facePlane = g2.FromPlaneIndex(face.planeIndex);
+			var poly = new CMFFile.Polygon {
+				materialIndex = cmf.EnsureMaterial(face.data.texture),
+				// convert into CMF coordinate system
+				plane = new Plane3d(new Vector3d(facePlane.normal.x, facePlane.normal.z, facePlane.normal.y), -facePlane.distance)
+			};
+			foreach (Vector3d vec in face.winding) {
+				// also convert into CMF coordinate system
+				Vector3d vecConv = new(vec.x, vec.z, vec.y);
+				poly.vertices.Add((vecConv, face.data.MapUV(vec)));
+			}
+			return poly;
 		}
 
 		public static Vector2d GetTexSize(string tex, Dictionary<string, Vector2d> cache, string texdir) {

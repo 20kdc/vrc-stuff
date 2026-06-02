@@ -34,6 +34,7 @@ elif [ "$1" = "expie" ]; then
 	build_level_i "$NARBACULAR/expie/onetest.map" expie/onetest_net.cmf
 	build_level_i "compilertest.map" levels/ctest.cmf --chop --minify
 	build_level_i "compilertest.map" levels/ctest_nc.cmf --minify
+	build_level_i "realtest.map" levels/realtest.cmf --chop --minify
 else
 	echo "unknown submode $1"
 fi
