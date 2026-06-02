@@ -171,6 +171,21 @@ namespace KDCVRCBSP.ECL {
 
 		// -- Custom --
 
+		public int PrimaryAxis {
+			get {
+				var nx = Math.Abs(x);
+				var ny = Math.Abs(y);
+				var nz = Math.Abs(z);
+				if (nx > ny && nx > nz) {
+					return 0;
+				} else if (ny > nz) {
+					return 1;
+				} else {
+					return 2;
+				}
+			}
+		}
+
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public Vector3d Cross(Vector3d b) => new Vector3d {
 			x = (y * b.z) - (z * b.y),

@@ -79,6 +79,7 @@ namespace KDCVRCBSP.CMF {
 				TrenchBroom.FullSimulateExport(parsedEntities);
 			var worldspawn = EntityParsed.EnsureWorldspawn(parsedEntities);
 			CMFFile cmf = new();
+			int lightSlice = worldspawn.pairs.GetInt("_lightslice", 0);
 			if (worldspawn.pairs.GetBool("_kvbsp", false)) {
 				// 'modern pipeline'
 				// worldspawn and func_group get really special treatment to simulate a normal compile flow
@@ -113,7 +114,7 @@ namespace KDCVRCBSP.CMF {
 							brushesConvexes.Add(cvx);
 					}
 					foreach (var face in MaybeChop(brushesConvexes, chop))
-						cmfEnt.polygons.Add(ConvertFace(cmf, face));
+						ConvertFace(cmfEnt.polygons, cmf, face, lightSlice);
 				}
 				// clean up worldspawn geometry
 				var worldFaces = MaybeChop(worldBrushes, chop);
@@ -127,7 +128,7 @@ namespace KDCVRCBSP.CMF {
 					CMFFile.Entity thisWall = new();
 					thisWall.classname = "collidable_geometry";
 					thisWall.pairs.Add(("sfx_type", "" + worldspawn.pairs.GetInt("_type:" + face.data.texture, 0)));
-					thisWall.polygons.Add(ConvertFace(cmf, face));
+					ConvertFace(thisWall.polygons, cmf, face, lightSlice);
 					cmf.entities.Add(thisWall);
 				}
 			} else {
@@ -181,7 +182,7 @@ namespace KDCVRCBSP.CMF {
 
 					// Continue...
 					foreach (var face in faces)
-						cmfEnt.polygons.Add(ConvertFace(cmf, face));
+						ConvertFace(cmfEnt.polygons, cmf, face, lightSlice);
 					cmf.entities.Add(cmfEnt);
 				}
 			}
@@ -239,20 +240,75 @@ namespace KDCVRCBSP.CMF {
 			}
 		}
 
-		public static CMFFile.Polygon ConvertFace(CMFFile cmf, Convex3d<EntityParsed.BrushSide>.Face face) {
+		public static void ConvertFace(List<CMFFile.Polygon> polygons, CMFFile cmf, Convex3d<EntityParsed.BrushSide>.Face face, int lightSlice) {
 			var g2 = face.g2;
 			Plane3d facePlane = g2.FromPlaneIndex(face.planeIndex);
-			var poly = new CMFFile.Polygon {
-				materialIndex = cmf.EnsureMaterial(face.data.texture),
-				// convert into CMF coordinate system
-				plane = new Plane3d(new Vector3d(facePlane.normal.x, facePlane.normal.z, facePlane.normal.y), -facePlane.distance)
-			};
-			foreach (Vector3d vec in face.winding) {
-				// also convert into CMF coordinate system
-				Vector3d vecConv = new(vec.x, vec.z, vec.y);
-				poly.vertices.Add((vecConv, face.data.MapUV(vec)));
+			var windings = new List<List<Vector3d>>();
+			windings.Add(new(face.winding));
+			if (lightSlice != 0) {
+				// light slicer active; pick primary axis
+				int primaryAxis = facePlane.normal.PrimaryAxis;
+				if (primaryAxis == 0) {
+					LightSlicerCutWindings(windings, new Vector3d(0, 1, 0), face.bounds, lightSlice, g2.distanceEpsilon);
+					LightSlicerCutWindings(windings, new Vector3d(0, 0, 1), face.bounds, lightSlice, g2.distanceEpsilon);
+				} else if (primaryAxis == 1) {
+					LightSlicerCutWindings(windings, new Vector3d(1, 0, 0), face.bounds, lightSlice, g2.distanceEpsilon);
+					LightSlicerCutWindings(windings, new Vector3d(0, 0, 1), face.bounds, lightSlice, g2.distanceEpsilon);
+				} else {
+					LightSlicerCutWindings(windings, new Vector3d(1, 0, 0), face.bounds, lightSlice, g2.distanceEpsilon);
+					LightSlicerCutWindings(windings, new Vector3d(0, 1, 0), face.bounds, lightSlice, g2.distanceEpsilon);
+				}
 			}
-			return poly;
+			int materialIndex = cmf.EnsureMaterial(face.data.texture);
+			// convert into CMF coordinate system
+			var cmfPlane = new Plane3d(new Vector3d(facePlane.normal.x, facePlane.normal.z, facePlane.normal.y), -facePlane.distance);
+			foreach (var winding in windings) {
+				var poly = new CMFFile.Polygon {
+					materialIndex = materialIndex,
+					// convert into CMF coordinate system
+					plane = cmfPlane
+				};
+				foreach (Vector3d vec in winding) {
+					// also convert into CMF coordinate system
+					Vector3d vecConv = new(vec.x, vec.z, vec.y);
+					poly.vertices.Add((vecConv, face.data.MapUV(vec)));
+				}
+				polygons.Add(poly);
+			}
+		}
+
+		// This is used to provide good results with Narbacular Drop's vertex lighting system.
+		// The plane is assumed to be axis-aligned and positive.
+		public static void LightSlicerCutWindings(List<List<Vector3d>> windings, Vector3d planeNormal, AABB3d bounds, int lightSlice, double epsilon) {
+			Plane3d plane = new Plane3d(planeNormal, 0);
+			int min = (int) Math.Floor(plane.SignedDistance(bounds.min) - 1);
+			int max = (int) Math.Ceiling(plane.SignedDistance(bounds.max) + 1);
+			int minDiv = min / lightSlice;
+			int maxDiv = max / lightSlice;
+			// Console.WriteLine("lightSlicer dbg " + minDiv + " " + maxDiv);
+			// The very small half-epsilon offset prevents falling through the floor.
+			for (int i = minDiv; i <= maxDiv; i++)
+				LightSlicerCutWindings(windings, new Plane3d(planeNormal, (i * lightSlice) + (epsilon / 2)), epsilon);
+		}
+
+		// This is used to provide good results with Narbacular Drop's vertex lighting system.
+		// The plane is assumed to be axis-aligned and positive.
+		public static void LightSlicerCutWindings(List<List<Vector3d>> windings, Plane3d plane, double epsilon) {
+			int i = 0;
+			while (i < windings.Count) {
+				var winding = windings[i];
+				var posWinding = new List<Vector3d>();
+				plane.CutWinding(winding, posWinding, epsilon);
+				if (winding.Count < 3) {
+					windings.RemoveAt(i);
+				} else {
+					i++;
+				}
+				if (posWinding.Count >= 3) {
+					windings.Insert(i, posWinding);
+					i++;
+				}
+			}
 		}
 
 		public static Vector2d GetTexSize(string tex, Dictionary<string, Vector2d> cache, string texdir) {

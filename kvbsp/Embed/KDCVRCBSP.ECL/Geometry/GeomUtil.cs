@@ -35,17 +35,15 @@ namespace KDCVRCBSP.ECL {
 			// The new 'travel vector' arrangement should offset this somewhat.
 			// The old arrangement would leave quad points in somewhat random places.
 			List<Vector3d> res = new();
-			var nx = Math.Abs(p.normal.x);
-			var ny = Math.Abs(p.normal.y);
-			var nz = Math.Abs(p.normal.z);
-			if (nx > ny && nx > nz) {
+			int primaryAxis = p.normal.PrimaryAxis;
+			if (primaryAxis == 0) {
 				// X-major
 				var tv = p.NormalToTravelVector(new Vector3d(1, 0, 0));
 				res.Add(p.SnapPointToPlaneUsingTravelVector(new Vector3d( 0,  q, -q), tv));
 				res.Add(p.SnapPointToPlaneUsingTravelVector(new Vector3d( 0,  q,  q), tv));
 				res.Add(p.SnapPointToPlaneUsingTravelVector(new Vector3d( 0, -q,  q), tv));
 				res.Add(p.SnapPointToPlaneUsingTravelVector(new Vector3d( 0, -q, -q), tv));
-			} else if (ny > nz) {
+			} else if (primaryAxis == 1) {
 				// Y-major
 				var tv = p.NormalToTravelVector(new Vector3d(0, 1, 0));
 				res.Add(p.SnapPointToPlaneUsingTravelVector(new Vector3d( q,  0, -q), tv));

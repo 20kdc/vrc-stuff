@@ -18,6 +18,7 @@ namespace KDCVRCBSP.ECL {
 				if (first) {
 					min = v;
 					max = v;
+					first = false;
 				} else {
 					min = min.Min(v);
 					max = max.Max(v);
