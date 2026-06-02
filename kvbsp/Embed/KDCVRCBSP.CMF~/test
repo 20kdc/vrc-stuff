@@ -30,10 +30,14 @@ if [ "$1" = "" ]; then
 	build_level LongHaul2
 	build_level PolishingUp
 	build_level VeryVertical
-elif [ "$1" = "expie" ]; then
+elif [ "$1" = "onetest" ]; then
 	build_level_i "$NARBACULAR/expie/onetest.map" expie/onetest_net.cmf
-	build_level_i "compilertest.map" levels/ctest.cmf --chop --minify
-	build_level_i "compilertest.map" levels/ctest_nc.cmf --minify
+elif [ "$1" = "choptest" ]; then
+	build_level_i "choptest.map" levels/ctest.cmf --chop --minify
+	build_level_i "choptest.map" levels/ctest_nc.cmf --minify
+elif [ "$1" = "twodoor" ]; then
+	build_level_i "twodoor.map" levels/twodoor.cmf --chop --minify
+elif [ "$1" = "realtest" ]; then
 	build_level_i "realtest.map" levels/realtest.cmf --chop --minify
 else
 	echo "unknown submode $1"

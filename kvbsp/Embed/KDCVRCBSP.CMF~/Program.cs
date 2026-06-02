@@ -21,7 +21,6 @@ namespace KDCVRCBSP.CMF {
 			bool chop = false;
 			// We enable tbsim by default because it will have no effect on campaign maps.
 			bool tbsim = true;
-			Dictionary<string, Vector2d> textures = new();
 			foreach (string s in args) {
 				if (isWaitingForTexdir) {
 					texdir = s;
@@ -64,6 +63,8 @@ namespace KDCVRCBSP.CMF {
 			}
 			List<EntityParsed> parsedEntities = MapParser.Parse(File.ReadAllText(input));
 			// preprocessing: UV scaling
+			Dictionary<string, Vector2d> textures = new();
+			textures["noclip"] = (1, 1);
 			foreach (EntityParsed ent in parsedEntities) {
 				foreach (var brush in ent.brushes) {
 					foreach (var face in brush) {
@@ -79,7 +80,6 @@ namespace KDCVRCBSP.CMF {
 				TrenchBroom.FullSimulateExport(parsedEntities);
 			var worldspawn = EntityParsed.EnsureWorldspawn(parsedEntities);
 			CMFFile cmf = new();
-			int lightSlice = worldspawn.pairs.GetInt("_lightslice", 0);
 			if (worldspawn.pairs.GetBool("_kvbsp", false)) {
 				// 'modern pipeline'
 				// worldspawn and func_group get really special treatment to simulate a normal compile flow
@@ -114,21 +114,21 @@ namespace KDCVRCBSP.CMF {
 							brushesConvexes.Add(cvx);
 					}
 					foreach (var face in MaybeChop(brushesConvexes, chop))
-						ConvertFace(cmfEnt.polygons, cmf, face, lightSlice);
+						ConvertFace(cmfEnt.polygons, cmf, face, ent.pairs.GetInt("_lightslice", 0));
 				}
 				// clean up worldspawn geometry
 				var worldFaces = MaybeChop(worldBrushes, chop);
 				Partition(output, g2, parsedEntities, worldFaces);
 				// ugh this generates so many entities
 				// but so does their func_wall stuff so idk
+				int worldLightSlice = worldspawn.pairs.GetInt("_lightslice", 0);
 				foreach (var face in worldFaces) {
-					// "noclip" will be deleted here.
-					if (face.data.texture.Equals("noclip", StringComparison.InvariantCultureIgnoreCase))
-						continue;
 					CMFFile.Entity thisWall = new();
 					thisWall.classname = "collidable_geometry";
 					thisWall.pairs.Add(("sfx_type", "" + worldspawn.pairs.GetInt("_type:" + face.data.texture, 0)));
-					ConvertFace(thisWall.polygons, cmf, face, lightSlice);
+					ConvertFace(thisWall.polygons, cmf, face, worldLightSlice);
+					if (thisWall.polygons.Count == 0)
+						continue;
 					cmf.entities.Add(thisWall);
 				}
 			} else {
@@ -182,7 +182,7 @@ namespace KDCVRCBSP.CMF {
 
 					// Continue...
 					foreach (var face in faces)
-						ConvertFace(cmfEnt.polygons, cmf, face, lightSlice);
+						ConvertFace(cmfEnt.polygons, cmf, face, ent.pairs.GetInt("_lightslice", 0));
 					cmf.entities.Add(cmfEnt);
 				}
 			}
@@ -241,6 +241,9 @@ namespace KDCVRCBSP.CMF {
 		}
 
 		public static void ConvertFace(List<CMFFile.Polygon> polygons, CMFFile cmf, Convex3d<EntityParsed.BrushSide>.Face face, int lightSlice) {
+			// "noclip" will be deleted here.
+			if (face.data.texture.Equals("noclip", StringComparison.InvariantCultureIgnoreCase))
+				return;
 			var g2 = face.g2;
 			Plane3d facePlane = g2.FromPlaneIndex(face.planeIndex);
 			var windings = new List<List<Vector3d>>();
