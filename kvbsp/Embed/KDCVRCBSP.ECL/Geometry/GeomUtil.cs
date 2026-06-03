@@ -160,5 +160,13 @@ namespace KDCVRCBSP.ECL {
 			finale.Insert(2, portals.Count.ToString());
 			return finale;
 		}
+
+		/// Create leakfile.
+		public static List<string> DebugMakePTS(List<Vector3d> route) {
+			List<string> finale = new();
+			foreach (var vec in route)
+				finale.Add($"{vec.x} {vec.y} {vec.z}");
+			return finale;
+		}
 	}
 }

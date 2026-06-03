@@ -274,6 +274,12 @@ namespace KDCVRCBSP.ECL {
 
 		/// Explores from this leaf using the portalization data.
 		/// Note the 'canPass' function. This function is allowed to (for instance) register portals it refuses access to for future analysis.
+		/// The function won't ever traverse *into* a seen leaf (as if canPass is false).
+		/// The function will traverse *out of* seen leaves and add them to the explored list.
+		/// So it's safe to add the leaf you're about to explore from to the seen set.
+		/// (portals are two-way, so any leaf you'd already explored would cause
+		///  the leaf you're trying to explore to have already been explored anyway,
+		///  so you probably shouldn't do that)
 		public void Explore(List<BSPLeaf<D>> explored, HashSet<BSPLeaf<D>> seen, Predicate<(BSPLeaf<D>, BSPPortal<D>)> canPass) {
 			Queue<BSPLeaf<D>> toExplore = new();
 			seen.Add(this);
@@ -292,6 +298,42 @@ namespace KDCVRCBSP.ECL {
 					}
 				}
 			}
+		}
+
+		/// Determines a route between two leaves.
+		public BSPLeaf<D>[] Route(BSPLeaf<D> otherLeaf, Predicate<BSPPortal<D>> canPass) {
+			Dictionary<BSPLeaf<D>, BSPLeaf<D>[]> routeTable = new();
+			routeTable[this] = new BSPLeaf<D>[] {this};
+			Queue<BSPLeaf<D>> queue = new();
+			queue.Enqueue(this);
+			void ExtendRoute(BSPLeaf<D>[] preceding, BSPLeaf<D> nx) {
+				var full = new BSPLeaf<D>[preceding.Length + 1];
+				preceding.CopyTo(full, 0);
+				full[preceding.Length] = nx;
+				routeTable[nx] = full;
+				queue.Enqueue(nx);
+			}
+			// check for self-hit
+			if (routeTable.ContainsKey(otherLeaf))
+				return routeTable[otherLeaf];
+			while (queue.Count > 0) {
+				var leafToCheck = queue.Dequeue();
+				var leafRoute = routeTable[leafToCheck];
+				foreach (var cf in leafToCheck.convex.faces) {
+					foreach (var portal in cf.data) {
+						if (!canPass(portal))
+							continue;
+						// portal is passable, hmm
+						if (!routeTable.ContainsKey(portal.above))
+							ExtendRoute(leafRoute, portal.above);
+						if (!routeTable.ContainsKey(portal.below))
+							ExtendRoute(leafRoute, portal.below);
+						if (routeTable.ContainsKey(otherLeaf))
+							return routeTable[otherLeaf];
+					}
+				}
+			}
+			return null;
 		}
 	}
 

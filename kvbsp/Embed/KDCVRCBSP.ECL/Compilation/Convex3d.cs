@@ -35,6 +35,27 @@ namespace KDCVRCBSP.ECL {
 			bounds = boundsAdj;
 		}
 
+		/// Determines if this convex is unclosed by if the bounds are too close to the edge.
+		public bool IsUnclosed {
+			get {
+				var effectiveInfinity = g2.initialWindingSize - g2.distanceEpsilon;
+				var effectiveInfinityN = -effectiveInfinity;
+				if (bounds.min.x < effectiveInfinityN)
+					return true;
+				if (bounds.min.y < effectiveInfinityN)
+					return true;
+				if (bounds.min.z < effectiveInfinityN)
+					return true;
+				if (bounds.max.x > effectiveInfinity)
+					return true;
+				if (bounds.max.y > effectiveInfinity)
+					return true;
+				if (bounds.max.z > effectiveInfinity)
+					return true;
+				return false;
+			}
+		}
+
 		/// Creates a Convex3d from a list of brush sides.
 		/// Returns null if the brush has less than the minimum amount of faces to be a solid (ConvexCollapseLimit)
 		public static Convex3d<D> FromBrush<M>(Geo2Context g2, IReadOnlyList<EntityParsed<M>.BrushSide> src, Func<EntityParsed<M>.BrushSide, D> map) {

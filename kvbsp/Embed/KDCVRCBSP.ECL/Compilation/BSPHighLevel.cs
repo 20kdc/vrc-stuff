@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -56,9 +57,16 @@ namespace KDCVRCBSP.ECL {
 		}
 
 		/// Compiles each brush entity.
-		public static void Act2_CompileAll<M>(Geo2Map<M> map) where M : IBSPMaterial {
-			var pointEntityLocations = map.pointEntities.Select(v => v.GetVector3d("origin", Vector3d.Zero)).ToList();
-			Act2_CompilePartitionedEntity(map.worldspawn, pointEntityLocations);
+		public static void Act2_CompileAll<M>(Geo2Map<M> map, Predicate<EntityKeys> entityFills, bool allowLeaks, IBSPDiagnostics diag) where M : IBSPMaterial {
+			List<(string, Vector3d)> pointEntityLocations = new();
+			// Notably, point entity locations are relative to the entity being compiled.
+			foreach (var entity in map.pointEntities) {
+				if (!entityFills(entity))
+					continue;
+				if (entity.TryGetVector3d("origin", out var origin))
+					pointEntityLocations.Add((entity["classname"], origin - map.worldspawn.origin));
+			}
+			Act2_CompilePartitionedEntity(map.worldspawn, pointEntityLocations, allowLeaks, diag);
 			foreach (var ent in map.brushEntities)
 				Act2_CompileEntity(ent);
 		}
@@ -101,17 +109,101 @@ namespace KDCVRCBSP.ECL {
 		}
 
 		/// Compiles worldspawn.
-		public static void Act2_CompilePartitionedEntity<M>(Geo2Map<M>.BrushEntity entity, IReadOnlyList<Vector3d> pointEntities) where M : IBSPMaterial {
-			if (true) {
-				// nyi
-				Act2_CompileEntity(entity);
-				return;
-			}
-			/*
-			List<Convex3d<(M, BrushUV)>.Face> splitFaces = new();
-			List<Convex3d<(M, BrushUV)>.Face> detailFaces = new();
+		public static void Act2_CompilePartitionedEntity<M>(Geo2Map<M>.BrushEntity entity, IReadOnlyList<(string, Vector3d)> pointEntities, bool allowLeaks, IBSPDiagnostics diag) where M : IBSPMaterial {
+			List<Convex3d<Geo2FaceInfo<M>>.Face> splitFaces = new();
+			List<Convex3d<Geo2FaceInfo<M>>.Face> detailFaces = new();
 			Act2_CompileEntityEarly(entity, splitFaces, detailFaces);
-			*/
+			// Console.WriteLine("Presorting face list...");
+			BSPNode<Geo2FaceInfo<M>>.PresortFaceList(splitFaces);
+			diag.Info($"Building tree ({splitFaces.Count} splitting faces...)");
+			var tree = BSPNode<Geo2FaceInfo<M>>.Build(entity.g2, splitFaces, detailFaces, Array.Empty<int>(), (face) => {
+				return (face.data.modSurfaceFlags & BSPSurfaceFlags.NoDeleteLeaves) == 0;
+			});
+			if (tree == null) {
+				// something went wrong, fallback
+				var area = new Geo2Map<M>.Area();
+				entity.areas.Add(area);
+				foreach (var face in splitFaces)
+					area.colliderFaces.Add(face);
+				foreach (var face in detailFaces)
+					area.colliderFaces.Add(face);
+			} else {
+				List<BSPLeaf<Geo2FaceInfo<M>>> leaves = new();
+				tree.AddLeaves(leaves);
+				diag.Info($"Portalizing ({leaves.Count} leaves)...");
+				BSPNode<Geo2FaceInfo<M>>.Portalize(leaves);
+				diag.WriteDiagFileInfo(".prt", () => BSPNode<Geo2FaceInfo<M>>.MakePRT(leaves));
+				// split into areas
+				HashSet<BSPLeaf<Geo2FaceInfo<M>>> seenLeaves = new();
+				Queue<(string, Vector3d, BSPLeaf<Geo2FaceInfo<M>>)> areaStartQueue = new();
+				// initialize queue with places where point entities are
+				foreach (var pointEntityLoc in pointEntities) {
+					var startLeaf = tree.Find(entity.g2, pointEntityLoc.Item2);
+					areaStartQueue.Enqueue((pointEntityLoc.Item1, pointEntityLoc.Item2, startLeaf));
+				}
+				// consume queue start locations
+				while (areaStartQueue.Count > 0) {
+					var (areaStartName, areaStartPos, areaStartLeaf) = areaStartQueue.Dequeue();
+					// if we already saw this leaf, that's that
+					if (!seenLeaves.Add(areaStartLeaf))
+						continue;
+					List<BSPLeaf<Geo2FaceInfo<M>>> areaLeaves = new();
+					areaStartLeaf.Explore(areaLeaves, seenLeaves, (portal) => {
+						// check if portal is areaportal or non-traversable
+						foreach (var face in portal.Item2.faces) {
+							var flags = face.data.modSurfaceFlags;
+							if ((flags & BSPSurfaceFlags.Areaportal) != 0) {
+								// Register the opposing side.
+								var portalPos = portal.Item2.windingBelow[0];
+								if (portal.Item1 == portal.Item2.below) {
+									areaStartQueue.Enqueue(("areaportal from " + areaStartName, portalPos, portal.Item2.above));
+								} else {
+									areaStartQueue.Enqueue(("areaportal from " + areaStartName, portalPos, portal.Item2.below));
+								}
+								return false;
+							}
+							if ((flags & BSPSurfaceFlags.BlockLeafTraversal) != 0)
+								return false;
+						}
+						return true;
+					});
+					var area = new Geo2Map<M>.Area();
+					HashSet<Convex3d<Geo2FaceInfo<M>>.Face> seenFaces = new();
+					foreach (var leaf in areaLeaves) {
+						if (leaf.convex.IsUnclosed && !allowLeaks) {
+							diag.Warning("LEAK at " + areaStartName + " @ " + areaStartPos.ToString());
+							// yeah, so, a leak has clearly occurred
+							var route = leaf.Route(areaStartLeaf, (portal) => {
+								// check if portal is areaportal or non-traversable
+								foreach (var face in portal.faces) {
+									var flags = face.data.modSurfaceFlags;
+									if ((flags & BSPSurfaceFlags.Areaportal) != 0)
+										return false;
+									if ((flags & BSPSurfaceFlags.BlockLeafTraversal) != 0)
+										return false;
+								}
+								return true;
+							});
+							if (route != null) {
+								diag.WriteDiagFileWarning(".pts", () => {
+									List<Vector3d> routeVecs = new();
+									foreach (var leakLeaf in route)
+										routeVecs.Add((leakLeaf.convex.bounds.min + leakLeaf.convex.bounds.max) / 2);
+									routeVecs.Add(areaStartPos);
+									return GeomUtil.DebugMakePTS(routeVecs);
+								});
+							} else {
+								diag.Warning("LEAK IS UNROUTABLE");
+							}
+							allowLeaks = true;
+						}
+						foreach (var face in leaf.faces)
+							if (seenFaces.Add(face))
+								area.colliderFaces.Add(face);
+					}
+					entity.areas.Add(area);
+				}
+			}
 		}
 
 		/// Final compilation tasks
@@ -150,7 +242,12 @@ namespace KDCVRCBSP.ECL {
 					List<(Vector3d, Vector2d)> polyFinal = new();
 					foreach (var vec in poly)
 						polyFinal.Add((vec, face.data.texUV.MapUV(vec)));
-					area.renderFaces.Add((face.data.material, polyFinal));
+					area.renderFaces.Add(new Geo2RenderFace<M> {
+						material = face.data.material,
+						polygon = polyFinal,
+						plane = face.g2.FromPlaneIndex(face.planeIndex),
+						bounds = face.bounds
+					});
 				}
 				area.colliderFaces.RemoveAll((face) => {
 					return (face.data.modSurfaceFlags & BSPSurfaceFlags.DeleteAreaColliderFace) != 0;

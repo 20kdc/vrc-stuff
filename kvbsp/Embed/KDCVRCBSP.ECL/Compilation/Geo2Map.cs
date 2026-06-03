@@ -117,10 +117,17 @@ namespace KDCVRCBSP.ECL {
 			/// This contains the actual face list, for concave collision purposes.
 			public readonly List<Convex3d<Geo2FaceInfo<M>>.Face> colliderFaces = new();
 			/// This contains the render face list.
-			public readonly List<(M, List<(Vector3d, Vector2d)>)> renderFaces = new();
+			public readonly List<Geo2RenderFace<M>> renderFaces = new();
 			/// Leaves of this area. (Only exists if partitioned.)
 			public List<BSPLeaf<Geo2FaceInfo<M>>> leaves = null;
 		}
+	}
+
+	public struct Geo2RenderFace<M> {
+		public M material;
+		public List<(Vector3d, Vector2d)> polygon;
+		public Plane3d plane;
+		public AABB3d bounds;
 	}
 
 	/// Face information structure.

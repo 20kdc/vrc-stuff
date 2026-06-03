@@ -20,6 +20,26 @@ namespace KDCVRCBSP.CMF {
 			public BSPSurfaceFlags TransFlags => transFlags;
 		}
 
+		public sealed class Diag : IBSPDiagnostics {
+			public string outPfx = "/KDCBSP_CMF_BUG";
+
+			void IBSPDiagnostics.Info(string text) {
+				Console.WriteLine("INFO: " + text);
+			}
+
+			void IBSPDiagnostics.Warning(string text) {
+				Console.WriteLine("WARN: " + text);
+			}
+
+			void IBSPDiagnostics.WriteDiagFileInfo(string filename, Func<List<string>> text) {
+				File.WriteAllLines(outPfx + filename, text());
+			}
+
+			void IBSPDiagnostics.WriteDiagFileWarning(string filename, Func<List<string>> text) {
+				File.WriteAllLines(outPfx + filename, text());
+			}
+		}
+
 		public static void Main(string[] args) {
 			string input = "";
 			string output = "";
@@ -97,57 +117,57 @@ namespace KDCVRCBSP.CMF {
 			CMFFile cmf = new();
 			if (worldspawn.pairs.GetBool("_kvbsp", false)) {
 				// 'modern pipeline'
-				// worldspawn and func_group get really special treatment to simulate a normal compile flow
-				List<Convex3d<EntityParsed<Material>.BrushSide>> worldBrushes = new();
-				Geo2Context g2 = new();
-				foreach (var ent in parsedEntities) {
-					var classname = ent.pairs["classname"];
-					if (classname == "func_group" || classname == "worldspawn") {
-						// dump contents to world brushes
-						foreach (var brush in ent.brushes) {
-							var cvx = Convex3d<EntityParsed<Material>.BrushSide>.FromBrush(g2, brush, v => v);
-							if (cvx != null)
-								worldBrushes.Add(cvx);
-						}
+				var map = BSPHighLevel.Act1_MapIntoGeo2(parsedEntities);
+				BSPHighLevel.Act2_CompileAll(map, (entity) => {
+					return true;
+				}, false, new Diag {
+					outPfx = output
+				});
+				BSPHighLevel.Act3_Postprocess(map);
+
+				var worldspawnCMFEnt = new CMFFile.Entity();
+				cmf.entities.Add(worldspawnCMFEnt);
+				worldspawnCMFEnt.classname = "worldspawn";
+				foreach (var pair in map.worldspawn.pairs)
+					worldspawnCMFEnt.pairs.Add(pair);
+
+				// worldspawn geom.
+				// for some bizzare reason, the ordering of entities REALLY matters to a scary degree
+				int worldLightSlice = worldspawn.pairs.GetInt("_lightslice", 0);
+				foreach (var area in map.worldspawn.areas) {
+					foreach (var face in area.renderFaces) {
+						CMFFile.Entity thisWall = new();
+						thisWall.classname = "collidable_geometry";
+						thisWall.pairs.Add(("sfx_type", "" + worldspawn.pairs.GetInt("_type:" + face.material.texture, 0)));
+						ConvertFace(thisWall.polygons, cmf, face, worldLightSlice);
+						if (thisWall.polygons.Count == 0)
+							continue;
+						cmf.entities.Add(thisWall);
 					}
-					// 'delete' func_group
-					if (classname == "func_group")
-						continue;
+				}
+
+				// setup brush entities
+				foreach (var ent in map.brushEntities) {
+					var classname = ent.pairs["classname"];
 					CMFFile.Entity cmfEnt = new();
 					cmfEnt.classname = classname;
 					foreach (var pair in ent.pairs)
 						cmfEnt.pairs.Add(pair);
 					cmf.entities.Add(cmfEnt);
-					// don't do brushes again for worldspawn
-					if (classname == "worldspawn")
-						continue;
-					// compile this entity's brushes directly
-					List<Convex3d<EntityParsed<Material>.BrushSide>> brushesConvexes = new();
-					foreach (var brush in ent.brushes) {
-						var cvx = Convex3d<EntityParsed<Material>.BrushSide>.FromBrush(g2, brush, v => v);
-						if (cvx != null)
-							brushesConvexes.Add(cvx);
-					}
-					var faces = MaybeChop(brushesConvexes, chop);
-					var tJuncPoints = GeomUtil.FacePoints(faces);
-					foreach (var face in faces)
-						ConvertFace(cmfEnt.polygons, tJuncPoints, cmf, face, ent.pairs.GetInt("_lightslice", 0));
+
+					// geometry
+					foreach (var area in ent.areas)
+						foreach (var face in area.renderFaces)
+							ConvertFace(cmfEnt.polygons, cmf, face, ent.pairs.GetInt("_lightslice", 0));
 				}
-				// clean up worldspawn geometry
-				var worldFaces = MaybeChop(worldBrushes, chop);
-				Partition(output, g2, parsedEntities, worldFaces);
-				// ugh this generates so many entities
-				// but so does their func_wall stuff so idk
-				int worldLightSlice = worldspawn.pairs.GetInt("_lightslice", 0);
-				var worldTJuncPoints = GeomUtil.FacePoints(worldFaces);
-				foreach (var face in worldFaces) {
-					CMFFile.Entity thisWall = new();
-					thisWall.classname = "collidable_geometry";
-					thisWall.pairs.Add(("sfx_type", "" + worldspawn.pairs.GetInt("_type:" + face.data.texture, 0)));
-					ConvertFace(thisWall.polygons, worldTJuncPoints, cmf, face, worldLightSlice);
-					if (thisWall.polygons.Count == 0)
-						continue;
-					cmf.entities.Add(thisWall);
+
+				// setup point entities
+				foreach (var ent in map.pointEntities) {
+					CMFFile.Entity cmfEnt = new();
+					cmfEnt.classname = ent["classname"];
+					foreach (var pair in ent)
+						cmfEnt.pairs.Add(pair);
+					cmf.entities.Add(cmfEnt);
 				}
 			} else {
 				// 'traditional' CMF pipeline
@@ -199,9 +219,17 @@ namespace KDCVRCBSP.CMF {
 						Partition(output, g2, parsedEntities, faces);
 
 					// Continue...
-					var tJuncPoints = GeomUtil.FacePoints(faces);
-					foreach (var face in faces)
-						ConvertFace(cmfEnt.polygons, tJuncPoints, cmf, face, ent.pairs.GetInt("_lightslice", 0));
+					foreach (var face in faces) {
+						List<(Vector3d, Vector2d)> polygon = new();
+						foreach (var pt in face.winding)
+							polygon.Add((pt, face.data.MapUV(pt)));
+						ConvertFace(cmfEnt.polygons, cmf, new Geo2RenderFace<Material> {
+							bounds = face.bounds,
+							material = face.data.texture,
+							plane = g2.FromPlaneIndex(face.planeIndex),
+							polygon = polygon
+						}, ent.pairs.GetInt("_lightslice", 0));
+					}
 					cmf.entities.Add(cmfEnt);
 				}
 			}
@@ -255,45 +283,37 @@ namespace KDCVRCBSP.CMF {
 			}
 		}
 
-		public static void ConvertFace(List<CMFFile.Polygon> polygons, List<Vector3d> tJuncPoints, CMFFile cmf, Convex3d<EntityParsed<Material>.BrushSide>.Face face, int lightSlice) {
-			// "noclip" will be deleted here.
-			if (face.data.texture.texture.Equals("noclip", StringComparison.InvariantCultureIgnoreCase))
-				return;
-			var g2 = face.g2;
-			Plane3d facePlane = g2.FromPlaneIndex(face.planeIndex);
-			var windings = new List<List<Vector3d>>();
-			windings.Add(new(face.winding));
+		public static void ConvertFace(List<CMFFile.Polygon> polygons, CMFFile cmf, Geo2RenderFace<Material> face, int lightSlice) {
+			int materialIndex = cmf.EnsureMaterial(face.material.texture);
+			// convert into CMF coordinate system
+			var cmfPlane = new Plane3d(new Vector3d(face.plane.normal.x, face.plane.normal.z, face.plane.normal.y), -face.plane.distance);
+			var poly = new CMFFile.Polygon {
+				materialIndex = materialIndex,
+				// convert into CMF coordinate system
+				plane = cmfPlane
+			};
+			foreach (var vecuv in face.polygon) {
+				// also convert into CMF coordinate system
+				Vector3d vecConv = new(vecuv.Item1.x, vecuv.Item1.z, vecuv.Item1.y);
+				poly.vertices.Add((vecConv, vecuv.Item2));
+			}
+			polygons.Add(poly);
+		}
+
+		public static void LightSlicerAbandoned(List<List<Vector3d>> windings, AABB3d bounds, Plane3d facePlane, int lightSlice, double epsilon) {
 			if (lightSlice != 0) {
 				// light slicer active; pick primary axis
 				int primaryAxis = facePlane.normal.PrimaryAxis;
 				if (primaryAxis == 0) {
-					LightSlicerCutWindings(windings, new Vector3d(0, 1, 0), face.bounds, lightSlice, g2.distanceEpsilon);
-					LightSlicerCutWindings(windings, new Vector3d(0, 0, 1), face.bounds, lightSlice, g2.distanceEpsilon);
+					LightSlicerCutWindings(windings, new Vector3d(0, 1, 0), bounds, lightSlice, epsilon);
+					LightSlicerCutWindings(windings, new Vector3d(0, 0, 1), bounds, lightSlice, epsilon);
 				} else if (primaryAxis == 1) {
-					LightSlicerCutWindings(windings, new Vector3d(1, 0, 0), face.bounds, lightSlice, g2.distanceEpsilon);
-					LightSlicerCutWindings(windings, new Vector3d(0, 0, 1), face.bounds, lightSlice, g2.distanceEpsilon);
+					LightSlicerCutWindings(windings, new Vector3d(1, 0, 0), bounds, lightSlice, epsilon);
+					LightSlicerCutWindings(windings, new Vector3d(0, 0, 1), bounds, lightSlice, epsilon);
 				} else {
-					LightSlicerCutWindings(windings, new Vector3d(1, 0, 0), face.bounds, lightSlice, g2.distanceEpsilon);
-					LightSlicerCutWindings(windings, new Vector3d(0, 1, 0), face.bounds, lightSlice, g2.distanceEpsilon);
+					LightSlicerCutWindings(windings, new Vector3d(1, 0, 0), bounds, lightSlice, epsilon);
+					LightSlicerCutWindings(windings, new Vector3d(0, 1, 0), bounds, lightSlice, epsilon);
 				}
-			}
-			int materialIndex = cmf.EnsureMaterial(face.data.texture.texture);
-			// convert into CMF coordinate system
-			var cmfPlane = new Plane3d(new Vector3d(facePlane.normal.x, facePlane.normal.z, facePlane.normal.y), -facePlane.distance);
-			foreach (var winding in windings) {
-				if (tJuncPoints != null)
-					GeomUtil.FixTJunctions(winding, face.bounds, tJuncPoints, g2.broadphaseEpsilon, g2.distanceEpsilon);
-				var poly = new CMFFile.Polygon {
-					materialIndex = materialIndex,
-					// convert into CMF coordinate system
-					plane = cmfPlane
-				};
-				foreach (Vector3d vec in winding) {
-					// also convert into CMF coordinate system
-					Vector3d vecConv = new(vec.x, vec.z, vec.y);
-					poly.vertices.Add((vecConv, face.data.MapUV(vec)));
-				}
-				polygons.Add(poly);
 			}
 		}
 
