@@ -12,24 +12,24 @@ namespace KDCVRCBSP.ECL {
 	/// * Things marked 'omit from export' not omitted from export
 	public static class TrenchBroom {
 		/// More or less simulates a TrenchBroom export.
-		public static void FullSimulateExport(List<EntityParsed> entities) {
+		public static void FullSimulateExport<M>(List<EntityParsed<M>> entities) {
 			HandleOmitFromExport(entities);
 			RemoveTBMetadata(entities);
 		}
 
 		/// Deletes entities on layers marked omit-from-export.
-		public static void HandleOmitFromExport(List<EntityParsed> entities) {
+		public static void HandleOmitFromExport<M>(List<EntityParsed<M>> entities) {
 			// Worldspawn is used for the 'Default Layer'.
-			EntityParsed worldspawn = EntityParsed.EnsureWorldspawn(entities);
+			var worldspawn = EntityParsed<M>.EnsureWorldspawn(entities);
 			// pass 1: build ID table
-			Dictionary<string, EntityParsed> tbID = new();
+			Dictionary<string, EntityParsed<M>> tbID = new();
 			foreach (var ent in entities) {
 				string entTBID = ent.pairs["_tb_id"];
 				if (entTBID != "")
 					tbID[entTBID] = ent;
 			}
 			// pass 2: build group/layer parent table
-			Dictionary<EntityParsed, EntityParsed> parentage = new();
+			Dictionary<EntityParsed<M>, EntityParsed<M>> parentage = new();
 			foreach (var ent in entities) {
 				// Worldspawn never has a parent.
 				if (ent == worldspawn)
@@ -46,7 +46,7 @@ namespace KDCVRCBSP.ECL {
 					parentage[ent] = worldspawn;
 			}
 			// pass 3: omit?
-			List<EntityParsed> omit = new();
+			List<EntityParsed<M>> omit = new();
 			foreach (var ent in entities) {
 				var cursor = ent;
 				for (int pass = 0; pass < 32; pass++) {
@@ -70,10 +70,10 @@ namespace KDCVRCBSP.ECL {
 		/// Removes all TB metadata, including TB dummy groups.
 		/// This also includes removing "_tb_" keys.
 		/// Merges as-necessary into worldspawn.
-		public static void RemoveTBMetadata(List<EntityParsed> entities) {
-			EntityParsed worldspawn = EntityParsed.EnsureWorldspawn(entities);
-			List<EntityParsed> attic = new();
-			foreach (EntityParsed ent in entities) {
+		public static void RemoveTBMetadata<M>(List<EntityParsed<M>> entities) {
+			var worldspawn = EntityParsed<M>.EnsureWorldspawn(entities);
+			List<EntityParsed<M>> attic = new();
+			foreach (var ent in entities) {
 				// A group that was solely created by TrenchBroom:
 				// MUST be func_group
 				if (ent.pairs["classname"] != "func_group")
@@ -104,7 +104,7 @@ namespace KDCVRCBSP.ECL {
 					continue;
 				attic.Add(ent);
 			}
-			foreach (EntityParsed ep in attic) {
+			foreach (var ep in attic) {
 				// transfer brushes to worldspawn, then get rid of the entity
 				foreach (var brush in ep.brushes)
 					worldspawn.brushes.Add(brush);

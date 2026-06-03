@@ -93,10 +93,15 @@ The answer I would go with these days is to either snap vertices to a given prec
 
 ## Basic Outline Of Compilation
 
-The basic outline of the planned toolchain is as follows:
+The basic outline is as follows:
 
-1. Read the map.
-2. Do any 'pre-processing' into the internal source form. This means that, i.e. `func_group` contents should rejoin `worldspawn` but appropriately tagged, or sorted by chop order, etc.
+1. Read the map. Textures are mapped into `IBSPMaterial` here by the embedder.
+2. Preprocessing stage.
+	1. TrenchBroom export simulation. This simulates the TrenchBroom Export Map feature. (`TrenchBroom.FullSimulateExport`)
+	2. Group processing and plane stability. (`BSPHighLevel.Act1_MapIntoGeo2`)
+		* This is where Geo2Context gets involved.
+		* Ensuring plane stability here decreases the chance of vertex misalignments, as operations will be using mostly consistent numbers.
+		* This is where per-brush metadata begins to exist (pulled from merged `func_group`s).
 3. For each brush, turn it into a convex.
 4. Chopping. All brush faces are chopped, if applicable, and the results pooled into two lists of brush faces.
 	* _**In this toolchain, brushes escape past this point for collision, but otherwise cease to exist; all further effort works with a face-based representation.**_ (The brushes are needed for chopping purposes; a solely face-based chop stage doesn't have the necessary guarantees to 'punch out' a surrounded face.)

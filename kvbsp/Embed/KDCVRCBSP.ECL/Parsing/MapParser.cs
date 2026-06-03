@@ -158,9 +158,9 @@ namespace KDCVRCBSP.ECL {
 		}
 
 		/// Parses the map.
-		public List<EntityParsed> ParseMap() {
-			List<EntityParsed> result = new();
-			EntityParsed hasEntity = null;
+		public List<EntityParsed<M>> ParseMap<M>(Func<string, M> mapTextureToMaterial) {
+			List<EntityParsed<M>> result = new();
+			EntityParsed<M> hasEntity = null;
 			string hasKey = null;
 			Vector3d[] pointBuf = new Vector3d[3];
 			double[] stBuf = new double[8];
@@ -173,7 +173,7 @@ namespace KDCVRCBSP.ECL {
 						hasKey = null;
 					} else if (token == "{") {
 						// "{" as 'key': start brush
-						List<EntityParsed.BrushSide> brush = new();
+						List<EntityParsed<M>.BrushSide> brush = new();
 						// expected side forms:
 						// ID  : ( x y z ) ( x y z ) ( x y z ) texture xshift yshift rotation xscale yscale
 						// V220: ( x y z ) ( x y z ) ( x y z ) texture [ x y z w ] [ x y z w ] rotation xscale yscale
@@ -216,11 +216,11 @@ namespace KDCVRCBSP.ECL {
 								return result;
 							string texture = current;
 							// Gets filled in with texture info
-							EntityParsed.BrushSide brushSide = new EntityParsed.BrushSide {
+							var brushSide = new EntityParsed<M>.BrushSide {
 								vertexA = pointBuf[0],
 								vertexB = pointBuf[1],
 								vertexC = pointBuf[2],
-								texture = texture
+								texture = mapTextureToMaterial(texture)
 							};
 							// ID  : xshift yshift rotation xscale yscale
 							// V220: [ x y z w ] [ x y z w ] rotation xscale yscale
@@ -332,7 +332,7 @@ namespace KDCVRCBSP.ECL {
 					}
 				} else if (token == "{") {
 					// ignore tokens outside of entity start token
-					hasEntity = new EntityParsed();
+					hasEntity = new EntityParsed<M>();
 					result.Add(hasEntity);
 				}
 			}
@@ -349,9 +349,9 @@ namespace KDCVRCBSP.ECL {
 		}
 
 		/// Tokenizes and parses the given map.
-		public static List<EntityParsed> Parse(string map) {
+		public static List<EntityParsed<M>> Parse<M>(string map, Func<string, M> mapTextureToMaterial) {
 			MapParser parser = new(map);
-			return parser.ParseMap();
+			return parser.ParseMap<M>(mapTextureToMaterial);
 		}
 	}
 }

@@ -37,9 +37,9 @@ namespace KDCVRCBSP.Tests {
 
 			// alright, let's parse these two complex maps to make sure they parse
 			Console.WriteLine(" testmap id?");
-			MapParser.Parse(File.ReadAllText("testmap_id_tb.map"));
+			MapParser.Parse<string>(File.ReadAllText("testmap_id_tb.map"), (name) => name);
 			Console.WriteLine(" testmap v220?");
-			var mapchk = MapParser.Parse(File.ReadAllText("testmap_220_hammer.map"));
+			var mapchk = MapParser.Parse<string>(File.ReadAllText("testmap_220_hammer.map"), (name) => name);
 			List<(string, List<List<Vector3d>>)> objsrc = new();
 			int brushIdx = 0;
 			Geo2Context g2 = new();

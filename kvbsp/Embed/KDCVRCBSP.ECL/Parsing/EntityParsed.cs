@@ -4,7 +4,7 @@ using System.Runtime.CompilerServices;
 namespace KDCVRCBSP.ECL {
 	/// Represents a parsed map entity.
 	/// A parsed map is simply a list of entities, so it's a big deal that we get these right.
-	public sealed class EntityParsed {
+	public sealed class EntityParsed<M> {
 		/// List of key/value pairs.
 		public EntityKeys pairs = new();
 
@@ -13,11 +13,11 @@ namespace KDCVRCBSP.ECL {
 		public List<List<BrushSide>> brushes = new();
 
 		/// Ensures worldspawn exists, creating it if it doesn't.
-		public static EntityParsed EnsureWorldspawn(List<EntityParsed> entities) {
-			foreach (EntityParsed ep in entities)
+		public static EntityParsed<M> EnsureWorldspawn(List<EntityParsed<M>> entities) {
+			foreach (var ep in entities)
 				if (ep.pairs["classname"] == "worldspawn")
 					return ep;
-			EntityParsed worldspawn = new EntityParsed();
+			var worldspawn = new EntityParsed<M>();
 			worldspawn.pairs["classname"] = "worldspawn";
 			entities.Insert(0, worldspawn);
 			return worldspawn;
@@ -34,7 +34,8 @@ namespace KDCVRCBSP.ECL {
 		/// A brush side represents a side of a brush.
 		/// A brush is a list of brush sides.
 		public sealed class BrushSide {
-			public string texture = "";
+			/// Texture representation.
+			public M texture;
 
 			/// Source vertices (for precision)
 			/// Observed TB behaviour is to carry these over.

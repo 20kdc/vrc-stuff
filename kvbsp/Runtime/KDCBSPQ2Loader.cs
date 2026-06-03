@@ -155,9 +155,10 @@ namespace KDCVRCBSP {
 			string entitiesLump = new UTF8Encoding(false).GetString(bsp, entsOffset, entsLength);
 
 			// Parse entities and assign models.
-			List<EntityParsed> entitiesParsed = MapParser.Parse(entitiesLump);
-			EntityParsed entParsedWorldspawn = EntityParsed.EnsureWorldspawn(entitiesParsed);
+			var entitiesParsed = MapParser.Parse(entitiesLump, (name) => name);
+			var entParsedWorldspawn = EntityParsed<string>.EnsureWorldspawn(entitiesParsed);
 			foreach (var entParsed in entitiesParsed) {
+				// Start by finding the model.
 				KDCBSPIntermediate.Model entModel;
 				string detectedModel = entParsed.pairs["model"];
 				if (detectedModel.StartsWith("*")) {
@@ -173,6 +174,7 @@ namespace KDCVRCBSP {
 				} else {
 					entModel = (entParsed == entParsedWorldspawn) ? models[0] : null;
 				}
+				// Create the entity.
 				var entData = new KDCBSPIntermediate.Entity(entParsed.pairs, worldScale, entModel);
 				res.entities.Add(entData);
 				if (entParsed == entParsedWorldspawn)

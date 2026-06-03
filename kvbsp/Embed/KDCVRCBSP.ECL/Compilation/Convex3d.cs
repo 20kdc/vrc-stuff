@@ -37,7 +37,7 @@ namespace KDCVRCBSP.ECL {
 
 		/// Creates a Convex3d from a list of brush sides.
 		/// Returns null if the brush has less than the minimum amount of faces to be a solid (ConvexCollapseLimit)
-		public static Convex3d<D> FromBrush(Geo2Context g2, IList<EntityParsed.BrushSide> src, Func<EntityParsed.BrushSide, D> map) {
+		public static Convex3d<D> FromBrush<M>(Geo2Context g2, IList<EntityParsed<M>.BrushSide> src, Func<EntityParsed<M>.BrushSide, D> map) {
 			Plane3d[] planes = new Plane3d[src.Count];
 			D[] datas = new D[src.Count];
 			for (int i = 0; i < planes.Length; i++) {
@@ -161,7 +161,7 @@ namespace KDCVRCBSP.ECL {
 		/// Performs the BSP 'chop' stage to create a list of chopped faces.
 		/// The convex list is assumed to contain the current brush.
 		/// Notably, this may return the original face list.
-		public IReadOnlyList<Face> ChopFaces(IReadOnlyList<Convex3d<D>> allBrushes, Func<Face, ConvexChopFlags> getChopFlags) {
+		public IReadOnlyList<Face> ChopFaces(IReadOnlyList<Convex3d<D>> allBrushes, Func<Face, BSPSurfaceFlags> getChopFlags) {
 			bool afterSelf = false;
 			IReadOnlyList<Face> oldFaces = faces;
 			// begin chopping
@@ -176,14 +176,14 @@ namespace KDCVRCBSP.ECL {
 				// Assemble list of chopper faces.
 				List<(Face, bool)> cutterFaces = new();
 				foreach (Face f in cutterBrush.faces)
-					cutterFaces.Add((f, (getChopFlags(f) & ConvexChopFlags.CanChop) != 0));
+					cutterFaces.Add((f, (getChopFlags(f) & BSPSurfaceFlags.NoChopOthers) == 0));
 				// Cut up each of our faces.
 				List<Face> newFaces = new();
 				bool wasAnyFaceChoppable = false;
 				foreach (Face oldFace in oldFaces) {
-					ConvexChopFlags cf = getChopFlags(oldFace);
+					BSPSurfaceFlags cf = getChopFlags(oldFace);
 					// Unchoppable faces can't be chopped. (Crazy, right~? -A)
-					if ((cf & ConvexChopFlags.CanBeChopped) == 0) {
+					if ((cf & BSPSurfaceFlags.NoChopThis) != 0) {
 						newFaces.Add(oldFace);
 						continue;
 					}
@@ -261,14 +261,5 @@ namespace KDCVRCBSP.ECL {
 			if ((overlapped && cutterAfterSelf) || cutIncomplete)
 				dest.Add(new Face(g2, oldFace.planeIndex, remainderWinding, oldFace.data));
 		}
-	}
-
-	/// These flags are used to control ChopFaces.
-	public enum ConvexChopFlags: int {
-		/// If this is not present, the face can't be chopped.
-		CanBeChopped = 1,
-		/// If this is not present, the face can't chop other geometry.
-		/// If not every face in the brush has this set, a special codepath has to be used.
-		CanChop = 2
 	}
 }
