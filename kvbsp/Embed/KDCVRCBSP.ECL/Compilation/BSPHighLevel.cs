@@ -24,9 +24,9 @@ namespace KDCVRCBSP.ECL {
 				};
 
 				if (classname.StartsWith("func_detail"))
-					brushInfo.allSurfaceFlags |= BSPSurfaceFlags.MarkBrushDetail;
+					brushInfo.AddSurfaceFlagSet(BSPSurfaceFlags.Detail);
 				if (classname == "func_detail_illusionary")
-					brushInfo.allSurfaceFlags |= BSPSurfaceFlags.MarkBrushIllusionary;
+					brushInfo.AddSurfaceFlagSet(BSPSurfaceFlags.MarkBrushIllusionary);
 
 				if (classname == "func_group" || classname.StartsWith("func_detail") || classname == "worldspawn") {
 					// group/world stuff
@@ -66,8 +66,8 @@ namespace KDCVRCBSP.ECL {
 		/// Common 'compile entity' tasks:
 		/// 1. Compile entity to (split, detail) face lists
 		/// 2. Delete illusionary brushes
-		public static void Act2_CompileEntityEarly<M>(Geo2Map<M>.BrushEntity entity, List<Convex3d<(M, BrushUV)>.Face> splitFaces, List<Convex3d<(M, BrushUV)>.Face> detailFaces) where M : IBSPMaterial {
-			List<Convex3d<(M, BrushUV)>> choppers = new();
+		public static void Act2_CompileEntityEarly<M>(Geo2Map<M>.BrushEntity entity, List<Convex3d<Geo2FaceInfo<M>>.Face> splitFaces, List<Convex3d<Geo2FaceInfo<M>>.Face> detailFaces) where M : IBSPMaterial {
+			List<Convex3d<Geo2FaceInfo<M>>> choppers = new();
 			// add all which are allowed to chop
 			for (int cvxIdx = 0; cvxIdx < entity.brushes.Count; cvxIdx++) {
 				var cvx = entity.brushes[cvxIdx];
@@ -78,12 +78,11 @@ namespace KDCVRCBSP.ECL {
 			// chop & extract faces
 			for (int cvxIdx = 0; cvxIdx < entity.brushes.Count; cvxIdx++) {
 				var cvx = entity.brushes[cvxIdx];
-				IReadOnlyList<Convex3d<(M, BrushUV)>.Face> brushFaces = cvx.Item2.faces;
+				IReadOnlyList<Convex3d<Geo2FaceInfo<M>>.Face> brushFaces = cvx.Item2.faces;
 				if (!cvx.Item1.cannotBeChopped)
-					brushFaces = cvx.Item2.ChopFaces(choppers, (f) => f.data.Item1.SurfaceFlags);
-				bool isBrushDetail = (cvx.Item1.allSurfaceFlags & BSPSurfaceFlags.MarkBrushDetail) != 0;
+					brushFaces = cvx.Item2.ChopFaces(choppers, (f) => f.data.modSurfaceFlags);
 				foreach (var f in brushFaces) {
-					bool isDetail = isBrushDetail || ((f.data.Item1.SurfaceFlags & BSPSurfaceFlags.NoSplitBSPHack) != 0);
+					bool isDetail = (f.data.modSurfaceFlags & BSPSurfaceFlags.Detail) != 0;
 					if (isDetail)
 						detailFaces.Add(f);
 					else
@@ -129,7 +128,7 @@ namespace KDCVRCBSP.ECL {
 			List<Vector3d> tJuncPoints = new();
 			foreach (var area in entity.areas) {
 				foreach (var face in area.colliderFaces) {
-					if ((face.data.Item1.SurfaceFlags & BSPSurfaceFlags.NoCreateTJunction) != 0)
+					if ((face.data.modSurfaceFlags & BSPSurfaceFlags.NoCreateTJunction) != 0)
 						continue;
 					foreach (var pt in face.winding)
 						tJuncPoints.Add(pt);
@@ -137,7 +136,7 @@ namespace KDCVRCBSP.ECL {
 			}
 			foreach (var area in entity.areas) {
 				foreach (var face in area.colliderFaces) {
-					var flags = face.data.Item1.SurfaceFlags;
+					var flags = face.data.modSurfaceFlags;
 					if ((flags & BSPSurfaceFlags.DeleteAreaRenderFace) != 0)
 						continue;
 					// creating render face...
@@ -150,11 +149,11 @@ namespace KDCVRCBSP.ECL {
 					}
 					List<(Vector3d, Vector2d)> polyFinal = new();
 					foreach (var vec in poly)
-						polyFinal.Add((vec, face.data.Item2.MapUV(vec)));
-					area.renderFaces.Add((face.data.Item1, polyFinal));
+						polyFinal.Add((vec, face.data.texUV.MapUV(vec)));
+					area.renderFaces.Add((face.data.material, polyFinal));
 				}
 				area.colliderFaces.RemoveAll((face) => {
-					return (face.data.Item1.SurfaceFlags & BSPSurfaceFlags.DeleteAreaColliderFace) != 0;
+					return (face.data.modSurfaceFlags & BSPSurfaceFlags.DeleteAreaColliderFace) != 0;
 				});
 			}
 		}

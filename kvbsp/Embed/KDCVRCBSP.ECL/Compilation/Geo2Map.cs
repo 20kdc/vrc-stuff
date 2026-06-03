@@ -24,14 +24,14 @@ namespace KDCVRCBSP.ECL {
 			/// Bounds. Note that these bounds are *relative to the origin.*
 			public readonly AABB3d bounds;
 			/// Brushes and the entitykeys of their associated groups.
-			public readonly List<(Geo2BrushInfo, Convex3d<(M, BrushUV)>)> brushes;
+			public readonly List<(Geo2BrushInfo, Convex3d<Geo2FaceInfo<M>>)> brushes;
 
 			/// This is where the areas go when either partitioned (worldspawn) or faux-partitioned (single area, for brush entities).
 			public readonly List<Area> areas = new();
 
 			/// This is set once partitioning happens if real partitioning is occurring.
 			/// (If it isn't, then this is never set.)
-			public BSPNode<(M, BrushUV)> root = null;
+			public BSPNode<Geo2FaceInfo<M>> root = null;
 
 			/// Performs the bounds calculation, brush sorting, etc.
 			public BrushEntity(Geo2Context g2, EntityKeys pairs, List<(Geo2BrushInfo, List<EntityParsed<M>.BrushSide>)> brushes) {
@@ -78,14 +78,25 @@ namespace KDCVRCBSP.ECL {
 					min = Vector3d.Zero,
 					max = Vector3d.Zero
 				};
-				List<(Geo2BrushInfo, Convex3d<(M, BrushUV)>)> brushesFinal = new();
+				List<(Geo2BrushInfo, Convex3d<Geo2FaceInfo<M>>)> brushesFinal = new();
 				bool first = true;
 				foreach (var brush in brushes) {
+					// Collated transfer flags.
+					// This is everything that is OR'd into all the other brush sides.
+					// So it's both addSurfaceFlags and ALSO anything from the material data.
+					BSPSurfaceFlags transferFlags = brush.Item1.addSurfaceFlags;
 					var translatedSides = new EntityParsed<M>.BrushSide[brush.Item2.Count];
-					for (int i = 0; i < translatedSides.Length; i++)
-						translatedSides[i] = brush.Item2[i].Translated(origin * -1);
-					var convex = Convex3d<(M, BrushUV)>.FromBrush<M>(g2, translatedSides, (src) => {
-						return (src.texture, src.texUV);
+					for (int i = 0; i < translatedSides.Length; i++) {
+						var side = brush.Item2[i].Translated(origin * -1);
+						translatedSides[i] = side;
+						transferFlags |= side.texture.TransFlags;
+					}
+					var convex = Convex3d<Geo2FaceInfo<M>>.FromBrush<M>(g2, translatedSides, (src) => {
+						return new Geo2FaceInfo<M> {
+							material = src.texture,
+							texUV = src.texUV,
+							modSurfaceFlags = src.texture.SurfaceFlags | transferFlags
+						};
 					});
 					if (first) {
 						aabb3d = convex.bounds;
@@ -104,12 +115,22 @@ namespace KDCVRCBSP.ECL {
 		/// Areas. These may or may not contain leaves (null if not), but will contain faces if relevant.
 		public sealed class Area {
 			/// This contains the actual face list, for concave collision purposes.
-			public readonly List<Convex3d<(M, BrushUV)>.Face> colliderFaces = new();
+			public readonly List<Convex3d<Geo2FaceInfo<M>>.Face> colliderFaces = new();
 			/// This contains the render face list.
 			public readonly List<(M, List<(Vector3d, Vector2d)>)> renderFaces = new();
-			/// Leaves of this area.
-			public List<BSPLeaf<(M, BrushUV)>> leaves = null;
+			/// Leaves of this area. (Only exists if partitioned.)
+			public List<BSPLeaf<Geo2FaceInfo<M>>> leaves = null;
 		}
+	}
+
+	/// Face information structure.
+	public struct Geo2FaceInfo<M> {
+		/// Modified surface flags.
+		public BSPSurfaceFlags modSurfaceFlags;
+		/// Material. IBSPMaterial IS NOT USED by this point; all information was safely extracted.
+		public M material;
+		/// UVs.
+		public BrushUV texUV;
 	}
 
 	public struct Geo2BrushInfo {
@@ -117,11 +138,21 @@ namespace KDCVRCBSP.ECL {
 		/// Of these, only the ones specified as applying to brushes will be honoured.
 		public BSPSurfaceFlags allSurfaceFlags;
 
+		/// Surface flags being sent down from the brush entity.
+		/// This a strict subset of allSurfaceFlags.
+		public BSPSurfaceFlags addSurfaceFlags;
+
 		/// This brush will never split world faces.
 		public bool cannotChop;
 		/// This brush will never be split by other brushes.
 		public bool cannotBeChopped;
 		/// Chop order.
 		public int chopOrder;
+
+		/// Makes sure to keep allSurfaceFlags and addSurfaceFlags coherent.
+		public void AddSurfaceFlagSet(BSPSurfaceFlags flags) {
+			allSurfaceFlags |= flags;
+			addSurfaceFlags |= flags;
+		}
 	}
 }

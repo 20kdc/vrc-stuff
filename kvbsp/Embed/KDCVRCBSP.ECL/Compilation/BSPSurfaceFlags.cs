@@ -12,10 +12,8 @@ namespace KDCVRCBSP.ECL {
 		/// The compiler checks for these brushes first in an entity, and finds the centre of the resulting AABB.
 		/// Don't forget to set this as DeleteBrushAfterAABB.
 		MarkBrushOrigin = 0x01000000,
-		/// A surface of this kind existing on a brush forcibly sets the whole brush as detail without a brush entity.
-		MarkBrushDetail = 0x02000000,
 		/// A surface of this kind existing on a brush forcibly sets the whole brush as illusionary without a brush entity.
-		MarkBrushIllusionary = 0x04000000,
+		MarkBrushIllusionary = 0x02000000,
 		/// Delete this brush after the AABB of the entity is confirmed.
 		/// All brush faces will be lost.
 		DeleteBrushAfterAABB = 0x10000000,
@@ -27,9 +25,9 @@ namespace KDCVRCBSP.ECL {
 		/// If this is present, the face can't chop other geometry.
 		/// If not every face in the brush has this set, a special codepath has to be used.
 		NoChopOthers = 0x00020000,
-		/// This surface flag is extremely dangerous but is kept in case it's needed by someone.
-		/// It's like MarkBrushDetail but it 
-		NoSplitBSPHack = 0x00040000,
+		/// This flag must exist in the TransFlags field unless you are EXTREMELY careful.
+		/// It causes the face to not split the BSP, which can violate various assumptions.
+		Detail = 0x00040000,
 
 		// -- Partitioning (0000**00) --
 		/// If this is present, the face isn't solid to the BSP. Solid faces delete leaves behind them, preventing navigation entirely.
