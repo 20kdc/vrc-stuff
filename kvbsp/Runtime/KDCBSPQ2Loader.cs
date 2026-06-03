@@ -3,6 +3,7 @@ using System.IO;
 using System.Text;
 using System.Collections.Generic;
 using UnityEngine;
+using KDCVRCBSP.ECL;
 
 namespace KDCVRCBSP {
 	/**
@@ -19,7 +20,7 @@ namespace KDCVRCBSP {
 				float nY = BitConverter.ToSingle(bsp, pos + 4);
 				float nZ = BitConverter.ToSingle(bsp, pos + 8);
 				float d = BitConverter.ToSingle(bsp, pos + 12);
-				planes[idx] = KDCBSPIntermediate.TransformPlane(nX, nY, nZ, d, worldScale);
+				planes[idx] = KDCBSPUtilities.TransformPlane(nX, nY, nZ, d, worldScale);
 			}
 
 			Vector3[] vertexes;
@@ -152,7 +153,31 @@ namespace KDCVRCBSP {
 			int entsLength = BitConverter.ToInt32(bsp, 12);
 			// We bet on treating NUL as whitespace.
 			string entitiesLump = new UTF8Encoding(false).GetString(bsp, entsOffset, entsLength);
-			res.ParseEntities(entitiesLump, worldScale, models);
+
+			// Parse entities and assign models.
+			List<EntityParsed> entitiesParsed = MapParser.Parse(entitiesLump);
+			EntityParsed entParsedWorldspawn = EntityParsed.EnsureWorldspawn(entitiesParsed);
+			foreach (var entParsed in entitiesParsed) {
+				KDCBSPIntermediate.Model entModel;
+				string detectedModel = entParsed.pairs["model"];
+				if (detectedModel.StartsWith("*")) {
+					if (int.TryParse(detectedModel.Substring(1), out var result)) {
+						if (result >= 0 && result < models.Length) {
+							entModel = models[result];
+						} else {
+							entModel = null;
+						}
+					} else {
+						entModel = null;
+					}
+				} else {
+					entModel = (entParsed == entParsedWorldspawn) ? models[0] : null;
+				}
+				var entData = new KDCBSPIntermediate.Entity(entParsed.pairs, worldScale, entModel);
+				res.entities.Add(entData);
+				if (entParsed == entParsedWorldspawn)
+					res.worldspawn = entData;
+			}
 
 			return res;
 		}
@@ -204,7 +229,7 @@ namespace KDCVRCBSP {
 			float nX = BitConverter.ToSingle(bsp, pos);
 			float nY = BitConverter.ToSingle(bsp, pos + 4);
 			float nZ = BitConverter.ToSingle(bsp, pos + 8);
-			return KDCBSPIntermediate.TransformPosition(nX, nY, nZ, worldScale);
+			return KDCBSPUtilities.TransformPosition(nX, nY, nZ, worldScale);
 		}
 
 		// -- BSP access core --

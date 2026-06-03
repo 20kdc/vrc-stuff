@@ -11,7 +11,7 @@ namespace KDCVRCBSP {
 	 * If not, it's solved either here or in KDCBSPImporter.
 	 */
 	public class KDCBSPIntermediate {
-		private Entity worldspawn;
+		public Entity worldspawn;
 
 		public Entity Worldspawn => worldspawn;
 
@@ -22,7 +22,7 @@ namespace KDCVRCBSP {
 		/// In an array in case it needs to be easily cached.
 		public TexInfo[] texInfos;
 
-		public class Entity: ROEntityKeys {
+		public class Entity : ROEntityKeys {
 			// Auto-parsed early
 			public readonly string classname;
 			public readonly string targetname;
@@ -37,8 +37,9 @@ namespace KDCVRCBSP {
 
 			public bool IsWorldspawn => classname == "worldspawn";
 
-			public Entity(EntityKeys sourceKeys, float worldScale, Model[] models) : base(sourceKeys) {
+			public Entity(EntityKeys sourceKeys, float worldScale, Model model) : base(sourceKeys) {
 				this.worldScale = worldScale;
+				this.model = model;
 				string detectedClassname = this["classname"];
 				if (detectedClassname == "") {
 					classname = "info_unknown";
@@ -47,21 +48,6 @@ namespace KDCVRCBSP {
 				}
 
 				targetname = this["targetname"];
-
-				string detectedModel = this["model"];
-				if (detectedModel.StartsWith("*")) {
-					if (int.TryParse(detectedModel.Substring(1), out var result)) {
-						if (result >= 0 && result < models.Length) {
-							model = models[result];
-						} else {
-							model = null;
-						}
-					} else {
-						model = null;
-					}
-				} else {
-					model = IsWorldspawn ? models[0] : null;
-				}
 
 				Vector3 statedOrigin = GetVector3Position("origin", Vector3.zero);
 
@@ -80,7 +66,7 @@ namespace KDCVRCBSP {
 					if (float.TryParse(s3[0], out var x))
 						if (float.TryParse(s3[1], out var y))
 							if (float.TryParse(s3[2], out var z))
-								return TransformPosition(x, y, z, worldScale);
+								return KDCBSPUtilities.TransformPosition(x, y, z, worldScale);
 				return defaultVal;
 			}
 
@@ -164,17 +150,6 @@ namespace KDCVRCBSP {
 		}
 
 		// -- Loader Assist --
-
-		public void ParseEntities(string entityLump, float worldScale, Model[] models) {
-			List<EntityParsed> lumpParsed = MapParser.Parse(entityLump);
-			EntityParsed.EnsureWorldspawn(lumpParsed);
-			foreach (var entParsed in lumpParsed) {
-				Entity entData = new Entity(entParsed.pairs, worldScale, models);
-				entities.Add(entData);
-				if ((worldspawn == null) && entData.IsWorldspawn)
-					worldspawn = entData;
-			}
-		}
 
 		public void GetEntityBox(Entity entity, out Vector3 centre, out Vector3 size) {
 			centre = Vector3.zero;
@@ -265,26 +240,6 @@ namespace KDCVRCBSP {
 					cu = uvSrc.MapUV(c)
 				}, f.texInfo));
 			}
-		}
-
-		// -- Transform --
-
-		public static Plane TransformPlane(float nX, float nY, float nZ, float d, float worldScale) {
-			// [TRANSFORM]
-			// So, here's an oddity for you: I don't know why distance has to be inverted.
-			// It clearly does, so that's a start, but I don't know why.
-			// UPDATE: The reason is because Unity's definition of `distance` is bad.
-			// One would think that a point on P exists at (N * D).
-			// However, according to the field doc for `distance`, by Unity logic, it is actually at (N * -D).
-			return new Plane(new Vector3(nX, nZ, nY), d / -worldScale);
-		}
-
-		public static Vector3 TransformPosition(float nX, float nY, float nZ, float worldScale) {
-			// [TRANSFORM]
-			// positive X in TB is positive X in Unity
-			// positive Y in TB is positive Z in Unity
-			// positive Z in TB is positive Y in Unity
-			return new Vector3(nX, nZ, nY) / worldScale;
 		}
 
 		// -- Convex Slicer --

@@ -92,6 +92,26 @@ namespace KDCVRCBSP {
 			return layer;
 		}
 
+		// -- Transform functions --
+
+		public static Plane TransformPlane(float nX, float nY, float nZ, float d, float worldScale) {
+			// [TRANSFORM]
+			// So, here's an oddity for you: I don't know why distance has to be inverted.
+			// It clearly does, so that's a start, but I don't know why.
+			// UPDATE: The reason is because Unity's definition of `distance` is bad.
+			// One would think that a point on P exists at (N * D).
+			// However, according to the field doc for `distance`, by Unity logic, it is actually at (N * -D).
+			return new Plane(new Vector3(nX, nZ, nY), d / -worldScale);
+		}
+
+		public static Vector3 TransformPosition(float nX, float nY, float nZ, float worldScale) {
+			// [TRANSFORM]
+			// positive X in TB is positive X in Unity
+			// positive Y in TB is positive Z in Unity
+			// positive Z in TB is positive Y in Unity
+			return new Vector3(nX, nZ, nY) / worldScale;
+		}
+
 		// -- FromECL conv --
 
 		public static Vector2 FromECL(Vector2d src) {
