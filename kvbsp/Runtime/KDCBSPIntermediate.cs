@@ -109,7 +109,7 @@ namespace KDCVRCBSP {
 		}
 
 		public struct Brush {
-			public int contents;
+			public bool hasNoclipContents, hasClipContents;
 			public BrushSide[] sides;
 		}
 

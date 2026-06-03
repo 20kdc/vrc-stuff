@@ -109,7 +109,12 @@ namespace KDCVRCBSP {
 					}
 				}
 				brushes[idx] = new KDCBSPIntermediate.Brush {
-					contents = contents,
+					// CONTENTS_CURRENT_0
+					// We use this as a 'secret handshake' to implement the 'noclip' brush.
+					// Noclip brushes are solid (so block vis), but don't create collision.
+					hasNoclipContents = ((contents & 0x40000) != 0),
+					// CONTENTS_SOLID | CONTENTS_PLAYERCLIP
+					hasClipContents = ((contents & (1 | 0x10000)) != 0),
 					sides = brushSides
 				};
 			}

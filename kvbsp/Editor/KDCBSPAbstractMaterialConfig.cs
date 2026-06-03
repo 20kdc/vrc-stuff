@@ -10,7 +10,7 @@ namespace KDCVRCBSP {
 	/**
 	 * KDCBSPAbstractMaterialConfig defines things materials care about.
 	 */
-	public abstract class KDCBSPAbstractMaterialConfig : ScriptableObject {
+	public abstract class KDCBSPAbstractMaterialConfig : KDCBSPAbstractMaterialConfigRuntime {
 		/// Not much to this one; if true, it's included in collision by default.
 		[Tooltip("Enables/disables collision. This only works on convexes if it wins priority, but it always works on concave root.")]
 		[SerializeField]

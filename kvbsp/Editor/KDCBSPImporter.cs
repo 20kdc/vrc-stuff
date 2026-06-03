@@ -28,8 +28,6 @@ namespace KDCVRCBSP {
 			}
 			var myWorkspace = KDCBSPImportContext.DependsOnArtifact<KDCBSPAbstractWorkspaceConfig>(ctx, workspace);
 
-			KDCBSPIntermediate data = KDCBSPIntermediate.Load(File.ReadAllBytes(ctx.assetPath), myWorkspace.WorldScale);
-
 			List<KDCBSPAbstractWorkspaceConfig> searchOrder = PrepareSearchOrder(ctx, myWorkspace);
 
 			// this
@@ -37,11 +35,14 @@ namespace KDCVRCBSP {
 				importer = this,
 				workspace = myWorkspace,
 				searchOrder = searchOrder,
-				bsp = data,
+				bsp = null,
 				assetImportContext = ctx,
 				materialCache = new(),
 				entityCache = new()
 			};
+
+			var data = KDCBSPIntermediate.Load(File.ReadAllBytes(ctx.assetPath), myWorkspace.WorldScale);
+			importContext.bsp = data;
 
 			List<KDCBSPEntityParameterizer> postProcessThese = new();
 
@@ -315,7 +316,7 @@ namespace KDCVRCBSP {
 		}
 
 		public static LayerMask BrushContentsLayerMaskParameterized(KDCBSPEntityParameterizer[] custom, LayerMask entityLayer, KDCBSPIntermediate.Brush brush) {
-			LayerMask layerMask = KDCBSPUtilities.BrushContentsLayerMask(entityLayer, brush.contents);
+			LayerMask layerMask = (brush.hasNoclipContents || !brush.hasClipContents) ? 0 : entityLayer;
 			foreach (var c in custom)
 				layerMask = c.EntityConvexBrushLayer(entityLayer, layerMask, brush);
 			return layerMask;
