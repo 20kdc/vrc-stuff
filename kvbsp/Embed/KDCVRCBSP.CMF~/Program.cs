@@ -9,6 +9,17 @@ using KDCVRCBSP.ECL;
 /// Notably, it doesn't have the weird random parsing issues.
 namespace KDCVRCBSP.CMF {
 	public class Program {
+
+		/// material class
+		public sealed class Material: IBSPMaterial {
+			public string texture;
+			public Vector2d size;
+			public BSPSurfaceFlags surfaceFlags;
+			public BSPSurfaceFlags transFlags;
+			public BSPSurfaceFlags SurfaceFlags => surfaceFlags;
+			public BSPSurfaceFlags TransFlags => transFlags;
+		}
+
 		public static void Main(string[] args) {
 			string input = "";
 			string output = "";
@@ -61,36 +72,40 @@ namespace KDCVRCBSP.CMF {
 					throw new Exception("If omitting output filename, need input to have '.map' at end of name");
 				output = input.Substring(0, input.Length - 3) + "cmf";
 			}
-			var parsedEntities = MapParser.Parse<string>(File.ReadAllText(input), (name) => name);
+			Dictionary<string, Material> textures = new();
+			textures["noclip"] = new Material {
+				texture = "noclip",
+				size = (1, 1),
+				surfaceFlags = BSPSurfaceFlags.NoChopThis | BSPSurfaceFlags.DeleteAreaColliderFace | BSPSurfaceFlags.DeleteAreaRenderFace,
+				transFlags = 0,
+			};
+			var parsedEntities = MapParser.Parse<Material>(File.ReadAllText(input), (name) => GetTexSize(name, textures, texdir));
 			// preprocessing: UV scaling
-			Dictionary<string, Vector2d> textures = new();
-			textures["noclip"] = (1, 1);
 			foreach (var ent in parsedEntities) {
 				foreach (var brush in ent.brushes) {
 					foreach (var face in brush) {
-						var texSize = GetTexSize(face.texture, textures, texdir);
-						face.texUV.texOffset /= texSize;
-						face.texUV.texSAxis /= texSize.x;
-						face.texUV.texTAxis /= texSize.y;
+						face.texUV.texOffset /= face.texture.size;
+						face.texUV.texSAxis /= face.texture.size.x;
+						face.texUV.texTAxis /= face.texture.size.y;
 					}
 				}
 			}
 			// preprocessing: TrenchBroom simulation
 			if (tbsim)
 				TrenchBroom.FullSimulateExport(parsedEntities);
-			var worldspawn = EntityParsed<string>.EnsureWorldspawn(parsedEntities);
+			var worldspawn = EntityParsed<Material>.EnsureWorldspawn(parsedEntities);
 			CMFFile cmf = new();
 			if (worldspawn.pairs.GetBool("_kvbsp", false)) {
 				// 'modern pipeline'
 				// worldspawn and func_group get really special treatment to simulate a normal compile flow
-				List<Convex3d<EntityParsed<string>.BrushSide>> worldBrushes = new();
+				List<Convex3d<EntityParsed<Material>.BrushSide>> worldBrushes = new();
 				Geo2Context g2 = new();
 				foreach (var ent in parsedEntities) {
 					var classname = ent.pairs["classname"];
 					if (classname == "func_group" || classname == "worldspawn") {
 						// dump contents to world brushes
 						foreach (var brush in ent.brushes) {
-							var cvx = Convex3d<EntityParsed<string>.BrushSide>.FromBrush(g2, brush, v => v);
+							var cvx = Convex3d<EntityParsed<Material>.BrushSide>.FromBrush(g2, brush, v => v);
 							if (cvx != null)
 								worldBrushes.Add(cvx);
 						}
@@ -107,9 +122,9 @@ namespace KDCVRCBSP.CMF {
 					if (classname == "worldspawn")
 						continue;
 					// compile this entity's brushes directly
-					List<Convex3d<EntityParsed<string>.BrushSide>> brushesConvexes = new();
+					List<Convex3d<EntityParsed<Material>.BrushSide>> brushesConvexes = new();
 					foreach (var brush in ent.brushes) {
-						var cvx = Convex3d<EntityParsed<string>.BrushSide>.FromBrush(g2, brush, v => v);
+						var cvx = Convex3d<EntityParsed<Material>.BrushSide>.FromBrush(g2, brush, v => v);
 						if (cvx != null)
 							brushesConvexes.Add(cvx);
 					}
@@ -165,13 +180,13 @@ namespace KDCVRCBSP.CMF {
 						cmfEnt.pairs.Add(pair);
 					}
 
-					List<Convex3d<EntityParsed<string>.BrushSide>> brushesConvexes = new();
+					List<Convex3d<EntityParsed<Material>.BrushSide>> brushesConvexes = new();
 					// We create a new Geo2Context for each entity.
 					// Unless you're trying to write a 'literal' BSP file,
 					//  you should be doing this to save on plane lookups.
 					Geo2Context g2 = new();
 					foreach (var brush in ent.brushes) {
-						var cvx = Convex3d<EntityParsed<string>.BrushSide>.FromBrush(g2, brush, v => v);
+						var cvx = Convex3d<EntityParsed<Material>.BrushSide>.FromBrush(g2, brush, v => v);
 						if (cvx != null)
 							brushesConvexes.Add(cvx);
 					}
@@ -193,34 +208,20 @@ namespace KDCVRCBSP.CMF {
 			File.WriteAllBytes(output, cmf.Emit(!minify));
 		}
 
-		public static BSPSurfaceFlags GetSurfaceFlags(string texture) {
-			BSPSurfaceFlags genericNope = BSPSurfaceFlags.NoChopThis | BSPSurfaceFlags.NoChopOthers | BSPSurfaceFlags.NoCreateTJunction | BSPSurfaceFlags.NoFixTJunction;
-			if (texture.Equals("aaatrigger", StringComparison.InvariantCultureIgnoreCase))
-				return genericNope;
-			if (texture.Equals("noclip", StringComparison.InvariantCultureIgnoreCase))
-				return genericNope;
-			return 0;
-
-		}
-
-		public static List<Convex3d<EntityParsed<string>.BrushSide>.Face> MaybeChop(List<Convex3d<EntityParsed<string>.BrushSide>> brushesConvexes, bool chop) {
-			List<Convex3d<EntityParsed<string>.BrushSide>.Face> faces = new();
+		public static List<Convex3d<EntityParsed<Material>.BrushSide>.Face> MaybeChop(List<Convex3d<EntityParsed<Material>.BrushSide>> brushesConvexes, bool chop) {
+			List<Convex3d<EntityParsed<Material>.BrushSide>.Face> faces = new();
 			for (int cvxIdx = 0; cvxIdx < brushesConvexes.Count; cvxIdx++) {
 				var cvx = brushesConvexes[cvxIdx];
-				IReadOnlyList<Convex3d<EntityParsed<string>.BrushSide>.Face> brushFaces = cvx.faces;
+				IReadOnlyList<Convex3d<EntityParsed<Material>.BrushSide>.Face> brushFaces = cvx.faces;
 				if (chop)
-					brushFaces = cvx.ChopFaces(brushesConvexes, (f) => {
-						if (f.data.texture.Equals("aaatrigger", StringComparison.InvariantCultureIgnoreCase))
-							return BSPSurfaceFlags.NoChopThis | BSPSurfaceFlags.NoChopOthers;
-						return 0;
-					});
+					brushFaces = cvx.ChopFaces(brushesConvexes, (f) => f.data.texture.SurfaceFlags);
 				foreach (var f in brushFaces)
 					faces.Add(f);
 			}
 			return faces;
 		}
 
-		public static void Partition(string output, Geo2Context g2, List<EntityParsed<string>> parsedEntities, List<Convex3d<EntityParsed<string>.BrushSide>.Face> faces) {
+		public static void Partition(string output, Geo2Context g2, List<EntityParsed<Material>> parsedEntities, List<Convex3d<EntityParsed<Material>.BrushSide>.Face> faces) {
 			Vector3d partitionVec = Vector3d.Zero;
 			foreach (var subEnt in parsedEntities) {
 				if (subEnt.pairs["classname"] == "player_respawn") {
@@ -229,24 +230,24 @@ namespace KDCVRCBSP.CMF {
 				}
 			}
 			Console.WriteLine("Presorting face list...");
-			BSPNode<EntityParsed<string>.BrushSide>.PresortFaceList(faces);
+			BSPNode<EntityParsed<Material>.BrushSide>.PresortFaceList(faces);
 			Console.WriteLine("Building tree (" + faces.Count + " splitting faces...)");
-			var tree = BSPNode<EntityParsed<string>.BrushSide>.Build(g2, faces, Array.Empty<Convex3d<EntityParsed<string>.BrushSide>.Face>(), Array.Empty<int>(), (_) => true);
+			var tree = BSPNode<EntityParsed<Material>.BrushSide>.Build(g2, faces, Array.Empty<Convex3d<EntityParsed<Material>.BrushSide>.Face>(), Array.Empty<int>(), (_) => true);
 			if (tree == null) {
 				Console.WriteLine("All leaves were solid?");
 			} else {
-				List<BSPLeaf<EntityParsed<string>.BrushSide>> leaves = new();
+				List<BSPLeaf<EntityParsed<Material>.BrushSide>> leaves = new();
 				tree.AddLeaves(leaves);
 				Console.WriteLine("Portalizing (" + leaves.Count + " leaves)...");
-				BSPNode<EntityParsed<string>.BrushSide>.Portalize(leaves);
-				File.WriteAllLines(output + ".leaves.obj", BSPNode<EntityParsed<string>.BrushSide>.MakeLeafOBJ(leaves));
-				File.WriteAllLines(output + ".prt", BSPNode<EntityParsed<string>.BrushSide>.MakePRT(leaves));
+				BSPNode<EntityParsed<Material>.BrushSide>.Portalize(leaves);
+				File.WriteAllLines(output + ".leaves.obj", BSPNode<EntityParsed<Material>.BrushSide>.MakeLeafOBJ(leaves));
+				File.WriteAllLines(output + ".prt", BSPNode<EntityParsed<Material>.BrushSide>.MakePRT(leaves));
 				var startLeaf = tree.Find(g2, partitionVec);
 				// alright, find what we'll let live
-				List<BSPLeaf<EntityParsed<string>.BrushSide>> allSurvivingLeaves = new();
+				List<BSPLeaf<EntityParsed<Material>.BrushSide>> allSurvivingLeaves = new();
 				startLeaf.Explore(allSurvivingLeaves, new(), (_) => true);
 				faces.Clear();
-				HashSet<Convex3d<EntityParsed<string>.BrushSide>.Face> seenFaces = new();
+				HashSet<Convex3d<EntityParsed<Material>.BrushSide>.Face> seenFaces = new();
 				foreach (var leaf in allSurvivingLeaves)
 					foreach (var face in leaf.faces)
 						if (seenFaces.Add(face))
@@ -254,9 +255,9 @@ namespace KDCVRCBSP.CMF {
 			}
 		}
 
-		public static void ConvertFace(List<CMFFile.Polygon> polygons, List<Vector3d> tJuncPoints, CMFFile cmf, Convex3d<EntityParsed<string>.BrushSide>.Face face, int lightSlice) {
+		public static void ConvertFace(List<CMFFile.Polygon> polygons, List<Vector3d> tJuncPoints, CMFFile cmf, Convex3d<EntityParsed<Material>.BrushSide>.Face face, int lightSlice) {
 			// "noclip" will be deleted here.
-			if (face.data.texture.Equals("noclip", StringComparison.InvariantCultureIgnoreCase))
+			if (face.data.texture.texture.Equals("noclip", StringComparison.InvariantCultureIgnoreCase))
 				return;
 			var g2 = face.g2;
 			Plane3d facePlane = g2.FromPlaneIndex(face.planeIndex);
@@ -276,7 +277,7 @@ namespace KDCVRCBSP.CMF {
 					LightSlicerCutWindings(windings, new Vector3d(0, 1, 0), face.bounds, lightSlice, g2.distanceEpsilon);
 				}
 			}
-			int materialIndex = cmf.EnsureMaterial(face.data.texture);
+			int materialIndex = cmf.EnsureMaterial(face.data.texture.texture);
 			// convert into CMF coordinate system
 			var cmfPlane = new Plane3d(new Vector3d(facePlane.normal.x, facePlane.normal.z, facePlane.normal.y), -facePlane.distance);
 			foreach (var winding in windings) {
@@ -330,7 +331,7 @@ namespace KDCVRCBSP.CMF {
 			}
 		}
 
-		public static Vector2d GetTexSize(string tex, Dictionary<string, Vector2d> cache, string texdir) {
+		public static Material GetTexSize(string tex, Dictionary<string, Material> cache, string texdir) {
 			if (cache.ContainsKey(tex)) {
 				return cache[tex];
 			}
@@ -341,8 +342,17 @@ namespace KDCVRCBSP.CMF {
 			int w = BitConverter.ToInt32(bmp, 0x12);
 			int h = BitConverter.ToInt32(bmp, 0x16);
 			Vector2d texSize = new Vector2d(w, h);
-			cache[tex] = texSize;
-			return texSize;
+			BSPSurfaceFlags surfaceFlags = 0;
+			if (tex.Equals("aaatrigger", StringComparison.InvariantCultureIgnoreCase))
+				surfaceFlags = BSPSurfaceFlags.NoChopThis | BSPSurfaceFlags.NoChopOthers | BSPSurfaceFlags.NoCreateTJunction | BSPSurfaceFlags.NoFixTJunction;
+			var ktl = new Material {
+				texture = tex,
+				size = texSize,
+				surfaceFlags = surfaceFlags,
+				transFlags = 0
+			};
+			cache[tex] = ktl;
+			return ktl;
 		}
 		public static string ORECStr(byte[] data, ref int at) {
 			int start = at;

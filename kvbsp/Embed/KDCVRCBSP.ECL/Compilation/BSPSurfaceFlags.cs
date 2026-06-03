@@ -33,6 +33,7 @@ namespace KDCVRCBSP.ECL {
 		/// If this is present, the face isn't solid to the BSP. Solid faces delete leaves behind them, preventing navigation entirely.
 		NoDeleteLeaves = 0x00000100,
 		/// If this is present, this face blocks traversal between leaves.
+		/// (Faces don't block leaf traversal by default because the target leaf shouldn't exist in the first place for solid faces.)
 		/// This could, in theory, be useful for creating a double-sided object that you want to block.
 		BlockLeafTraversal = 0x00000200,
 		/// If this is present, this face represents an areaportal.
