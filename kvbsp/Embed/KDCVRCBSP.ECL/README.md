@@ -99,19 +99,36 @@ The basic outline is as follows:
 2. Preprocessing stage.
 	1. TrenchBroom export simulation. This simulates the TrenchBroom Export Map feature. (`TrenchBroom.FullSimulateExport`)
 	2. Group processing and plane stability. (`BSPHighLevel.Act1_MapIntoGeo2`)
-		* This is where Geo2Context gets involved.
+		* This creates the `Geo2Map`, the object on which compilation is performed.
 		* Ensuring plane stability here decreases the chance of vertex misalignments, as operations will be using mostly consistent numbers.
 		* This is where per-brush metadata begins to exist (pulled from merged `func_group`s).
-3. For each brush, turn it into a convex.
-4. Chopping. All brush faces are chopped, if applicable, and the results pooled into two lists of brush faces.
-	* _**In this toolchain, brushes escape past this point for collision, but otherwise cease to exist; all further effort works with a face-based representation.**_ (The brushes are needed for chopping purposes; a solely face-based chop stage doesn't have the necessary guarantees to 'punch out' a surrounded face.)
-	* One list is for 'split faces', and the other for 'detail faces'. If there is no reason to care, these may be the same list.
-5. For worldspawn (or any brush entity, in theory, that is eligible for partitioning), partition it into a binary tree of leaves. Leaves are convexes which contain mutable lists of 'portals' (connections between leaves).
-6. Compute portals, turning the list of leaves into a connected graph.
-	* An important trick here is to mark faces that cover a portal. The surrounding faces will have carved one side or the other of the portal, so any contact of a face will be total unless the situation is ill-formed.
-7. Determine which leaves are actually going to survive, which are separated by areaportals, etc.
-	* Areaportals in this setup are intended to create separate render meshes. Only Unity occlusion can actually occlude avatars without causing compatibility risks with world logic, so we need to tread carefully, like a mouse in a trap recycling facility.
-8. T-junction processing.
+		* The following key things happen in the constructor of `Geo2Map.BrushEntity`:
+			* Brush sorting (for chop stage)
+			* Origin processing (auto-origin, origin key, and origin brushes)
+				* Auto-origin simply treats all brushes as origin brushes for origin calculation purposes. This leads to 'usually sensible' effects.
+			* Removal of brushes which are destined for removal after AABB stage
+			* Conversion of brushes into convexes.
+3. Per-entity compilation. (`BSPHighLevel.Act2_Compile`)
+	1. Chopping. All brush faces are chopped, if applicable, and the results pooled into two lists of brush faces.
+		* _**Brushes escape past this point for collision, but otherwise cease to exist; all further effort works with a face-based representation.**_ (The brushes are needed up to here for chopping purposes; a solely face-based chop stage doesn't have the necessary guarantees to 'punch out' a surrounded face.)
+		* One list is for 'split faces', and the other for 'detail faces'. If there is no reason to care, these may be the same list.
+	2. Illusionary brushes are deleted from the `Geo2Entity` so that they don't end up in collision later.
+		* This includes `func_detail_illusionary`, but is also theoretically a cleaner way of implementing the `noclip` brush.
+	3. For brush entities, a single area is filled with 'collider faces'. For worldspawn only, partitioning:
+		1. Partition it into a binary tree of leaves.
+			* Leaves are convexes which contain mutable lists of 'portals' (connections between leaves).
+		2. Compute portals, turning the list of leaves into a connected graph.
+			* An important trick here is to mark faces that cover a portal. The surrounding faces will have carved one side or the other of the portal, so any contact of a face will be total unless the situation is ill-formed.
+		3. Determine which leaves are actually going to survive, which are separated by areaportals, etc.
+			* Areaportals in this setup are intended to create separate render meshes. Only Unity occlusion can actually occlude avatars without causing compatibility risks with world logic, so we need to tread carefully, like a mouse in a trap recycling facility.
+		4. The separated leaf areas are then filled with 'collider faces'.
+4. Post-processing. (`BSPHighLevel.Act3_Postprocess`) For each entity:
+	* 'Collider faces' are copied and T-junction-processed into 'render faces'.
+	* Some collider faces are removed (if they shouldn't actually be collider faces).
+	* Some render faces are not created (if they shouldn't actually be rendered).
+	* Not all render faces are necessarily T-junction-processed or necessarily contribute to T-junction processing.
+
+Finally, certain processes happen outside of the ECL, like deleting `noclip` brushes. (This is for code consistency with the Q2 BSP import.)
 
 ## Chopping
 

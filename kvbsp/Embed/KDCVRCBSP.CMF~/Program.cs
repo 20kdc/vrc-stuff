@@ -69,9 +69,9 @@ namespace KDCVRCBSP.CMF {
 				foreach (var brush in ent.brushes) {
 					foreach (var face in brush) {
 						var texSize = GetTexSize(face.texture, textures, texdir);
-						face.texOffset /= texSize;
-						face.texSAxis /= texSize.x;
-						face.texTAxis /= texSize.y;
+						face.texUV.texOffset /= texSize;
+						face.texUV.texSAxis /= texSize.x;
+						face.texUV.texTAxis /= texSize.y;
 					}
 				}
 			}
@@ -194,10 +194,11 @@ namespace KDCVRCBSP.CMF {
 		}
 
 		public static BSPSurfaceFlags GetSurfaceFlags(string texture) {
+			BSPSurfaceFlags genericNope = BSPSurfaceFlags.NoChopThis | BSPSurfaceFlags.NoChopOthers | BSPSurfaceFlags.NoCreateTJunction | BSPSurfaceFlags.NoFixTJunction;
 			if (texture.Equals("aaatrigger", StringComparison.InvariantCultureIgnoreCase))
-				return BSPSurfaceFlags.NoChopThis | BSPSurfaceFlags.NoChopOthers | BSPSurfaceFlags.NoLightSlice | BSPSurfaceFlags.NoCreateTJunction | BSPSurfaceFlags.NoFixTJunction;
+				return genericNope;
 			if (texture.Equals("noclip", StringComparison.InvariantCultureIgnoreCase))
-				return BSPSurfaceFlags.NoChopThis | BSPSurfaceFlags.NoChopOthers | BSPSurfaceFlags.NoLightSlice | BSPSurfaceFlags.NoCreateTJunction | BSPSurfaceFlags.NoFixTJunction | BSPSurfaceFlags.DeleteBrushAfterBSP;
+				return genericNope;
 			return 0;
 
 		}

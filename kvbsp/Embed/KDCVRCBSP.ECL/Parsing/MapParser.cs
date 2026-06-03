@@ -256,9 +256,9 @@ namespace KDCVRCBSP.ECL {
 								if (!NextToken())
 									return result;
 								double.Parse(current);
-								brushSide.texSAxis = new Vector3d(stBuf[0], stBuf[1], stBuf[2]);
-								brushSide.texTAxis = new Vector3d(stBuf[4], stBuf[5], stBuf[6]);
-								brushSide.texOffset = new Vector2d(stBuf[3], stBuf[7]);
+								brushSide.texUV.texSAxis = new Vector3d(stBuf[0], stBuf[1], stBuf[2]);
+								brushSide.texUV.texTAxis = new Vector3d(stBuf[4], stBuf[5], stBuf[6]);
+								brushSide.texUV.texOffset = new Vector2d(stBuf[3], stBuf[7]);
 							} else {
 								// ** DO NOT RELY ON THIS CODE. **
 								// (It needs some tweaks that probably aren't coming)
@@ -301,9 +301,9 @@ namespace KDCVRCBSP.ECL {
 									)
 								;
 
-								brushSide.texSAxis = sAxis;
-								brushSide.texTAxis = tAxis;
-								brushSide.texOffset = new Vector2d(xShift, yShift);
+								brushSide.texUV.texSAxis = sAxis;
+								brushSide.texUV.texTAxis = tAxis;
+								brushSide.texUV.texOffset = new Vector2d(xShift, yShift);
 							}
 							// xscale yscale
 							if (!NextToken())
@@ -317,8 +317,8 @@ namespace KDCVRCBSP.ECL {
 							if (yScale == 0)
 								yScale = 1;
 							// apply scale
-							brushSide.texSAxis /= xScale;
-							brushSide.texTAxis /= yScale;
+							brushSide.texUV.texSAxis /= xScale;
+							brushSide.texUV.texTAxis /= yScale;
 							// we're done!
 							brush.Add(brushSide);
 						}

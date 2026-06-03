@@ -37,7 +37,7 @@ namespace KDCVRCBSP.ECL {
 
 		/// Creates a Convex3d from a list of brush sides.
 		/// Returns null if the brush has less than the minimum amount of faces to be a solid (ConvexCollapseLimit)
-		public static Convex3d<D> FromBrush<M>(Geo2Context g2, IList<EntityParsed<M>.BrushSide> src, Func<EntityParsed<M>.BrushSide, D> map) {
+		public static Convex3d<D> FromBrush<M>(Geo2Context g2, IReadOnlyList<EntityParsed<M>.BrushSide> src, Func<EntityParsed<M>.BrushSide, D> map) {
 			Plane3d[] planes = new Plane3d[src.Count];
 			D[] datas = new D[src.Count];
 			for (int i = 0; i < planes.Length; i++) {
@@ -159,8 +159,11 @@ namespace KDCVRCBSP.ECL {
 		}
 
 		/// Performs the BSP 'chop' stage to create a list of chopped faces.
-		/// The convex list is assumed to contain the current brush.
-		/// Notably, this may return the original face list.
+		/// The convex list may contain this brush.
+		/// In this event, this brush takes priority over brushes that follow it in overlap handling.
+		/// It's an erroneous contradiction for a brush to take priority but then not split other faces.
+		/// So all such brushes are, philosophically, 'at the end of the list'.
+		/// Notably, this function may return the original face list if no chopping occurs.
 		public IReadOnlyList<Face> ChopFaces(IReadOnlyList<Convex3d<D>> allBrushes, Func<Face, BSPSurfaceFlags> getChopFlags) {
 			bool afterSelf = false;
 			IReadOnlyList<Face> oldFaces = faces;

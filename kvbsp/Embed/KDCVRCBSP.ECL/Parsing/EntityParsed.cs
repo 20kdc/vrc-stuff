@@ -47,18 +47,20 @@ namespace KDCVRCBSP.ECL {
 				get => new Plane3d(vertexA, vertexB, vertexC);
 			}
 
-			/// Unnormalized (i.e. immediately usable) texture matrix.
-			public Vector3d texSAxis, texTAxis;
-
-			/// 'Rotation' reference value.
-			public double rotation;
-
-			/// Basis for texture matrix.
-			public Vector2d texOffset;
+			public BrushUV texUV;
 
 			[MethodImpl(MethodImplOptions.AggressiveInlining)]
-			public Vector2d MapUV(Vector3d i) {
-				return texOffset + new Vector2d((i * texSAxis).Sum, (i * texTAxis).Sum);
+			public Vector2d MapUV(Vector3d i) => texUV.MapUV(i);
+
+			/// Translates the brush side in 3D space.
+			public BrushSide Translated(Vector3d by) {
+				return new BrushSide {
+					texture = texture,
+					vertexA = vertexA + by,
+					vertexB = vertexB + by,
+					vertexC = vertexC + by,
+					texUV = texUV.Translated(by)
+				};
 			}
 		}
 	}
