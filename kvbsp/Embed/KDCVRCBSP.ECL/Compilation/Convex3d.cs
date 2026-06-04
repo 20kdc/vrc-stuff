@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 
 namespace KDCVRCBSP.ECL {
 	/// A set of faces with windings and associated data.
@@ -137,6 +138,11 @@ namespace KDCVRCBSP.ECL {
 				this.winding = winding;
 				this.data = data;
 				this.bounds = new AABB3d(winding);
+			}
+
+			public Plane3d Plane {
+				[MethodImpl(MethodImplOptions.AggressiveInlining)]
+				get => g2.FromPlaneIndex(planeIndex);
 			}
 
 			public Convex3d<E>.Face WithData<E>(E newData) {

@@ -67,6 +67,9 @@ namespace KDCVRCBSP.ECL {
 					origin = (originAABB.min + originAABB.max) / 2;
 				// Origin confirmed.
 				this.origin = origin;
+				// If we modified the origin, patch it back in.
+				if (hasAnyOriginBrush)
+					this.pairs["origin"] = $"{origin.x} {origin.y} {origin.z}";
 				AABB3d aabb3d = new AABB3d {
 					min = Vector3d.Zero,
 					max = Vector3d.Zero
@@ -147,6 +150,8 @@ namespace KDCVRCBSP.ECL {
 		/// Chop order.
 		/// The meaning of this integer is described in the brush sorting code in BSPHighLevel.
 		public int chopOrder;
+
+		public bool Illusionary => (allSurfaceFlags & BSPSurfaceFlags.MarkBrushIllusionary) != 0;
 
 		/// Makes sure to keep allSurfaceFlags and addSurfaceFlags coherent.
 		public void AddSurfaceFlagSet(BSPSurfaceFlags flags) {

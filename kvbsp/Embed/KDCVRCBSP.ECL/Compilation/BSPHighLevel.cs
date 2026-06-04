@@ -71,9 +71,7 @@ namespace KDCVRCBSP.ECL {
 				Act2_CompileEntity(ent);
 		}
 
-		/// Common 'compile entity' tasks:
-		/// 1. Compile entity to (split, detail) face lists
-		/// 2. Delete illusionary brushes
+		/// Compile entity to (split, detail) face lists
 		public static void Act2_CompileEntityEarly<M>(Geo2Map<M>.BrushEntity entity, List<Convex3d<Geo2FaceInfo<M>>.Face> splitFaces, List<Convex3d<Geo2FaceInfo<M>>.Face> detailFaces) where M : IBSPMaterial {
 			// Brush sorting (for chop order)
 			// -- A SUMMARY OF CHOP ORDER (TRY NOT TO DELETE, YOU NEED THIS) --
@@ -142,8 +140,6 @@ namespace KDCVRCBSP.ECL {
 						splitFaces.Add(f);
 				}
 			}
-			// remove illusionary
-			entity.brushes.RemoveAll((b) => (b.Item1.allSurfaceFlags & BSPSurfaceFlags.MarkBrushIllusionary) != 0);
 		}
 
 		/// Compiles a 'regular' brush entity.

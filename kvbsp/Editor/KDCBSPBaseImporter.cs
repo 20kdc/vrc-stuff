@@ -284,7 +284,7 @@ namespace KDCVRCBSP {
 		}
 
 		public static LayerMask BrushContentsLayerMaskParameterized(KDCBSPEntityParameterizer[] custom, LayerMask entityLayer, KDCBSPIntermediate.Brush brush) {
-			LayerMask layerMask = (brush.hasNoclipContents || !brush.hasClipContents) ? 0 : entityLayer;
+			LayerMask layerMask = brush.illusionary ? 0 : entityLayer;
 			foreach (var c in custom)
 				layerMask = c.EntityConvexBrushLayer(entityLayer, layerMask, brush);
 			return layerMask;
@@ -314,7 +314,7 @@ namespace KDCVRCBSP {
 				var winding = face.winding;
 				if (winding.Length < 3)
 					continue;
-				string material = face.texInfo.tex;
+				string material = face.tex;
 				List<TriInfo> targetList = null;
 				if (tri.ContainsKey(material)) {
 					targetList = tri[material];

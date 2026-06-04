@@ -84,7 +84,8 @@ namespace KDCVRCBSP {
 					numEdges = BitConverter.ToInt32(bsp, pos + 12);
 					texInfo = BitConverter.ToInt32(bsp, pos + 16);
 				}
-				Vector3[] winding = new Vector3[numEdges];
+				var texInfoVal = GetTexInfoOrFallback(texInfo);
+				(Vector3, Vector2)[] winding = new (Vector3, Vector2)[numEdges];
 				for (int i = 0; i < numEdges; i++) {
 					// has to be mapped using surfedges - see https://github.com/id-Software/Quake-2-Tools/blob/master/bsp/qbsp3/writebsp.c#L213
 					int seb = GetStructOfs(bsp, 12, firstEdge + i, 4); // surfedge
@@ -99,10 +100,11 @@ namespace KDCVRCBSP {
 						int edgeVtxOfs = GetStructOfs(bsp, 11, edgeIdx, 8) + (edgeVtx * 4);
 						vertex = BitConverter.ToInt32(bsp, edgeVtxOfs);
 					}
-					winding[i] = vertexes[vertex];
+					var vtx = vertexes[vertex];
+					winding[i] = (vtx, texInfoVal.MapUV(vtx));
 				}
 				faces[idx] = new KDCBSPIntermediate.Face {
-					texInfo = GetTexInfoOrFallback(texInfo),
+					tex = texInfoVal.tex,
 					winding = winding
 				};
 			}
@@ -128,13 +130,14 @@ namespace KDCVRCBSP {
 						};
 					}
 				}
+				// CONTENTS_CURRENT_0
+				// We use this as a 'secret handshake' to implement the 'noclip' brush.
+				// Noclip brushes are solid (so block vis), but don't create collision.
+				bool hasNoclipContents = ((contents & 0x40000) != 0);
+				// CONTENTS_SOLID | CONTENTS_PLAYERCLIP
+				bool hasClipContents = ((contents & (1 | 0x10000)) != 0);
 				brushes[idx] = new KDCBSPIntermediate.Brush {
-					// CONTENTS_CURRENT_0
-					// We use this as a 'secret handshake' to implement the 'noclip' brush.
-					// Noclip brushes are solid (so block vis), but don't create collision.
-					hasNoclipContents = ((contents & 0x40000) != 0),
-					// CONTENTS_SOLID | CONTENTS_PLAYERCLIP
-					hasClipContents = ((contents & (1 | 0x10000)) != 0),
+					illusionary = (hasNoclipContents || !hasClipContents),
 					sides = brushSides
 				};
 			}

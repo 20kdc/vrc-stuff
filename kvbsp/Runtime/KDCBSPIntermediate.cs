@@ -85,20 +85,22 @@ namespace KDCVRCBSP {
 		}
 
 		public struct Face {
-			public TexInfo texInfo;
-			public Vector3[] winding;
+			// This used to use TexInfo, but this new format is more amiable to various kinds of geometry import.
+			// In addition the renderfaces system in the ECL uses the pos+uv layout.
+			public string tex;
+			public (Vector3, Vector2)[] winding;
 
 			public void Translate(Vector3 translation) {
-				texInfo.Translate(translation);
-				for (int i = 0; i < winding.Length; i++)
-					winding[i] += translation;
+				for (int i = 0; i < winding.Length; i++) {
+					var orig = winding[i];
+					winding[i] = (orig.Item1 + translation, orig.Item2);
+				}
 			}
 		}
 
 		public struct Brush {
-			public bool hasNoclipContents, hasClipContents;
+			public bool illusionary;
 			public BrushSide[] sides;
-
 			public void Translate(Vector3 translation) {
 				for (int i = 0; i < sides.Length; i++)
 					sides[i].Translate(translation);
@@ -190,37 +192,35 @@ namespace KDCVRCBSP {
 
 		/// Adds this face's triangles.
 		public void FaceToTriangles(Face f, List<TriInfo> targetList) {
-			var uvSrc = f.texInfo;
 			var a = f.winding[0];
 			for (int j = 1; j < f.winding.Length - 1; j++) {
 				var b = f.winding[j];
 				var c = f.winding[j + 1];
 				targetList.Add(new TriInfo {
-					a = a,
-					au = uvSrc.MapUV(a),
-					b = b,
-					bu = uvSrc.MapUV(b),
-					c = c,
-					cu = uvSrc.MapUV(c)
+					a = a.Item1,
+					au = a.Item2,
+					b = b.Item1,
+					bu = b.Item2,
+					c = c.Item1,
+					cu = c.Item2
 				});
 			}
 		}
 
-		/// Adds this face's triangles, annotated and UV'd with texInfo.
-		public void FaceToTriangles(Face f, List<(TriInfo, TexInfo)> targetList) {
-			var uvSrc = f.texInfo;
+		/// Adds this face's triangles, annotated and UV'd with texture name.
+		public void FaceToTriangles(Face f, List<(TriInfo, string)> targetList) {
 			var a = f.winding[0];
 			for (int j = 1; j < f.winding.Length - 1; j++) {
 				var b = f.winding[j];
 				var c = f.winding[j + 1];
 				targetList.Add((new TriInfo {
-					a = a,
-					au = uvSrc.MapUV(a),
-					b = b,
-					bu = uvSrc.MapUV(b),
-					c = c,
-					cu = uvSrc.MapUV(c)
-				}, f.texInfo));
+					a = a.Item1,
+					au = a.Item2,
+					b = b.Item1,
+					bu = b.Item2,
+					c = c.Item1,
+					cu = c.Item2
+				}, f.tex));
 			}
 		}
 
@@ -235,6 +235,8 @@ namespace KDCVRCBSP {
 			float epsilon = 0.05f / worldScale;
 			float initQuadSize = 131072 / worldScale;
 			for (int i = 0; i < brush.sides.Length; i++) {
+				// note this non-Geo2 quick rewrite of the convex cutting code.
+				// so sad
 				// create initial
 				List<Vector3d> winding = GeomUtil.GenInitialWinding(planes[i], initQuadSize);
 				// cut
@@ -248,15 +250,18 @@ namespace KDCVRCBSP {
 				if (winding.Count < 3)
 					continue;
 
-				// convert from ECL to Unity
-				Vector3[] windingConv = new Vector3[winding.Count];
+				var side = brush.sides[i];
+				// convert from ECL to Unity and add UVs
+				// (...we arguably don't need to do this because this is for collision only???)
+				(Vector3, Vector2)[] windingConv = new (Vector3, Vector2)[winding.Count];
 				for (int j = 0; j < windingConv.Length; j++) {
 					// int revIndex = winding.Count - (j + 1);
-					windingConv[j] = KDCBSPUtilities.FromECL(winding[j]);
+					var pos = KDCBSPUtilities.FromECL(winding[j]);
+					windingConv[j] = (pos, side.texInfo.MapUV(pos));
 				}
 
 				res.Add(new Face {
-					texInfo = brush.sides[i].texInfo,
+					tex = side.texInfo.tex,
 					winding = windingConv
 				});
 			}
