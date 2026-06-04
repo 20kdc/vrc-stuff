@@ -25,7 +25,7 @@ namespace KDCVRCBSP.ECL {
 				};
 
 				if (classname.StartsWith("func_detail"))
-					brushInfo.AddSurfaceFlagSet(BSPSurfaceFlags.Detail);
+					brushInfo.AddSurfaceFlagSet(BSPSurfaceFlags.Detail | BSPSurfaceFlags.NoChopOthers);
 				if (classname == "func_detail_illusionary")
 					brushInfo.AddSurfaceFlagSet(BSPSurfaceFlags.MarkBrushIllusionary);
 

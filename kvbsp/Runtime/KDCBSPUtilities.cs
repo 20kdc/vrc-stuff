@@ -13,15 +13,16 @@ namespace KDCVRCBSP {
 	public static class KDCBSPUtilities {
 		public const string KVBSP_BASE = "Packages/t20kdc.vrc-bsp/";
 
-#if UNITY_EDITOR
 		/// Using Unity paths, get bytes or null.
 		public static byte[] ReadLPBytesOrNull(string path) {
+#if UNITY_EDITOR
 			try {
 				return File.ReadAllBytes(UnityEditor.FileUtil.GetPhysicalPath(path));
 #pragma warning disable CS0168
 			} catch (Exception _) {
 			}
 #pragma warning restore CS0168
+#endif
 			return null;
 		}
 
@@ -35,7 +36,6 @@ namespace KDCVRCBSP {
 				return res;
 			return null;
 		}
-#endif
 
 		public static Texture2D ReadRenderTexture(RenderTexture rt) {
 			int width = rt.width;

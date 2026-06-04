@@ -12,8 +12,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 33c937873e0e943e49895a479346c57b, type: 3}
   m_Name: occluder
   m_EditorClassIdentifier: 
-  collisionEnable: 1
+  bspRole: {fileID: 0}
+  collisionEnable: 0
+  lightmapScaleMul: 1
   collisionMaterial: {fileID: 0}
   baseCollisionConvexPriority: 0
   material: {fileID: 2100000, guid: 2727f6579758574a3bd01e5c1ee49165, type: 2}
   size: {x: 1, y: 1}
+  receiveShadows: 1
+  shadowCastingMode: 1
+  optForceDisableLightProbes: 0
+  optForceDisableReflectionProbes: 0

@@ -12,7 +12,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 33c937873e0e943e49895a479346c57b, type: 3}
   m_Name: clip
   m_EditorClassIdentifier: 
-  collisionEnable: 0
+  bspRole: {fileID: 11400000, guid: 3e970b74071b47582a130a943cc86f60, type: 2}
+  collisionEnable: 1
   lightmapScaleMul: 0
   collisionMaterial: {fileID: 0}
   baseCollisionConvexPriority: 0

@@ -12,8 +12,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 33c937873e0e943e49895a479346c57b, type: 3}
   m_Name: noclip
   m_EditorClassIdentifier: 
+  bspRole: {fileID: 11400000, guid: 9f63fb5d1d6c1c8dc824ac9ebc7b6914, type: 2}
   collisionEnable: 0
+  lightmapScaleMul: 1
   collisionMaterial: {fileID: 0}
   baseCollisionConvexPriority: 0
   material: {fileID: 0}
   size: {x: 1, y: 1}
+  receiveShadows: 1
+  shadowCastingMode: 1
+  optForceDisableLightProbes: 0
+  optForceDisableReflectionProbes: 0

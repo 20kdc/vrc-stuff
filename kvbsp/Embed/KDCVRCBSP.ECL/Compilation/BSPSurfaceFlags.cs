@@ -27,6 +27,7 @@ namespace KDCVRCBSP.ECL {
 		NoChopOthers = 0x00020000,
 		/// This flag must exist in the TransFlags field unless you are EXTREMELY careful.
 		/// It causes the face to not split the BSP, which can violate various assumptions.
+		/// Maybe also set NoChopOthers with this, because otherwise the brush will get into the habit of ripping open holes in the BSP.
 		Detail = 0x00040000,
 
 		// -- Partitioning (0000**00) --

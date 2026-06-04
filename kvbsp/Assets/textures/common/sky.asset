@@ -12,8 +12,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 33c937873e0e943e49895a479346c57b, type: 3}
   m_Name: sky
   m_EditorClassIdentifier: 
+  bspRole: {fileID: 11400000, guid: 8b59d7b6d1f0834b8ab8fa1b0fda4b03, type: 2}
   collisionEnable: 1
+  lightmapScaleMul: 1
   collisionMaterial: {fileID: 0}
   baseCollisionConvexPriority: 0
   material: {fileID: 0}
   size: {x: 0, y: 0}
+  receiveShadows: 1
+  shadowCastingMode: 1
+  optForceDisableLightProbes: 0
+  optForceDisableReflectionProbes: 0
