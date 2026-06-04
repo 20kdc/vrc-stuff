@@ -14,6 +14,10 @@ namespace KDCVRCBSP {
 		[SerializeField]
 		public bool bspSimulateTrenchbroomExport = true;
 
+		[Tooltip("Enables chopping. This reduces overdraw.")]
+		[SerializeField]
+		public bool bspDoChop = true;
+
 		[Tooltip("Enables partitioning. This is used for void elimination, etc.")]
 		[SerializeField]
 		public bool bspDoPartition = true;
@@ -102,7 +106,7 @@ namespace KDCVRCBSP {
 			var map = BSPHighLevel.Act1_MapIntoGeo2(parsedEntities);
 			BSPHighLevel.Act2_CompileAll(map, (entity) => {
 				return true;
-			}, bspDoPartition, bspAllowLeaks, new Diag {
+			}, bspDoChop, bspDoPartition, bspAllowLeaks, new Diag {
 				parent = this,
 				outPfx = assetPath + "~"
 			});

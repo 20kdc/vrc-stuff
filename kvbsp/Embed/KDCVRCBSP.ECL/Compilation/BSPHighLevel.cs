@@ -56,7 +56,7 @@ namespace KDCVRCBSP.ECL {
 		}
 
 		/// Compiles each brush entity.
-		public static void Act2_CompileAll<M>(Geo2Map<M> map, Predicate<EntityKeys> entityFills, bool partition, bool allowLeaks, IBSPDiagnostics diag) where M : IBSPMaterial {
+		public static void Act2_CompileAll<M>(Geo2Map<M> map, Predicate<EntityKeys> entityFills, bool chop, bool partition, bool allowLeaks, IBSPDiagnostics diag) where M : IBSPMaterial {
 			if (partition) {
 				List<(string, Vector3d)> pointEntityLocations = new();
 				// Notably, point entity locations are relative to the entity being compiled.
@@ -66,16 +66,16 @@ namespace KDCVRCBSP.ECL {
 					if (entity.TryGetVector3d("origin", out var origin))
 						pointEntityLocations.Add((entity["classname"], origin - map.worldspawn.origin));
 				}
-				Act2_CompilePartitionedEntity(map.worldspawn, pointEntityLocations, allowLeaks, diag);
+				Act2_CompilePartitionedEntity(map.worldspawn, chop, pointEntityLocations, allowLeaks, diag);
 			} else {
-				Act2_CompileEntity(map.worldspawn);
+				Act2_CompileEntity(map.worldspawn, chop);
 			}
 			foreach (var ent in map.brushEntities)
-				Act2_CompileEntity(ent);
+				Act2_CompileEntity(ent, chop);
 		}
 
 		/// Compile entity to (split, detail) face lists
-		public static void Act2_CompileEntityEarly<M>(Geo2Map<M>.BrushEntity entity, List<Convex3d<Geo2FaceInfo<M>>.Face> splitFaces, List<Convex3d<Geo2FaceInfo<M>>.Face> detailFaces) where M : IBSPMaterial {
+		public static void Act2_CompileEntityEarly<M>(Geo2Map<M>.BrushEntity entity, bool chop, List<Convex3d<Geo2FaceInfo<M>>.Face> splitFaces, List<Convex3d<Geo2FaceInfo<M>>.Face> detailFaces) where M : IBSPMaterial {
 			// Brush sorting (for chop order)
 			// -- A SUMMARY OF CHOP ORDER (TRY NOT TO DELETE, YOU NEED THIS) --
 			// There are two major concerns to consider with chop order.
@@ -130,7 +130,7 @@ namespace KDCVRCBSP.ECL {
 			for (int cvxIdx = 0; cvxIdx < entity.brushes.Count; cvxIdx++) {
 				var cvx = entity.brushes[cvxIdx];
 				IReadOnlyList<Convex3d<Geo2FaceInfo<M>>.Face> brushFaces = cvx.Item2.faces;
-				if (!cvx.Item1.cannotBeChopped) {
+				if (chop && !cvx.Item1.cannotBeChopped) {
 					var brushIsDetail = (cvx.Item1.allSurfaceFlags & BSPSurfaceFlags.Detail) != 0;
 					var choppers = brushIsDetail ? choppersSplitAndDetail : choppersSplit;
 					brushFaces = cvx.Item2.ChopFaces(choppers, (f) => f.data.modSurfaceFlags);
@@ -146,17 +146,17 @@ namespace KDCVRCBSP.ECL {
 		}
 
 		/// Compiles a 'regular' brush entity.
-		public static void Act2_CompileEntity<M>(Geo2Map<M>.BrushEntity entity) where M : IBSPMaterial {
+		public static void Act2_CompileEntity<M>(Geo2Map<M>.BrushEntity entity, bool chop) where M : IBSPMaterial {
 			var area = new Geo2Map<M>.Area();
 			entity.areas.Add(area);
-			Act2_CompileEntityEarly(entity, area.colliderFaces, area.colliderFaces);
+			Act2_CompileEntityEarly(entity, chop, area.colliderFaces, area.colliderFaces);
 		}
 
 		/// Compiles worldspawn.
-		public static void Act2_CompilePartitionedEntity<M>(Geo2Map<M>.BrushEntity entity, IReadOnlyList<(string, Vector3d)> pointEntities, bool allowLeaks, IBSPDiagnostics diag) where M : IBSPMaterial {
+		public static void Act2_CompilePartitionedEntity<M>(Geo2Map<M>.BrushEntity entity, bool chop, IReadOnlyList<(string, Vector3d)> pointEntities, bool allowLeaks, IBSPDiagnostics diag) where M : IBSPMaterial {
 			List<Convex3d<Geo2FaceInfo<M>>.Face> splitFaces = new();
 			List<Convex3d<Geo2FaceInfo<M>>.Face> detailFaces = new();
-			Act2_CompileEntityEarly(entity, splitFaces, detailFaces);
+			Act2_CompileEntityEarly(entity, chop, splitFaces, detailFaces);
 			// Console.WriteLine("Presorting face list...");
 			BSPNode<Geo2FaceInfo<M>>.PresortFaceList(splitFaces);
 			diag.Info($"Building tree ({splitFaces.Count} splitting faces...)");
