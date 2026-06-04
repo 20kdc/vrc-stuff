@@ -81,7 +81,7 @@ namespace KDCVRCBSP.ECL {
 					for (int i = 0; i < translatedSides.Length; i++)
 						translatedSides[i] = brush.Item2[i].Translated(origin * -1);
 					var convex = Convex3d<Geo2FaceInfo<M>>.FromBrush<M>(g2, translatedSides, (idx, src) => {
-						var modSurfaceFlags = src.texture.SurfaceFlags | brush.Item1.addSurfaceFlags;
+						var modSurfaceFlags = src.texture.SurfaceFlags | brush.Item1.addSurfaceFlagsOnlyUseInBrushEntityConstructor;
 						// mix in transfer flags from sides which are NOT this one
 						for (int i = 0; i < translatedSides.Length; i++)
 							if (i != idx)
@@ -140,8 +140,8 @@ namespace KDCVRCBSP.ECL {
 		public BSPSurfaceFlags allSurfaceFlags;
 
 		/// Surface flags being sent down from the brush entity.
-		/// This a strict subset of allSurfaceFlags.
-		public BSPSurfaceFlags addSurfaceFlags;
+		/// This is a strict subset of allSurfaceFlags.
+		public BSPSurfaceFlags addSurfaceFlagsOnlyUseInBrushEntityConstructor;
 
 		/// This brush will never split world faces.
 		public bool cannotChop;
@@ -153,10 +153,10 @@ namespace KDCVRCBSP.ECL {
 
 		public bool Illusionary => (allSurfaceFlags & BSPSurfaceFlags.MarkBrushIllusionary) != 0;
 
-		/// Makes sure to keep allSurfaceFlags and addSurfaceFlags coherent.
+		/// Makes sure to keep allSurfaceFlags and addSurfaceFlagsOnlyUseInBrushEntityConstructor coherent.
 		public void AddSurfaceFlagSet(BSPSurfaceFlags flags) {
 			allSurfaceFlags |= flags;
-			addSurfaceFlags |= flags;
+			addSurfaceFlagsOnlyUseInBrushEntityConstructor |= flags;
 		}
 	}
 }

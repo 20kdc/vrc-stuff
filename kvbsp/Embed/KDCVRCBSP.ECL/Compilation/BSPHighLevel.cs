@@ -40,7 +40,7 @@ namespace KDCVRCBSP.ECL {
 					foreach (var brush in entity.brushes) {
 						var brushInfoCopy = brushInfo;
 						foreach (var face in brush)
-							brushInfoCopy.allSurfaceFlags |= face.texture.SurfaceFlags;
+							brushInfoCopy.allSurfaceFlags |= face.texture.SurfaceFlags | face.texture.TransFlags;
 						targetBrushList.Add((brushInfoCopy, brush));
 					}
 					// if target brush list is world, then this is subsumed
@@ -122,7 +122,7 @@ namespace KDCVRCBSP.ECL {
 				if (cvx.Item1.cannotChop)
 					continue;
 				// only add to choppersSplit if not detail so that detail won't XOR out splitters
-				var brushIsDetail = (cvx.Item1.addSurfaceFlags & BSPSurfaceFlags.Detail) != 0;
+				var brushIsDetail = (cvx.Item1.allSurfaceFlags & BSPSurfaceFlags.Detail) != 0;
 				if (!brushIsDetail)
 					choppersSplit.Add(cvx.Item2);
 				choppersSplitAndDetail.Add(cvx.Item2);
@@ -132,7 +132,7 @@ namespace KDCVRCBSP.ECL {
 				var cvx = entity.brushes[cvxIdx];
 				IReadOnlyList<Convex3d<Geo2FaceInfo<M>>.Face> brushFaces = cvx.Item2.faces;
 				if (!cvx.Item1.cannotBeChopped) {
-					var brushIsDetail = (cvx.Item1.addSurfaceFlags & BSPSurfaceFlags.Detail) != 0;
+					var brushIsDetail = (cvx.Item1.allSurfaceFlags & BSPSurfaceFlags.Detail) != 0;
 					var choppers = brushIsDetail ? choppersSplitAndDetail : choppersSplit;
 					brushFaces = cvx.Item2.ChopFaces(choppers, (f) => f.data.modSurfaceFlags);
 				}

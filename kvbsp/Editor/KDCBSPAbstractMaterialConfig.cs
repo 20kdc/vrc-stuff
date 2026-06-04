@@ -5,12 +5,17 @@ using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEditor;
 using UnityEditor.AssetImporters;
+using KDCVRCBSP.ECL;
 
 namespace KDCVRCBSP {
 	/**
 	 * KDCBSPAbstractMaterialConfig defines things materials care about.
 	 */
-	public abstract class KDCBSPAbstractMaterialConfig : KDCBSPAbstractMaterialConfigRuntime {
+	public abstract class KDCBSPAbstractMaterialConfig : ScriptableObject, IBSPMaterial {
+		[Tooltip("The internal BSP compiler uses this role to decide how to handle the material.")]
+		[SerializeField]
+		public LazyLoadReference<KDCBSPMaterialRole> bspRole;
+
 		/// Not much to this one; if true, it's included in collision by default.
 		[Tooltip("Enables/disables collision. This only works on convexes if it wins priority, but it always works on concave root.")]
 		[SerializeField]
@@ -27,6 +32,10 @@ namespace KDCVRCBSP {
 		[Tooltip("Sets the physics material. This only works on convexes if it wins priority, and never works on concave root.")]
 		[SerializeField]
 		public LazyLoadReference<PhysicMaterial> collisionMaterial;
+
+		// IBSPMaterial
+		public BSPSurfaceFlags SurfaceFlags => bspRole.asset != null ? bspRole.asset.SurfaceFlags : 0;
+		public BSPSurfaceFlags TransFlags => bspRole.asset != null ? bspRole.asset.SurfaceFlags : 0;
 
 		/// Builds a material's 'visual'. This is a GameObject, which is returned.
 		/// If the importer wishes to override static flags, that's done after BuildVisualObject.
