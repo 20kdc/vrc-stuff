@@ -8,7 +8,6 @@ namespace KDCVRCBSP.ECL {
 		/// Maps from entities into Geo2.
 		public static Geo2Map<M> Act1_MapIntoGeo2<M>(List<EntityParsed<M>> entities) where M : IBSPMaterial {
 			var worldspawn = EntityParsed<M>.EnsureWorldspawn(entities);
-			Geo2Context g2CtxWorld = new();
 			List<EntityKeys> pointEntities = new();
 			List<Geo2Map<M>.BrushEntity> brushEntities = new();
 			List<(Geo2BrushInfo, List<EntityParsed<M>.BrushSide>)> worldBrushes = new();
@@ -52,7 +51,7 @@ namespace KDCVRCBSP.ECL {
 				}
 			}
 
-			Geo2Map<M>.BrushEntity g2World = new(g2CtxWorld, worldspawn.pairs, worldBrushes);
+			Geo2Map<M>.BrushEntity g2World = new(new Geo2Context(), worldspawn.pairs, worldBrushes);
 			return new Geo2Map<M>(g2World, pointEntities, brushEntities);
 		}
 

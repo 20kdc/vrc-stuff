@@ -35,7 +35,7 @@ namespace KDCVRCBSP {
 
 		// IBSPMaterial
 		public BSPSurfaceFlags SurfaceFlags => bspRole.asset != null ? bspRole.asset.SurfaceFlags : 0;
-		public BSPSurfaceFlags TransFlags => bspRole.asset != null ? bspRole.asset.SurfaceFlags : 0;
+		public BSPSurfaceFlags TransFlags => bspRole.asset != null ? bspRole.asset.TransFlags : 0;
 
 		/// Builds a material's 'visual'. This is a GameObject, which is returned.
 		/// If the importer wishes to override static flags, that's done after BuildVisualObject.
