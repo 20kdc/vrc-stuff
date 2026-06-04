@@ -38,19 +38,25 @@ namespace KDCVRCBSP {
 					strlen++;
 				}
 				string name = new System.Text.UTF8Encoding().GetString(bsp, strofs, strlen);
-				texInfos[idx] = new KDCBSPIntermediate.TexInfo {
+				texInfos[idx] = KDCBSPUtilities.TransformBrushUV(name, new BrushUV {
 					// [TRANSFORM]
 					// Note the need to perform axis swapping, world scaling...
-					sX = BitConverter.ToSingle(bsp, pos + 0) * worldScale,
-					sZ = BitConverter.ToSingle(bsp, pos + 4) * worldScale,
-					sY = BitConverter.ToSingle(bsp, pos + 8) * worldScale,
-					sO = BitConverter.ToSingle(bsp, pos + 12),
-					tX = BitConverter.ToSingle(bsp, pos + 16) * -worldScale,
-					tZ = BitConverter.ToSingle(bsp, pos + 20) * -worldScale,
-					tY = BitConverter.ToSingle(bsp, pos + 24) * -worldScale,
-					tO = BitConverter.ToSingle(bsp, pos + 28) * -1,
-					tex = name
-				};
+					texSAxis = new Vector3d(
+						BitConverter.ToSingle(bsp, pos + 0),
+						BitConverter.ToSingle(bsp, pos + 4),
+						BitConverter.ToSingle(bsp, pos + 8)
+					),
+					texTAxis = new Vector3d(
+						BitConverter.ToSingle(bsp, pos + 16),
+						BitConverter.ToSingle(bsp, pos + 20),
+						BitConverter.ToSingle(bsp, pos + 24)
+					),
+					texOffset = new Vector2d(
+						BitConverter.ToSingle(bsp, pos + 12),
+						BitConverter.ToSingle(bsp, pos + 28)
+					),
+					rotation = 0,
+				}, worldScale);
 			}
 
 			/// Gets TexInfo or a fake one.
@@ -193,8 +199,20 @@ namespace KDCVRCBSP {
 				} else {
 					entModel = (entParsed == entParsedWorldspawn) ? models[0] : null;
 				}
+
+				Vector3d statedOriginD = entParsed.pairs.GetVector3d("origin", Vector3d.Zero);
+				Vector3 origin = KDCBSPUtilities.TransformPosition((float) statedOriginD.x, (float) statedOriginD.y, (float) statedOriginD.z, worldScale);
+
+				// 'out-of-compiler' autoorigin
+				// only Q2 bsp needs this hack, so we can kick it out of the intermediate
+				if (entModel != null && entParsed.pairs.GetBool("_kdcbsp_autoorigin", false)) {
+					Vector3 newOrigin = (entModel.mins + entModel.maxs) / 2;
+					Vector3 internalTranslation = origin - newOrigin;
+					entModel.Translate(internalTranslation);
+					origin = newOrigin;
+				}
 				// Create the entity.
-				var entData = new KDCBSPIntermediate.Entity(entParsed.pairs, worldScale, entModel);
+				var entData = new KDCBSPIntermediate.Entity(entParsed.pairs, worldScale, entModel, origin);
 				res.entities.Add(entData);
 				if (entParsed == entParsedWorldspawn)
 					res.worldspawn = entData;

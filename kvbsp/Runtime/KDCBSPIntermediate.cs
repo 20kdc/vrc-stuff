@@ -26,14 +26,10 @@ namespace KDCVRCBSP {
 			public readonly Model model;
 			public readonly float worldScale;
 			public readonly Vector3 origin;
-			/// This is how much to translate model positions by to turn them into entity-relative positions.
-			/// This accounts for things like auto-origin.
-			/// It would be nice to eventually get rid of this, but we need to ensure 1:1 correspondance between models and entities first.
-			public readonly Vector3 internalTranslation;
 
 			public bool IsWorldspawn => classname == "worldspawn";
 
-			public Entity(EntityKeys sourceKeys, float worldScale, Model model) : base(sourceKeys) {
+			public Entity(EntityKeys sourceKeys, float worldScale, Model model, Vector3 origin) : base(sourceKeys) {
 				this.worldScale = worldScale;
 				this.model = model;
 				string detectedClassname = this["classname"];
@@ -42,18 +38,9 @@ namespace KDCVRCBSP {
 				} else {
 					classname = detectedClassname;
 				}
-
 				targetname = this["targetname"];
-
-				Vector3 statedOrigin = GetVector3Position("origin", Vector3.zero);
-
-				// Apply auto-origin.
-				if ((model != null) && GetBool("_kdcbsp_autoorigin", false)) {
-					origin = (model.mins + model.maxs) / 2;
-					internalTranslation = statedOrigin - origin;
-				} else {
-					origin = statedOrigin;
-				}
+				// origin may be 'adjusted' by loader
+				this.origin = origin;
 			}
 
 			public Vector3 GetVector3Position(string key, Vector3 defaultVal) {
@@ -65,22 +52,6 @@ namespace KDCVRCBSP {
 								return KDCBSPUtilities.TransformPosition(x, y, z, worldScale);
 				return defaultVal;
 			}
-
-			/// Transforms a position accounting for internal translation/rotation.
-			public Vector3 InternalTransformFixupPos(Vector3 src) {
-				return src + internalTranslation;
-			}
-
-			/// Transforms a position accounting for internal translation/rotation.
-			public void InternalTransformFixup(List<TriInfo> ti) {
-				for (int i = 0; i < ti.Count; i++) {
-					TriInfo tri = ti[i];
-					tri.a = InternalTransformFixupPos(tri.a);
-					tri.b = InternalTransformFixupPos(tri.b);
-					tri.c = InternalTransformFixupPos(tri.c);
-					ti[i] = tri;
-				}
-			}
 		}
 
 		public struct TexInfo {
@@ -90,6 +61,13 @@ namespace KDCVRCBSP {
 			public Vector2 MapUV(Vector3 i) {
 				return new Vector2(sO + (i.x * sX) + (i.y * sY) + (i.z * sZ), tO + (i.x * tX) + (i.y * tY) + (i.z * tZ));
 			}
+
+			public void Translate(Vector3 translation) {
+				var mappedS = (translation.x * sX) + (translation.y * sY) + (translation.z * sZ);
+				var mappedT = (translation.x * tX) + (translation.y * tY) + (translation.z * tZ);
+				sO -= mappedS;
+				tO -= mappedT;
+			}
 		}
 
 		public class Model {
@@ -97,21 +75,44 @@ namespace KDCVRCBSP {
 			public Face[] faces;
 			// If explicit UV-mapped face support is required, add 'UVFace' struct and appropriate array here.
 			public Brush[] brushes;
+
+			public void Translate(Vector3 translation) {
+				for (int i = 0; i < faces.Length; i++)
+					faces[i].Translate(translation);
+				for (int i = 0; i < brushes.Length; i++)
+					brushes[i].Translate(translation);
+			}
 		}
 
 		public struct Face {
 			public TexInfo texInfo;
 			public Vector3[] winding;
+
+			public void Translate(Vector3 translation) {
+				texInfo.Translate(translation);
+				for (int i = 0; i < winding.Length; i++)
+					winding[i] += translation;
+			}
 		}
 
 		public struct Brush {
 			public bool hasNoclipContents, hasClipContents;
 			public BrushSide[] sides;
+
+			public void Translate(Vector3 translation) {
+				for (int i = 0; i < sides.Length; i++)
+					sides[i].Translate(translation);
+			}
 		}
 
 		public struct BrushSide {
 			public Plane plane;
 			public TexInfo texInfo;
+
+			public void Translate(Vector3 translation) {
+				plane.distance -= Vector3.Dot(plane.normal, translation);
+				texInfo.Translate(translation);
+			}
 		}
 
 		public struct TriInfo {
@@ -154,7 +155,7 @@ namespace KDCVRCBSP {
 			if (mdl == null)
 				return;
 			var bspCentre = (mdl.mins + mdl.maxs) / 2;
-			centre = entity.InternalTransformFixupPos(bspCentre);
+			centre = bspCentre;
 			size = Vector3.Max(mdl.maxs, mdl.mins) - Vector3.Min(mdl.maxs, mdl.mins);
 		}
 

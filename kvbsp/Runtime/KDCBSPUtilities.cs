@@ -82,6 +82,23 @@ namespace KDCVRCBSP {
 
 		// -- Transform functions --
 
+		// Converts BrushUV + texture information to intermediate TexInfo.
+		public static KDCBSPIntermediate.TexInfo TransformBrushUV(string tex, BrushUV src, float worldScale) {
+			return new KDCBSPIntermediate.TexInfo {
+				// [TRANSFORM]
+				// Note the need to perform axis swapping, world scaling...
+				sX = (float) src.texSAxis.x * worldScale,
+				sZ = (float) src.texSAxis.y * worldScale,
+				sY = (float) src.texSAxis.z * worldScale,
+				sO = (float) src.texOffset.x,
+				tX = (float) src.texTAxis.x * -worldScale,
+				tZ = (float) src.texTAxis.y * -worldScale,
+				tY = (float) src.texTAxis.z * -worldScale,
+				tO = (float) src.texOffset.y * -1,
+				tex = tex
+			};
+		}
+
 		public static Plane TransformPlane(float nX, float nY, float nZ, float d, float worldScale) {
 			// [TRANSFORM]
 			// So, here's an oddity for you: I don't know why distance has to be inverted.

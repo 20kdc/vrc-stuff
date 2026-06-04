@@ -135,9 +135,6 @@ namespace KDCVRCBSP {
 			// we always get this -- we may need it for concave evaluation or for visuals or both
 			var triangles = GetBSPTriangles(importContext.bsp, model);
 
-			foreach (var kvp in triangles)
-				entity.InternalTransformFixup(kvp.Value);
-
 			if (compSettings.visuals) {
 				GameObject visualsGO = new GameObject("visuals");
 
@@ -188,8 +185,6 @@ namespace KDCVRCBSP {
 					foreach (var face in importContext.bsp.BrushToFaces(b, importContext.workspace.WorldScale)) {
 						importContext.bsp.FaceToTriangles(face, convexMesh);
 					}
-
-					entity.InternalTransformFixup(convexMesh);
 
 					GameObject convexGO = new GameObject(convexName);
 					convexGO.transform.parent = collisionGO.transform;
@@ -255,8 +250,6 @@ namespace KDCVRCBSP {
 				}
 
 				var collisionMaterial = bFullPrimary != null ? bFullPrimary.collisionMaterial.asset : null;
-
-				entity.InternalTransformFixup(convexMesh);
 
 				Mesh mesh = KDCBSPIntermediate.TrianglesToMesh(convexMesh, Vector2.one);
 				importContext.assetImportContext.AddObjectToAsset(assetPrefix + "convex", mesh);
