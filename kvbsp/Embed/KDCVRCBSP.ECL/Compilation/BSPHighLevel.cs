@@ -57,16 +57,20 @@ namespace KDCVRCBSP.ECL {
 		}
 
 		/// Compiles each brush entity.
-		public static void Act2_CompileAll<M>(Geo2Map<M> map, Predicate<EntityKeys> entityFills, bool allowLeaks, IBSPDiagnostics diag) where M : IBSPMaterial {
-			List<(string, Vector3d)> pointEntityLocations = new();
-			// Notably, point entity locations are relative to the entity being compiled.
-			foreach (var entity in map.pointEntities) {
-				if (!entityFills(entity))
-					continue;
-				if (entity.TryGetVector3d("origin", out var origin))
-					pointEntityLocations.Add((entity["classname"], origin - map.worldspawn.origin));
+		public static void Act2_CompileAll<M>(Geo2Map<M> map, Predicate<EntityKeys> entityFills, bool partition, bool allowLeaks, IBSPDiagnostics diag) where M : IBSPMaterial {
+			if (partition) {
+				List<(string, Vector3d)> pointEntityLocations = new();
+				// Notably, point entity locations are relative to the entity being compiled.
+				foreach (var entity in map.pointEntities) {
+					if (!entityFills(entity))
+						continue;
+					if (entity.TryGetVector3d("origin", out var origin))
+						pointEntityLocations.Add((entity["classname"], origin - map.worldspawn.origin));
+				}
+				Act2_CompilePartitionedEntity(map.worldspawn, pointEntityLocations, allowLeaks, diag);
+			} else {
+				Act2_CompileEntity(map.worldspawn);
 			}
-			Act2_CompilePartitionedEntity(map.worldspawn, pointEntityLocations, allowLeaks, diag);
 			foreach (var ent in map.brushEntities)
 				Act2_CompileEntity(ent);
 		}
@@ -158,7 +162,12 @@ namespace KDCVRCBSP.ECL {
 			BSPNode<Geo2FaceInfo<M>>.PresortFaceList(splitFaces);
 			diag.Info($"Building tree ({splitFaces.Count} splitting faces...)");
 			var tree = BSPNode<Geo2FaceInfo<M>>.Build(entity.g2, splitFaces, detailFaces, Array.Empty<int>(), (face) => {
-				return (face.data.modSurfaceFlags & BSPSurfaceFlags.BSPNonSolid) == 0;
+				// not solid if detail or literally marked non-solid
+				if ((face.data.modSurfaceFlags & BSPSurfaceFlags.Detail) != 0)
+					return false;
+				if ((face.data.modSurfaceFlags & BSPSurfaceFlags.BSPNonSolid) == 0)
+					return false;
+				return true;
 			});
 			if (tree == null) {
 				// something went wrong, fallback

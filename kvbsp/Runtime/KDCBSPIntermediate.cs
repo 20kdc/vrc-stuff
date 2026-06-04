@@ -255,9 +255,9 @@ namespace KDCVRCBSP {
 				// (...we arguably don't need to do this because this is for collision only???)
 				(Vector3, Vector2)[] windingConv = new (Vector3, Vector2)[winding.Count];
 				for (int j = 0; j < windingConv.Length; j++) {
-					// int revIndex = winding.Count - (j + 1);
+					int revIndex = winding.Count - (j + 1);
 					var pos = KDCBSPUtilities.FromECL(winding[j]);
-					windingConv[j] = (pos, side.texInfo.MapUV(pos));
+					windingConv[revIndex] = (pos, side.texInfo.MapUV(pos));
 				}
 
 				res.Add(new Face {

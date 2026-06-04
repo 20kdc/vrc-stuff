@@ -38,6 +38,7 @@ namespace KDCVRCBSP.ECL {
 
 		/// Build a BSP tree.
 		/// Note the 'split history'. In a leaf node, this is turned directly into a convex.
+		/// Warn: isSolid receives *every* face touching a leaf plane, including detail faces.
 		public static BSPNode<D> Build(Geo2Context g2, IReadOnlyList<Convex3d<D>.Face> splitFaces, IReadOnlyList<Convex3d<D>.Face> otherFaces, int[] splitHistory, Predicate<Convex3d<D>.Face> isSolid) {
 			if (splitFaces.Count == 0) {
 				// Are there any solid faces poking out of this leaf?

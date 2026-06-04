@@ -14,6 +14,10 @@ namespace KDCVRCBSP {
 		[SerializeField]
 		public bool bspSimulateTrenchbroomExport = true;
 
+		[Tooltip("Enables partitioning. This is used for void elimination, etc.")]
+		[SerializeField]
+		public bool bspDoPartition = true;
+
 		[Tooltip("Indicates that 'leaks' are expected and should not be warned.")]
 		[SerializeField]
 		public bool bspAllowLeaks = false;
@@ -89,7 +93,7 @@ namespace KDCVRCBSP {
 			var map = BSPHighLevel.Act1_MapIntoGeo2(parsedEntities);
 			BSPHighLevel.Act2_CompileAll(map, (entity) => {
 				return true;
-			}, bspAllowLeaks, new Diag {
+			}, bspDoPartition, bspAllowLeaks, new Diag {
 				parent = this,
 				outPfx = assetPath
 			});

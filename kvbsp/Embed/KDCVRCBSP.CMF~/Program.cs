@@ -120,7 +120,7 @@ namespace KDCVRCBSP.CMF {
 				var map = BSPHighLevel.Act1_MapIntoGeo2(parsedEntities);
 				BSPHighLevel.Act2_CompileAll(map, (entity) => {
 					return true;
-				}, false, new Diag {
+				}, true, false, new Diag {
 					outPfx = output
 				});
 				BSPHighLevel.Act3_Postprocess(map);
