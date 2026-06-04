@@ -272,6 +272,14 @@ namespace KDCVRCBSP.ECL {
 			//  we need to make a series of cut planes from the winding.
 			Plane3d oldFacePlane = g2.FromPlaneIndex(oldFace.planeIndex);
 			List<(Plane3d, bool)> cutPlanes = Plane3d.WindingToPlanesMD<bool>(intersectionWinding, oldFacePlane.normal);
+			// We get to choose the order we cut these in, so pick axis-aligned first because it should result in cleaner geometry.
+			cutPlanes.Sort((a, b) => {
+				bool aaa = a.Item1.IsAxisAligned;
+				bool baa = b.Item1.IsAxisAligned;
+				if (aaa != baa)
+					return aaa ? -1 : 1;
+				return 0;
+			});
 			List<Vector3d> remainderWinding = new(oldFace.winding);
 			bool cutIncomplete = false;
 			foreach (var plane in cutPlanes) {

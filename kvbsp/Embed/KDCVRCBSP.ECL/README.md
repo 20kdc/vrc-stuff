@@ -12,10 +12,12 @@ This library is philosophically closest to Quake 1 QBSP, though it is somewhat d
 
 In particular:
 
-* The only contents flag that exists is 'solid', and it results in leaves being deleted early for efficiency and sanity reasons.
+* There's no 'contents flag enum', though there are surface flags which have whole-brush effects in the same way surface flags transfer to contents. Check for reads from `Geo2BrushInfo.allSurfaceFlags`.
+	* In practice, these are `Detail`, `MarkBrushOrigin`, `DeleteBrushAfterAABB`, and `MarkBrushIllusionary`.
+	* Being a very surface-based BSP system, the ECL
 * The 'chop stage' focuses entirely on faces and not at all on brushes.
-	* The Quake 2 approach, at least, is to focus entirely on brushes, even through the BSP stage, and then 'clean up' by re-merging faces as possible. This seems _horribly_ inefficient, and I'd argue key parts of this design are probably more to do with old BSP compilers needing to support Z-less draw ordering (essentially 'segs' from DOOM; in either case, to prevent 'quirks'). Targetting accelerated Z-buffer-capable hardware as we are, we aren't bound by that requirement.
-		* Mobile hardware optimizations aren't really under our control owing to material switching.
+	* Generally there is a merge phase, and some compilers seem to merge chopping with BSP and do all sorts of other craziness, and it just seems like a really awkward mess, especially given we're on accelerated Z-buffered graphics and don't actually care about using the BSP tree for draw order.
+		* With this said, attempting to avoid the merge phase in this compiler has lead to some questionable geometry. Controlling chop order has managed to prevent problems here from piling up so far.
 	* A key invariant I wish to preserve is that an areaportal face is entirely and completely unimpeded in its ability to both not be chopped and in its ability to chop any eligible face. This is because the sides of areaportals will eventually become _separate meshes entirely,_ so having any common faces between them will result in unnecessary overdraw (or worse).
 		* This is to say, while we usually want to chop _less_ than Quake 2 QBSP (only faces that are hidden or overlapping, to reduce overdraw and to avoid lighting problems or z-fighting), in the case of areaportals, we actually need to take drastic action and chop absolutely anything along their edges.
 
@@ -112,9 +114,7 @@ The basic outline is as follows:
 	1. Chopping. All brush faces are chopped, if applicable, and the results pooled into two lists of brush faces.
 		* _**Brushes escape past this point for collision, but otherwise cease to exist; all further effort works with a face-based representation.**_ (The brushes are needed up to here for chopping purposes; a solely face-based chop stage doesn't have the necessary guarantees to 'punch out' a surrounded face.)
 		* One list is for 'split faces', and the other for 'detail faces'. If there is no reason to care, these may be the same list.
-	2. Illusionary brushes are deleted from the `Geo2Entity` so that they don't end up in collision later.
-		* This includes `func_detail_illusionary`, but is also theoretically a cleaner way of implementing the `noclip` brush.
-	3. For brush entities, a single area is filled with 'collider faces'. For worldspawn only, partitioning:
+	2. For brush entities, a single area is filled with 'collider faces'. For worldspawn only, partitioning:
 		1. Partition it into a binary tree of leaves.
 			* Leaves are convexes which contain mutable lists of 'portals' (connections between leaves).
 		2. Compute portals, turning the list of leaves into a connected graph.
@@ -162,6 +162,8 @@ Otherwise, in on-plane cases (brushing against an existing edge), the answer is 
 
 If the final intersection winding collapses, processing aborts here and no chop is performed. Otherwise, the intersection winding is turned into planes with bools (the metadata persisting).
 
+Those planes are then sorted by if they're axis-aligned or not; axis-aligned planes go first. This is a heuristic to try and produce better geometry.
+
 The old face is then cut up with each plane that is _permitted_ to chop (boolean is true). The faces that are 'definitely outside of the intersection' (above the planes) are put into the final face list. The faces below keep being worked on. If a plane that is not permitted is encountered, it is skipped and a flag is set to register incompleteness.
 
 The question that remains is what to do with the faces that remain inside the allowed-to-chop portion of the intersection winding.
@@ -185,7 +187,7 @@ The basic build function receives a list of 'split faces' and a list of 'other f
 
 The 'other' list is _not_ detail. (It's used for that, but it's not exclusively detail.) It is just the list of faces that won't split. Where this becomes important is when it comes to leaf creation.
 
-When creating a leaf, every plane leading up to that leaf (which bounds the leaf) is checked for how it relates to faces. Outward-facing solid faces cause the leaf to not be built, returning null; the BSP tree auto-simplifies accordingly. A particular side-effect is that in any solid geometry, a naive query will pick a quasi-random non-solid leaf. However, since leaves carry their real bounding convexes with them, the find function has been made appropriately aware to pick the _closest_ leaf instead.
+When creating a leaf, every plane leading up to that leaf (which bounds the leaf) is checked for how it relates to faces. Outward-facing solid faces cause the leaf to not be built, returning null; the BSP tree auto-simplifies accordingly. A particular side-effect is that in any solid geometry, a naive query will pick a quasi-random non-solid leaf. However, since leaves carry their real bounding convexes with them, in borderline cases, the find function tries to pick the _closest_ leaf instead.
 
 (This matters because the presence of entities will be used later to determine gameplay areas versus deletable out of world stuff. Entities may be placed directly on solid surfaces, so we need to give them a little nudge to prevent them becoming a bizzare leak.)
 
