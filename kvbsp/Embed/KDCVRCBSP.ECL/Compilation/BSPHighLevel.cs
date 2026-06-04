@@ -160,14 +160,15 @@ namespace KDCVRCBSP.ECL {
 			// Console.WriteLine("Presorting face list...");
 			BSPNode<Geo2FaceInfo<M>>.PresortFaceList(splitFaces);
 			diag.Info($"Building tree ({splitFaces.Count} splitting faces...)");
-			var tree = BSPNode<Geo2FaceInfo<M>>.Build(entity.g2, splitFaces, detailFaces, Array.Empty<int>(), (face) => {
+			Predicate<Convex3d<Geo2FaceInfo<M>>.Face> faceIsSolid = (face) => {
 				// not solid if detail or literally marked non-solid
 				if ((face.data.modSurfaceFlags & BSPSurfaceFlags.Detail) != 0)
 					return false;
-				if ((face.data.modSurfaceFlags & BSPSurfaceFlags.BSPNonSolid) == 0)
+				if ((face.data.modSurfaceFlags & BSPSurfaceFlags.BSPNonSolid) != 0)
 					return false;
 				return true;
-			});
+			};
+			var tree = BSPNode<Geo2FaceInfo<M>>.Build(entity.g2, splitFaces, detailFaces, Array.Empty<int>(), faceIsSolid);
 			if (tree == null) {
 				// something went wrong, fallback
 				var area = new Geo2Map<M>.Area();
@@ -182,6 +183,21 @@ namespace KDCVRCBSP.ECL {
 				diag.Info($"Portalizing ({leaves.Count} leaves)...");
 				BSPNode<Geo2FaceInfo<M>>.Portalize(leaves);
 				diag.WriteDiagFileInfo(".prt", () => BSPNode<Geo2FaceInfo<M>>.MakePRT(leaves));
+				diag.WriteDiagFileDebug(".leaves.obj", () => BSPNode<Geo2FaceInfo<M>>.MakeLeafOBJ(leaves));
+				diag.WriteDiagFileDebug(".leafFaces.obj", () => {
+					// dump a complete description of leaf faces in this OBJ
+					List<(string, List<List<Vector3d>>)> objects = new();
+					var index = 0;
+					foreach (var leaf in leaves) {
+						List<List<Vector3d>> leafObj = new();
+						foreach (var face in leaf.faces)
+							if (faceIsSolid(face))
+								leafObj.Add(new List<Vector3d>(face.winding));
+						objects.Add(("l" + index + "-faces", leafObj));
+						index++;
+					}
+					return GeomUtil.DebugMakeOBJ(objects);
+				});
 				// split into areas
 				HashSet<BSPLeaf<Geo2FaceInfo<M>>> seenLeaves = new();
 				Queue<(string, Vector3d, BSPLeaf<Geo2FaceInfo<M>>)> areaStartQueue = new();

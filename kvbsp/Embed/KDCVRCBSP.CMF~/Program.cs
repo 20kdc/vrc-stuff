@@ -31,12 +31,16 @@ namespace KDCVRCBSP.CMF {
 				Console.WriteLine("WARN: " + text);
 			}
 
+			void IBSPDiagnostics.WriteDiagFileDebug(string filename, Func<List<string>> text) {
+				WriteDiagFileInfo(filename, text);
+			}
+
 			void IBSPDiagnostics.WriteDiagFileInfo(string filename, Func<List<string>> text) {
 				File.WriteAllLines(outPfx + filename, text());
 			}
 
 			void IBSPDiagnostics.WriteDiagFileWarning(string filename, Func<List<string>> text) {
-				File.WriteAllLines(outPfx + filename, text());
+				WriteDiagFileInfo(filename, text);
 			}
 		}
 

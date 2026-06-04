@@ -30,6 +30,10 @@ namespace KDCVRCBSP {
 		[SerializeField]
 		public bool bspLogWarning = false;
 
+		[Tooltip("Creates debug (obj) files.")]
+		[SerializeField]
+		public bool bspCreateDebugFiles = false;
+
 		[Tooltip("Creates info (prt) files.")]
 		[SerializeField]
 		public bool bspCreateInfoFiles = false;
@@ -50,6 +54,11 @@ namespace KDCVRCBSP {
 			void IBSPDiagnostics.Warning(string text) {
 				if (parent.bspLogWarning)
 					Debug.LogWarning(text);
+			}
+
+			void IBSPDiagnostics.WriteDiagFileDebug(string filename, Func<List<string>> text) {
+				if (parent.bspCreateDebugFiles)
+					File.WriteAllLines(outPfx + filename, text());
 			}
 
 			void IBSPDiagnostics.WriteDiagFileInfo(string filename, Func<List<string>> text) {
@@ -95,7 +104,7 @@ namespace KDCVRCBSP {
 				return true;
 			}, bspDoPartition, bspAllowLeaks, new Diag {
 				parent = this,
-				outPfx = assetPath
+				outPfx = assetPath + "~"
 			});
 			BSPHighLevel.Act3_Postprocess(map);
 

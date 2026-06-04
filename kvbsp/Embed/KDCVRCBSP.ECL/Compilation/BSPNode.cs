@@ -3,8 +3,8 @@ using System.Collections.Generic;
 
 namespace KDCVRCBSP.ECL {
 	/// Say the line!
-    /// 'Binary space partitioning'.
-    /// Yayyyy!!!!
+	/// 'Binary space partitioning'.
+	/// Yayyyy!!!!
 	/// We use a node-as-object model in order to allow parallelism during the main split process.
 	public abstract class BSPNode<D> {
 		/// The face list is pre-sorted.
@@ -115,8 +115,8 @@ namespace KDCVRCBSP.ECL {
 				belowOnPlane.Add(face);
 				return;
 			}
-            // Determine which of below/above to punt this face to based on what a cut does.
-            (_, int belowCount, int aboveCount) = splitPlane.CutWindingSim(face.winding, face.g2.distanceEpsilon);
+			// Determine which of below/above to punt this face to based on what a cut does.
+			(_, int belowCount, int aboveCount) = splitPlane.CutWindingSim(face.winding, face.g2.distanceEpsilon);
 			if (belowCount >= Convex3d<D>.WindingCollapseLimit)
 				below.Add(face);
 			if (aboveCount >= Convex3d<D>.WindingCollapseLimit)
