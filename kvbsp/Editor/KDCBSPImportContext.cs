@@ -11,7 +11,7 @@ namespace KDCVRCBSP {
 	 * Contains import context info.
 	 */
 	public struct KDCBSPImportContext {
-		public KDCBSPImporter importer;
+		public KDCBSPBaseImporter importer;
 		public KDCBSPAbstractWorkspaceConfig workspace;
 		public List<KDCBSPAbstractWorkspaceConfig> searchOrder;
 		public KDCBSPIntermediate bsp;
