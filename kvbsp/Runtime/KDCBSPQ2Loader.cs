@@ -28,7 +28,8 @@ namespace KDCVRCBSP {
 				vertexes[idx] = GetPosition(bsp, pos, worldScale);
 			}
 
-			foreach ((int idx, int pos) in StructArray(bsp, 5, 76, out res.texInfos)) {
+			KDCBSPIntermediate.TexInfo[] texInfos;
+			foreach ((int idx, int pos) in StructArray(bsp, 5, 76, out texInfos)) {
 				int strofs = pos + 40;
 				int strlen = 0;
 				while (strlen < 32) {
@@ -37,7 +38,7 @@ namespace KDCVRCBSP {
 					strlen++;
 				}
 				string name = new System.Text.UTF8Encoding().GetString(bsp, strofs, strlen);
-				res.texInfos[idx] = new KDCBSPIntermediate.TexInfo {
+				texInfos[idx] = new KDCBSPIntermediate.TexInfo {
 					// [TRANSFORM]
 					// Note the need to perform axis swapping, world scaling...
 					sX = BitConverter.ToSingle(bsp, pos + 0) * worldScale,
@@ -49,6 +50,19 @@ namespace KDCVRCBSP {
 					tY = BitConverter.ToSingle(bsp, pos + 24) * -worldScale,
 					tO = BitConverter.ToSingle(bsp, pos + 28) * -1,
 					tex = name
+				};
+			}
+
+			/// Gets TexInfo or a fake one.
+			/// This is useful because nodraw faces don't necessarily have valid TexInfos.
+			/// This comes up in collision processing.
+			KDCBSPIntermediate.TexInfo GetTexInfoOrFallback(int i) {
+				if (i >= 0 && i < texInfos.Length)
+					return texInfos[i];
+				return new KDCBSPIntermediate.TexInfo {
+					sX = 1, sY = 0, sZ = 0, sO = 0,
+					tX = 0, tY = 1, tZ = 0, tO = 0,
+					tex = "fallback"
 				};
 			}
 
@@ -82,7 +96,7 @@ namespace KDCVRCBSP {
 					winding[i] = vertexes[vertex];
 				}
 				faces[idx] = new KDCBSPIntermediate.Face {
-					texInfo = texInfo,
+					texInfo = GetTexInfoOrFallback(texInfo),
 					winding = winding
 				};
 			}
@@ -98,13 +112,13 @@ namespace KDCVRCBSP {
 						int sidePos = GetStructOfs(bsp, 15, j + firstSide, 4);
 						brushSides[j] = new KDCBSPIntermediate.BrushSide {
 							plane = planes[(int) BitConverter.ToUInt16(bsp, sidePos)],
-							texInfo = (int) BitConverter.ToUInt16(bsp, sidePos + 2)
+							texInfo = GetTexInfoOrFallback((int) BitConverter.ToUInt16(bsp, sidePos + 2))
 						};
 					} else {
 						int sidePos = GetStructOfs(bsp, 15, j + firstSide, 8);
 						brushSides[j] = new KDCBSPIntermediate.BrushSide {
 							plane = planes[BitConverter.ToInt32(bsp, sidePos)],
-							texInfo = BitConverter.ToInt32(bsp, sidePos + 4)
+							texInfo = GetTexInfoOrFallback(BitConverter.ToInt32(bsp, sidePos + 4))
 						};
 					}
 				}

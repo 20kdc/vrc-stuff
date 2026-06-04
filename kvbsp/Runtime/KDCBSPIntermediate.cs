@@ -18,10 +18,6 @@ namespace KDCVRCBSP {
 		/// Parsed entities.
 		public List<Entity> entities = new();
 
-		/// Texture information.
-		/// In an array in case it needs to be easily cached.
-		public TexInfo[] texInfos;
-
 		public class Entity : ROEntityKeys {
 			// Auto-parsed early
 			public readonly string classname;
@@ -104,7 +100,7 @@ namespace KDCVRCBSP {
 		}
 
 		public struct Face {
-			public int texInfo;
+			public TexInfo texInfo;
 			public Vector3[] winding;
 		}
 
@@ -115,7 +111,7 @@ namespace KDCVRCBSP {
 
 		public struct BrushSide {
 			public Plane plane;
-			public int texInfo;
+			public TexInfo texInfo;
 		}
 
 		public struct TriInfo {
@@ -162,21 +158,6 @@ namespace KDCVRCBSP {
 			size = Vector3.Max(mdl.maxs, mdl.mins) - Vector3.Min(mdl.maxs, mdl.mins);
 		}
 
-		// -- High-level Getters --
-
-		/// Gets TexInfo or a fake one.
-		/// This is useful because nodraw faces don't necessarily have valid TexInfos.
-		/// This comes up in collision processing.
-		public TexInfo GetTexInfoOrFallback(int i) {
-			if (i >= 0 && i < texInfos.Length)
-				return texInfos[i];
-			return new TexInfo {
-				sX = 1, sY = 0, sZ = 0, sO = 0,
-				tX = 0, tY = 1, tZ = 0, tO = 0,
-				tex = "fallback"
-			};
-		}
-
 		// -- Windings --
 
 		/// Transforms triangles into a mesh.
@@ -208,7 +189,7 @@ namespace KDCVRCBSP {
 
 		/// Adds this face's triangles.
 		public void FaceToTriangles(Face f, List<TriInfo> targetList) {
-			var uvSrc = GetTexInfoOrFallback(f.texInfo);
+			var uvSrc = f.texInfo;
 			var a = f.winding[0];
 			for (int j = 1; j < f.winding.Length - 1; j++) {
 				var b = f.winding[j];
@@ -225,8 +206,8 @@ namespace KDCVRCBSP {
 		}
 
 		/// Adds this face's triangles, annotated and UV'd with texInfo.
-		public void FaceToTriangles(Face f, List<(TriInfo, int)> targetList) {
-			var uvSrc = GetTexInfoOrFallback(f.texInfo);
+		public void FaceToTriangles(Face f, List<(TriInfo, TexInfo)> targetList) {
+			var uvSrc = f.texInfo;
 			var a = f.winding[0];
 			for (int j = 1; j < f.winding.Length - 1; j++) {
 				var b = f.winding[j];

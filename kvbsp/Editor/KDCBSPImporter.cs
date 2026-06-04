@@ -326,7 +326,7 @@ namespace KDCVRCBSP {
 			KDCBSPAbstractMaterialConfig bPrimary = null;
 			float bPrimaryWeight = float.MinValue;
 			foreach (var bSide in brush.sides) {
-				var assignment = importContext.LookupMaterial(importContext.bsp.GetTexInfoOrFallback(bSide.texInfo).tex);
+				var assignment = importContext.LookupMaterial(bSide.texInfo.tex);
 				if (assignment == null)
 					continue;
 				float weight = assignment.GetCollisionConvexPriority(bSide.plane.normal);
@@ -346,8 +346,7 @@ namespace KDCVRCBSP {
 				var winding = face.winding;
 				if (winding.Length < 3)
 					continue;
-				var texinfo = bsp.texInfos[face.texInfo];
-				String material = texinfo.tex;
+				string material = face.texInfo.tex;
 				List<TriInfo> targetList = null;
 				if (tri.ContainsKey(material)) {
 					targetList = tri[material];
