@@ -25,7 +25,7 @@ namespace KDCVRCBSP.ECL {
 				};
 
 				if (classname.StartsWith("func_detail"))
-					brushInfo.AddSurfaceFlagSet(BSPSurfaceFlags.Detail | BSPSurfaceFlags.NoChopOthers);
+					brushInfo.AddSurfaceFlagSet(BSPSurfaceFlags.Detail);
 				if (classname == "func_detail_illusionary")
 					brushInfo.AddSurfaceFlagSet(BSPSurfaceFlags.MarkBrushIllusionary);
 
@@ -75,23 +75,68 @@ namespace KDCVRCBSP.ECL {
 		/// 1. Compile entity to (split, detail) face lists
 		/// 2. Delete illusionary brushes
 		public static void Act2_CompileEntityEarly<M>(Geo2Map<M>.BrushEntity entity, List<Convex3d<Geo2FaceInfo<M>>.Face> splitFaces, List<Convex3d<Geo2FaceInfo<M>>.Face> detailFaces) where M : IBSPMaterial {
-			List<Convex3d<Geo2FaceInfo<M>>> choppers = new();
+			// Brush sorting (for chop order)
+			// -- A SUMMARY OF CHOP ORDER (TRY NOT TO DELETE, YOU NEED THIS) --
+			// There are two major concerns to consider with chop order.
+			// Firstly, there is the ordering itself:
+			//  ericw-tools describes chop order as if each brush is introduced one at a time, chopping previous brushes.
+			//  However, the Convex3d.ChopFaces function works in reverse.
+			//  This is due to it being written in a very parallelizable way (for future optimization).
+			//  Each brush has its chopping handled individually and immutably to its own separate face list.
+			//  The list of brushes that *can* chop is kept in one common immutable list.
+			//  If the brush being processed cannot chop, it can't take priority, and it's not in the list.
+			//  So the default state of affairs *must* be that a brush that isn't in the list is of lowest priority.
+			//  It therefore follows that:
+			//   In ericw-tools, the last brush is of highest priority (wins).
+			//   In the embedded compiler, the last brush, or an omitted brush, is of lowest priority (loses).
+			// Secondly, there is the matter of detail brushes.
+			//  We absolutely do not want detail brushes EVER chopping world faces.
+			//  If detail brushes chop world faces, there is now a hole in the BSP.
+			//  Combine that hole with one bad BSP split, and now there are leaves escaping through that hole.
+			//  But we still want detail brushes to chop each other and get chopped by world faces.
+			//  Because of this, they still need to exist in one namespace; we can't just pretend they're separate brush entities.
+			//  Ultimately, we sort the brushes accordingly, and then create two lists.
+			//  One list has split brushes followed by detail brushes.
+			//  The other list has split brushes only.
+			//  Split brushes use the split brush only list, while detail brushes use the unified list.
+			entity.brushes.Sort((a, b) => {
+				bool aDetail = (a.Item1.allSurfaceFlags & BSPSurfaceFlags.Detail) != 0;
+				bool bDetail = (b.Item1.allSurfaceFlags & BSPSurfaceFlags.Detail) != 0;
+				if (aDetail != bDetail)
+					return aDetail ? 1 : -1;
+				// reverse chop order relative to ericw-tools
+				if (a.Item1.chopOrder < b.Item1.chopOrder)
+					return 1;
+				if (a.Item1.chopOrder > b.Item1.chopOrder)
+					return -1;
+				return 0;
+			});
+
+			List<Convex3d<Geo2FaceInfo<M>>> choppersSplit = new();
+			List<Convex3d<Geo2FaceInfo<M>>> choppersSplitAndDetail = new();
 			// add all which are allowed to chop
 			for (int cvxIdx = 0; cvxIdx < entity.brushes.Count; cvxIdx++) {
 				var cvx = entity.brushes[cvxIdx];
 				if (cvx.Item1.cannotChop)
 					continue;
-				choppers.Add(cvx.Item2);
+				// only add to choppersSplit if not detail so that detail won't XOR out splitters
+				var brushIsDetail = (cvx.Item1.addSurfaceFlags & BSPSurfaceFlags.Detail) != 0;
+				if (!brushIsDetail)
+					choppersSplit.Add(cvx.Item2);
+				choppersSplitAndDetail.Add(cvx.Item2);
 			}
 			// chop & extract faces
 			for (int cvxIdx = 0; cvxIdx < entity.brushes.Count; cvxIdx++) {
 				var cvx = entity.brushes[cvxIdx];
 				IReadOnlyList<Convex3d<Geo2FaceInfo<M>>.Face> brushFaces = cvx.Item2.faces;
-				if (!cvx.Item1.cannotBeChopped)
+				if (!cvx.Item1.cannotBeChopped) {
+					var brushIsDetail = (cvx.Item1.addSurfaceFlags & BSPSurfaceFlags.Detail) != 0;
+					var choppers = brushIsDetail ? choppersSplitAndDetail : choppersSplit;
 					brushFaces = cvx.Item2.ChopFaces(choppers, (f) => f.data.modSurfaceFlags);
+				}
 				foreach (var f in brushFaces) {
-					bool isDetail = (f.data.modSurfaceFlags & BSPSurfaceFlags.Detail) != 0;
-					if (isDetail)
+					bool faceIsDetail = (f.data.modSurfaceFlags & BSPSurfaceFlags.Detail) != 0;
+					if (faceIsDetail)
 						detailFaces.Add(f);
 					else
 						splitFaces.Add(f);
@@ -117,7 +162,7 @@ namespace KDCVRCBSP.ECL {
 			BSPNode<Geo2FaceInfo<M>>.PresortFaceList(splitFaces);
 			diag.Info($"Building tree ({splitFaces.Count} splitting faces...)");
 			var tree = BSPNode<Geo2FaceInfo<M>>.Build(entity.g2, splitFaces, detailFaces, Array.Empty<int>(), (face) => {
-				return (face.data.modSurfaceFlags & BSPSurfaceFlags.NoDeleteLeaves) == 0;
+				return (face.data.modSurfaceFlags & BSPSurfaceFlags.BSPNonSolid) == 0;
 			});
 			if (tree == null) {
 				// something went wrong, fallback

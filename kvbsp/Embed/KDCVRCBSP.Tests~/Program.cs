@@ -44,7 +44,7 @@ namespace KDCVRCBSP.Tests {
 			int brushIdx = 0;
 			Geo2Context g2 = new();
 			foreach (var brush in mapchk[0].brushes) {
-				var cvx = Convex3d<int>.FromBrush(g2, brush, v => 0);
+				var cvx = Convex3d<int>.FromBrush(g2, brush, (idx, v) => 0);
 				objsrc.Add(("b" + brushIdx, cvx.faces.Select(v => v.winding.ToList()).ToList()));
 				brushIdx++;
 			}

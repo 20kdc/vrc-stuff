@@ -16,10 +16,12 @@ namespace KDCVRCBSP {
 
 		/// Sets up the workspace config search order. This does not include this workspace config.
 		/// Duplicates are not allowed. This function is expected to be recursive.
+		/// DO NOT CALL THIS FUNCTION ; Call PrepareSearchOrder instead (it adds the builtin workspace)
 		public abstract void BuildSearchOrder(AssetImportContext ctx, List<KDCBSPAbstractWorkspaceConfig> searchOrder);
 
 		/// Sets up the workspace config search order.
 		/// This version does not require AssetImportContext.
+		/// DO NOT CALL THIS FUNCTION ; Call PrepareSearchOrderEditor instead (it adds the builtin workspace)
 		public abstract void BuildSearchOrderEditor(List<KDCBSPAbstractWorkspaceConfig> searchOrder);
 
 		/// Returns the fallback material.
@@ -42,7 +44,7 @@ namespace KDCVRCBSP {
 
 		/// General 'find everything' function, called upon by SetupBaseQ2 among others.
 		public virtual void FindEverything(out SortedDictionary<string, (string, KDCBSPAbstractMaterialConfig)> materials) {
-			var lst = KDCBSPImporter.PrepareSearchOrderEditor(this);
+			var lst = PrepareSearchOrderEditor();
 			lst.Reverse();
 			materials = new();
 			foreach (var elm in lst) {
@@ -77,6 +79,32 @@ namespace KDCVRCBSP {
 					}
 				}
 			}
+		}
+
+		/// Prepares a finished search order.
+		public List<KDCBSPAbstractWorkspaceConfig> PrepareSearchOrder(AssetImportContext ctx) {
+			List<KDCBSPAbstractWorkspaceConfig> searchOrder = new();
+			searchOrder.Add(this);
+			BuildSearchOrder(ctx, searchOrder);
+
+			var builtInWorkspace = KDCBSPImportContext.DependsOnArtifact<KDCBSPAbstractWorkspaceConfig>(ctx, KDCBSPUtilities.KVBSP_BASE + "Assets/builtinWorkspace.asset");
+			if (builtInWorkspace != null)
+				searchOrder.Add(builtInWorkspace);
+
+			return searchOrder;
+		}
+
+		/// Prepares a finished search order (for use in non-importer code)
+		public List<KDCBSPAbstractWorkspaceConfig> PrepareSearchOrderEditor() {
+			List<KDCBSPAbstractWorkspaceConfig> searchOrder = new();
+			searchOrder.Add(this);
+			BuildSearchOrderEditor(searchOrder);
+
+			var builtInWorkspace = (KDCBSPAbstractWorkspaceConfig) AssetDatabase.LoadAssetAtPath(KDCBSPUtilities.KVBSP_BASE + "Assets/builtinWorkspace.asset", typeof(KDCBSPAbstractWorkspaceConfig));
+			if (builtInWorkspace != null)
+				searchOrder.Add(builtInWorkspace);
+
+			return searchOrder;
 		}
 	}
 }

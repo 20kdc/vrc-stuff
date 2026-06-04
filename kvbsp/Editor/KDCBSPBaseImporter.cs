@@ -29,7 +29,7 @@ namespace KDCVRCBSP {
 			}
 			var myWorkspace = KDCBSPImportContext.DependsOnArtifact<KDCBSPAbstractWorkspaceConfig>(ctx, workspace);
 
-			List<KDCBSPAbstractWorkspaceConfig> searchOrder = PrepareSearchOrder(ctx, myWorkspace);
+			List<KDCBSPAbstractWorkspaceConfig> searchOrder = myWorkspace.PrepareSearchOrder(ctx);
 
 			// this
 			KDCBSPImportContext importContext = new KDCBSPImportContext {
@@ -268,32 +268,6 @@ namespace KDCVRCBSP {
 			}
 
 			return entGO;
-		}
-
-		/// Prepares a finished search order.
-		public static List<KDCBSPAbstractWorkspaceConfig> PrepareSearchOrder(AssetImportContext ctx, KDCBSPAbstractWorkspaceConfig myWorkspace) {
-			List<KDCBSPAbstractWorkspaceConfig> searchOrder = new();
-			searchOrder.Add(myWorkspace);
-			myWorkspace.BuildSearchOrder(ctx, searchOrder);
-
-			var builtInWorkspace = KDCBSPImportContext.DependsOnArtifact<KDCBSPAbstractWorkspaceConfig>(ctx, KDCBSPUtilities.KVBSP_BASE + "Assets/builtinWorkspace.asset");
-			if (builtInWorkspace != null)
-				searchOrder.Add(builtInWorkspace);
-
-			return searchOrder;
-		}
-
-		/// Prepares a finished search order (for use in non-importer code)
-		public static List<KDCBSPAbstractWorkspaceConfig> PrepareSearchOrderEditor(KDCBSPAbstractWorkspaceConfig myWorkspace) {
-			List<KDCBSPAbstractWorkspaceConfig> searchOrder = new();
-			searchOrder.Add(myWorkspace);
-			myWorkspace.BuildSearchOrderEditor(searchOrder);
-
-			var builtInWorkspace = (KDCBSPAbstractWorkspaceConfig) AssetDatabase.LoadAssetAtPath(KDCBSPUtilities.KVBSP_BASE + "Assets/builtinWorkspace.asset", typeof(KDCBSPAbstractWorkspaceConfig));
-			if (builtInWorkspace != null)
-				searchOrder.Add(builtInWorkspace);
-
-			return searchOrder;
 		}
 
 		public static UnwrapParam BrushEntitySettingsToUnwrapParam(KDCBSPBrushEntitySettings compSettings) {

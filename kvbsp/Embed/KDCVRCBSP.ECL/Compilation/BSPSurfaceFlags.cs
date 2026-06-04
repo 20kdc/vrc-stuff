@@ -20,19 +20,18 @@ namespace KDCVRCBSP.ECL {
 
 		// -- Chop (00**0000) --
 		/// If this is present, the face can't be chopped.
-		/// (As something of a hack, this is also used to control vertex light slicing in the CMF builder.)
 		NoChopThis = 0x00010000,
 		/// If this is present, the face can't chop other geometry.
-		/// If not every face in the brush has this set, a special codepath has to be used.
 		NoChopOthers = 0x00020000,
-		/// This flag must exist in the TransFlags field unless you are EXTREMELY careful.
+		/// This flag must exist in both the SurfaceFlags and the TransFlags fields unless you are EXTREMELY careful.
 		/// It causes the face to not split the BSP, which can violate various assumptions.
-		/// Maybe also set NoChopOthers with this, because otherwise the brush will get into the habit of ripping open holes in the BSP.
+		/// Brushes that contain detail faces are always sorted such that they can never cut split faces.
 		Detail = 0x00040000,
 
 		// -- Partitioning (0000**00) --
-		/// If this is present, the face isn't solid to the BSP. Solid faces delete leaves behind them, preventing navigation entirely.
-		NoDeleteLeaves = 0x00000100,
+		/// If this is present, the face isn't solid to the BSP.
+		/// Solid faces delete leaves behind them, preventing navigation entirely.
+		BSPNonSolid = 0x00000100,
 		/// If this is present, this face blocks traversal between leaves.
 		/// (Faces don't block leaf traversal by default because the target leaf shouldn't exist in the first place for solid faces.)
 		/// This could, in theory, be useful for creating a double-sided object that you want to block.
@@ -53,6 +52,8 @@ namespace KDCVRCBSP.ECL {
 		/// In this event, deleting render faces will always delete the collision associated with them.
 		DeleteAreaRenderFace = 0x00000002,
 		/// If this is present, the render face does not contribute to the T-junction resolution pool.
+		/// Notably, a face can create T-junction resolution points despite not being collidable or renderable.
+		/// THIS IS INTENTIONAL. It's required for noclip to work properly.
 		NoCreateTJunction = 0x00000010,
 		/// If this is present, the render face will not be created to resolve T-junctions.
 		NoFixTJunction = 0x00000020

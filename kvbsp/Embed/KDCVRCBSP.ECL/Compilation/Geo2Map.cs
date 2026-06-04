@@ -37,14 +37,7 @@ namespace KDCVRCBSP.ECL {
 			public BrushEntity(Geo2Context g2, EntityKeys pairs, List<(Geo2BrushInfo, List<EntityParsed<M>.BrushSide>)> brushes) {
 				this.g2 = g2;
 				this.pairs = pairs;
-				// Brush sorting (for chop order)
-				brushes.Sort((a, b) => {
-					if (a.Item1.chopOrder < b.Item1.chopOrder)
-						return -1;
-					if (a.Item1.chopOrder > b.Item1.chopOrder)
-						return 1;
-					return 0;
-				});
+
 				// Figure out origin
 				Vector3d origin = pairs.GetVector3d("origin", Vector3d.Zero);
 				AABB3d originAABB = new AABB3d {
@@ -62,7 +55,7 @@ namespace KDCVRCBSP.ECL {
 					var translatedSides = new EntityParsed<M>.BrushSide[brush.Item2.Count];
 					for (int i = 0; i < translatedSides.Length; i++)
 						translatedSides[i] = brush.Item2[i].Translated(origin * -1);
-					var convex = Convex3d<M>.FromBrush<M>(g2, translatedSides, (src) => src.texture);
+					var convex = Convex3d<M>.FromBrush<M>(g2, translatedSides, (idx, src) => src.texture);
 					if (!hasAnyOriginBrush) {
 						originAABB = convex.bounds;
 						hasAnyOriginBrush = true;
@@ -81,21 +74,19 @@ namespace KDCVRCBSP.ECL {
 				List<(Geo2BrushInfo, Convex3d<Geo2FaceInfo<M>>)> brushesFinal = new();
 				bool first = true;
 				foreach (var brush in brushes) {
-					// Collated transfer flags.
-					// This is everything that is OR'd into all the other brush sides.
-					// So it's both addSurfaceFlags and ALSO anything from the material data.
-					BSPSurfaceFlags transferFlags = brush.Item1.addSurfaceFlags;
 					var translatedSides = new EntityParsed<M>.BrushSide[brush.Item2.Count];
-					for (int i = 0; i < translatedSides.Length; i++) {
-						var side = brush.Item2[i].Translated(origin * -1);
-						translatedSides[i] = side;
-						transferFlags |= side.texture.TransFlags;
-					}
-					var convex = Convex3d<Geo2FaceInfo<M>>.FromBrush<M>(g2, translatedSides, (src) => {
+					for (int i = 0; i < translatedSides.Length; i++)
+						translatedSides[i] = brush.Item2[i].Translated(origin * -1);
+					var convex = Convex3d<Geo2FaceInfo<M>>.FromBrush<M>(g2, translatedSides, (idx, src) => {
+						var modSurfaceFlags = src.texture.SurfaceFlags | brush.Item1.addSurfaceFlags;
+						// mix in transfer flags from sides which are NOT this one
+						for (int i = 0; i < translatedSides.Length; i++)
+							if (i != idx)
+								modSurfaceFlags |= translatedSides[i].texture.TransFlags;
 						return new Geo2FaceInfo<M> {
 							material = src.texture,
 							texUV = src.texUV,
-							modSurfaceFlags = src.texture.SurfaceFlags | transferFlags
+							modSurfaceFlags = modSurfaceFlags
 						};
 					});
 					if (first) {
@@ -154,6 +145,7 @@ namespace KDCVRCBSP.ECL {
 		/// This brush will never be split by other brushes.
 		public bool cannotBeChopped;
 		/// Chop order.
+		/// The meaning of this integer is described in the brush sorting code in BSPHighLevel.
 		public int chopOrder;
 
 		/// Makes sure to keep allSurfaceFlags and addSurfaceFlags coherent.

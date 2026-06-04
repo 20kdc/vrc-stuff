@@ -206,7 +206,7 @@ namespace KDCVRCBSP.CMF {
 					//  you should be doing this to save on plane lookups.
 					Geo2Context g2 = new();
 					foreach (var brush in ent.brushes) {
-						var cvx = Convex3d<EntityParsed<Material>.BrushSide>.FromBrush(g2, brush, v => v);
+						var cvx = Convex3d<EntityParsed<Material>.BrushSide>.FromBrush(g2, brush, (idx, v) => v);
 						if (cvx != null)
 							brushesConvexes.Add(cvx);
 					}

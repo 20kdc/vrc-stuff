@@ -5,7 +5,7 @@ namespace KDCVRCBSP.ECL {
 		public BSPSurfaceFlags SurfaceFlags { get; }
 		// <3
 		/// Transfur flags for this material.
-		/// Copied to all other surfaces on the brush.
+		/// Copied to all <b>other</b> surfaces on the brush.
 		public BSPSurfaceFlags TransFlags { get; }
 	}
 }

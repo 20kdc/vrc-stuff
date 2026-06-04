@@ -12,5 +12,5 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 858c1a1ef7c944e26b301d48f75b4d7b, type: 3}
   m_Name: detail
   m_EditorClassIdentifier: 
-  surfaceFlags: 393216
-  transFlags: 393216
+  surfaceFlags: 262144
+  transFlags: 262144
