@@ -314,32 +314,95 @@ namespace KDCVRCBSP.ECL {
 		}
 
 		public static void Act3_PostprocessEntity<M>(Geo2Map<M>.BrushEntity entity) where M : IBSPMaterial {
-			// build t-junction resolve list
-			List<Vector3d> tJuncPoints = new();
+			var broadphaseEpsilon = entity.g2.broadphaseEpsilon;
+			var distanceEpsilon = entity.g2.distanceEpsilon;
+			// build vertex list
+			List<Vector3d> vertices = new();
+			int tJuncPool = 0;
+			int FindVertex(Vector3d vtx) {
+				for (int i = 0; i < vertices.Count; i++)
+					if ((vertices[i] - vtx).Length < distanceEpsilon)
+						return i;
+				var newVtx = vertices.Count;
+				vertices.Add(vtx);
+				return newVtx;
+			}
+			// First vertices are always tjunc candidates
 			foreach (var area in entity.areas) {
 				foreach (var face in area.colliderFaces) {
 					if ((face.data.modSurfaceFlags & BSPSurfaceFlags.NoCreateTJunction) != 0)
 						continue;
 					foreach (var pt in face.winding)
-						tJuncPoints.Add(pt);
+						FindVertex(pt);
 				}
 			}
+			// CHECK ONLY: realtest inject false tjunc for dbg
+			bool testPointEn = false;
+			Vector3d testPoint = (-384, 384, -128);
+			if (testPointEn)
+				FindVertex(testPoint);
+			// lock in tjunc candidate pool
+			tJuncPool = vertices.Count;
 			foreach (var area in entity.areas) {
 				foreach (var face in area.colliderFaces) {
 					var flags = face.data.modSurfaceFlags;
 					if ((flags & BSPSurfaceFlags.DeleteAreaRenderFace) != 0)
 						continue;
 					// creating render face...
-					IReadOnlyList<Vector3d> poly = face.winding;
+					List<int> poly = new();
+					// this implicitly implements position welding
+					// (helpfully, we do this BEFORE UV mapping
+					foreach (Vector3d vtx in face.winding)
+						poly.Add(FindVertex(vtx));
+					// consider T-junc
 					if ((flags & BSPSurfaceFlags.NoFixTJunction) == 0) {
-						// t-junc fix
-						List<Vector3d> poly2 = new(face.winding);
-						GeomUtil.FixTJunctions(poly2, face.bounds, tJuncPoints, face.g2.broadphaseEpsilon, face.g2.distanceEpsilon);
-						poly = poly2;
+						int polyAIndex = 0;
+						while (polyAIndex < poly.Count) {
+							Vector3d polyAPointA = vertices[poly[polyAIndex]];
+							Vector3d polyAPointB = vertices[poly[(polyAIndex + 1) % poly.Count]];
+							var rayNormal = (polyAPointB - polyAPointA).Normalized;
+							if (rayNormal.Length == 0) {
+								// Console.WriteLine($"WARN: Zero-length polygon side at {polyAPointA}");
+								polyAIndex++;
+								continue;
+							}
+							// go through points in the t-junction pool
+							int pointIdx;
+							for (pointIdx = 0; pointIdx < tJuncPool; pointIdx++) {
+								var point = vertices[pointIdx];
+								// Console.WriteLine($"{rayNormal.Length} {polyAPointA} {polyAPointB}");
+								double aProgress = rayNormal.Dot(polyAPointA);
+								double pointProgress = rayNormal.Dot(point);
+								// point if it were as far along as A
+								Vector3d simulatedPoint = point + (rayNormal * (aProgress - pointProgress));
+								double pointDist = (polyAPointA - simulatedPoint).Length;
+								if (pointDist >= distanceEpsilon)
+									continue;
+
+								double bProgress = rayNormal.Dot(polyAPointB);
+								double minProgress = Math.Min(aProgress, bProgress);
+								double maxProgress = Math.Max(aProgress, bProgress);
+								if (pointProgress < (minProgress + distanceEpsilon) || pointProgress > (maxProgress - distanceEpsilon))
+									continue;
+								if (testPointEn && point.x == testPoint.x && point.y == testPoint.y && point.z == testPoint.z)
+									Console.WriteLine("testPoint was hit in t-junc processing at " + polyAIndex + " in " + poly.Count);
+								// Point is definitely on line and is not an existing vertex.
+								//Console.WriteLine($"Placed {point} between {polyAPointA} and {polyAPointB}!");
+								poly.Insert(polyAIndex + 1, pointIdx);
+								// we need to restart the outer logic given we have a new point B
+								break;
+							}
+							// only advance if we didn't end up adding a point
+							if (pointIdx == tJuncPool)
+								polyAIndex++;
+						}
 					}
+					// rebuild
 					List<(Vector3d, Vector2d)> polyFinal = new();
-					foreach (var vec in poly)
+					foreach (var vid in poly) {
+						var vec = vertices[vid];
 						polyFinal.Add((vec, face.data.texUV.MapUV(vec)));
+					}
 					area.renderFaces.Add(new Geo2RenderFace<M> {
 						material = face.data.material,
 						polygon = polyFinal,

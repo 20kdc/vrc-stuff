@@ -155,7 +155,7 @@ The striped areas in red are occupied by a brush that is either:
 * Clipping straight through it.
 * Overlapping the face (same facing direction).
 
-The brush covering the yellow and red zones clips into the lower part of the brush, but not into the upper part. We would like to _not_ chop the upper part for efficiency reasons.
+In case 6, the brush covering the yellow and red zones clips into the lower part of the brush, but not into the upper part. We would like to _not_ chop the upper part for efficiency reasons.
 
 It follows that we must be very careful to track which planes _actually_ intersect our brush. We must also be careful to keep track of planes which aren't allowed to chop, but are still needed to prevent other planes 'escaping' and causing chops they shouldn't.
 

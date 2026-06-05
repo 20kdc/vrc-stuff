@@ -18,30 +18,31 @@ namespace KDCVRCBSP.CMF {
 			public BSPSurfaceFlags transFlags;
 			public BSPSurfaceFlags SurfaceFlags => surfaceFlags;
 			public BSPSurfaceFlags TransFlags => transFlags;
+			public override string ToString() => texture;
 		}
 
 		public sealed class Diag : IBSPDiagnostics {
 			public string outPfx = "/KDCBSP_CMF_BUG";
 
-			void IBSPDiagnostics.Info(string text) {
+			public void Info(string text) {
 				Console.WriteLine("INFO: " + text);
 			}
 
-			void IBSPDiagnostics.Warning(string text) {
+			public void Warning(string text) {
 				Console.WriteLine("WARN: " + text);
 			}
 
-			bool IBSPDiagnostics.DebugEnabled => true;
+			public bool DebugEnabled => true;
 
-			void IBSPDiagnostics.WriteDiagFileDebug(string filename, Func<List<string>> text) {
+			public void WriteDiagFileDebug(string filename, Func<List<string>> text) {
 				WriteDiagFileInfo(filename, text);
 			}
 
-			void IBSPDiagnostics.WriteDiagFileInfo(string filename, Func<List<string>> text) {
+			public void WriteDiagFileInfo(string filename, Func<List<string>> text) {
 				File.WriteAllLines(outPfx + filename, text());
 			}
 
-			void IBSPDiagnostics.WriteDiagFileWarning(string filename, Func<List<string>> text) {
+			public void WriteDiagFileWarning(string filename, Func<List<string>> text) {
 				WriteDiagFileInfo(filename, text);
 			}
 		}
@@ -267,7 +268,7 @@ namespace KDCVRCBSP.CMF {
 			Console.WriteLine("Presorting face list...");
 			BSPNode<EntityParsed<Material>.BrushSide>.PresortFaceList(faces);
 			Console.WriteLine("Building tree (" + faces.Count + " splitting faces...)");
-			var tree = BSPNode<EntityParsed<Material>.BrushSide>.Build(g2, faces, Array.Empty<Convex3d<EntityParsed<Material>.BrushSide>.Face>(), Array.Empty<int>(), (_) => true);
+			var tree = BSPNode<EntityParsed<Material>.BrushSide>.Build(g2, faces, Array.Empty<Convex3d<EntityParsed<Material>.BrushSide>.Face>(), Array.Empty<int>(), (_) => true, null);
 			if (tree == null) {
 				Console.WriteLine("All leaves were solid?");
 			} else {

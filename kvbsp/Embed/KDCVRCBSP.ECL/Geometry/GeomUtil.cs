@@ -77,39 +77,6 @@ namespace KDCVRCBSP.ECL {
 			return lst;
 		}
 
-		/// Adds vertices to a polygon to prevent T-junctions.
-		/// This introduces mid-line vertices, which breaks core winding library assumptions.
-		/// So, this should probably be one of the last things you do to the data, immediately before triangulation (if relevant).
-		public static void FixTJunctions(List<Vector3d> polygonA, AABB3d bounds, List<Vector3d> points, double broadphaseEpsilon, double distanceEpsilon) {
-			foreach (Vector3d point in points) {
-				if (!bounds.Contains(point, broadphaseEpsilon)) {
-					continue;
-				}
-				for (int polyAIndex = 0; polyAIndex < polygonA.Count; polyAIndex++) {
-					Vector3d polyAPointA = polygonA[polyAIndex];
-					Vector3d polyAPointB = polygonA[(polyAIndex + 1) % polygonA.Count];
-					var rayNormal = (polyAPointB - polyAPointA).Normalized;
-					double aProgress = rayNormal.Dot(polyAPointA);
-					double pointProgress = rayNormal.Dot(point);
-					// point if it were as far along as A
-					Vector3d simulatedPoint = point + (rayNormal * (aProgress - pointProgress));
-					double pointDist = (polyAPointA - simulatedPoint).Length;
-					if (pointDist >= distanceEpsilon)
-						continue;
-
-					double bProgress = rayNormal.Dot(polyAPointB);
-					double minProgress = Math.Min(aProgress, bProgress);
-					double maxProgress = Math.Max(aProgress, bProgress);
-					if (pointProgress < (minProgress + distanceEpsilon) || pointProgress > (maxProgress - distanceEpsilon))
-						continue;
-					// Point is definitely on line and is not an existing vertex.
-					// Once added, we're done with this point.
-					polygonA.Insert(polyAIndex + 1, point);
-					break;
-				}
-			}
-		}
-
 		// -- Debug --
 
 		/// OBJ test (to check winding chopper in practice)
