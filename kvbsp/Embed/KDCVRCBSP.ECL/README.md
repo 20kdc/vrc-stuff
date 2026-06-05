@@ -140,15 +140,20 @@ The basic problem to solve here is what happens when one brush clips into or ont
 
 ![](img~/chop.png)
 
-The striped area in red is occupied by a brush that is either:
+These are the various cases:
 
-* Touching the face we care about.
+1. Internal overlap; the area in red has been subsumed by the brush in yellow.
+2. Partially internal overlap. 1, but some sides are on-plane.
+3. Partially external overlap.
+4. Complete overlap.
+5. 'Touch-cut'.
+6. Intersect with potential mis-cut slope plane
+
+The striped areas in red are occupied by a brush that is either:
+
+* Touching the target face.
 * Clipping straight through it.
-* Overlapping the face we care about (same facing direction).
-
-We also need to be aware of situations like this:
-
-![](img~/cliparound.png)
+* Overlapping the face (same facing direction).
 
 The brush covering the yellow and red zones clips into the lower part of the brush, but not into the upper part. We would like to _not_ chop the upper part for efficiency reasons.
 
