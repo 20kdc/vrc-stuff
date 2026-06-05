@@ -39,16 +39,39 @@ namespace KDCVRCBSP.ECL {
 		/// Build a BSP tree.
 		/// Note the 'split history'. In a leaf node, this is turned directly into a convex.
 		/// Warn: isSolid receives *every* face touching a leaf plane, including detail faces.
-		public static BSPNode<D> Build(Geo2Context g2, IReadOnlyList<Convex3d<D>.Face> splitFaces, IReadOnlyList<Convex3d<D>.Face> otherFaces, int[] splitHistory, Predicate<Convex3d<D>.Face> isSolid) {
+		/// deadLeaves can be null (it's for debugging)
+		public static BSPNode<D> Build(Geo2Context g2, IReadOnlyList<Convex3d<D>.Face> splitFaces, IReadOnlyList<Convex3d<D>.Face> otherFaces, int[] splitHistory, Predicate<Convex3d<D>.Face> isSolid, List<BSPLeaf<D>> deadLeaves) {
 			if (splitFaces.Count == 0) {
 				// Are there any solid faces poking out of this leaf?
 				// Something worth noting is that we don't have to worry about planes in our split history not being part of our actual extent.
 				// This is because if they aren't, the faces won't be there either.
-				foreach (var face in otherFaces)
-					foreach (int planeIndex in splitHistory)
-						if (face.planeIndex == planeIndex)
-							if (isSolid(face))
-								return null;
+				bool isLeafDead = false;
+				// The CutWindingSim business is a great pre-filter, but it doesn't account for the union of cuts chopping a face to nothing.
+				List<Convex3d<D>.Face> finalFaces = new();
+				foreach (var face in otherFaces) {
+					List<Vector3d> winding = new(face.winding);
+					bool livesOnLeafPlane = false;
+					foreach (int planeIndex in splitHistory) {
+						if (face.planeIndex == planeIndex) {
+							livesOnLeafPlane = true;
+						} else {
+							g2.FromPlaneIndex(planeIndex).CutWinding(winding, null, g2.distanceEpsilon);
+							if (winding.Count < Convex3d<D>.WindingCollapseLimit)
+								break;
+						}
+					}
+					if (winding.Count < Convex3d<D>.WindingCollapseLimit)
+						continue;
+					finalFaces.Add(face);
+					if (livesOnLeafPlane && isSolid(face)) {
+						isLeafDead = true;
+						if (deadLeaves == null)
+							break;
+					}
+				}
+				if (isLeafDead && (deadLeaves == null))
+					return null;
+
 				// Now build the leaf.
 				var leafLists = new List<BSPPortal<D>>[splitHistory.Length];
 				for (int i = 0; i < leafLists.Length; i++)
@@ -56,7 +79,14 @@ namespace KDCVRCBSP.ECL {
 				Plane3d[] fixSplitHistory = new Plane3d[splitHistory.Length];
 				for (int i = 0; i < fixSplitHistory.Length; i++)
 					fixSplitHistory[i] = g2.FromPlaneIndex(splitHistory[i]);
-				return new BSPLeaf<D>(Convex3d<List<BSPPortal<D>>>.FromPlanes(g2, fixSplitHistory, leafLists, true), otherFaces);
+				var leaf = new BSPLeaf<D>(Convex3d<List<BSPPortal<D>>>.FromPlanes(g2, fixSplitHistory, leafLists, true), finalFaces);
+
+				if (isLeafDead) {
+					if (deadLeaves != null)
+						deadLeaves.Add(leaf);
+					return null;
+				}
+				return leaf;
 			}
 			// Pick plane to cut by.
 			int splitPlaneIndex = splitFaces[0].planeIndex;
@@ -95,8 +125,8 @@ namespace KDCVRCBSP.ECL {
 				return new BSPSplit<D>(splitPlane, below[0], above);
 			} 
 			*/
-			BSPNode<D> below = Build(g2, belowSplitFaces, belowOtherFaces, newSplitHistoryBelow, isSolid);
-			BSPNode<D> above = Build(g2, aboveSplitFaces, aboveOtherFaces, newSplitHistoryAbove, isSolid);
+			BSPNode<D> below = Build(g2, belowSplitFaces, belowOtherFaces, newSplitHistoryBelow, isSolid, deadLeaves);
+			BSPNode<D> above = Build(g2, aboveSplitFaces, aboveOtherFaces, newSplitHistoryAbove, isSolid, deadLeaves);
 			if (below == null)
 				return above;
 			else if (above == null)
@@ -108,7 +138,7 @@ namespace KDCVRCBSP.ECL {
 		/// Note the importance of the special 'on plane' class.
 		/// This is how we prevent splitting by the same plane twice.
 		public static void TransferFace(Plane3d splitPlane, int splitPlaneIndex, Convex3d<D>.Face face, List<Convex3d<D>.Face> below, List<Convex3d<D>.Face> above, List<Convex3d<D>.Face> belowOnPlane, List<Convex3d<D>.Face> aboveOnPlane) {
-			if (face.planeIndex == splitPlaneIndex || face.g2.FlipPlaneIndex(face.planeIndex) == splitPlaneIndex) {
+			if ((face.planeIndex == splitPlaneIndex) || (face.g2.FlipPlaneIndex(face.planeIndex) == splitPlaneIndex)) {
 				// On-plane goes to both.
 				// This is necessary so that leaves know they have solids poking out of them so they can refuse to build.
 				aboveOnPlane.Add(face);
@@ -116,6 +146,8 @@ namespace KDCVRCBSP.ECL {
 				return;
 			}
 			// Determine which of below/above to punt this face to based on what a cut does.
+			// Note that this is an *approximation!* It doesn't account for the possibility that the union of *multiple* cut planes might exclude a face.
+			// This is finally resolved when preparing the final leaf.
 			(_, int belowCount, int aboveCount) = splitPlane.CutWindingSim(face.winding, face.g2.distanceEpsilon);
 			if (belowCount >= Convex3d<D>.WindingCollapseLimit)
 				below.Add(face);

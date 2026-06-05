@@ -60,6 +60,8 @@ namespace KDCVRCBSP {
 					Debug.LogWarning(text);
 			}
 
+			bool IBSPDiagnostics.DebugEnabled => parent.bspCreateDebugFiles;
+
 			void IBSPDiagnostics.WriteDiagFileDebug(string filename, Func<List<string>> text) {
 				if (parent.bspCreateDebugFiles)
 					File.WriteAllLines(outPfx + filename, text());
@@ -102,14 +104,15 @@ namespace KDCVRCBSP {
 
 			var worldspawn = EntityParsed<MaterialMemo>.EnsureWorldspawn(parsedEntities);
 
-			// 'modern pipeline'
-			var map = BSPHighLevel.Act1_MapIntoGeo2(parsedEntities);
-			BSPHighLevel.Act2_CompileAll(map, (entity) => {
-				return true;
-			}, bspDoChop, bspDoPartition, bspAllowLeaks, new Diag {
+			var diag = new Diag {
 				parent = this,
 				outPfx = assetPath + "~"
-			});
+			};
+			// 'modern pipeline'
+			var map = BSPHighLevel.Act1_MapIntoGeo2(parsedEntities, diag);
+			BSPHighLevel.Act2_CompileAll(map, (entity) => {
+				return true;
+			}, bspDoChop, bspDoPartition, bspAllowLeaks, diag);
 			BSPHighLevel.Act3_Postprocess(map);
 
 			// compilation complete, now turn this into the intermediate somehow.

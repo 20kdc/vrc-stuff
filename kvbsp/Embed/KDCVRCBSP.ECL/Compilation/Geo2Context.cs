@@ -24,8 +24,7 @@ namespace KDCVRCBSP.ECL {
 		public double broadphaseEpsilon = 0.5d;
 
 		/// Normal epsilon, used for comparing normals in co-planarity checks.
-		/// The check expected here is Normal.Dot(OtherNormal) > normalEpsilon
-		public double normalEpsilon = 1d - (1d / 256d);
+		public double normalEpsilon = 1d / 256d;
 
 		/// Initial winding size.
 		public double initialWindingSize = 65536d;
@@ -36,27 +35,31 @@ namespace KDCVRCBSP.ECL {
 		public int ToPlaneIndex(Plane3d plane) {
 			plane = new Plane3d(plane.normal.Normalized, plane.distance);
 			bool invert = false;
+			// Important: This is NOT enough to normalize all planes.
+			// Planes with distance near 0 don't have this easy workaround.
 			if (plane.distance < 0) {
 				plane = plane.Flipped;
 				invert = true;
 			}
+
+			// A 'slightly' misaligned plane could really mess things up, so we forcibly align such planes.
+			var aaX = new Vector3d(Math.Sign(plane.normal.x), 0, 0);
+			var aaY = new Vector3d(0, Math.Sign(plane.normal.y), 0);
+			var aaZ = new Vector3d(0, 0, Math.Sign(plane.normal.z));
+			if (NormalNearNormal(plane.normal, aaX))
+				plane.normal = new Vector3d(Math.Sign(plane.normal.x), 0, 0);
+			else if (NormalNearNormal(plane.normal, aaY))
+				plane.normal = new Vector3d(0, Math.Sign(plane.normal.y), 0);
+			else if (NormalNearNormal(plane.normal, aaZ))
+				plane.normal = new Vector3d(0, 0, Math.Sign(plane.normal.z));
+
 			for (int plnIdx = 0; plnIdx < planesRaw.Count; plnIdx++) {
 				var pln = planesRaw[plnIdx];
 				if (PlaneNearPlane(pln, plane))
 					return invert ? -(plnIdx + 1) : plnIdx;
+				else if (PlaneNearPlane(pln, plane.Flipped))
+					return invert ? plnIdx : -(plnIdx + 1);
 			}
-
-			// About to add a plane.
-			// A 'slightly' misaligned plane could really mess things up, so we forcibly align such planes.
-			var xaaDot = plane.normal.Dot(new Vector3d(1, 0, 0));
-			var yaaDot = plane.normal.Dot(new Vector3d(0, 1, 0));
-			var zaaDot = plane.normal.Dot(new Vector3d(0, 0, 1));
-			if (xaaDot > normalEpsilon || xaaDot < -normalEpsilon)
-				plane.normal = new Vector3d(Math.Sign(plane.normal.x), 0, 0);
-			else if (yaaDot > normalEpsilon || yaaDot < -normalEpsilon)
-				plane.normal = new Vector3d(0, Math.Sign(plane.normal.y), 0);
-			else if (zaaDot > normalEpsilon || zaaDot < -normalEpsilon)
-				plane.normal = new Vector3d(0, 0, Math.Sign(plane.normal.z));
 
 			int rawIdx = planesRaw.Count;
 			planesRaw.Add(plane);
@@ -65,7 +68,13 @@ namespace KDCVRCBSP.ECL {
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public bool PlaneNearPlane(Plane3d a, Plane3d b) {
-			return (a.normal.Dot(b.normal) > normalEpsilon) && (Math.Abs(a.distance - b.distance) < distanceEpsilon);
+			return NormalNearNormal(a.normal, b.normal) && (Math.Abs(a.distance - b.distance) < distanceEpsilon);
+		}
+
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public bool NormalNearNormal(Vector3d a, Vector3d b) {
+			var comp = a - b;
+			return Math.Abs(comp.x) < normalEpsilon && Math.Abs(comp.y) < normalEpsilon && Math.Abs(comp.z) < normalEpsilon;
 		}
 
 		/// Decodes a plane index.

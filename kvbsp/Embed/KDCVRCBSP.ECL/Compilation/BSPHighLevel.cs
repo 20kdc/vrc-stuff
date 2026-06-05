@@ -6,7 +6,7 @@ namespace KDCVRCBSP.ECL {
 	/// High-level compilation control functions.
 	public static class BSPHighLevel {
 		/// Maps from entities into Geo2.
-		public static Geo2Map<M> Act1_MapIntoGeo2<M>(List<EntityParsed<M>> entities) where M : IBSPMaterial {
+		public static Geo2Map<M> Act1_MapIntoGeo2<M>(List<EntityParsed<M>> entities, IBSPDiagnostics diag) where M : IBSPMaterial {
 			var worldspawn = EntityParsed<M>.EnsureWorldspawn(entities);
 			List<EntityKeys> pointEntities = new();
 			List<Geo2Map<M>.BrushEntity> brushEntities = new();
@@ -168,7 +168,10 @@ namespace KDCVRCBSP.ECL {
 					return false;
 				return true;
 			};
-			var tree = BSPNode<Geo2FaceInfo<M>>.Build(entity.g2, splitFaces, detailFaces, Array.Empty<int>(), faceIsSolid);
+			List<BSPLeaf<Geo2FaceInfo<M>>> deadLeaves = null;
+			if (diag.DebugEnabled)
+				deadLeaves = new();
+			var tree = BSPNode<Geo2FaceInfo<M>>.Build(entity.g2, splitFaces, detailFaces, Array.Empty<int>(), faceIsSolid, deadLeaves);
 			if (tree == null) {
 				// something went wrong, fallback
 				var area = new Geo2Map<M>.Area();
@@ -183,21 +186,26 @@ namespace KDCVRCBSP.ECL {
 				diag.Info($"Portalizing ({leaves.Count} leaves)...");
 				BSPNode<Geo2FaceInfo<M>>.Portalize(leaves);
 				diag.WriteDiagFileInfo(".prt", () => BSPNode<Geo2FaceInfo<M>>.MakePRT(leaves));
-				diag.WriteDiagFileDebug(".leaves.obj", () => BSPNode<Geo2FaceInfo<M>>.MakeLeafOBJ(leaves));
-				diag.WriteDiagFileDebug(".leafFaces.obj", () => {
-					// dump a complete description of leaf faces in this OBJ
-					List<(string, List<List<Vector3d>>)> objects = new();
-					var index = 0;
-					foreach (var leaf in leaves) {
-						List<List<Vector3d>> leafObj = new();
-						foreach (var face in leaf.faces)
-							if (faceIsSolid(face))
-								leafObj.Add(new List<Vector3d>(face.winding));
-						objects.Add(("l" + index + "-faces", leafObj));
-						index++;
-					}
-					return GeomUtil.DebugMakeOBJ(objects);
-				});
+				void WriteLeafFiles(List<BSPLeaf<Geo2FaceInfo<M>>> leafList, string l1, string l2) {
+					diag.WriteDiagFileDebug("." + l1 + ".obj", () => BSPNode<Geo2FaceInfo<M>>.MakeLeafOBJ(leafList));
+					diag.WriteDiagFileDebug("." + l2 + ".obj", () => {
+						// dump a complete description of leaf faces in this OBJ
+						List<(string, List<List<Vector3d>>)> objects = new();
+						var index = 0;
+						foreach (var leaf in leafList) {
+							List<List<Vector3d>> leafObj = new();
+							foreach (var face in leaf.faces)
+								if (faceIsSolid(face))
+									leafObj.Add(new List<Vector3d>(face.winding));
+							objects.Add(("l" + index + "-faces", leafObj));
+							index++;
+						}
+						return GeomUtil.DebugMakeOBJ(objects);
+					});
+				}
+				WriteLeafFiles(leaves, "leaves", "leafFaces");
+				if (deadLeaves != null)
+					WriteLeafFiles(deadLeaves, "deadLeaves", "deadLeafFaces");
 				// split into areas
 				HashSet<BSPLeaf<Geo2FaceInfo<M>>> seenLeaves = new();
 				Queue<(string, Vector3d, BSPLeaf<Geo2FaceInfo<M>>)> areaStartQueue = new();

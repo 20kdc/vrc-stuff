@@ -31,6 +31,8 @@ namespace KDCVRCBSP.CMF {
 				Console.WriteLine("WARN: " + text);
 			}
 
+			bool IBSPDiagnostics.DebugEnabled => true;
+
 			void IBSPDiagnostics.WriteDiagFileDebug(string filename, Func<List<string>> text) {
 				WriteDiagFileInfo(filename, text);
 			}
@@ -121,12 +123,13 @@ namespace KDCVRCBSP.CMF {
 			CMFFile cmf = new();
 			if (worldspawn.pairs.GetBool("_kvbsp", false)) {
 				// 'modern pipeline'
-				var map = BSPHighLevel.Act1_MapIntoGeo2(parsedEntities);
+				var diag = new Diag {
+					outPfx = output
+				};
+				var map = BSPHighLevel.Act1_MapIntoGeo2(parsedEntities, diag);
 				BSPHighLevel.Act2_CompileAll(map, (entity) => {
 					return true;
-				}, chop, true, false, new Diag {
-					outPfx = output
-				});
+				}, chop, true, false, diag);
 				BSPHighLevel.Act3_Postprocess(map);
 
 				var worldspawnCMFEnt = new CMFFile.Entity();
