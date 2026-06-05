@@ -50,29 +50,29 @@ namespace KDCVRCBSP {
 			public KDCBSPMapImporter parent;
 			public string outPfx = "/KDCBSP_UTY_BUG";
 
-			void IBSPDiagnostics.Info(string text) {
+			public void Info(string text) {
 				if (parent.bspLogInfo)
-					Debug.Log("INFO: " + text);
+					Debug.Log("kvbspECL: " + text);
 			}
 
-			void IBSPDiagnostics.Warning(string text) {
+			public void Warning(string text) {
 				if (parent.bspLogWarning)
-					Debug.LogWarning(text);
+					Debug.LogWarning("kvbspECL: " + text);
 			}
 
-			bool IBSPDiagnostics.DebugEnabled => parent.bspCreateDebugFiles;
+			public bool DebugEnabled => parent.bspCreateDebugFiles;
 
-			void IBSPDiagnostics.WriteDiagFileDebug(string filename, Func<List<string>> text) {
+			public void WriteDiagFileDebug(string filename, Func<List<string>> text) {
 				if (parent.bspCreateDebugFiles)
 					File.WriteAllLines(outPfx + filename, text());
 			}
 
-			void IBSPDiagnostics.WriteDiagFileInfo(string filename, Func<List<string>> text) {
+			public void WriteDiagFileInfo(string filename, Func<List<string>> text) {
 				if (parent.bspCreateInfoFiles)
 					File.WriteAllLines(outPfx + filename, text());
 			}
 
-			void IBSPDiagnostics.WriteDiagFileWarning(string filename, Func<List<string>> text) {
+			public void WriteDiagFileWarning(string filename, Func<List<string>> text) {
 				if (parent.bspCreateWarningFiles)
 					File.WriteAllLines(outPfx + filename, text());
 			}
@@ -90,6 +90,14 @@ namespace KDCVRCBSP {
 		}
 
 		public override KDCBSPIntermediate CompileToIntermediate(KDCBSPImportContext importContext, string assetPath) {
+			var diag = new Diag {
+				parent = this,
+				outPfx = assetPath + "~"
+			};
+			diag.Info($"START " + assetPath);
+
+			var timeParse = new System.Diagnostics.Stopwatch();
+			timeParse.Start();
 			Dictionary<string, MaterialMemo> memo = new();
 			var parsedEntities = MapParser.Parse<MaterialMemo>(File.ReadAllText(assetPath), (name) => {
 				if (memo.ContainsKey(name))
@@ -103,17 +111,15 @@ namespace KDCVRCBSP {
 				TrenchBroom.FullSimulateExport(parsedEntities);
 
 			var worldspawn = EntityParsed<MaterialMemo>.EnsureWorldspawn(parsedEntities);
+			timeParse.Stop();
+			diag.Info($"Map parsing took {timeParse.Elapsed}.");
 
-			var diag = new Diag {
-				parent = this,
-				outPfx = assetPath + "~"
-			};
 			// 'modern pipeline'
 			var map = BSPHighLevel.Act1_MapIntoGeo2(parsedEntities, diag);
 			BSPHighLevel.Act2_CompileAll(map, (entity) => {
 				return true;
 			}, bspDoChop, bspDoPartition, bspAllowLeaks, diag);
-			BSPHighLevel.Act3_Postprocess(map);
+			BSPHighLevel.Act3_Postprocess(map, diag);
 
 			// compilation complete, now turn this into the intermediate somehow.
 			float worldScale = importContext.workspace.WorldScale;

@@ -130,7 +130,7 @@ namespace KDCVRCBSP.CMF {
 				BSPHighLevel.Act2_CompileAll(map, (entity) => {
 					return true;
 				}, chop, true, false, diag);
-				BSPHighLevel.Act3_Postprocess(map);
+				BSPHighLevel.Act3_Postprocess(map, diag);
 
 				var worldspawnCMFEnt = new CMFFile.Entity();
 				cmf.entities.Add(worldspawnCMFEnt);

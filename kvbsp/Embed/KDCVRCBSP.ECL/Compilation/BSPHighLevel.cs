@@ -1,17 +1,21 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Diagnostics;
 
 namespace KDCVRCBSP.ECL {
 	/// High-level compilation control functions.
 	public static class BSPHighLevel {
 		/// Maps from entities into Geo2.
 		public static Geo2Map<M> Act1_MapIntoGeo2<M>(List<EntityParsed<M>> entities, IBSPDiagnostics diag) where M : IBSPMaterial {
+			Stopwatch timeG2C = new();
+			timeG2C.Start();
 			var worldspawn = EntityParsed<M>.EnsureWorldspawn(entities);
 			List<EntityKeys> pointEntities = new();
 			List<Geo2Map<M>.BrushEntity> brushEntities = new();
 			List<(Geo2BrushInfo, List<EntityParsed<M>.BrushSide>)> worldBrushes = new();
 
+			int totalBrushes = 0;
 			foreach (var entity in entities) {
 				var classname = entity.pairs["classname"];
 				List<(Geo2BrushInfo, List<EntityParsed<M>.BrushSide>)> targetBrushList = null;
@@ -37,6 +41,7 @@ namespace KDCVRCBSP.ECL {
 				}
 				if (targetBrushList != null) {
 					foreach (var brush in entity.brushes) {
+						totalBrushes++;
 						var brushInfoCopy = brushInfo;
 						foreach (var face in brush)
 							brushInfoCopy.allSurfaceFlags |= face.texture.SurfaceFlags | face.texture.TransFlags;
@@ -52,6 +57,8 @@ namespace KDCVRCBSP.ECL {
 			}
 
 			Geo2Map<M>.BrushEntity g2World = new(new Geo2Context(), worldspawn.pairs, worldBrushes);
+			timeG2C.Stop();
+			diag.Info($"Geo2 conversion took {timeG2C.Elapsed}, {totalBrushes} total brushes.");
 			return new Geo2Map<M>(g2World, pointEntities, brushEntities);
 		}
 
@@ -160,6 +167,8 @@ namespace KDCVRCBSP.ECL {
 			// Console.WriteLine("Presorting face list...");
 			BSPNode<Geo2FaceInfo<M>>.PresortFaceList(splitFaces);
 			diag.Info($"Building tree ({splitFaces.Count} splitting faces...)");
+			Stopwatch timeTreeBuild = new();
+			timeTreeBuild.Start();
 			Predicate<Convex3d<Geo2FaceInfo<M>>.Face> faceIsSolid = (face) => {
 				// not solid if detail or literally marked non-solid
 				if ((face.data.modSurfaceFlags & BSPSurfaceFlags.Detail) != 0)
@@ -172,7 +181,9 @@ namespace KDCVRCBSP.ECL {
 			if (diag.DebugEnabled)
 				deadLeaves = new();
 			var tree = BSPNode<Geo2FaceInfo<M>>.Build(entity.g2, splitFaces, detailFaces, Array.Empty<int>(), faceIsSolid, deadLeaves);
+			timeTreeBuild.Stop();
 			if (tree == null) {
+				diag.Warning($"Tree took {timeTreeBuild.Elapsed}. Completely solid.");
 				// something went wrong, fallback
 				var area = new Geo2Map<M>.Area();
 				entity.areas.Add(area);
@@ -183,8 +194,13 @@ namespace KDCVRCBSP.ECL {
 			} else {
 				List<BSPLeaf<Geo2FaceInfo<M>>> leaves = new();
 				tree.AddLeaves(leaves);
-				diag.Info($"Portalizing ({leaves.Count} leaves)...");
+				diag.Info($"Tree took {timeTreeBuild.Elapsed}, {leaves.Count} leaves. Portalizing...");
+				Stopwatch timePortalize = new();
+				timePortalize.Start();
 				BSPNode<Geo2FaceInfo<M>>.Portalize(leaves);
+				timePortalize.Stop();
+				diag.Info($"Portalizing took {timePortalize.Elapsed}. Preparing to split areas...");
+				// -- debug --
 				diag.WriteDiagFileInfo(".prt", () => BSPNode<Geo2FaceInfo<M>>.MakePRT(leaves));
 				void WriteLeafFiles(List<BSPLeaf<Geo2FaceInfo<M>>> leafList, string l1, string l2) {
 					diag.WriteDiagFileDebug("." + l1 + ".obj", () => BSPNode<Geo2FaceInfo<M>>.MakeLeafOBJ(leafList));
@@ -206,6 +222,9 @@ namespace KDCVRCBSP.ECL {
 				WriteLeafFiles(leaves, "leaves", "leafFaces");
 				if (deadLeaves != null)
 					WriteLeafFiles(deadLeaves, "deadLeaves", "deadLeafFaces");
+				// -- /debug --
+				Stopwatch timeSplitAreas = new();
+				timeSplitAreas.Start();
 				// split into areas
 				HashSet<BSPLeaf<Geo2FaceInfo<M>>> seenLeaves = new();
 				Queue<(string, Vector3d, BSPLeaf<Geo2FaceInfo<M>>)> areaStartQueue = new();
@@ -276,16 +295,22 @@ namespace KDCVRCBSP.ECL {
 					}
 					entity.areas.Add(area);
 				}
+				timeSplitAreas.Stop();
+				diag.Info($"Splitting areas took {timeSplitAreas.Elapsed}, {entity.areas.Count} areas total.");
 			}
 		}
 
 		/// Final compilation tasks
 		/// 1. Build render faces
 		/// 2. Delete collider faces
-		public static void Act3_Postprocess<M>(Geo2Map<M> map) where M : IBSPMaterial {
+		public static void Act3_Postprocess<M>(Geo2Map<M> map, IBSPDiagnostics diag) where M : IBSPMaterial {
+			Stopwatch timeTJC = new();
+			timeTJC.Start();
 			Act3_PostprocessEntity(map.worldspawn);
 			foreach (var entity in map.brushEntities)
 				Act3_PostprocessEntity(entity);
+			timeTJC.Stop();
+			diag.Info($"Postprocessing took {timeTJC.Elapsed}.");
 		}
 
 		public static void Act3_PostprocessEntity<M>(Geo2Map<M>.BrushEntity entity) where M : IBSPMaterial {
