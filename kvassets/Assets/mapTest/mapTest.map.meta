@@ -1,7 +1,31 @@
 fileFormatVersion: 2
 guid: 688c8d1a3403fdaa3b255589dbf905b7
-DefaultImporter:
+ScriptedImporter:
+  internalIDToNameTable: []
   externalObjects: {}
+  serializedVersion: 2
   userData: 
   assetBundleName: 
   assetBundleVariant: 
+  script: {fileID: 11500000, guid: 07d992ee2084791269a3fbc520bae5af, type: 3}
+  workspace: {fileID: 11400000, guid: 912300bf2502dd9b199cc4692c5a014a, type: 2}
+  worldspawnCompilation:
+    lightmapPackMargin: 0.01
+    lightmapScale: 1
+    visuals: 1
+    rendererTemplate: {instanceID: 0}
+    collision: 0
+    collisionIsTrigger: 0
+    contributeGI: 0
+    lightmaps: 0
+    occluderStatic: 0
+    occludeeStatic: 0
+    batchingStatic: 0
+    reflectionProbeStatic: 0
+  bspSimulateTrenchbroomExport: 1
+  bspCompileFlags: 0
+  bspLogInfo: 0
+  bspLogWarning: 0
+  bspCreateDebugFiles: 0
+  bspCreateInfoFiles: 0
+  bspCreateWarningFiles: 0

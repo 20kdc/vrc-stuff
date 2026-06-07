@@ -113,10 +113,15 @@ namespace KDCVRCBSP.Tests {
 
 		public static void RunOnLineTests() {
 			Console.WriteLine("OnLine tests");
-			GeomUtil.PrepOnLine((4, 1, 0), (8, 1, 0), 0.01d, out var prepared);
-			Test.Assert(GeomUtil.OnLine(prepared, false, (6, 1, 0)), "" + GeomUtil.OnLineDist(prepared, (6, 1, 0)));
-			Test.Assert(!GeomUtil.OnLine(prepared, false, (6, 0, 0)), "" + GeomUtil.OnLineDist(prepared, (6, 0, 0)));
-			Test.Assert(!GeomUtil.OnLine(prepared, false, (2, 1, 0)), "" + GeomUtil.OnLineDist(prepared, (2, 1, 0)));
+			GeomUtil.PrepOnLine((4, 1, 0), (8, 1, 0), out var prepared);
+			GeomUtil.PrepOnLine((6, 2, 0), (6, 0, 0), out var preparedC);
+			Test.Assert(GeomUtil.OnLine(prepared, 0.01d, 0.01d, false, (6, 1, 0)), "" + GeomUtil.OnLineDist(prepared, (6, 1, 0)));
+			Test.Assert(!GeomUtil.OnLine(prepared, 0.01d, 0.01d, false, (6, 0, 0)), "" + GeomUtil.OnLineDist(prepared, (6, 0, 0)));
+			Test.Assert(!GeomUtil.OnLine(prepared, 0.01d, 0.01d, false, (2, 1, 0)), "" + GeomUtil.OnLineDist(prepared, (2, 1, 0)));
+			var crossTest = GeomUtil.OnLineCross(prepared, preparedC);
+			Test.Assert(crossTest.x == 6, "crossTest == 6 1 0");
+			Test.Assert(crossTest.y == 1, "crossTest == 6 1 0");
+			Test.Assert(crossTest.z == 0, "crossTest == 6 1 0");
 		}
 	}
 }

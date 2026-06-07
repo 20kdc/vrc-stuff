@@ -34,6 +34,8 @@ namespace KDCVRCBSP.CMF {
 
 			public bool DebugEnabled => true;
 
+			public BSPCompileFlags CompileFlags { get; set; }
+
 			public void WriteDiagFileDebug(string filename, Func<List<string>> text) {
 				WriteDiagFileInfo(filename, text);
 			}
@@ -127,10 +129,13 @@ namespace KDCVRCBSP.CMF {
 				var diag = new Diag {
 					outPfx = output
 				};
+				diag.CompileFlags = 0;
+				if (!chop)
+					diag.CompileFlags |= BSPCompileFlags.NoChop;
 				var map = BSPHighLevel.Act1_MapIntoGeo2(parsedEntities, diag);
 				BSPHighLevel.Act2_CompileAll(map, (entity) => {
 					return true;
-				}, chop, true, false, diag);
+				}, diag);
 				BSPHighLevel.Act3_Postprocess(map, diag);
 
 				var worldspawnCMFEnt = new CMFFile.Entity();

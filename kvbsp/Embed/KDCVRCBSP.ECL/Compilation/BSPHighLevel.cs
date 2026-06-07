@@ -64,7 +64,10 @@ namespace KDCVRCBSP.ECL {
 		}
 
 		/// Compiles each brush entity.
-		public static void Act2_CompileAll<M>(Geo2Map<M> map, Predicate<EntityKeys> entityFills, bool chop, bool partition, bool allowLeaks, IBSPDiagnostics diag) where M : IBSPMaterial {
+		public static void Act2_CompileAll<M>(Geo2Map<M> map, Predicate<EntityKeys> entityFills, IBSPDiagnostics diag) where M : IBSPMaterial {
+			var compFlags = diag.CompileFlags;
+			bool partition = (compFlags & BSPCompileFlags.NoPartition) == 0;
+
 			if (partition) {
 				List<(string, Vector3d)> pointEntityLocations = new();
 				// Notably, point entity locations are relative to the entity being compiled.
@@ -74,12 +77,12 @@ namespace KDCVRCBSP.ECL {
 					if (entity.TryGetVector3d("origin", out var origin))
 						pointEntityLocations.Add((entity["classname"], origin - map.worldspawn.origin));
 				}
-				Act2_CompilePartitionedEntity(map.worldspawn, chop, pointEntityLocations, allowLeaks, diag);
+				Act2_CompilePartitionedEntity(map.worldspawn, pointEntityLocations, diag);
 			} else {
-				Act2_CompileEntity(map.worldspawn, chop);
+				Act2_CompileEntity(map.worldspawn, diag);
 			}
 			foreach (var ent in map.brushEntities)
-				Act2_CompileEntity(ent, chop);
+				Act2_CompileEntity(ent, diag);
 		}
 
 		/// Compile entity to (split, detail) face lists
@@ -154,14 +157,21 @@ namespace KDCVRCBSP.ECL {
 		}
 
 		/// Compiles a 'regular' brush entity.
-		public static void Act2_CompileEntity<M>(Geo2Map<M>.BrushEntity entity, bool chop) where M : IBSPMaterial {
+		public static void Act2_CompileEntity<M>(Geo2Map<M>.BrushEntity entity, IBSPDiagnostics diag) where M : IBSPMaterial {
+			var compFlags = diag.CompileFlags;
+			bool chop = (compFlags & BSPCompileFlags.NoChop) == 0;
+
 			var area = new Geo2Map<M>.Area();
 			entity.areas.Add(area);
 			Act2_CompileEntityEarly(entity, chop, area.colliderFaces, area.colliderFaces);
 		}
 
 		/// Compiles worldspawn.
-		public static void Act2_CompilePartitionedEntity<M>(Geo2Map<M>.BrushEntity entity, bool chop, IReadOnlyList<(string, Vector3d)> pointEntities, bool allowLeaks, IBSPDiagnostics diag) where M : IBSPMaterial {
+		public static void Act2_CompilePartitionedEntity<M>(Geo2Map<M>.BrushEntity entity, IReadOnlyList<(string, Vector3d)> pointEntities, IBSPDiagnostics diag) where M : IBSPMaterial {
+			var compFlags = diag.CompileFlags;
+			bool chop = (compFlags & BSPCompileFlags.NoChop) == 0;
+			bool allowLeaks = (compFlags & BSPCompileFlags.AllowLeaks) != 0;
+
 			List<Convex3d<Geo2FaceInfo<M>>.Face> splitFaces = new();
 			List<Convex3d<Geo2FaceInfo<M>>.Face> detailFaces = new();
 			Act2_CompileEntityEarly(entity, chop, splitFaces, detailFaces);
@@ -307,9 +317,9 @@ namespace KDCVRCBSP.ECL {
 		public static void Act3_Postprocess<M>(Geo2Map<M> map, IBSPDiagnostics diag) where M : IBSPMaterial {
 			Stopwatch timeTJC = new();
 			timeTJC.Start();
-			Act3_PostprocessEntity(map.worldspawn);
+			Act3_PostprocessEntity(map.worldspawn, diag);
 			foreach (var entity in map.brushEntities)
-				Act3_PostprocessEntity(entity);
+				Act3_PostprocessEntity(entity, diag);
 			timeTJC.Stop();
 			diag.Info($"Postprocessing took {timeTJC.Elapsed}.");
 		}
@@ -336,7 +346,7 @@ namespace KDCVRCBSP.ECL {
 			}
 		}
 
-		public static void Act3_PostprocessEntity<M>(Geo2Map<M>.BrushEntity entity) where M : IBSPMaterial {
+		public static void Act3_PostprocessEntity<M>(Geo2Map<M>.BrushEntity entity, IBSPDiagnostics diag) where M : IBSPMaterial {
 			// setup for mesh optimization pass
 			var g2 = entity.g2;
 			MOTriMesh triMesh = new(g2);
@@ -400,7 +410,12 @@ namespace KDCVRCBSP.ECL {
 			}
 
 			// run meshopt stages
-			MOAlgorithms.FixTJunctions(triMesh, (tag) => tagPool[tag].tJuncFix, tJuncPool);
+			var compFlags = diag.CompileFlags;
+			if ((compFlags & BSPCompileFlags.NoTJunc) == 0)
+				MOAlgorithms.FixTJunctions(triMesh, (tag) => tagPool[tag].tJuncFix, tJuncPool);
+			if ((compFlags & BSPCompileFlags.ExperimentalFlag) != 0)
+				if ((compFlags & BSPCompileFlags.NoMeshOpt) == 0)
+					MOAlgorithms.OptimizeMesh(triMesh, diag);
 
 			// spool out triangles as renderfaces
 			foreach (var tri in triMesh) {

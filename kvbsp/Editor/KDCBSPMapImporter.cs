@@ -14,17 +14,9 @@ namespace KDCVRCBSP {
 		[SerializeField]
 		public bool bspSimulateTrenchbroomExport = true;
 
-		[Tooltip("Enables chopping. This reduces overdraw.")]
+		[Tooltip("Internal BSP compiler flags. These allow adjusting what happens during the 'main' compile process for debugging or personal preference.")]
 		[SerializeField]
-		public bool bspDoChop = true;
-
-		[Tooltip("Enables partitioning. This is used for void elimination, etc.")]
-		[SerializeField]
-		public bool bspDoPartition = true;
-
-		[Tooltip("Indicates that 'leaks' are expected and should not be warned.")]
-		[SerializeField]
-		public bool bspAllowLeaks = false;
+		public BSPCompileFlags bspCompileFlags = 0;
 
 		[Tooltip("Logs info messages.")]
 		[SerializeField]
@@ -61,6 +53,8 @@ namespace KDCVRCBSP {
 			}
 
 			public bool DebugEnabled => parent.bspCreateDebugFiles;
+
+			public BSPCompileFlags CompileFlags => parent.bspCompileFlags;
 
 			public void WriteDiagFileDebug(string filename, Func<List<string>> text) {
 				if (parent.bspCreateDebugFiles)
@@ -118,7 +112,7 @@ namespace KDCVRCBSP {
 			var map = BSPHighLevel.Act1_MapIntoGeo2(parsedEntities, diag);
 			BSPHighLevel.Act2_CompileAll(map, (entity) => {
 				return true;
-			}, bspDoChop, bspDoPartition, bspAllowLeaks, diag);
+			}, diag);
 			BSPHighLevel.Act3_Postprocess(map, diag);
 
 			// compilation complete, now turn this into the intermediate somehow.

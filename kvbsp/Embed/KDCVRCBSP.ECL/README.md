@@ -228,8 +228,13 @@ During this process, vertices from triangles eligible to split triangles to reso
 
 The second step is to resolve T-junctions. Triangles are split according to if they have an edge split by a point in the set.
 
-The third step is TODO, but the current plan for how to optimize the resulting mesh is as follows: For each point, there are a number of 'surfaces' consisting of connected triangles with consistent tag/plane values. These surfaces are potentially concave, so we also need a routine which can decompose them into triangle meshes again after removing the point.
+The third step is to optimize the resulting mesh. For each point, there are a number of 'surfaces' consisting of connected triangles with consistent tag/plane values. These amount to a list of triangles and a bounding loop (`MOAlgorithms.FindBoundingLoop`) These surfaces are potentially concave, so we also need a routine which can decompose them into triangle meshes again after removing the point.
 
-To decompose the concave surfaces, we split them by non-intersecting lines.
+There are three options that can happen for each surface:
+1. The point is 'surrounded' (triangle fan with point as centre)
+2. The point is a useless edge cut (point is on a consistent line with the points before and after it)
+3. Neither applies (the point is not removable).
+
+The point is only removed if it is removable for all surfaces.
 
 Finally, data is read out from this representation into a simple `(position, UV)[3]` representation with a plane and texture. UVs are mapped at this point; this skips needing to map UVs in the final import process, which no longer has a reason to manipulate geometry.

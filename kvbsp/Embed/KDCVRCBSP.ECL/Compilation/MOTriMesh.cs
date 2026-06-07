@@ -80,7 +80,7 @@ namespace KDCVRCBSP.ECL {
 		System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => triangles.GetEnumerator();
 
 		// add/remove with indexing
-		public void Add(MOTri tri) {
+		public int Add(MOTri tri) {
 			int triIdx = triangles.Count;
 			triangles.Add(tri);
 			void AddTriToVertexList(int vtx) {
@@ -95,6 +95,7 @@ namespace KDCVRCBSP.ECL {
 			AddTriToVertexList(tri.vtxA);
 			AddTriToVertexList(tri.vtxB);
 			AddTriToVertexList(tri.vtxC);
+			return triIdx;
 		}
 
 		public void Remove(int triIdx) {

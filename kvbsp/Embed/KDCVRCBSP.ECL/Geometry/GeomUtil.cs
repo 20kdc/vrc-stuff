@@ -77,7 +77,7 @@ namespace KDCVRCBSP.ECL {
 			return lst;
 		}
 
-		public static bool PrepOnLine(Vector3d a, Vector3d b, double distanceEpsilon, out (Vector3d, Plane3d, double, double) prepared) {
+		public static bool PrepOnLine(Vector3d a, Vector3d b, out (Vector3d, Plane3d, double) prepared) {
 			var rayNormal = (b - a).Normalized;
 			// if (rayNormal.Length == 0)
 			// >:(
@@ -95,16 +95,15 @@ namespace KDCVRCBSP.ECL {
 				minProgress = bProgress;
 				maxProgress = aProgress;
 			}
-			prepared = (minPoint, new Plane3d(rayNormal, minProgress), maxProgress - minProgress, distanceEpsilon);
+			prepared = (minPoint, new Plane3d(rayNormal, minProgress), maxProgress - minProgress);
 			return rayNormal.Length != 0;
 		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		public static (double, double) OnLineDist((Vector3d, Plane3d, double, double) prepared, Vector3d point) {
+		public static (double, double) OnLineDist((Vector3d, Plane3d, double) prepared, Vector3d point) {
 			// prepared.Item1: minPoint
 			// prepared.Item2: rayPlane
 			// prepared.Item3: rayLength
-			// prepared.Item4: distanceEpsilon
 			double pointProgress = prepared.Item2.SignedDistance(point);
 			// point if it were as far along as minPoint
 			Vector3d simulatedPoint = point - (prepared.Item2.normal * pointProgress);
@@ -113,21 +112,21 @@ namespace KDCVRCBSP.ECL {
 		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		public static bool OnLine((Vector3d, Plane3d, double, double) prepared, bool includeEdges, Vector3d point) {
+		public static bool OnLine((Vector3d, Plane3d, double) prepared, double sideEpsilon, double edgeEpsilon, bool includeEdges, Vector3d point) {
 			var (pointDist, pointProgress) = OnLineDist(prepared, point);
-			if (pointDist >= prepared.Item4)
+			if (pointDist >= sideEpsilon)
 				return false;
 			if (includeEdges) {
-				if (pointProgress < -prepared.Item4 || pointProgress > (prepared.Item3 + prepared.Item4))
+				if (pointProgress < -edgeEpsilon || pointProgress > (prepared.Item3 + edgeEpsilon))
 					return false;
 			} else {
-				if (pointProgress < prepared.Item4 || pointProgress > (prepared.Item3 - prepared.Item4))
+				if (pointProgress < edgeEpsilon || pointProgress > (prepared.Item3 - edgeEpsilon))
 					return false;
 			}
 			return true;
 		}
 
-		public static Vector3d OnLineCross((Vector3d, Plane3d, double, double) preparedA, (Vector3d, Plane3d, double, double) preparedB) {
+		public static Vector3d OnLineCross((Vector3d, Plane3d, double) preparedA, (Vector3d, Plane3d, double) preparedB) {
 			var pointDistA0 = OnLineDist(preparedB, preparedA.Item1).Item1;
 			var pointDistA1 = OnLineDist(preparedB, preparedA.Item1 + preparedA.Item2.normal).Item1;
 			var travel1 = pointDistA1 - pointDistA0;
