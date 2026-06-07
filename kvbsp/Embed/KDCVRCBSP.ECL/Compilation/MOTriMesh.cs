@@ -28,6 +28,28 @@ namespace KDCVRCBSP.ECL {
 				default: return (vtxC, vtxA);
 			}
 		}
+
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public MOTri Arrange(int a, int b, int c) {
+			return new MOTri {
+				vtxA = a,
+				vtxB = b,
+				vtxC = c,
+				planeIndex = planeIndex,
+				tag = tag
+			};
+		}
+
+		public (MOTri, MOTri) SplitAtLine(int lineIdx, int pointIdx) {
+			switch (lineIdx) {
+				// AB
+				case 0: return (Arrange(vtxA, pointIdx, vtxC), Arrange(pointIdx, vtxB, vtxC));
+				// BC
+				case 1: return (Arrange(vtxA, vtxB, pointIdx), Arrange(vtxA, pointIdx, vtxC));
+				// CA
+				default: return (Arrange(pointIdx, vtxB, vtxC), Arrange(vtxA, vtxB, pointIdx));
+			}
+		}
 	}
 
 	public class MOTriMesh : IReadOnlyList<MOTri> {

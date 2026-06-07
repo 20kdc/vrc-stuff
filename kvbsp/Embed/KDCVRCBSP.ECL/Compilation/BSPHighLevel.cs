@@ -399,6 +399,9 @@ namespace KDCVRCBSP.ECL {
 				}
 			}
 
+			// run meshopt stages
+			MOAlgorithms.FixTJunctions(triMesh, tJuncPool);
+
 			// spool out triangles as renderfaces
 			foreach (var tri in triMesh) {
 				var tag = tagPool[tri.tag];
