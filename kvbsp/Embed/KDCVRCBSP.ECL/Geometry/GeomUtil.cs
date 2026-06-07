@@ -77,10 +77,67 @@ namespace KDCVRCBSP.ECL {
 			return lst;
 		}
 
+		public static bool PrepOnLine(Vector3d a, Vector3d b, double distanceEpsilon, out (Vector3d, Plane3d, double, double) prepared) {
+			var rayNormal = (b - a).Normalized;
+			// if (rayNormal.Length == 0)
+			// >:(
+			double aProgress = rayNormal.Dot(a);
+			double bProgress = rayNormal.Dot(b);
+			double minProgress;
+			double maxProgress;
+			Vector3d minPoint;
+			if (aProgress < bProgress) {
+				minPoint = a;
+				minProgress = aProgress;
+				maxProgress = bProgress;
+			} else {
+				minPoint = b;
+				minProgress = bProgress;
+				maxProgress = aProgress;
+			}
+			prepared = (minPoint, new Plane3d(rayNormal, minProgress), maxProgress - minProgress, distanceEpsilon);
+			return rayNormal.Length != 0;
+		}
+
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static (double, double) OnLineDist((Vector3d, Plane3d, double, double) prepared, Vector3d point) {
+			// prepared.Item1: minPoint
+			// prepared.Item2: rayPlane
+			// prepared.Item3: rayLength
+			// prepared.Item4: distanceEpsilon
+			double pointProgress = prepared.Item2.SignedDistance(point);
+			// point if it were as far along as minPoint
+			Vector3d simulatedPoint = point - (prepared.Item2.normal * pointProgress);
+			double pointDist = (prepared.Item1 - simulatedPoint).Length;
+			return (pointDist, pointProgress);
+		}
+
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static bool OnLine((Vector3d, Plane3d, double, double) prepared, bool includeEdges, Vector3d point) {
+			var (pointDist, pointProgress) = OnLineDist(prepared, point);
+			if (pointDist >= prepared.Item4)
+				return false;
+			if (includeEdges) {
+				if (pointProgress < -prepared.Item4 || pointProgress > (prepared.Item3 + prepared.Item4))
+					return false;
+			} else {
+				if (pointProgress < prepared.Item4 || pointProgress > (prepared.Item3 - prepared.Item4))
+					return false;
+			}
+			return true;
+		}
+
+		public static Vector3d OnLineCross((Vector3d, Plane3d, double, double) preparedA, (Vector3d, Plane3d, double, double) preparedB) {
+			var pointDistA0 = OnLineDist(preparedB, preparedA.Item1).Item1;
+			var pointDistA1 = OnLineDist(preparedB, preparedA.Item1 + preparedA.Item2.normal).Item1;
+			var travel1 = pointDistA1 - pointDistA0;
+			return preparedA.Item1 - (preparedA.Item2.normal * (travel1 * pointDistA0));
+		}
+
 		// -- Debug --
 
 		/// OBJ test (to check winding chopper in practice)
-		public static List<String> DebugMakeOBJ(List<(string, List<List<Vector3d>>)> objects) {
+		public static List<string> DebugMakeOBJ(List<(string, List<List<Vector3d>>)> objects) {
 			int vertices = 0;
 			List<string> res = new();
 			foreach (var obj in objects) {

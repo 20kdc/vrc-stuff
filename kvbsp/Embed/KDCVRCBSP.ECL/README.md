@@ -214,11 +214,22 @@ It takes a predicate, which is used to indicate if it is allowed to go through a
 
 Determining what to use this for is left for the caller (read: the Unity code that will have to clean up after all this) to worry about, but the basic idea is that this is one of the two ways that will be used to split up 'areaportal sections', with the other being the presence of entities in the first place. That is, entities and areaportals will both contribute to the set of leaves that are 'known-reachable-somehow', and 'Explore' will determine an entire section of the map; repeat until all reachable sections are covered, and you have a somewhat occlusion-friendly map.
 
-## T-junction processing
+## T-junction processing & mesh optimization
 
-Realistically, this is an element of a 'geometry post-process' stage that handles anything that's the last step before user code gets to play with the data; tasks like vertex-lighting-split might go here if they can be justified for the target.
+This stage converts the windings into 'final' triangles and handles visual matters like T-junction processing.
 
-In short, all of the vertices produced so far are amassed into a point cloud.
+Realistically, this is the last step before user code gets to play with the data.
 
-Just before geometry output, each winding edge is then tested to see if a point in the cloud is on the edge but not at either of its endpoints. If this is the case, a vertex is inserted. This is done in a points-outer winding-inner configuration in the current setup, because most points will be rejected by the AABB check. If a proper point tree datastructure is added, this'll be swapped around again.
+The first step is conversion of all area meshes into a single annotated triangle mesh. This triangle mesh structure has `(plane, tag)` indicators to ensure separation where needed. (Tags refer to common sets of attributes including texture, UV, source area for proper reconstitution, and T-junction fixing status.)
 
+It also passively tracks which triangles are attached to which points, providing a full connectivity graph. (This connectivity-graph system is inspired by model editors, which treat vertices as distinct entities; this representation is useful to determine certain properties.)
+
+During this process, vertices from triangles eligible to split triangles to resolve T-junctions are added to a set.
+
+The second step is to resolve T-junctions. Triangles are split according to if they have an edge split by a point in the set.
+
+The third step is TODO, but the current plan for how to optimize the resulting mesh is as follows: For each point, there are a number of 'surfaces' consisting of connected triangles with consistent tag/plane values. These surfaces are potentially concave, so we also need a routine which can decompose them into triangle meshes again after removing the point.
+
+To decompose the concave surfaces, we split them by non-intersecting lines.
+
+Finally, data is read out from this representation into a simple `(position, UV)[3]` representation with a plane and texture. UVs are mapped at this point; this skips needing to map UVs in the final import process, which no longer has a reason to manipulate geometry.

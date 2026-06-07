@@ -11,6 +11,7 @@ namespace KDCVRCBSP.Tests {
 			RunCutWindingTests();
 			RunPlanePoolTests();
 			RunWindingToPlanesTests();
+			RunOnLineTests();
 		}
 
 		public static void RunMapParsingTests() {
@@ -108,6 +109,14 @@ namespace KDCVRCBSP.Tests {
 				new Plane3d(new Vector3d(-1, 0, 0), 2),
 				new Plane3d(new Vector3d(0, 1, 0), 3),
 			}, "WindingToPlanes planes");
+		}
+
+		public static void RunOnLineTests() {
+			Console.WriteLine("OnLine tests");
+			GeomUtil.PrepOnLine((4, 1, 0), (8, 1, 0), 0.01d, out var prepared);
+			Test.Assert(GeomUtil.OnLine(prepared, false, (6, 1, 0)), "" + GeomUtil.OnLineDist(prepared, (6, 1, 0)));
+			Test.Assert(!GeomUtil.OnLine(prepared, false, (6, 0, 0)), "" + GeomUtil.OnLineDist(prepared, (6, 0, 0)));
+			Test.Assert(!GeomUtil.OnLine(prepared, false, (2, 1, 0)), "" + GeomUtil.OnLineDist(prepared, (2, 1, 0)));
 		}
 	}
 }
