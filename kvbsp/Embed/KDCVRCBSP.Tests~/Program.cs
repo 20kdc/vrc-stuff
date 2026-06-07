@@ -42,7 +42,7 @@ namespace KDCVRCBSP.Tests {
 			var mapchk = MapParser.Parse<string>(File.ReadAllText("testmap_220_hammer.map"), (name) => name);
 			List<(string, List<List<Vector3d>>)> objsrc = new();
 			int brushIdx = 0;
-			Geo2Context g2 = new();
+			Geo2Context g2 = new(new());
 			foreach (var brush in mapchk[0].brushes) {
 				var cvx = Convex3d<int>.FromBrush(g2, brush, (idx, v) => 0);
 				objsrc.Add(("b" + brushIdx, cvx.faces.Select(v => v.winding.ToList()).ToList()));
@@ -77,7 +77,7 @@ namespace KDCVRCBSP.Tests {
 
 		public static void RunPlanePoolTests() {
 			Console.WriteLine("Plane pool test");
-			Geo2Context g2c = new();
+			Geo2Context g2c = new(new());
 			int pa = g2c.ToPlaneIndex(new Plane3d(new Vector3d(1, 0, 0), 1));
 			int pb = g2c.ToPlaneIndex(new Plane3d(new Vector3d(-1, 0, 0), -1));
 			Test.AssertEq(g2c.FlipPlaneIndex(pa), pb, "flipped planes must use the same underlying raw index");

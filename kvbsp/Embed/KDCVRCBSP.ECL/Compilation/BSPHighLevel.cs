@@ -8,6 +8,7 @@ namespace KDCVRCBSP.ECL {
 	public static class BSPHighLevel {
 		/// Maps from entities into Geo2.
 		public static Geo2Map<M> Act1_MapIntoGeo2<M>(List<EntityParsed<M>> entities, IBSPDiagnostics diag) where M : IBSPMaterial {
+			Epsilons epsilons = new();
 			Stopwatch timeG2C = new();
 			timeG2C.Start();
 			var worldspawn = EntityParsed<M>.EnsureWorldspawn(entities);
@@ -50,13 +51,13 @@ namespace KDCVRCBSP.ECL {
 					// if target brush list is world, then this is subsumed
 					// otherwise it isn't
 					if (targetBrushList != worldBrushes)
-						brushEntities.Add(new Geo2Map<M>.BrushEntity(new Geo2Context(), entity.pairs, targetBrushList));
+						brushEntities.Add(new Geo2Map<M>.BrushEntity(new Geo2Context(epsilons), entity.pairs, targetBrushList));
 				} else {
 					pointEntities.Add(entity.pairs);
 				}
 			}
 
-			Geo2Map<M>.BrushEntity g2World = new(new Geo2Context(), worldspawn.pairs, worldBrushes);
+			Geo2Map<M>.BrushEntity g2World = new(new Geo2Context(epsilons), worldspawn.pairs, worldBrushes);
 			timeG2C.Stop();
 			diag.Info($"Geo2 conversion took {timeG2C.Elapsed}, {totalBrushes} total brushes.");
 			return new Geo2Map<M>(g2World, pointEntities, brushEntities);
@@ -313,107 +314,112 @@ namespace KDCVRCBSP.ECL {
 			diag.Info($"Postprocessing took {timeTJC.Elapsed}.");
 		}
 
-		public static void Act3_PostprocessEntity<M>(Geo2Map<M>.BrushEntity entity) where M : IBSPMaterial {
-			var broadphaseEpsilon = entity.g2.broadphaseEpsilon;
-			var distanceEpsilon = entity.g2.distanceEpsilon;
-			// build vertex list
-			List<Vector3d> vertices = new();
-			int tJuncPool = 0;
-			int FindVertex(Vector3d vtx) {
-				for (int i = 0; i < vertices.Count; i++)
-					if ((vertices[i] - vtx).Length < distanceEpsilon)
-						return i;
-				var newVtx = vertices.Count;
-				vertices.Add(vtx);
-				return newVtx;
+		private struct MOTag {
+			public int area;
+			public bool tJuncFix;
+			public object material;
+			public BrushUV brushUV;
+			public bool Eq(MOTag other, double uvEpsilon) {
+				if (area != other.area)
+					return false;
+				if (tJuncFix != other.tJuncFix)
+					return false;
+				if (material != other.material)
+					return false;
+				if ((brushUV.texOffset - other.brushUV.texOffset).Length > uvEpsilon)
+					return false;
+				if ((brushUV.texSAxis - other.brushUV.texSAxis).Length > uvEpsilon)
+					return false;
+				if ((brushUV.texTAxis - other.brushUV.texTAxis).Length > uvEpsilon)
+					return false;
+				return true;
 			}
-			// First vertices are always tjunc candidates
-			foreach (var area in entity.areas) {
-				foreach (var face in area.colliderFaces) {
-					if ((face.data.modSurfaceFlags & BSPSurfaceFlags.NoCreateTJunction) != 0)
-						continue;
-					foreach (var pt in face.winding)
-						FindVertex(pt);
-				}
-			}
-			// CHECK ONLY: realtest inject false tjunc for dbg
-			bool testPointEn = false;
-			Vector3d testPoint = (-384, 384, -128);
-			if (testPointEn)
-				FindVertex(testPoint);
-			// lock in tjunc candidate pool
-			tJuncPool = vertices.Count;
-			foreach (var area in entity.areas) {
-				foreach (var face in area.colliderFaces) {
-					var flags = face.data.modSurfaceFlags;
-					if ((flags & BSPSurfaceFlags.DeleteAreaRenderFace) != 0)
-						continue;
-					// creating render face...
-					List<int> poly = new();
-					// this implicitly implements position welding
-					// (helpfully, we do this BEFORE UV mapping
-					foreach (Vector3d vtx in face.winding)
-						poly.Add(FindVertex(vtx));
-					// consider T-junc
-					if ((flags & BSPSurfaceFlags.NoFixTJunction) == 0) {
-						int polyAIndex = 0;
-						while (polyAIndex < poly.Count) {
-							Vector3d polyAPointA = vertices[poly[polyAIndex]];
-							Vector3d polyAPointB = vertices[poly[(polyAIndex + 1) % poly.Count]];
-							var rayNormal = (polyAPointB - polyAPointA).Normalized;
-							if (rayNormal.Length == 0) {
-								// Console.WriteLine($"WARN: Zero-length polygon side at {polyAPointA}");
-								polyAIndex++;
-								continue;
-							}
-							// go through points in the t-junction pool
-							int pointIdx;
-							for (pointIdx = 0; pointIdx < tJuncPool; pointIdx++) {
-								var point = vertices[pointIdx];
-								// Console.WriteLine($"{rayNormal.Length} {polyAPointA} {polyAPointB}");
-								double aProgress = rayNormal.Dot(polyAPointA);
-								double pointProgress = rayNormal.Dot(point);
-								// point if it were as far along as A
-								Vector3d simulatedPoint = point + (rayNormal * (aProgress - pointProgress));
-								double pointDist = (polyAPointA - simulatedPoint).Length;
-								if (pointDist >= distanceEpsilon)
-									continue;
+		}
 
-								double bProgress = rayNormal.Dot(polyAPointB);
-								double minProgress = Math.Min(aProgress, bProgress);
-								double maxProgress = Math.Max(aProgress, bProgress);
-								if (pointProgress < (minProgress + distanceEpsilon) || pointProgress > (maxProgress - distanceEpsilon))
-									continue;
-								if (testPointEn && point.x == testPoint.x && point.y == testPoint.y && point.z == testPoint.z)
-									Console.WriteLine("testPoint was hit in t-junc processing at " + polyAIndex + " in " + poly.Count);
-								// Point is definitely on line and is not an existing vertex.
-								//Console.WriteLine($"Placed {point} between {polyAPointA} and {polyAPointB}!");
-								poly.Insert(polyAIndex + 1, pointIdx);
-								// we need to restart the outer logic given we have a new point B
-								break;
-							}
-							// only advance if we didn't end up adding a point
-							if (pointIdx == tJuncPool)
-								polyAIndex++;
-						}
-					}
-					// rebuild
-					List<(Vector3d, Vector2d)> polyFinal = new();
-					foreach (var vid in poly) {
-						var vec = vertices[vid];
-						polyFinal.Add((vec, face.data.texUV.MapUV(vec)));
-					}
-					area.renderFaces.Add(new Geo2RenderFace<M> {
+		public static void Act3_PostprocessEntity<M>(Geo2Map<M>.BrushEntity entity) where M : IBSPMaterial {
+			// setup for mesh optimization pass
+			var g2 = entity.g2;
+			MOTriMesh triMesh = new(g2);
+
+			List<MOTag> tagPool = new();
+			List<int> tJuncPool = new();
+			int ConsiderVertex(Vector3d vtx, bool tjcEligible) {
+				// this implicitly implements position welding
+				int idx = g2.ToVertexIndex(vtx);
+				if (!tjcEligible)
+					return idx;
+				if (!tJuncPool.Contains(idx))
+					tJuncPool.Add(idx);
+				return idx;
+			}
+
+			// convert
+			for (int areaIdx = 0; areaIdx < entity.areas.Count; areaIdx++) {
+				var area = entity.areas[areaIdx];
+				foreach (var face in area.colliderFaces) {
+					// should never happen
+					if (face.winding.Count < 2)
+						continue;
+					bool tjcEligible = (face.data.modSurfaceFlags & BSPSurfaceFlags.NoCreateTJunction) == 0;
+					bool tjFixEligible = (face.data.modSurfaceFlags & BSPSurfaceFlags.NoFixTJunction) == 0;
+					bool delme = (face.data.modSurfaceFlags & BSPSurfaceFlags.DeleteAreaRenderFace) != 0;
+					if (delme && !tjcEligible)
+						continue;
+					// identify tag
+					var myTag = new MOTag {
+						area = areaIdx,
+						tJuncFix = tjFixEligible,
 						material = face.data.material,
-						polygon = polyFinal,
-						plane = face.g2.FromPlaneIndex(face.planeIndex),
-						bounds = face.bounds
-					});
+						brushUV = face.data.texUV
+					};
+					int tagIdx;
+					for (tagIdx = 0; tagIdx < tagPool.Count; tagIdx++)
+						if (myTag.Eq(tagPool[tagIdx], g2.epsilons.uv))
+							break;
+					if (tagIdx == tagPool.Count)
+						tagPool.Add(myTag);
+					int anchorA = ConsiderVertex(face.winding[0], tjcEligible);
+					int anchorB = ConsiderVertex(face.winding[1], tjcEligible);
+					for (int idx = 2; idx < face.winding.Count; idx++) {
+						int anchorC = ConsiderVertex(face.winding[idx], tjcEligible);
+						// don't *REALLY* add the triangle if part of a renderface
+						// we run the rest of the logic up to here for its effects on t-junc
+						// but this'll end up getting globbed into meshopt if we don't stop now
+						if (!delme) {
+							triMesh.Add(new MOTri {
+								vtxA = anchorA,
+								vtxB = anchorB,
+								vtxC = anchorC,
+								planeIndex = face.planeIndex,
+								tag = tagIdx
+							});
+						}
+						anchorB = anchorC;
+					}
 				}
+			}
+
+			// spool out triangles as renderfaces
+			foreach (var tri in triMesh) {
+				var tag = tagPool[tri.tag];
+				var area = entity.areas[tag.area];
+				var pa = g2.PointsRaw[tri.vtxA];
+				var pb = g2.PointsRaw[tri.vtxB];
+				var pc = g2.PointsRaw[tri.vtxC];
+				area.renderFaces.Add(new Geo2RenderFace<M> {
+					material = (M) tag.material,
+					a = (pa, tag.brushUV.MapUV(pa)),
+					b = (pb, tag.brushUV.MapUV(pb)),
+					c = (pc, tag.brushUV.MapUV(pc)),
+					plane = g2.FromPlaneIndex(tri.planeIndex)
+				});
+			}
+
+			// delete colliderfaces
+			foreach (var area in entity.areas)
 				area.colliderFaces.RemoveAll((face) => {
 					return (face.data.modSurfaceFlags & BSPSurfaceFlags.DeleteAreaColliderFace) != 0;
 				});
-			}
 		}
 	}
 }

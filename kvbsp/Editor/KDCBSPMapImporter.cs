@@ -150,16 +150,18 @@ namespace KDCVRCBSP {
 			List<KDCBSPIntermediate.Face> facesAccum = new();
 			foreach (var area in ent.areas) {
 				foreach (var renderFace in area.renderFaces) {
-					var winding = new (Vector3, Vector2)[renderFace.polygon.Count];
-					for (int i = 0; i < winding.Length; i++) {
-						var src = renderFace.polygon[i];
+					(Vector3, Vector2) ConvertVertex((Vector3d, Vector2d) src) {
 						var pos = KDCBSPUtilities.TransformPosition((float) src.Item1.x, (float) src.Item1.y, (float) src.Item1.z, worldScale);
 						var uv = new Vector2((float) src.Item2.x, (float) -src.Item2.y);
-						winding[i] = (pos, uv);
+						return (pos, uv);
 					}
 					facesAccum.Add(new KDCBSPIntermediate.Face {
 						tex = renderFace.material.name,
-						winding = winding
+						winding = new (Vector3, Vector2)[] {
+							ConvertVertex(renderFace.a),
+							ConvertVertex(renderFace.b),
+							ConvertVertex(renderFace.c)
+						}
 					});
 				}
 			}

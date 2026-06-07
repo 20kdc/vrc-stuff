@@ -147,7 +147,8 @@ namespace KDCVRCBSP.CMF {
 						CMFFile.Entity thisWall = new();
 						thisWall.classname = "collidable_geometry";
 						thisWall.pairs.Add(("sfx_type", "" + worldspawn.pairs.GetInt("_type:" + face.material.texture, 0)));
-						ConvertFace(thisWall.polygons, cmf, face, worldLightSlice);
+						ConvertFace(thisWall.polygons, cmf, face);
+						// worldLightSlice
 						if (thisWall.polygons.Count == 0)
 							continue;
 						cmf.entities.Add(thisWall);
@@ -166,7 +167,8 @@ namespace KDCVRCBSP.CMF {
 					// geometry
 					foreach (var area in ent.areas)
 						foreach (var face in area.renderFaces)
-							ConvertFace(cmfEnt.polygons, cmf, face, ent.pairs.GetInt("_lightslice", 0));
+							ConvertFace(cmfEnt.polygons, cmf, face);
+					// , ent.pairs.GetInt("_lightslice", 0)
 				}
 
 				// setup point entities
@@ -212,7 +214,7 @@ namespace KDCVRCBSP.CMF {
 					// We create a new Geo2Context for each entity.
 					// Unless you're trying to write a 'literal' BSP file,
 					//  you should be doing this to save on plane lookups.
-					Geo2Context g2 = new();
+					Geo2Context g2 = new(new());
 					foreach (var brush in ent.brushes) {
 						var cvx = Convex3d<EntityParsed<Material>.BrushSide>.FromBrush(g2, brush, (idx, v) => v);
 						if (cvx != null)
@@ -231,12 +233,16 @@ namespace KDCVRCBSP.CMF {
 						List<(Vector3d, Vector2d)> polygon = new();
 						foreach (var pt in face.winding)
 							polygon.Add((pt, face.data.MapUV(pt)));
-						ConvertFace(cmfEnt.polygons, cmf, new Geo2RenderFace<Material> {
-							bounds = face.bounds,
-							material = face.data.texture,
-							plane = g2.FromPlaneIndex(face.planeIndex),
-							polygon = polygon
-						}, ent.pairs.GetInt("_lightslice", 0));
+						for (int i = 2; i < face.winding.Count; i++) {
+							ConvertFace(cmfEnt.polygons, cmf, new Geo2RenderFace<Material> {
+								material = face.data.texture,
+								plane = g2.FromPlaneIndex(face.planeIndex),
+								a = polygon[0],
+								b = polygon[i - 1],
+								c = polygon[i]
+							});
+							// , ent.pairs.GetInt("_lightslice", 0)
+						}
 					}
 					cmf.entities.Add(cmfEnt);
 				}
@@ -291,7 +297,7 @@ namespace KDCVRCBSP.CMF {
 			}
 		}
 
-		public static void ConvertFace(List<CMFFile.Polygon> polygons, CMFFile cmf, Geo2RenderFace<Material> face, int lightSlice) {
+		public static void ConvertFace(List<CMFFile.Polygon> polygons, CMFFile cmf, Geo2RenderFace<Material> face) {
 			int materialIndex = cmf.EnsureMaterial(face.material.texture);
 			// convert into CMF coordinate system
 			var cmfPlane = new Plane3d(new Vector3d(face.plane.normal.x, face.plane.normal.z, face.plane.normal.y), -face.plane.distance);
@@ -300,7 +306,7 @@ namespace KDCVRCBSP.CMF {
 				// convert into CMF coordinate system
 				plane = cmfPlane
 			};
-			foreach (var vecuv in face.polygon) {
+			foreach (var vecuv in new (Vector3d, Vector2d)[] {face.a, face.b, face.c}) {
 				// also convert into CMF coordinate system
 				Vector3d vecConv = new(vecuv.Item1.x, vecuv.Item1.z, vecuv.Item1.y);
 				poly.vertices.Add((vecConv, vecuv.Item2));

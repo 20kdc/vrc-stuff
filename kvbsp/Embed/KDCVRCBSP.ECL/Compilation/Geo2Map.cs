@@ -119,9 +119,8 @@ namespace KDCVRCBSP.ECL {
 
 	public struct Geo2RenderFace<M> {
 		public M material;
-		public List<(Vector3d, Vector2d)> polygon;
+		public (Vector3d, Vector2d) a, b, c;
 		public Plane3d plane;
-		public AABB3d bounds;
 	}
 
 	/// Face information structure.

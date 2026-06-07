@@ -17,17 +17,25 @@ namespace KDCVRCBSP.ECL {
 			get => planesRaw;
 		}
 
-		/// Distance epsilon, used for comparing co-planarity in various circumstances (among other things)
-		public double distanceEpsilon = 1d / 256d;
+		private readonly List<Vector3d> pointsRaw = new();
 
-		/// Broadphase epsilon. This is supplied to AABB3d.Intersects.
-		public double broadphaseEpsilon = 0.5d;
+		/// All 'raw' points in this context.
+		public IReadOnlyList<Vector3d> PointsRaw {
+			[MethodImpl(MethodImplOptions.AggressiveInlining)]
+			get => pointsRaw;
+		}
 
-		/// Normal epsilon, used for comparing normals in co-planarity checks.
-		public double normalEpsilon = 1d / 256d;
+		public Vector3d this[int point] {
+			[MethodImpl(MethodImplOptions.AggressiveInlining)]
+			get => pointsRaw[point];
+		}
 
-		/// Initial winding size.
-		public double initialWindingSize = 65536d;
+		/// Epsilon config.
+		public readonly Epsilons epsilons;
+
+		public Geo2Context(Epsilons epsilons) {
+			this.epsilons = epsilons;
+		}
 
 		/// Converts a plane to a plane index.
 		/// A plane index is NOT a direct index into the PlanesRaw array.
@@ -46,35 +54,24 @@ namespace KDCVRCBSP.ECL {
 			var aaX = new Vector3d(Math.Sign(plane.normal.x), 0, 0);
 			var aaY = new Vector3d(0, Math.Sign(plane.normal.y), 0);
 			var aaZ = new Vector3d(0, 0, Math.Sign(plane.normal.z));
-			if (NormalNearNormal(plane.normal, aaX))
+			if (epsilons.NormalNearNormal(plane.normal, aaX))
 				plane.normal = new Vector3d(Math.Sign(plane.normal.x), 0, 0);
-			else if (NormalNearNormal(plane.normal, aaY))
+			else if (epsilons.NormalNearNormal(plane.normal, aaY))
 				plane.normal = new Vector3d(0, Math.Sign(plane.normal.y), 0);
-			else if (NormalNearNormal(plane.normal, aaZ))
+			else if (epsilons.NormalNearNormal(plane.normal, aaZ))
 				plane.normal = new Vector3d(0, 0, Math.Sign(plane.normal.z));
 
 			for (int plnIdx = 0; plnIdx < planesRaw.Count; plnIdx++) {
 				var pln = planesRaw[plnIdx];
-				if (PlaneNearPlane(pln, plane))
+				if (epsilons.PlaneNearPlane(pln, plane))
 					return invert ? -(plnIdx + 1) : plnIdx;
-				else if (PlaneNearPlane(pln, plane.Flipped))
+				else if (epsilons.PlaneNearPlane(pln, plane.Flipped))
 					return invert ? plnIdx : -(plnIdx + 1);
 			}
 
 			int rawIdx = planesRaw.Count;
 			planesRaw.Add(plane);
 			return invert ? -(rawIdx + 1) : rawIdx;
-		}
-
-		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		public bool PlaneNearPlane(Plane3d a, Plane3d b) {
-			return NormalNearNormal(a.normal, b.normal) && (Math.Abs(a.distance - b.distance) < distanceEpsilon);
-		}
-
-		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		public bool NormalNearNormal(Vector3d a, Vector3d b) {
-			var comp = a - b;
-			return Math.Abs(comp.x) < normalEpsilon && Math.Abs(comp.y) < normalEpsilon && Math.Abs(comp.z) < normalEpsilon;
 		}
 
 		/// Decodes a plane index.
@@ -92,5 +89,14 @@ namespace KDCVRCBSP.ECL {
 		/// Flips a plane index.
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public int FlipPlaneIndex(int idx) => idx < 0 ? ((-1) - idx) : -(idx + 1);
+
+		public int ToVertexIndex(Vector3d point) {
+			for (int i = 0; i < pointsRaw.Count; i++)
+				if ((pointsRaw[i] - point).Length < epsilons.distance)
+					return i;
+			var newVtx = pointsRaw.Count;
+			pointsRaw.Add(point);
+			return newVtx;
+		}
 	}
 }

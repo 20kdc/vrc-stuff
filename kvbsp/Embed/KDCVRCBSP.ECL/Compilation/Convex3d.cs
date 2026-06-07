@@ -39,7 +39,7 @@ namespace KDCVRCBSP.ECL {
 		/// Determines if this convex is unclosed by if the bounds are too close to the edge.
 		public bool IsUnclosed {
 			get {
-				var effectiveInfinity = g2.initialWindingSize - g2.distanceEpsilon;
+				var effectiveInfinity = g2.epsilons.initialWindingSize - g2.epsilons.distance;
 				var effectiveInfinityN = -effectiveInfinity;
 				if (bounds.min.x < effectiveInfinityN)
 					return true;
@@ -81,11 +81,11 @@ namespace KDCVRCBSP.ECL {
 		public (Convex3d<D>, Convex3d<D>) Cut(int planeIdx, D planeData) {
 			var plane = g2.FromPlaneIndex(planeIdx);
 			var planeFlipIdx = g2.FlipPlaneIndex(planeIdx);
-			var winding = GeomUtil.GenInitialWinding(plane, g2.initialWindingSize);
+			var winding = GeomUtil.GenInitialWinding(plane, g2.epsilons.initialWindingSize);
 			List<Face> facesBelow = new();
 			List<Face> facesAbove = new();
 			foreach (var face in this.faces) {
-				g2.FromPlaneIndex(face.planeIndex).CutWinding(winding, null, g2.distanceEpsilon);
+				g2.FromPlaneIndex(face.planeIndex).CutWinding(winding, null, g2.epsilons.distance);
 				(var faceBelow, var faceAbove) = face.Cut(plane);
 				if (faceBelow != null)
 					facesBelow.Add(faceBelow);
@@ -155,7 +155,7 @@ namespace KDCVRCBSP.ECL {
 			public (Face, Face) Cut(Plane3d cut) {
 				List<Vector3d> neg = new(this.winding);
 				List<Vector3d> pos = new();
-				cut.CutWinding(neg, pos, g2.distanceEpsilon);
+				cut.CutWinding(neg, pos, g2.epsilons.distance);
 				return (
 					neg.Count >= WindingCollapseLimit ? new Face(g2, planeIndex, neg, data) : null,
 					pos.Count >= WindingCollapseLimit ? new Face(g2, planeIndex, pos, data) : null
@@ -169,11 +169,11 @@ namespace KDCVRCBSP.ECL {
 		public static Convex3d<D> FromPlanes(Geo2Context g2, Plane3d[] planes, D[] associated, bool acceptUnbounded = false) {
 			List<Face> faces = new();
 			for (int i = 0; i < planes.Length; i++) {
-				var winding = GeomUtil.GenInitialWinding(planes[i], g2.initialWindingSize);
+				var winding = GeomUtil.GenInitialWinding(planes[i], g2.epsilons.initialWindingSize);
 				for (int j = 0; j < planes.Length; j++) {
 					if (i == j)
 						continue;
-					planes[j].CutWinding(winding, null, g2.distanceEpsilon);
+					planes[j].CutWinding(winding, null, g2.epsilons.distance);
 					if (winding.Count < WindingCollapseLimit)
 						break;
 				}
@@ -203,7 +203,7 @@ namespace KDCVRCBSP.ECL {
 					continue;
 				}
 				// N^2 algorithm moment. Such is life.
-				if (!cutterBrush.bounds.Intersects(bounds, g2.broadphaseEpsilon))
+				if (!cutterBrush.bounds.Intersects(bounds, g2.epsilons.broadphase))
 					continue;
 				// Assemble list of chopper faces.
 				List<(Face, bool)> cutterFaces = new();
@@ -258,7 +258,7 @@ namespace KDCVRCBSP.ECL {
 				var cutterPlane = g2.FromPlaneIndex(cutterFace.planeIndex);
 				// Be 'optimistic' about on-plane lines here.
 				// The overlapping face conundrum is covered because we don't actually cut using those faces anyway.
-				cutterPlane.CutWindingMD(intersectionWinding, null, g2.distanceEpsilon, (a, b) => a || b, canChop);
+				cutterPlane.CutWindingMD(intersectionWinding, null, g2.epsilons.distance, (a, b) => a || b, canChop);
 				if (intersectionWinding.Count < WindingCollapseLimit)
 					break;
 			}
@@ -291,7 +291,7 @@ namespace KDCVRCBSP.ECL {
 					continue;
 				// Below the plane gets cut up into basically a copy of intersectionWinding.
 				List<Vector3d> flakeWinding = new();
-				plane.Item1.CutWinding(remainderWinding, flakeWinding, g2.distanceEpsilon);
+				plane.Item1.CutWinding(remainderWinding, flakeWinding, g2.epsilons.distance);
 				if (flakeWinding.Count >= WindingCollapseLimit)
 					dest.Add(new Face(g2, oldFace.planeIndex, flakeWinding, oldFace.data));
 			}

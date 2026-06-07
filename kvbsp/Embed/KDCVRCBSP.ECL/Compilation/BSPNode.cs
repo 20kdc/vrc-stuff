@@ -55,7 +55,7 @@ namespace KDCVRCBSP.ECL {
 						if (face.planeIndex == planeIndex) {
 							livesOnLeafPlane = true;
 						} else {
-							g2.FromPlaneIndex(planeIndex).CutWinding(winding, null, g2.distanceEpsilon);
+							g2.FromPlaneIndex(planeIndex).CutWinding(winding, null, g2.epsilons.distance);
 							if (winding.Count < Convex3d<D>.WindingCollapseLimit)
 								break;
 						}
@@ -148,7 +148,7 @@ namespace KDCVRCBSP.ECL {
 			// Determine which of below/above to punt this face to based on what a cut does.
 			// Note that this is an *approximation!* It doesn't account for the possibility that the union of *multiple* cut planes might exclude a face.
 			// This is finally resolved when preparing the final leaf.
-			(_, int belowCount, int aboveCount) = splitPlane.CutWindingSim(face.winding, face.g2.distanceEpsilon);
+			(_, int belowCount, int aboveCount) = splitPlane.CutWindingSim(face.winding, face.g2.epsilons.distance);
 			if (belowCount >= Convex3d<D>.WindingCollapseLimit)
 				below.Add(face);
 			if (aboveCount >= Convex3d<D>.WindingCollapseLimit)
@@ -166,7 +166,7 @@ namespace KDCVRCBSP.ECL {
 					var leafB = leaves[j];
 					var leafBBounds = leafB.convex.bounds;
 					// First check: Do these leaves even maybe touch?
-					if (!leafABounds.Intersects(leafBBounds, g2.broadphaseEpsilon))
+					if (!leafABounds.Intersects(leafBBounds, g2.epsilons.broadphase))
 						continue;
 					// Ok, these leaves might touch.
 					Dictionary<int, Convex3d<List<BSPPortal<D>>>.Face> leafAWindingMap = new();
@@ -183,7 +183,7 @@ namespace KDCVRCBSP.ECL {
 						var leafBPlane = g2.FromPlaneIndex(leafBFace.planeIndex);
 						var cutPlanes = Plane3d.WindingToPlanes(leafBFace.winding, leafBPlane.normal);
 						foreach (Plane3d cutPlane in cutPlanes) {
-							cutPlane.CutWinding(winding, null, g2.distanceEpsilon);
+							cutPlane.CutWinding(winding, null, g2.epsilons.distance);
 							if (winding.Count < Convex3d<D>.WindingCollapseLimit)
 								break;
 						}
@@ -203,7 +203,7 @@ namespace KDCVRCBSP.ECL {
 							// must survive cutting
 							var lst = new List<Vector3d>(face.winding);
 							foreach (Plane3d cutPlane in windingPlanes) {
-								cutPlane.CutWinding(lst, null, g2.distanceEpsilon);
+								cutPlane.CutWinding(lst, null, g2.epsilons.distance);
 								if (lst.Count < Convex3d<D>.WindingCollapseLimit)
 									break;
 							}
@@ -271,9 +271,9 @@ namespace KDCVRCBSP.ECL {
 
 		public override BSPLeaf<D> Find(Geo2Context g2, Vector3d pos) {
 			double sd = plane.SignedDistance(pos);
-			if (sd > g2.distanceEpsilon) {
+			if (sd > g2.epsilons.distance) {
 				return above.Find(g2, pos);
-			} else if (sd < -g2.distanceEpsilon) {
+			} else if (sd < -g2.epsilons.distance) {
 				return below.Find(g2, pos);
 			} else {
 				BSPLeaf<D> aboveLeaf = above.Find(g2, pos);
