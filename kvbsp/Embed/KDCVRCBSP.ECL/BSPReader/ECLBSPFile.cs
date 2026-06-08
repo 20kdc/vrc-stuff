@@ -14,11 +14,17 @@ namespace KDCVRCBSP.ECL {
 			if (bsp.Length < 8)
 				throw new Exception("Not even long enough for the magic number!");
 
+			int gqVer = BitConverter.ToInt32(bsp, 0);
+			if (gqVer == 0x1C || gqVer == 0x1E)
+				return ECLQHLLoader.Load(bsp);
+
 			bool kwBSP = bsp[1] == (byte) 'B' && bsp[2] == (byte) 'S' && bsp[3] == (byte) 'P';
 			int version = BitConverter.ToInt32(bsp, 4);
 			if (bsp[0] == (byte) 'I' && kwBSP && version == 38) {
+				// IBSP 38
 				return ECLQ2Loader.Load(bsp, false);
 			} else if (bsp[0] == (byte) 'Q' && kwBSP && version == 38) {
+				// qbism
 				return ECLQ2Loader.Load(bsp, true);
 			} else {
 				throw new Exception("Doesn't look like a supported BSP file (Quake 2 with possible qbism extensions)");
@@ -29,11 +35,11 @@ namespace KDCVRCBSP.ECL {
 			public Model model;
 			public Vector3d origin;
 
-			public Entity(IReadOnlyList<(string, string)> source, Model model, Vector3d origin) {
+			public Entity(IReadOnlyList<(string, string)> source, Model model) {
 				this.model = model;
-				this.origin = origin;
 				foreach (var pair in source)
 					Add(pair);
+				origin = GetVector3d("origin", Vector3d.Zero);
 
 				// 'out-of-compiler' autoorigin
 				if (model != null && GetBool("_kdcbsp_autoorigin", false)) {

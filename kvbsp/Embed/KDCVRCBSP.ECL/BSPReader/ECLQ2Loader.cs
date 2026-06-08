@@ -5,51 +5,61 @@ using System.Collections.Generic;
 
 namespace KDCVRCBSP.ECL {
 	/// Loads a Quake 2 BSP file.
-	/// This contains all the binary format details, and 'skips over' certain parts of the format.
+	/// This handles the binary format details, skipping over parts of the format irrelevant to this use.
 	public static class ECLQ2Loader {
-		public static ECLBSPFile Load(byte[] bsp, bool qbism) {
-			ECLBSPFile res = new();
+		public static ECLBSPFile Load(byte[] bspRaw, bool qbism) {
+			var bsp = new ECLLoadCom.LumpTable {
+				file = new(bspRaw),
+				lumpHeaderEntrySize = 8,
+				lumpHeaderOfsOfs = 8,
+				lumpHeaderLenOfs = 12
+			};
 
-			Plane3d[] planes;
-			foreach ((int idx, int pos) in StructArray(bsp, 1, 20, out planes)) {
-				float nX = BitConverter.ToSingle(bsp, pos);
-				float nY = BitConverter.ToSingle(bsp, pos + 4);
-				float nZ = BitConverter.ToSingle(bsp, pos + 8);
-				float d = BitConverter.ToSingle(bsp, pos + 12);
-				planes[idx] = new Plane3d((nX, nY, nZ), d);
-			}
+			// lumps
+			var lumpEntities = bsp[0];
+			var lumpPlanes = bsp[1];
+			var lumpVertexes = bsp[2];
+			var lumpNodes = bsp[4];
+			var lumpTexInfos = bsp[5];
+			var lumpFaces = bsp[6];
+			var lumpLeaves = bsp[8];
+			var lumpLeafFaces = bsp[9];
+			var lumpLeafBrushes = bsp[10];
+			var lumpEdges = bsp[11];
+			var lumpSurfEdges = bsp[12];
+			var lumpModels = bsp[13];
+			var lumpBrushes = bsp[14];
+			var lumpBrushSides = bsp[15];
 
-			Vector3d[] vertexes;
-			foreach ((int idx, int pos) in StructArray(bsp, 2, 12, out vertexes)) {
-				vertexes[idx] = GetPosition(bsp, pos);
-			}
+			Plane3d[] planes = ECLLoadCom.HandlePlanesLump(lumpPlanes, false);
+			Vector3d[] vertexes = ECLLoadCom.HandleVertexLump(lumpVertexes);
 
 			var encoding = new UTF8Encoding(false);
 
 			(string, BrushUV)[] texInfos;
-			foreach ((int idx, int pos) in StructArray(bsp, 5, 76, out texInfos)) {
-				int strofs = pos + 40;
+			foreach ((int idx, var pos) in lumpTexInfos.StructArray(76, out texInfos)) {
+				int strofs = 40;
 				int strlen = 0;
 				while (strlen < 32) {
-					if (bsp[strofs + strlen] == 0)
+					if (pos[strofs + strlen] == 0)
 						break;
 					strlen++;
 				}
-				string name = encoding.GetString(bsp, strofs, strlen);
+				string name = encoding.GetString(pos.data, pos.ofs + strofs, strlen);
 				texInfos[idx] = (name, new BrushUV {
 					texSAxis = new Vector3d(
-						BitConverter.ToSingle(bsp, pos + 0),
-						BitConverter.ToSingle(bsp, pos + 4),
-						BitConverter.ToSingle(bsp, pos + 8)
+						pos.GetF32(0),
+						pos.GetF32(4),
+						pos.GetF32(8)
 					),
 					texTAxis = new Vector3d(
-						BitConverter.ToSingle(bsp, pos + 16),
-						BitConverter.ToSingle(bsp, pos + 20),
-						BitConverter.ToSingle(bsp, pos + 24)
+						pos.GetF32(16),
+						pos.GetF32(20),
+						pos.GetF32(24)
 					),
 					texOffset = new Vector2d(
-						BitConverter.ToSingle(bsp, pos + 12),
-						BitConverter.ToSingle(bsp, pos + 28)
+						pos.GetF32(12),
+						pos.GetF32(28)
 					),
 					rotation = 0,
 				});
@@ -70,20 +80,20 @@ namespace KDCVRCBSP.ECL {
 			// This is done in an inner function to ensure these are duplicated.
 			// This reduces the chance of issues when translation occurs.
 			void AddFaceToModel(ECLBSPFile.Model model, int area, int face, Dictionary<int, List<ECLBSPFile.ModelRenderable>> areaTable) {
-				int pos = GetStructOfs(bsp, 6, face, qbism ? 28 : 20);
+				var pos = lumpFaces.GetStruct(face, qbism ? 28 : 20);
 				int plane, side, firstEdge, numEdges, texInfo;
 				if (!qbism) {
-					plane = BitConverter.ToUInt16(bsp, pos);
-					side = BitConverter.ToUInt16(bsp, pos + 2);
-					firstEdge = BitConverter.ToInt32(bsp, pos + 4);
-					numEdges = BitConverter.ToUInt16(bsp, pos + 8);
-					texInfo = BitConverter.ToUInt16(bsp, pos + 10);
+					plane = pos.GetU16(0);
+					side = pos.GetU16(2);
+					firstEdge = pos.GetS32(4);
+					numEdges = pos.GetU16(8);
+					texInfo = pos.GetU16(10);
 				} else {
-					plane = BitConverter.ToInt32(bsp, pos);
-					side = BitConverter.ToInt32(bsp, pos + 4);
-					firstEdge = BitConverter.ToInt32(bsp, pos + 8);
-					numEdges = BitConverter.ToInt32(bsp, pos + 12);
-					texInfo = BitConverter.ToInt32(bsp, pos + 16);
+					plane = pos.GetS32(0);
+					side = pos.GetS32(4);
+					firstEdge = pos.GetS32(8);
+					numEdges = pos.GetS32(12);
+					texInfo = pos.GetS32(16);
 				}
 				Plane3d planeCorrected = planes[plane];
 				if (side != 0)
@@ -92,17 +102,16 @@ namespace KDCVRCBSP.ECL {
 				ECLBSPFile.Vertex[] winding = new ECLBSPFile.Vertex[numEdges];
 				for (int i = 0; i < numEdges; i++) {
 					// has to be mapped using surfedges - see https://github.com/id-Software/Quake-2-Tools/blob/master/bsp/qbsp3/writebsp.c#L213
-					int seb = GetStructOfs(bsp, 12, firstEdge + i, 4); // surfedge
-					int sebVal = BitConverter.ToInt32(bsp, seb);
+					int sebVal = lumpSurfEdges.GetS32((firstEdge + i) * 4); // surfedge
 					int edgeIdx = sebVal < 0 ? -sebVal : sebVal;
 					int edgeVtx = sebVal < 0 ? 1 : 0;
+					// edges[edgeIdx][edgeVtx]
+					int totalVtx = (edgeIdx * 2) + edgeVtx;
 					int vertex;
 					if (!qbism) {
-						int edgeVtxOfs = GetStructOfs(bsp, 11, edgeIdx, 4) + (edgeVtx * 2); // edges[edgeIdx][edgeVtx]
-						vertex = BitConverter.ToUInt16(bsp, edgeVtxOfs);
+						vertex = lumpEdges.GetU16(totalVtx * 2);
 					} else {
-						int edgeVtxOfs = GetStructOfs(bsp, 11, edgeIdx, 8) + (edgeVtx * 4);
-						vertex = BitConverter.ToInt32(bsp, edgeVtxOfs);
+						vertex = lumpEdges.GetS32(totalVtx * 4);
 					}
 					var vtx = vertexes[vertex];
 					winding[i] = new ECLBSPFile.Vertex {
@@ -127,22 +136,22 @@ namespace KDCVRCBSP.ECL {
 			}
 
 			ECLBSPFile.Brush[] brushes;
-			foreach ((int idx, int pos) in StructArray(bsp, 14, 12, out brushes)) {
-				int firstSide = BitConverter.ToInt32(bsp, pos);
-				int numSides = BitConverter.ToInt32(bsp, pos + 4);
-				int contents = BitConverter.ToInt32(bsp, pos + 8);
+			foreach ((int idx, var pos) in lumpBrushes.StructArray(12, out brushes)) {
+				int firstSide = pos.GetS32(0);
+				int numSides = pos.GetS32(4);
+				int contents = pos.GetS32(8);
 				ECLBSPFile.BrushSide[] brushSides = new ECLBSPFile.BrushSide[numSides];
 				for (int j = 0; j < numSides; j++) {
 					Plane3d plane;
 					(string, BrushUV) texInfo;
 					if (!qbism) {
-						int sidePos = GetStructOfs(bsp, 15, j + firstSide, 4);
-						plane = planes[(int) BitConverter.ToUInt16(bsp, sidePos)];
-						texInfo = GetTexInfoOrFallback((int) BitConverter.ToUInt16(bsp, sidePos + 2));
+						var sidePos = lumpBrushSides.GetStruct(j + firstSide, 4);
+						plane = planes[sidePos.GetU16(0)];
+						texInfo = GetTexInfoOrFallback(sidePos.GetU16(2));
 					} else {
-						int sidePos = GetStructOfs(bsp, 15, j + firstSide, 8);
-						plane = planes[BitConverter.ToInt32(bsp, sidePos)];
-						texInfo = GetTexInfoOrFallback(BitConverter.ToInt32(bsp, sidePos + 4));
+						var sidePos = lumpBrushSides.GetStruct(j + firstSide, 8);
+						plane = planes[sidePos.GetS32(0)];
+						texInfo = GetTexInfoOrFallback(sidePos.GetS32(4));
 					}
 					brushSides[j] = new ECLBSPFile.BrushSide {
 						plane = plane,
@@ -168,11 +177,19 @@ namespace KDCVRCBSP.ECL {
 
 			/// Models. Entities point to these (or implicitly in the case of model 0, aka worldspawn).
 			ECLBSPFile.Model[] models;
-			foreach ((int idx, int pos) in StructArray(bsp, 13, 48, out models)) {
-				int headNode = BitConverter.ToInt32(bsp, pos + 36);
+			foreach ((int idx, var pos) in lumpModels.StructArray(48, out models)) {
+				int headNode = pos.GetS32(36);
 				var model = new ECLBSPFile.Model {
-					min = GetPosition(bsp, pos + 0),
-					max = GetPosition(bsp, pos + 12),
+					min = (
+						pos.GetF32(0),
+						pos.GetF32(4),
+						pos.GetF32(8)
+					),
+					max = (
+						pos.GetF32(12),
+						pos.GetF32(16),
+						pos.GetF32(20)
+					),
 					//origin = GetPosition(bsp, pos + 24, worldScale),
 				};
 				HashSet<int> brushNumSet = new();
@@ -188,29 +205,27 @@ namespace KDCVRCBSP.ECL {
 						int numLeafBrushes;
 						if (!qbism) {
 							// dleaf_t 4 + 2 + 2 + (3 * 2) + (3 * 2) + 2 + 2 + 2 + 2
-							int leafOfs = GetStructOfs(bsp, 8, -(node + 1), 28);
-							area = BitConverter.ToUInt16(bsp, leafOfs + 6);
-							firstLeafFace = BitConverter.ToUInt16(bsp, leafOfs + 20);
-							numLeafFaces = BitConverter.ToUInt16(bsp, leafOfs + 22);
-							firstLeafBrush = BitConverter.ToUInt16(bsp, leafOfs + 24);
-							numLeafBrushes = BitConverter.ToUInt16(bsp, leafOfs + 26);
+							var leafOfs = lumpLeaves.GetStruct(-(node + 1), 28);
+							area = leafOfs.GetU16(6);
+							firstLeafFace = leafOfs.GetU16(20);
+							numLeafFaces = leafOfs.GetU16(22);
+							firstLeafBrush = leafOfs.GetU16(24);
+							numLeafBrushes = leafOfs.GetU16(26);
 						} else {
 							// dleaf_tx 4 + 4 + 4 + (3 * 4) + (3 * 4) + 4 + 4 + 4 + 4
-							int leafOfs = GetStructOfs(bsp, 8, -(node + 1), 52);
-							area = BitConverter.ToInt32(bsp, leafOfs + 8);
-							firstLeafFace = BitConverter.ToInt32(bsp, leafOfs + 36);
-							numLeafFaces = BitConverter.ToInt32(bsp, leafOfs + 40);
-							firstLeafBrush = BitConverter.ToInt32(bsp, leafOfs + 44);
-							numLeafBrushes = BitConverter.ToInt32(bsp, leafOfs + 48);
+							var leafOfs = lumpLeaves.GetStruct(-(node + 1), 52);
+							area = leafOfs.GetS32(8);
+							firstLeafFace = leafOfs.GetS32(36);
+							numLeafFaces = leafOfs.GetS32(40);
+							firstLeafBrush = leafOfs.GetS32(44);
+							numLeafBrushes = leafOfs.GetS32(48);
 						}
 						for (int i = 0; i < numLeafFaces; i++) {
 							int leafFace;
 							if (!qbism) {
-								int leafFaceOfs = GetStructOfs(bsp, 9, firstLeafFace + i, 2);
-								leafFace = BitConverter.ToUInt16(bsp, leafFaceOfs);
+								leafFace = lumpLeafFaces.GetU16((firstLeafFace + i) * 2);
 							} else {
-								int leafFaceOfs = GetStructOfs(bsp, 10, firstLeafFace + i, 4);
-								leafFace = BitConverter.ToInt32(bsp, leafFaceOfs);
+								leafFace = lumpLeafFaces.GetS32((firstLeafFace + i) * 4);
 							}
 							if (faceNumSet.Add(leafFace))
 								AddFaceToModel(model, area, leafFace, areaTable);
@@ -218,28 +233,26 @@ namespace KDCVRCBSP.ECL {
 						for (int i = 0; i < numLeafBrushes; i++) {
 							int leafBrush;
 							if (!qbism) {
-								int leafBrushOfs = GetStructOfs(bsp, 10, firstLeafBrush + i, 2);
-								leafBrush = BitConverter.ToUInt16(bsp, leafBrushOfs);
+								leafBrush = lumpLeafBrushes.GetU16((firstLeafBrush + i) * 2);
 							} else {
-								int leafBrushOfs = GetStructOfs(bsp, 10, firstLeafBrush + i, 4);
-								leafBrush = BitConverter.ToInt32(bsp, leafBrushOfs);
+								leafBrush = lumpLeafBrushes.GetS32((firstLeafBrush + i) * 4);
 							}
 							if (brushNumSet.Add(leafBrush))
 								model.brushes.Add(brushes[leafBrush]);
 						}
 					} else {
 						// the start of dnode_t and dnode_tx is the same
-						int nodeOfs;
+						ECLLoadCom.View nodeOfs;
 						if (!qbism) {
 							// dnode_t 4 + (4 * 2) + (3 * 2) + (3 * 2) + 2 + 2
-							nodeOfs = GetStructOfs(bsp, 4, node, 28);
+							nodeOfs = lumpNodes.GetStruct(node, 28);
 						} else {
 							// dnode_tx 4 + 8 + (3 * 4) + (3 * 4) + 4 + 4
-							nodeOfs = GetStructOfs(bsp, 4, node, 44);
+							nodeOfs = lumpNodes.GetStruct(node, 44);
 						}
-						int plane = BitConverter.ToInt32(bsp, nodeOfs + 0);
-						int childA = BitConverter.ToInt32(bsp, nodeOfs + 4);
-						int childB = BitConverter.ToInt32(bsp, nodeOfs + 8);
+						int plane = nodeOfs.GetS32(0);
+						int childA = nodeOfs.GetS32(4);
+						int childB = nodeOfs.GetS32(8);
 						CollectLeaves(childA);
 						CollectLeaves(childB);
 					}
@@ -248,71 +261,7 @@ namespace KDCVRCBSP.ECL {
 				models[idx] = model;
 			}
 
-			int entsOffset = BitConverter.ToInt32(bsp, 8);
-			int entsLength = BitConverter.ToInt32(bsp, 12);
-			// We bet on treating NUL as whitespace.
-			string entitiesLump = encoding.GetString(bsp, entsOffset, entsLength);
-
-			// Parse entities and assign models.
-			var entitiesParsed = MapParser.Parse(entitiesLump, (name) => name);
-			var entParsedWorldspawn = EntityParsed<string>.EnsureWorldspawn(entitiesParsed);
-			foreach (var entParsed in entitiesParsed) {
-				// Start by finding the model.
-				ECLBSPFile.Model entModel;
-				string detectedModel = entParsed.pairs["model"];
-				if (detectedModel.StartsWith("*")) {
-					if (int.TryParse(detectedModel.Substring(1), out var result)) {
-						if (result >= 0 && result < models.Length) {
-							entModel = models[result];
-						} else {
-							entModel = null;
-						}
-					} else {
-						entModel = null;
-					}
-				} else {
-					entModel = (entParsed == entParsedWorldspawn) ? models[0] : null;
-				}
-
-				Vector3d origin = entParsed.pairs.GetVector3d("origin", Vector3d.Zero);
-				// Create the entity.
-				var entData = new ECLBSPFile.Entity(entParsed.pairs, entModel, origin);
-				res.entities.Add(entData);
-				if (entParsed == entParsedWorldspawn)
-					res.worldspawn = entData;
-			}
-
-			return res;
-		}
-
-		// -- Geometry --
-		private static Vector3d GetPosition(byte[] bsp, int pos) {
-			float nX = BitConverter.ToSingle(bsp, pos);
-			float nY = BitConverter.ToSingle(bsp, pos + 4);
-			float nZ = BitConverter.ToSingle(bsp, pos + 8);
-			return (nX, nY, nZ);
-		}
-
-		// -- BSP access core --
-
-		private static int GetStructOfs(byte[] bsp, int lump, int index, int structLen) {
-			int offset = BitConverter.ToInt32(bsp, 8 + (lump * 8));
-			int length = BitConverter.ToInt32(bsp, 8 + (lump * 8) + 4);
-			int relOffset = index * structLen;
-			if (relOffset < 0 || relOffset >= length)
-				throw new Exception("Attempt to get lump " + lump + " object " + index + " -- this was out of range");
-			return offset + relOffset;
-		}
-
-		private static (int, int)[] StructArray<T>(byte[] bsp, int lump, int structLen, out T[] target) {
-			int offset = BitConverter.ToInt32(bsp, 8 + (lump * 8));
-			int length = BitConverter.ToInt32(bsp, 8 + (lump * 8) + 4);
-			int count = length / structLen;
-			target = new T[count];
-			(int, int)[] locations = new (int, int)[count];
-			for (int i = 0; i < count; i++)
-				locations[i] = (i, offset + (i * structLen));
-			return locations;
+			return ECLLoadCom.ParseQuakeEntities(lumpEntities, models);
 		}
 	}
 }
