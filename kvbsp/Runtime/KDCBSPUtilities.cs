@@ -56,7 +56,7 @@ namespace KDCVRCBSP {
 		/// So in order to prevent this, we write the next PAK file into a new file, and try to delete other files.
 		/// We also name our PAK file by time to control precedence.
 		public static void UpdatePAKFile(string basePhysicalPath, byte[] content) {
-			foreach (string victim in Directory.GetFiles(basePhysicalPath, ".cache*.pak")) {
+			foreach (string victim in Directory.GetFiles(basePhysicalPath, ".cache*.pk3")) {
 				try {
 					File.Delete(victim);
 				} catch (Exception ex) {
@@ -64,7 +64,7 @@ namespace KDCVRCBSP {
 				}
 			}
 			string tsPadded = Convert.ToString(DateTimeOffset.UtcNow.ToUnixTimeSeconds(), 16).PadLeft(16, '0');
-			string newFileName = ".cache" + tsPadded + ".pak";
+			string newFileName = ".cache" + tsPadded + ".pk3";
 			File.WriteAllBytes(Path.Join(basePhysicalPath, newFileName), content);
 		}
 

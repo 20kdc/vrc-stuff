@@ -1,4 +1,5 @@
 <Solution>
 	<Project Path="KDCVRCBSP.ECL/KDCVRCBSP.ECL.csproj" />
 	<Project Path="KDCVRCBSP.Tests~/KDCVRCBSP.Tests.csproj" />
+	<Project Path="KDCVRCBSP.BSP2OBJ~/KDCVRCBSP.BSP2OBJ.csproj" />
 </Solution>

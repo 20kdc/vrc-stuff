@@ -73,7 +73,7 @@ namespace KDCVRCBSP {
 						SortedDictionary<string, byte[]> files = new();
 						foreach (var (key, value) in materials)
 							value.Item2.PAKContribute(files, key, value.Item1);
-						KDCBSPUtilities.UpdatePAKFile(FileUtil.GetPhysicalPath(baseq2Dir), KDCBSPPAKWriter.MakePAK(files));
+						KDCBSPUtilities.UpdatePAKFile(FileUtil.GetPhysicalPath(baseq2Dir), KDCBSPPK3Writer.MakePK3(files));
 					} catch (Exception ex) {
 						Debug.LogException(ex);
 					}

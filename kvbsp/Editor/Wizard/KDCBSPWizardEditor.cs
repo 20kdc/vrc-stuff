@@ -90,7 +90,7 @@ namespace KDCVRCBSP {
 				WWLabel("This will be created at: " + qrootPath);
 				if (GUILayout.Button("Continue (setup game root)")) {
 					try {
-						FileUtil.CopyFileOrDirectory(KDCBSPUtilities.KVBSP_BASE + "TrenchBroom~/KDCBSPGameRoot", qrootPath);
+						FileUtil.CopyFileOrDirectory(KDCBSPUtilities.KVBSP_BASE + "Installable~/KDCBSPGameRoot", qrootPath);
 					} catch (Exception ex) {
 						Debug.LogException(ex);
 					}

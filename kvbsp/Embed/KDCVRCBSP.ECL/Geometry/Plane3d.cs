@@ -70,5 +70,10 @@ namespace KDCVRCBSP.ECL {
 		public VectorD NormalToTravelVector(VectorD snapNormal) {
 			return snapNormal / normal.Dot(snapNormal);
 		}
+
+		public Self Translated(VectorD t) {
+			// same normal, new distance
+			return new Self(normal, distance + normal.Dot(t));
+		}
 	}
 }

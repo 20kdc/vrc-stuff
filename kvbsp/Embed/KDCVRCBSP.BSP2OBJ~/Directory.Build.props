@@ -1,0 +1,6 @@
+<Project>
+	<PropertyGroup>
+		<BaseOutputPath>../../../netbin/bin/KDCVRCBSP.BSP2OBJ</BaseOutputPath>
+		<BaseIntermediateOutputPath>../../../netbin/bin/KDCVRCBSP.BSP2OBJ</BaseIntermediateOutputPath>
+	</PropertyGroup>
+</Project>

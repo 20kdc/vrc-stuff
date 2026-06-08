@@ -1,0 +1,2 @@
+#!/bin/sh
+dotnet run ../../../../vrc-projects/qroot/projekt/preproom2-compile.bsp /media/ramdisk/dump.obj
