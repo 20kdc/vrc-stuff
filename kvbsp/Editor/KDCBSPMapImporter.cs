@@ -7,9 +7,10 @@ using UnityEditor.AssetImporters;
 using KDCVRCBSP.ECL;
 
 namespace KDCVRCBSP {
+	// [ScriptedImporter(1, "map")]
 	/// Interface between the ECL and the Unity-related code.
-	[ScriptedImporter(1, "map")]
-	public class KDCBSPMapImporter : KDCBSPBaseImporter {
+	/// THE ECL HAS BEEN CANNED, SO THIS HAS BEEN DUMMIED OUT.
+	public abstract class KDCBSPMapImporter : KDCBSPBaseImporter {
 		[Tooltip("This feature prevents having to manually export the map from TrenchBroom.")]
 		[SerializeField]
 		public bool bspSimulateTrenchbroomExport = true;

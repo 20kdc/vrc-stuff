@@ -1,3 +1,29 @@
+# ABANDON ALL HOPE, YE WHO ENTER HERE (8th(ish) June, 2026)
+
+The work on using this as the internal map compiler for kvbsp has been canned. Too many algorithmic/mathematical issues kept popping up.
+
+However, the convex geometry and parsing library has been very reliable.
+
+The dummying-out has been done a bit haphazardly:
+
+* The `bspRole` material config file has been set to hide in inspector.
+* `KDCBSPMapImporter` is abstract and no longer has the attribute to register it.
+
+This is all in this commit, so just go back a commit if you want the old version I guess.
+
+Features originally planned for the ECL compiler with future backporting (areaportals and automatic occlusion geometry) will instead target the ericw-tools workflow.
+It's likely that `KDCBSPMapImporter` will eventually be entirely dropped as more effort is put into determining a better integration to make the maximum use of all ericw-tools features. The CMF compiler still remains an interesting artefact.
+
+I do believe the general idea of using Quake 2 or 3's BSP formats while using Unity's lighting and occlusion is the way to go for effective world development, but I'm going to need to think about the details.
+
+A particular point of note is that I intend to set a specific Radiant fork that is considered 'canonical' for work on this project in the Quake 3 direction; and pursuant to this I intend to switch the PAK file format.
+
+In the interest of preservation, I'll probably tag this commit. On the next commit, I will gut the ECL.
+
+My goal with future ECL development will be to turn it into, essentially, "KDCBSPIntermediate 2.0". The map parsing code will remain more or less as-is, as the entities lump is pretty much a strict subset of a valid map anyway, and someone might have a use for it; but the actual compiler's going to go.
+
+mi sewi sama waso, taso mi waso ala ; mi tawa suno ; mi kama seli, mi tawa anpa.
+
 # Notes on the KDCVRCBSP 'ECL' Compiler
 
 The Quake-style MAP/BSP toolchain is an easy-to-operate auto-optimizing mechanism for producing game maps.

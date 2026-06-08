@@ -13,8 +13,8 @@ namespace KDCVRCBSP {
 	 */
 	public abstract class KDCBSPAbstractMaterialConfig : ScriptableObject, IBSPMaterial {
 		[Tooltip("The internal BSP compiler uses this role to decide how to handle the material.")]
-		[SerializeField]
-		public LazyLoadReference<KDCBSPMaterialRole> bspRole;
+		[HideInInspector, SerializeField]
+		private LazyLoadReference<KDCBSPMaterialRole> bspRole;
 
 		/// Not much to this one; if true, it's included in collision by default.
 		[Tooltip("Enables/disables collision. This only works on convexes if it wins priority, but it always works on concave root.")]
