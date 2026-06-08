@@ -51,6 +51,8 @@
 	gravity(integer): "Has Gravity" : 0
 ]
 
+@SolidClass base(BrushIntermediateClass) = func_areaportal : "Areaportal barrier entity. Actual brushes should be intentionally lost." []
+
 @SolidClass base(BrushIntermediateClass) = func_occluder : "Occlusion Portal (must be AABB!)" [
 	open(integer): "Open by default" : 0
 ]

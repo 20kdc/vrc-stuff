@@ -1,2 +1,3 @@
 #!/bin/sh
 dotnet run ../../../../vrc-projects/qroot/projekt/preproom2-compile.bsp /media/ramdisk/dump.obj
+dotnet run ../../../kvassets/Assets/mapTest/areaportal-compile.bsp /media/ramdisk/dump_ap.obj
