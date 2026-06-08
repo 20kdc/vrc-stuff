@@ -69,14 +69,6 @@ namespace KDCVRCBSP.ECL {
 			return res;
 		}
 
-		public static List<Vector3d> FacePoints<D>(IEnumerable<Convex3d<D>.Face> faces) {
-			List<Vector3d> lst = new();
-			foreach (var face in faces)
-				foreach (var point in face.winding)
-					lst.Add(point);
-			return lst;
-		}
-
 		public static bool PrepOnLine(Vector3d a, Vector3d b, out (Vector3d, Plane3d, double) prepared) {
 			var rayNormal = (b - a).Normalized;
 			// if (rayNormal.Length == 0)

@@ -4,4 +4,3 @@ Contains classes which should be testable and developable outside of Unity.
 
 This is a workaround (and an ugly one, at that) for Unity and OmniSharp both being awful memory hogs, especially in combination.
 
-For technical details on the compiler, see the `KDCVRCBSP.ECL` library itself.

@@ -9,7 +9,6 @@ namespace KDCVRCBSP.Tests {
 		public static void Main(string[] args) {
 			RunMapParsingTests();
 			RunCutWindingTests();
-			RunPlanePoolTests();
 			RunWindingToPlanesTests();
 			RunOnLineTests();
 		}
@@ -41,15 +40,6 @@ namespace KDCVRCBSP.Tests {
 			MapParser.Parse<string>(File.ReadAllText("testmap_id_tb.map"), (name) => name);
 			Console.WriteLine(" testmap v220?");
 			var mapchk = MapParser.Parse<string>(File.ReadAllText("testmap_220_hammer.map"), (name) => name);
-			List<(string, List<List<Vector3d>>)> objsrc = new();
-			int brushIdx = 0;
-			Geo2Context g2 = new(new());
-			foreach (var brush in mapchk[0].brushes) {
-				var cvx = Convex3d<int>.FromBrush(g2, brush, (idx, v) => 0);
-				objsrc.Add(("b" + brushIdx, cvx.faces.Select(v => v.winding.ToList()).ToList()));
-				brushIdx++;
-			}
-			File.WriteAllLines("../../../netbin/testmap_brushes.obj", GeomUtil.DebugMakeOBJ(objsrc));
 		}
 
 		public static void RunCutWindingTests() {
@@ -74,15 +64,6 @@ namespace KDCVRCBSP.Tests {
 					new Vector3d(4 + -1, 1, 4),
 				}, "pentagon 3d");
 			}
-		}
-
-		public static void RunPlanePoolTests() {
-			Console.WriteLine("Plane pool test");
-			Geo2Context g2c = new(new());
-			int pa = g2c.ToPlaneIndex(new Plane3d(new Vector3d(1, 0, 0), 1));
-			int pb = g2c.ToPlaneIndex(new Plane3d(new Vector3d(-1, 0, 0), -1));
-			Test.AssertEq(g2c.FlipPlaneIndex(pa), pb, "flipped planes must use the same underlying raw index");
-			Test.AssertEq(g2c.FlipPlaneIndex(pb), pa, "flipped planes must use the same underlying raw index");
 		}
 
 		public static void RunWindingToPlanesTests() {

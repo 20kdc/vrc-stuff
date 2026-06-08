@@ -1,6 +1,0 @@
-<Project>
-	<PropertyGroup>
-		<BaseOutputPath>../../../netbin/bin/KDCVRCBSP.CMF</BaseOutputPath>
-		<BaseIntermediateOutputPath>../../../netbin/bin/KDCVRCBSP.CMF</BaseIntermediateOutputPath>
-	</PropertyGroup>
-</Project>

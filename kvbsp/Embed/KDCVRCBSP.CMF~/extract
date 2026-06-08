@@ -1,4 +1,0 @@
-#!/bin/sh
-. ./common.sh
-
-dotnet run --no-restore -- --extract "$NARBACULAR/extract_test/"

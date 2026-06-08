@@ -1,7 +1,0 @@
-#!/bin/sh
-. ./common.sh
-# game wants to be run with this as CD?
-cd "$NARBACULAR"
-echo "loadlevel levels/$1.cmf" > "startup.cfg"
-# game needs libstrangle assistance to not overspeed on modern h/w
-strangle 60 wine "Narbacular Drop.exe"
