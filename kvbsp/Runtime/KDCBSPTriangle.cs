@@ -14,6 +14,26 @@ namespace KDCVRCBSP {
 		public Vector3 c;
 		public Vector2 cu;
 
+		public static KDCBSPTriangle FromECLTri((ECLBSPFile.Vertex, ECLBSPFile.Vertex, ECLBSPFile.Vertex) tri, float worldScale) {
+			(Vector3, Vector2) ConvVtx(ECLBSPFile.Vertex vtx) {
+				return (
+					KDCBSPUtilities.TransformPosition(vtx.position, worldScale),
+					new Vector2((float) vtx.uv.x, 1 - (float) vtx.uv.y)
+				);
+			}
+			var vtxA = ConvVtx(tri.Item1);
+			var vtxB = ConvVtx(tri.Item2);
+			var vtxC = ConvVtx(tri.Item3);
+			return new KDCBSPTriangle {
+				a = vtxA.Item1,
+				au = vtxA.Item2,
+				b = vtxB.Item1,
+				bu = vtxB.Item2,
+				c = vtxC.Item1,
+				cu = vtxC.Item2
+			};
+		}
+
 		/// Translates a TriInfo.
 		public void Translate(Vector3 by) {
 			a += by;

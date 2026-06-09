@@ -137,18 +137,29 @@ namespace KDCVRCBSP {
 			ModSEF(ref visStaticFlags, compSettings.reflectionProbeStatic, StaticEditorFlags.ReflectionProbeStatic);
 
 			var model = entity.model;
-			// we always get this -- we may need it for concave evaluation or for visuals or both
-			var triangles = GetBSPTriangles(importContext.bsp, model, worldScale);
 
 			if (compSettings.visuals) {
 				GameObject visualsGO = new GameObject("visuals");
 
-				foreach (var kvp in triangles) {
-					var assignment = importContext.LookupMaterial(kvp.Item1);
+				Dictionary<string, int> texCounters = new();
+				foreach (var renderable in model.renderables) {
+					var assignment = importContext.LookupMaterial(renderable.tex);
 					if (assignment == null)
 						continue;
 
-					var materialGO = assignment.BuildVisualObject(importContext, kvp.Item1, assetPrefix + "mesh " + kvp.Item1, kvp.Item2, visualsGO, compSettings);
+					string nameSuffix = renderable.tex;
+					if (texCounters.TryGetValue(renderable.tex, out int counter)) {
+						nameSuffix += " " + counter;
+						texCounters[renderable.tex] = counter + 1;
+					} else {
+						texCounters[renderable.tex] = 1;
+					}
+
+					List<KDCBSPTriangle> triangles = new();
+					foreach (var tri in renderable.Build())
+						triangles.Add(KDCBSPTriangle.FromECLTri(tri, worldScale));
+
+					var materialGO = assignment.BuildVisualObject(importContext, nameSuffix, assetPrefix + "mesh " + nameSuffix, triangles, visualsGO, compSettings);
 					if (materialGO == null)
 						continue;
 
@@ -205,13 +216,13 @@ namespace KDCVRCBSP {
 				collisionGO.transform.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
 			} else if (compSettings.collision == CollisionMode.ConcaveRoot) {
 				List<KDCBSPTriangle> concave = new();
-				foreach (var kvp in triangles) {
-					var assignment = importContext.LookupMaterial(kvp.Item1);
+				foreach (var renderable in model.renderables) {
+					var assignment = importContext.LookupMaterial(renderable.tex);
 					if (assignment != null)
 						if (!assignment.collisionEnable)
 							continue;
-					foreach (var tri in kvp.Item2)
-						concave.Add(tri);
+					foreach (var tri in renderable.Build())
+						concave.Add(KDCBSPTriangle.FromECLTri(tri, worldScale));
 				}
 				Mesh mesh = KDCBSPTriangle.TrianglesToMesh(concave, Vector2.one);
 				importContext.assetImportContext.AddObjectToAsset(assetPrefix + "concave", mesh);
@@ -306,48 +317,6 @@ namespace KDCVRCBSP {
 				}
 			}
 			return (bPrimary, bPrimaryWeight);
-		}
-
-		// -- Primary Geometry Converters --
-
-		public List<(string, List<KDCBSPTriangle>)> GetBSPTriangles(ECLBSPFile bsp, ECLBSPFile.Model model, float worldScale) {
-			Dictionary<string, List<KDCBSPTriangle>> lookup = new();
-			List<(string, List<KDCBSPTriangle>)> res = new();
-			void AddTriangle(string material, KDCBSPTriangle t) {
-				List<KDCBSPTriangle> targetList = null;
-				if (lookup.ContainsKey(material)) {
-					targetList = lookup[material];
-				} else {
-					targetList = new();
-					lookup[material] = targetList;
-					res.Add((material, targetList));
-				}
-				targetList.Add(t);
-			}
-			foreach (var area in model.areas) {
-				foreach (var srcRenderable in area) {
-					if (srcRenderable is ECLBSPFile.ModelTriangle tri) {
-						(Vector3, Vector2) ConvVtx(ECLBSPFile.Vertex vtx) {
-							return (
-								KDCBSPUtilities.TransformPosition(vtx.position, worldScale),
-								new Vector2((float) vtx.uv.x, 1 - (float) vtx.uv.y)
-							);
-						}
-						var vtxA = ConvVtx(tri.a);
-						var vtxB = ConvVtx(tri.b);
-						var vtxC = ConvVtx(tri.c);
-						AddTriangle(tri.tex, new KDCBSPTriangle {
-							a = vtxA.Item1,
-							au = vtxA.Item2,
-							b = vtxB.Item1,
-							bu = vtxB.Item2,
-							c = vtxC.Item1,
-							cu = vtxC.Item2
-						});
-					}
-				}
-			}
-			return res;
 		}
 	}
 }

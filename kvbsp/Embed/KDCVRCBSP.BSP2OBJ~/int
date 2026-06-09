@@ -1,4 +1,13 @@
 #!/bin/sh
-dotnet run ../../../../vrc-projects/qroot/projekt/preproom2-compile.bsp /media/ramdisk/dump.obj
-dotnet run ../../../kvassets/Assets/mapTest/areaportal-compile.bsp /media/ramdisk/dump_ap.obj
-dotnet run ~/.steam/steam/steamapps/common/Half-Life/valve/maps/boot_camp.bsp /media/ramdisk/dump_hl.obj
+
+tryfile() {
+	if [ -e "$1" ]; then
+		dotnet run "$1" "/media/ramdisk/$2.obj"
+	else
+		echo "$1 does not exist"
+	fi
+}
+tryfile ../../../../vrc-projects/qroot/projekt/preproom2-compile.bsp dump
+tryfile ../../../kvassets/Assets/mapTest/areaportal-compile.bsp dump_ap
+tryfile ~/.steam/steam/steamapps/common/Half-Life/valve/maps/boot_camp.bsp dump_hl
+tryfile /media/fusion/kdcworkaround/SteamLibrary/steamapps/common/Half-Life/valve/maps/boot_camp.bsp dump_hl

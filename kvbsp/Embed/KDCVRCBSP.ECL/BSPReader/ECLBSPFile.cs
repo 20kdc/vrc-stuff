@@ -52,40 +52,39 @@ namespace KDCVRCBSP.ECL {
 		}
 
 		public class Model {
-			/// Areas are distinct meshes.
-			public List<List<ModelRenderable>> areas = new();
+			/// Distinct renderables are used when mesh separation is required.
+			public List<ModelRenderable> renderables = new();
 			public Vector3d min, max;
 			public List<Brush> brushes = new();
 			public List<List<Plane3d>> viewLeaves = new();
 
-			public void AddRenderable(ModelRenderable renderable, int area, Dictionary<int, List<ModelRenderable>> areaTable) {
-				if (areaTable.TryGetValue(area, out var renderables)) {
-					renderables.Add(renderable);
-				} else {
-					List<ModelRenderable> ls = new();
-					ls.Add(renderable);
-					areas.Add(ls);
-					areaTable[area] = ls;
+			public void AddTri(string tex, (Vertex, Vertex, Vertex) tri, int area, Dictionary<int, Dictionary<string, ModelTriMesh>> table) {
+				Dictionary<string, ModelTriMesh> areaTable;
+				if (!table.TryGetValue(area, out areaTable)) {
+					areaTable = new();
+					table[area] = areaTable;
 				}
+				ModelTriMesh mesh;
+				if (!areaTable.TryGetValue(tex, out mesh)) {
+					mesh = new();
+					mesh.tex = tex;
+					areaTable[tex] = mesh;
+					renderables.Add(mesh);
+				}
+				mesh.tris.Add(tri);
 			}
 
 			public void Translate(Vector3d t) {
 				min += t;
 				max += t;
-				foreach (var area in areas)
-					foreach (var renderable in area)
-						renderable.Translate(t);
+				foreach (var renderable in renderables)
+					renderable.Translate(t);
 				foreach (var brush in brushes)
 					brush.Translate(t);
-				foreach (var planeList in viewLeaves) {
+				foreach (var planeList in viewLeaves)
 					for (int i = 0; i < planeList.Count; i++)
 						planeList[i] = planeList[i].Translated(t);
-				}
 			}
-		}
-
-		public abstract class ModelRenderable {
-			public abstract void Translate(Vector3d t);
 		}
 
 		public struct Vertex {
@@ -97,14 +96,30 @@ namespace KDCVRCBSP.ECL {
 			public byte colourR, colourG, colourB, colourA;
 		}
 
-		public class ModelTriangle : ModelRenderable {
+		public abstract class ModelRenderable {
 			public string tex;
-			public Vertex a, b, c;
+			/// Translates this renderable.
+			public abstract void Translate(Vector3d t);
+			/// Returns a list of triangles.
+			/// Notably, if/when LOD is introduced (for q3 patches), this is where that would be selected.
+			public abstract IReadOnlyList<(Vertex, Vertex, Vertex)> Build();
+		}
+
+		public class ModelTriMesh : ModelRenderable {
+			public List<(Vertex, Vertex, Vertex)> tris = new();
 
 			public override void Translate(Vector3d t) {
-				a.position += t;
-				b.position += t;
-				c.position += t;
+				for (int i = 0; i < tris.Count; i++) {
+					var tri = tris[i];
+					tri.Item1.position += t;
+					tri.Item2.position += t;
+					tri.Item3.position += t;
+					tris[i] = tri;
+				}
+			}
+
+			public override IReadOnlyList<(Vertex, Vertex, Vertex)> Build() {
+				return tris;
 			}
 		}
 

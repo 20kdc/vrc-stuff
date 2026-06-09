@@ -79,7 +79,7 @@ namespace KDCVRCBSP.ECL {
 
 			// This is done in an inner function to ensure these are duplicated.
 			// This reduces the chance of issues when translation occurs.
-			void AddFaceToModel(ECLBSPFile.Model model, int area, int face, Dictionary<int, List<ECLBSPFile.ModelRenderable>> areaTable) {
+			void AddFaceToModel(ECLBSPFile.Model model, int area, int face, Dictionary<int, Dictionary<string, ECLBSPFile.ModelTriMesh>> areaTable) {
 				var pos = lumpFaces.GetStruct(face, qbism ? 28 : 20);
 				int plane, side, firstEdge, numEdges, texInfo;
 				if (!qbism) {
@@ -124,15 +124,8 @@ namespace KDCVRCBSP.ECL {
 						colourA = 255
 					};
 				}
-				List<ECLBSPFile.ModelTriangle> triangles = new();
-				for (int i = 2; i < winding.Length; i++) {
-					model.AddRenderable(new ECLBSPFile.ModelTriangle {
-						tex = texInfoVal.Item1,
-						a = winding[0],
-						b = winding[i - 1],
-						c = winding[i]
-					}, area, areaTable);
-				}
+				for (int i = 2; i < winding.Length; i++)
+					model.AddTri(texInfoVal.Item1, (winding[0], winding[i - 1], winding[i]), area, areaTable);
 			}
 
 			ECLBSPFile.Brush[] brushes;
@@ -194,7 +187,7 @@ namespace KDCVRCBSP.ECL {
 				};
 				HashSet<int> brushNumSet = new();
 				HashSet<int> faceNumSet = new();
-				Dictionary<int, List<ECLBSPFile.ModelRenderable>> areaTable = new();
+				Dictionary<int, Dictionary<string, ECLBSPFile.ModelTriMesh>> areaTable = new();
 				void CollectLeaves(int node) {
 					// For qbism format check https://github.com/qbism/q2tools-220/blob/3fcf535be656d8ff38a9b95238fc741f3aebbd09/src/qfiles.h#L575
 					if (node < 0) {

@@ -73,7 +73,7 @@ namespace KDCVRCBSP.ECL {
 
 			// This is done in an inner function to ensure these are duplicated.
 			// This reduces the chance of issues when translation occurs.
-			void AddFaceToModel(List<ECLBSPFile.ModelRenderable> model, int face) {
+			void AddFaceToModel(ECLBSPFile.Model model, int face, Dictionary<int, Dictionary<string, ECLBSPFile.ModelTriMesh>> areaTable) {
 				var pos = lumpFaces.GetStruct(face, 20);
 				int plane, side, firstEdge, numEdges, texInfo;
 				plane = pos.GetU16(0);
@@ -106,15 +106,8 @@ namespace KDCVRCBSP.ECL {
 						colourA = 255
 					};
 				}
-				List<ECLBSPFile.ModelTriangle> triangles = new();
-				for (int i = 2; i < winding.Length; i++) {
-					model.Add(new ECLBSPFile.ModelTriangle {
-						tex = texInfoVal.Item1,
-						a = winding[0],
-						b = winding[i - 1],
-						c = winding[i]
-					});
-				}
+				for (int i = 2; i < winding.Length; i++)
+					model.AddTri(texInfoVal.Item1, (winding[0], winding[i - 1], winding[i]), 0, areaTable);
 			}
 
 			// Despite lump order, models *must* be processed just before entities.
@@ -139,11 +132,9 @@ namespace KDCVRCBSP.ECL {
 					),
 					//origin = GetPosition(bsp, pos + 24, worldScale),
 				};
-				var mrd = new List<ECLBSPFile.ModelRenderable>();
-				model.areas.Add(mrd);
-				for (int i = 0; i < faceCount; i++) {
-					AddFaceToModel(mrd, faceStart + i);
-				}
+				Dictionary<int, Dictionary<string, ECLBSPFile.ModelTriMesh>> areaTable = new();
+				for (int i = 0; i < faceCount; i++)
+					AddFaceToModel(model, faceStart + i, areaTable);
 				models[idx] = model;
 			}
 
