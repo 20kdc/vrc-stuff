@@ -50,6 +50,20 @@ namespace KDCVRCBSP {
 			return t2d;
 		}
 
+		public static KDCBSPRuntimeStaticEditorFlags GetStaticEditorFlags(GameObject go) {
+#if UNITY_EDITOR
+			return (KDCBSPRuntimeStaticEditorFlags) UnityEditor.GameObjectUtility.GetStaticEditorFlags(go);
+#else
+			return 0;
+#endif
+		}
+
+		public static void SetStaticEditorFlags(GameObject go, KDCBSPRuntimeStaticEditorFlags flags) {
+#if UNITY_EDITOR
+			UnityEditor.GameObjectUtility.SetStaticEditorFlags(go, (UnityEditor.StaticEditorFlags) flags);
+#endif
+		}
+
 		/// So a problem is that TrenchBroom will hold a PAK file open for as long as it wants and expects it not to change.
 		/// If you change it anyway, bad things happen.
 		/// This is not to mention the Windows file exclusion issues this risks.
