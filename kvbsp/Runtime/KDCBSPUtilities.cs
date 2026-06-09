@@ -82,21 +82,8 @@ namespace KDCVRCBSP {
 
 		// -- Transform functions --
 
-		// Converts BrushUV + texture information to intermediate TexInfo.
-		public static KDCBSPIntermediate.TexInfo TransformBrushUV(string tex, BrushUV src, float worldScale) {
-			return new KDCBSPIntermediate.TexInfo {
-				// [TRANSFORM]
-				// Note the need to perform axis swapping, world scaling...
-				sX = (float) src.texSAxis.x * worldScale,
-				sZ = (float) src.texSAxis.y * worldScale,
-				sY = (float) src.texSAxis.z * worldScale,
-				sO = (float) src.texOffset.x,
-				tX = (float) src.texTAxis.x * -worldScale,
-				tZ = (float) src.texTAxis.y * -worldScale,
-				tY = (float) src.texTAxis.z * -worldScale,
-				tO = (float) src.texOffset.y * -1,
-				tex = tex
-			};
+		public static Plane TransformPlane(Plane3d plane, float worldScale) {
+			return TransformPlane((float) plane.normal.x, (float) plane.normal.y, (float) plane.normal.z, (float) plane.distance, worldScale);
 		}
 
 		public static Plane TransformPlane(float nX, float nY, float nZ, float d, float worldScale) {
@@ -107,6 +94,10 @@ namespace KDCVRCBSP {
 			// One would think that a point on P exists at (N * D).
 			// However, according to the field doc for `distance`, by Unity logic, it is actually at (N * -D).
 			return new Plane(new Vector3(nX, nZ, nY), d / -worldScale);
+		}
+
+		public static Vector3 TransformPosition(Vector3d src, float worldScale) {
+			return TransformPosition((float) src.x, (float) src.y, (float) src.z, worldScale);
 		}
 
 		public static Vector3 TransformPosition(float nX, float nY, float nZ, float worldScale) {

@@ -54,34 +54,11 @@ namespace KDCVRCBSP {
 			}
 		}
 
-		public struct TexInfo {
-			public float sX, sY, sZ, sO, tX, tY, tZ, tO;
-			public string tex;
-
-			public Vector2 MapUV(Vector3 i) {
-				return new Vector2(sO + (i.x * sX) + (i.y * sY) + (i.z * sZ), tO + (i.x * tX) + (i.y * tY) + (i.z * tZ));
-			}
-
-			public void Translate(Vector3 translation) {
-				var mappedS = (translation.x * sX) + (translation.y * sY) + (translation.z * sZ);
-				var mappedT = (translation.x * tX) + (translation.y * tY) + (translation.z * tZ);
-				sO -= mappedS;
-				tO -= mappedT;
-			}
-		}
-
 		public class Model {
-			public Vector3 mins, maxs, origin;
+			public Vector3 mins, maxs;
 			public Face[] faces;
 			// If explicit UV-mapped face support is required, add 'UVFace' struct and appropriate array here.
 			public Brush[] brushes;
-
-			public void Translate(Vector3 translation) {
-				for (int i = 0; i < faces.Length; i++)
-					faces[i].Translate(translation);
-				for (int i = 0; i < brushes.Length; i++)
-					brushes[i].Translate(translation);
-			}
 		}
 
 		public struct Face {
@@ -89,48 +66,73 @@ namespace KDCVRCBSP {
 			// In addition the renderfaces system in the ECL uses the pos+uv layout.
 			public string tex;
 			public (Vector3, Vector2)[] winding;
-
-			public void Translate(Vector3 translation) {
-				for (int i = 0; i < winding.Length; i++) {
-					var orig = winding[i];
-					winding[i] = (orig.Item1 + translation, orig.Item2);
-				}
-			}
 		}
 
 		public struct Brush {
 			public bool illusionary;
 			public BrushSide[] sides;
-			public void Translate(Vector3 translation) {
-				for (int i = 0; i < sides.Length; i++)
-					sides[i].Translate(translation);
-			}
 		}
 
 		public struct BrushSide {
 			public Plane plane;
-			public TexInfo texInfo;
-
-			public void Translate(Vector3 translation) {
-				plane.distance -= Vector3.Dot(plane.normal, translation);
-				texInfo.Translate(translation);
-			}
+			public string tex;
 		}
 
 		// -- Loader Picker --
 
-		/// Just a proxy for KDCBSPQ2Loader right now.
+		/// Now proxies the ECL. The idea is that bits of KDCBSPIntermediate will be switched out with ECL over time.
 		public static KDCBSPIntermediate Load(byte[] bsp, float worldScale) {
-			if (bsp.Length < 4)
-				throw new Exception("Not even long enough for the magic number!");
-
-			if (bsp[0] == (byte) 'I') {
-				return KDCBSPQ2Loader.Load(bsp, worldScale, false);
-			} else if (bsp[0] == (byte) 'Q') {
-				return KDCBSPQ2Loader.Load(bsp, worldScale, true);
-			} else {
-				throw new Exception("Doesn't look like a Quake 2 BSP file");
+			var bspFile = ECLBSPFile.Load(bsp);
+			KDCBSPIntermediate intermediate = new();
+			foreach (var entity in bspFile.entities) {
+				Model model = null;
+				if (entity.model != null) {
+					model = new();
+					model.mins = KDCBSPUtilities.TransformPosition(entity.model.min, worldScale);
+					model.maxs = KDCBSPUtilities.TransformPosition(entity.model.max, worldScale);
+					List<Face> faces = new();
+					List<Brush> brushes = new();
+					foreach (var area in entity.model.areas) {
+						foreach (var srcRenderable in area) {
+							if (srcRenderable is ECLBSPFile.ModelTriangle tri) {
+								Face nf = new();
+								nf.tex = tri.tex;
+								(Vector3, Vector2) ConvVtx(ECLBSPFile.Vertex vtx) {
+									return (
+										KDCBSPUtilities.TransformPosition(vtx.position, worldScale),
+										new Vector2((float) vtx.uv.x, 1 - (float) vtx.uv.y)
+									);
+								}
+								nf.winding = new (Vector3, Vector2)[] {
+									ConvVtx(tri.a),
+									ConvVtx(tri.b),
+									ConvVtx(tri.c)
+								};
+								faces.Add(nf);
+							}
+						}
+					}
+					foreach (var srcBrush in entity.model.brushes) {
+						Brush dstBrush = new();
+						dstBrush.illusionary = srcBrush.illusionary;
+						dstBrush.sides = new BrushSide[srcBrush.sides.Length];
+						for (int i = 0; i < srcBrush.sides.Length; i++) {
+							dstBrush.sides[i] = new BrushSide {
+								tex = srcBrush.sides[i].tex,
+								plane = KDCBSPUtilities.TransformPlane(srcBrush.sides[i].plane, worldScale),
+							};
+						}
+						brushes.Add(dstBrush);
+					}
+					model.faces = faces.ToArray();
+					model.brushes = brushes.ToArray();
+				}
+				var ime = new Entity(entity, worldScale, model, KDCBSPUtilities.TransformPosition(entity.origin, worldScale));
+				intermediate.entities.Add(ime);
+				if (entity == bspFile.worldspawn)
+					intermediate.worldspawn = ime;
 			}
+			return intermediate;
 		}
 
 		// -- Loader Assist --
@@ -209,17 +211,16 @@ namespace KDCVRCBSP {
 					continue;
 
 				var side = brush.sides[i];
-				// convert from ECL to Unity and add UVs
-				// (...we arguably don't need to do this because this is for collision only???)
+				// convert from ECL to Unity and add fake UVs (this is only used for collision)
 				(Vector3, Vector2)[] windingConv = new (Vector3, Vector2)[winding.Count];
 				for (int j = 0; j < windingConv.Length; j++) {
 					int revIndex = winding.Count - (j + 1);
 					var pos = KDCBSPUtilities.FromECL(winding[j]);
-					windingConv[revIndex] = (pos, side.texInfo.MapUV(pos));
+					windingConv[revIndex] = (pos, new Vector2(0, 0));
 				}
 
 				res.Add(new Face {
-					tex = side.texInfo.tex,
+					tex = side.tex,
 					winding = windingConv
 				});
 			}

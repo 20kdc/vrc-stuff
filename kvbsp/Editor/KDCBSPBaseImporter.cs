@@ -138,11 +138,11 @@ namespace KDCVRCBSP {
 				GameObject visualsGO = new GameObject("visuals");
 
 				foreach (var kvp in triangles) {
-					var assignment = importContext.LookupMaterial(kvp.Key);
+					var assignment = importContext.LookupMaterial(kvp.Item1);
 					if (assignment == null)
 						continue;
 
-					var materialGO = assignment.BuildVisualObject(importContext, kvp.Key, assetPrefix + "mesh " + kvp.Key, kvp.Value, visualsGO, compSettings);
+					var materialGO = assignment.BuildVisualObject(importContext, kvp.Item1, assetPrefix + "mesh " + kvp.Item1, kvp.Item2, visualsGO, compSettings);
 					if (materialGO == null)
 						continue;
 
@@ -202,11 +202,11 @@ namespace KDCVRCBSP {
 			} else if (compSettings.collision == CollisionMode.ConcaveRoot) {
 				List<KDCBSPTriangle> concave = new();
 				foreach (var kvp in triangles) {
-					var assignment = importContext.LookupMaterial(kvp.Key);
+					var assignment = importContext.LookupMaterial(kvp.Item1);
 					if (assignment != null)
 						if (!assignment.collisionEnable)
 							continue;
-					foreach (var tri in kvp.Value)
+					foreach (var tri in kvp.Item2)
 						concave.Add(tri);
 				}
 				Mesh mesh = KDCBSPTriangle.TrianglesToMesh(concave, Vector2.one);
@@ -293,7 +293,7 @@ namespace KDCVRCBSP {
 			KDCBSPAbstractMaterialConfig bPrimary = null;
 			float bPrimaryWeight = float.MinValue;
 			foreach (var bSide in brush.sides) {
-				var assignment = importContext.LookupMaterial(bSide.texInfo.tex);
+				var assignment = importContext.LookupMaterial(bSide.tex);
 				if (assignment == null)
 					continue;
 				float weight = assignment.GetCollisionConvexPriority(bSide.plane.normal);
@@ -307,8 +307,9 @@ namespace KDCVRCBSP {
 
 		// -- Primary Geometry Converters --
 
-		public Dictionary<String, List<KDCBSPTriangle>> GetBSPTriangles(KDCBSPIntermediate bsp, KDCBSPIntermediate.Model model) {
-			Dictionary<String, List<KDCBSPTriangle>> tri = new();
+		public List<(string, List<KDCBSPTriangle>)> GetBSPTriangles(KDCBSPIntermediate bsp, KDCBSPIntermediate.Model model) {
+			Dictionary<string, List<KDCBSPTriangle>> tri = new();
+			List<(string, List<KDCBSPTriangle>)> res = new();
 			foreach (var face in model.faces) {
 				var winding = face.winding;
 				if (winding.Length < 3)
@@ -320,10 +321,11 @@ namespace KDCVRCBSP {
 				} else {
 					targetList = new();
 					tri[material] = targetList;
+					res.Add((material, targetList));
 				}
 				bsp.FaceToTriangles(face, targetList);
 			}
-			return tri;
+			return res;
 		}
 	}
 }
