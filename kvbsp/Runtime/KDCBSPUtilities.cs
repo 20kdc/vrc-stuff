@@ -94,6 +94,20 @@ namespace KDCVRCBSP {
 			return layer;
 		}
 
+		// -- Loader Assist --
+
+		public static void GetEntityBox(ECLBSPFile.Entity entity, float worldScale, out Vector3 centre, out Vector3 size) {
+			centre = Vector3.zero;
+			size = Vector3.zero;
+			var mdl = entity.model;
+			if (mdl == null)
+				return;
+			var minT = TransformPosition(mdl.min, worldScale);
+			var maxT = TransformPosition(mdl.max, worldScale);
+			centre = (minT + maxT) / 2;
+			size = Vector3.Max(maxT, minT) - Vector3.Min(maxT, minT);
+		}
+
 		// -- Transform functions --
 
 		public static Plane TransformPlane(Plane3d plane, float worldScale) {
@@ -115,7 +129,7 @@ namespace KDCVRCBSP {
 		}
 
 		public static Vector3 TransformNormal(Vector3d src) {
-			return new Vector3d((float) src.x, (float) src.z, (float) src.y);
+			return new Vector3((float) src.x, (float) src.z, (float) src.y);
 		}
 
 		public static Vector3 TransformPosition(float nX, float nY, float nZ, float worldScale) {

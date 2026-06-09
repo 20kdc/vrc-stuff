@@ -3,6 +3,7 @@ using System.IO;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering;
+using KDCVRCBSP.ECL;
 
 namespace KDCVRCBSP {
 	/**
@@ -67,7 +68,7 @@ namespace KDCVRCBSP {
 		}
 
 		/// Called in CreateEntity **after** the entity parameterizer has had its say.
-		public void ParseEntityOverrides(KDCBSPIntermediate.Entity entity) {
+		public void ParseEntityOverrides(ECLBSPFile.Entity entity) {
 			void ParseFlagMod(string s, ref FlagMod mod) {
 				string sv = entity[s];
 				if (sv == "1")

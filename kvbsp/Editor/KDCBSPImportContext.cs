@@ -5,6 +5,7 @@ using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEditor;
 using UnityEditor.AssetImporters;
+using KDCVRCBSP.ECL;
 
 namespace KDCVRCBSP {
 	/**
@@ -14,7 +15,7 @@ namespace KDCVRCBSP {
 		public KDCBSPBaseImporter importer;
 		public KDCBSPAbstractWorkspaceConfig workspace;
 		public List<KDCBSPAbstractWorkspaceConfig> searchOrder;
-		public KDCBSPIntermediate bsp;
+		public ECLBSPFile bsp;
 		public AssetImportContext assetImportContext;
 		public Dictionary<String, KDCBSPAbstractMaterialConfig> materialCache;
 		public Dictionary<String, GameObject> entityCache;

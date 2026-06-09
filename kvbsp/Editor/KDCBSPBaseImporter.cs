@@ -20,7 +20,7 @@ namespace KDCVRCBSP {
 		[SerializeField]
 		public KDCBSPBrushEntitySettings worldspawnCompilation = new();
 
-		public abstract KDCBSPIntermediate CompileToIntermediate(KDCBSPImportContext importContext, string assetPath);
+		public abstract ECLBSPFile CompileToIntermediate(KDCBSPImportContext importContext, string assetPath);
 
 		public override void OnImportAsset(AssetImportContext ctx) {
 			if (!workspace.isSet) {
@@ -47,21 +47,24 @@ namespace KDCVRCBSP {
 
 			List<KDCBSPEntityParameterizer> postProcessThese = new();
 
-			GameObject mapGO = CreateEntity(importContext, data.Worldspawn, "worldspawn ", null, postProcessThese);
+			GameObject mapGO = CreateEntity(importContext, data.worldspawn, "worldspawn", "worldspawn ", null, postProcessThese);
 			if (mapGO == null)
 				throw new Exception("worldspawn being gone means something has gone horribly wrong, so rather than risking import corruption we choose to bail here");
 
 			Dictionary<string, int> entCounters = new();
 			foreach (var entity in data.entities) {
-				if (entity.IsWorldspawn)
+				string classname = entity["classname"];
+				if (classname == "")
+					classname = "func_unknown";
+				if (entity == data.worldspawn)
 					continue;
 				// use per-classname counters to increase resilience
-				if (!entCounters.ContainsKey(entity.classname))
-					entCounters[entity.classname] = 0;
-				int eid = entCounters[entity.classname];
-				entCounters[entity.classname] = eid + 1;
+				if (!entCounters.ContainsKey(classname))
+					entCounters[classname] = 0;
+				int eid = entCounters[classname];
+				entCounters[classname] = eid + 1;
 				// ...
-				CreateEntity(importContext, entity, entity.classname + " " + eid, mapGO, postProcessThese);
+				CreateEntity(importContext, entity, classname, classname + " " + eid, mapGO, postProcessThese);
 			}
 
 			// entity tree is complete, postprocess/link
@@ -77,22 +80,24 @@ namespace KDCVRCBSP {
 		// -- Primary Entity Converter --
 
 		/// Creates and returns an entity.
-		public GameObject CreateEntity(KDCBSPImportContext importContext, KDCBSPIntermediate.Entity entity, string uniqueName, GameObject parent, List<KDCBSPEntityParameterizer> postProcessThese) {
+		public GameObject CreateEntity(KDCBSPImportContext importContext, ECLBSPFile.Entity entity, string classname, string uniqueName, GameObject parent, List<KDCBSPEntityParameterizer> postProcessThese) {
+			var worldScale = importContext.workspace.WorldScale;
 			// Create the entity prefab.
-			var prefab = importContext.LookupEntity(entity.classname);
+			var prefab = importContext.LookupEntity(classname);
 			GameObject entGO;
 			if (prefab == null) {
 				entGO = new GameObject("MissingFallbackPrefab");
 				if (parent != null)
 					entGO.transform.parent = parent.transform;
 			} else if (parent != null) {
-				entGO = (GameObject) UnityEngine.Object.Instantiate(prefab, entity.origin, Quaternion.identity, parent.transform);
+				entGO = (GameObject) UnityEngine.Object.Instantiate(prefab, KDCBSPUtilities.TransformPosition(entity.origin, worldScale), Quaternion.identity, parent.transform);
 			} else {
 				entGO = (GameObject) UnityEngine.Object.Instantiate(prefab);
 			}
 			// Name it.
-			if (entity.targetname != "")
-				entGO.name = entity.targetname;
+			string targetname = entity["targetname"];
+			if (targetname != "")
+				entGO.name = targetname;
 			else
 				entGO.name = uniqueName;
 			// Find the entity parameterizer.
@@ -102,10 +107,10 @@ namespace KDCVRCBSP {
 
 			KDCBSPBrushEntitySettings compSettings = (KDCBSPBrushEntitySettings) worldspawnCompilation.Clone();
 			foreach (var c in custom) {
-				c.EntityParameterize(importContext.bsp, ref entity, uniqueName);
+				c.EntityParameterize(importContext.bsp, entity, uniqueName, worldScale);
 				if (c == null)
 					return null;
-				compSettings = c.EntityGetBrushSettings(entity.IsWorldspawn, compSettings);
+				compSettings = c.EntityGetBrushSettings(entity == importContext.bsp.worldspawn, compSettings);
 			}
 
 			foreach (var c in custom)
@@ -133,7 +138,7 @@ namespace KDCVRCBSP {
 
 			var model = entity.model;
 			// we always get this -- we may need it for concave evaluation or for visuals or both
-			var triangles = GetBSPTriangles(importContext.bsp, model);
+			var triangles = GetBSPTriangles(importContext.bsp, model, worldScale);
 
 			if (compSettings.visuals) {
 				GameObject visualsGO = new GameObject("visuals");
@@ -305,23 +310,42 @@ namespace KDCVRCBSP {
 
 		// -- Primary Geometry Converters --
 
-		public List<(string, List<KDCBSPTriangle>)> GetBSPTriangles(KDCBSPIntermediate bsp, KDCBSPIntermediate.Model model) {
-			Dictionary<string, List<KDCBSPTriangle>> tri = new();
+		public List<(string, List<KDCBSPTriangle>)> GetBSPTriangles(ECLBSPFile bsp, ECLBSPFile.Model model, float worldScale) {
+			Dictionary<string, List<KDCBSPTriangle>> lookup = new();
 			List<(string, List<KDCBSPTriangle>)> res = new();
-			foreach (var face in model.faces) {
-				var winding = face.winding;
-				if (winding.Length < 3)
-					continue;
-				string material = face.tex;
+			void AddTriangle(string material, KDCBSPTriangle t) {
 				List<KDCBSPTriangle> targetList = null;
-				if (tri.ContainsKey(material)) {
-					targetList = tri[material];
+				if (lookup.ContainsKey(material)) {
+					targetList = lookup[material];
 				} else {
 					targetList = new();
-					tri[material] = targetList;
+					lookup[material] = targetList;
 					res.Add((material, targetList));
 				}
-				bsp.FaceToTriangles(face, targetList);
+				targetList.Add(t);
+			}
+			foreach (var area in model.areas) {
+				foreach (var srcRenderable in area) {
+					if (srcRenderable is ECLBSPFile.ModelTriangle tri) {
+						(Vector3, Vector2) ConvVtx(ECLBSPFile.Vertex vtx) {
+							return (
+								KDCBSPUtilities.TransformPosition(vtx.position, worldScale),
+								new Vector2((float) vtx.uv.x, 1 - (float) vtx.uv.y)
+							);
+						}
+						var vtxA = ConvVtx(tri.a);
+						var vtxB = ConvVtx(tri.b);
+						var vtxC = ConvVtx(tri.c);
+						AddTriangle(tri.tex, new KDCBSPTriangle {
+							a = vtxA.Item1,
+							au = vtxA.Item2,
+							b = vtxB.Item1,
+							bu = vtxB.Item2,
+							c = vtxC.Item1,
+							cu = vtxC.Item2
+						});
+					}
+				}
 			}
 			return res;
 		}
