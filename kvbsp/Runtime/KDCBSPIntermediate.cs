@@ -117,21 +117,6 @@ namespace KDCVRCBSP {
 			}
 		}
 
-		public struct TriInfo {
-			public Vector3 a;
-			public Vector2 au;
-			public Vector3 b;
-			public Vector2 bu;
-			public Vector3 c;
-			public Vector2 cu;
-			/// Translates a TriInfo.
-			public void Translate(Vector3 by) {
-				a += by;
-				b += by;
-				c += by;
-			}
-		}
-
 		// -- Loader Picker --
 
 		/// Just a proxy for KDCBSPQ2Loader right now.
@@ -163,40 +148,13 @@ namespace KDCVRCBSP {
 
 		// -- Windings --
 
-		/// Transforms triangles into a mesh.
-		public static Mesh TrianglesToMesh(List<TriInfo> triangles, Vector2 uvMul) {
-			var vertices = new Vector3[triangles.Count * 3];
-			var uvs = new Vector2[triangles.Count * 3];
-			var indices = new int[triangles.Count * 3];
-			int idx = 0;
-			foreach (var v in triangles) {
-				vertices[idx] = v.a;
-				uvs[idx] = v.au * uvMul;
-				indices[idx] = idx;
-				idx++;
-				vertices[idx] = v.b;
-				uvs[idx] = v.bu * uvMul;
-				indices[idx] = idx;
-				idx++;
-				vertices[idx] = v.c;
-				uvs[idx] = v.cu * uvMul;
-				indices[idx] = idx;
-				idx++;
-			}
-			Mesh res = new Mesh { vertices = vertices, uv = uvs, triangles = indices };
-			res.RecalculateNormals();
-			res.RecalculateTangents();
-			res.Optimize();
-			return res;
-		}
-
 		/// Adds this face's triangles.
-		public void FaceToTriangles(Face f, List<TriInfo> targetList) {
+		public void FaceToTriangles(Face f, List<KDCBSPTriangle> targetList) {
 			var a = f.winding[0];
 			for (int j = 1; j < f.winding.Length - 1; j++) {
 				var b = f.winding[j];
 				var c = f.winding[j + 1];
-				targetList.Add(new TriInfo {
+				targetList.Add(new KDCBSPTriangle {
 					a = a.Item1,
 					au = a.Item2,
 					b = b.Item1,
@@ -208,12 +166,12 @@ namespace KDCVRCBSP {
 		}
 
 		/// Adds this face's triangles, annotated and UV'd with texture name.
-		public void FaceToTriangles(Face f, List<(TriInfo, string)> targetList) {
+		public void FaceToTriangles(Face f, List<(KDCBSPTriangle, string)> targetList) {
 			var a = f.winding[0];
 			for (int j = 1; j < f.winding.Length - 1; j++) {
 				var b = f.winding[j];
 				var c = f.winding[j + 1];
-				targetList.Add((new TriInfo {
+				targetList.Add((new KDCBSPTriangle {
 					a = a.Item1,
 					au = a.Item2,
 					b = b.Item1,

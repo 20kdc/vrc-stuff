@@ -5,7 +5,6 @@ using UnityEngine;
 using UnityEditor;
 using UnityEditor.AssetImporters;
 
-using TriInfo = KDCVRCBSP.KDCBSPIntermediate.TriInfo;
 using FlagMod = KDCVRCBSP.KDCBSPBrushEntitySettings.FlagMod;
 using CollisionMode = KDCVRCBSP.KDCBSPBrushEntitySettings.CollisionMode;
 
@@ -180,7 +179,7 @@ namespace KDCVRCBSP {
 					if (layer == -1)
 						continue;
 
-					List<TriInfo> convexMesh = new();
+					List<KDCBSPTriangle> convexMesh = new();
 
 					foreach (var face in importContext.bsp.BrushToFaces(b, importContext.workspace.WorldScale)) {
 						importContext.bsp.FaceToTriangles(face, convexMesh);
@@ -190,7 +189,7 @@ namespace KDCVRCBSP {
 					convexGO.transform.parent = collisionGO.transform;
 					convexGO.layer = layer;
 
-					Mesh mesh = KDCBSPIntermediate.TrianglesToMesh(convexMesh, Vector2.one);
+					Mesh mesh = KDCBSPTriangle.TrianglesToMesh(convexMesh, Vector2.one);
 					importContext.assetImportContext.AddObjectToAsset(assetPrefix + convexName, mesh);
 					var collider = convexGO.AddComponent(typeof(MeshCollider)) as MeshCollider;
 					collider.convex = true;
@@ -201,7 +200,7 @@ namespace KDCVRCBSP {
 				collisionGO.transform.parent = entGO.transform;
 				collisionGO.transform.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
 			} else if (compSettings.collision == CollisionMode.ConcaveRoot) {
-				List<TriInfo> concave = new();
+				List<KDCBSPTriangle> concave = new();
 				foreach (var kvp in triangles) {
 					var assignment = importContext.LookupMaterial(kvp.Key);
 					if (assignment != null)
@@ -210,14 +209,14 @@ namespace KDCVRCBSP {
 					foreach (var tri in kvp.Value)
 						concave.Add(tri);
 				}
-				Mesh mesh = KDCBSPIntermediate.TrianglesToMesh(concave, Vector2.one);
+				Mesh mesh = KDCBSPTriangle.TrianglesToMesh(concave, Vector2.one);
 				importContext.assetImportContext.AddObjectToAsset(assetPrefix + "concave", mesh);
 				var collider = entGO.AddComponent(typeof(MeshCollider)) as MeshCollider;
 				collider.convex = false;
 				collider.sharedMesh = mesh;
 				compSettings.ApplyColliderSettings(collider);
 			} else if (compSettings.collision == CollisionMode.SingleConvexRoot) {
-				List<TriInfo> convexMesh = new();
+				List<KDCBSPTriangle> convexMesh = new();
 				var idx = 0;
 				// Note the attempt to find a 'true' primary material.
 				// The hope is that this works decently well, but no promises.
@@ -251,7 +250,7 @@ namespace KDCVRCBSP {
 
 				var collisionMaterial = bFullPrimary != null ? bFullPrimary.collisionMaterial.asset : null;
 
-				Mesh mesh = KDCBSPIntermediate.TrianglesToMesh(convexMesh, Vector2.one);
+				Mesh mesh = KDCBSPTriangle.TrianglesToMesh(convexMesh, Vector2.one);
 				importContext.assetImportContext.AddObjectToAsset(assetPrefix + "convex", mesh);
 				var collider = entGO.AddComponent(typeof(MeshCollider)) as MeshCollider;
 				collider.convex = true;
@@ -308,14 +307,14 @@ namespace KDCVRCBSP {
 
 		// -- Primary Geometry Converters --
 
-		public Dictionary<String, List<TriInfo>> GetBSPTriangles(KDCBSPIntermediate bsp, KDCBSPIntermediate.Model model) {
-			Dictionary<String, List<TriInfo>> tri = new();
+		public Dictionary<String, List<KDCBSPTriangle>> GetBSPTriangles(KDCBSPIntermediate bsp, KDCBSPIntermediate.Model model) {
+			Dictionary<String, List<KDCBSPTriangle>> tri = new();
 			foreach (var face in model.faces) {
 				var winding = face.winding;
 				if (winding.Length < 3)
 					continue;
 				string material = face.tex;
-				List<TriInfo> targetList = null;
+				List<KDCBSPTriangle> targetList = null;
 				if (tri.ContainsKey(material)) {
 					targetList = tri[material];
 				} else {
