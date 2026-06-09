@@ -181,9 +181,7 @@ namespace KDCVRCBSP {
 
 					List<KDCBSPTriangle> convexMesh = new();
 
-					foreach (var face in importContext.bsp.BrushToFaces(b, importContext.workspace.WorldScale)) {
-						importContext.bsp.FaceToTriangles(face, convexMesh);
-					}
+					KDCBSPTriangle.BrushToTriangles(b, convexMesh, importContext.workspace.WorldScale);
 
 					GameObject convexGO = new GameObject(convexName);
 					convexGO.transform.parent = collisionGO.transform;
@@ -244,8 +242,7 @@ namespace KDCVRCBSP {
 					if (layerMask == 0)
 						continue;
 
-					foreach (var face in importContext.bsp.BrushToFaces(b, importContext.workspace.WorldScale))
-						importContext.bsp.FaceToTriangles(face, convexMesh);
+					KDCBSPTriangle.BrushToTriangles(b, convexMesh, importContext.workspace.WorldScale);
 				}
 
 				var collisionMaterial = bFullPrimary != null ? bFullPrimary.collisionMaterial.asset : null;

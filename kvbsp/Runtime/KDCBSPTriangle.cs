@@ -47,5 +47,54 @@ namespace KDCVRCBSP {
 			res.Optimize();
 			return res;
 		}
+
+		/// Converts a brush to triangles.
+		public static void BrushToTriangles(KDCBSPIntermediate.Brush brush, List<KDCBSPTriangle> triangles, float worldScale) {
+			Plane3d[] planes = new Plane3d[brush.sides.Length];
+			for (int i = 0; i < brush.sides.Length; i++)
+				planes[i] = KDCBSPUtilities.ToECL(brush.sides[i].plane);
+
+			float epsilon = 0.05f / worldScale;
+			float initQuadSize = 131072 / worldScale;
+			for (int i = 0; i < brush.sides.Length; i++) {
+				// note this non-Geo2 quick rewrite of the convex cutting code.
+				// so sad
+				// create initial
+				List<Vector3d> winding = GeomUtil.GenInitialWinding(planes[i], initQuadSize);
+				// cut
+				for (int j = 0; j < brush.sides.Length; j++) {
+					if (j == i)
+						continue;
+					planes[j].CutWinding(winding, null, epsilon);
+					if (winding.Count < 3)
+						break;
+				}
+				if (winding.Count < 3)
+					continue;
+
+				var side = brush.sides[i];
+				// convert from ECL to Unity
+				Vector3[] windingConv = new Vector3[winding.Count];
+				for (int j = 0; j < windingConv.Length; j++) {
+					int revIndex = winding.Count - (j + 1);
+					var pos = KDCBSPUtilities.FromECL(winding[j]);
+					windingConv[revIndex] = pos;
+				}
+
+				var a = windingConv[0];
+				for (int j = 1; j < windingConv.Length - 1; j++) {
+					var b = windingConv[j];
+					var c = windingConv[j + 1];
+					triangles.Add(new KDCBSPTriangle {
+						a = a,
+						au = new Vector2(0, 0),
+						b = b,
+						bu = new Vector2(0, 0),
+						c = c,
+						cu = new Vector2(0, 0)
+					});
+				}
+			}
+		}
 	}
 }
