@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Rendering;
 using UnityEditor;
 using UnityEditor.AssetImporters;
 using KDCVRCBSP.ECL;
@@ -172,6 +173,45 @@ namespace KDCVRCBSP {
 
 				visualsGO.transform.parent = entGO.transform;
 				visualsGO.transform.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
+			}
+
+			var visleavesToOcclusionMtl = compSettings.visleavesToOcclusion.asset;
+			if (visleavesToOcclusionMtl != null && model.viewLeaves.Count > 0) {
+				var occlusionGeometry = model.IntoOcclusionGeometry(compSettings.visleavesToOcclusionWallGap * worldScale, compSettings.visleavesToOcclusionMapMargin * worldScale);
+
+				List<KDCBSPTriangle> occlusionMesh = new();
+
+				foreach (var occy in occlusionGeometry)
+					KDCBSPTriangle.ConvexToTriangles(occy, occlusionMesh, importContext.workspace.WorldScale);
+
+				GameObject convexGO = new GameObject("occlusion");
+				convexGO.transform.parent = entGO.transform;
+
+				Mesh mesh = KDCBSPTriangle.TrianglesToMesh(occlusionMesh, Vector2.one);
+				importContext.assetImportContext.AddObjectToAsset(assetPrefix + "occlusion", mesh);
+
+				var meshFilter = convexGO.GetComponent<MeshFilter>();
+				if (meshFilter == null)
+					meshFilter = convexGO.AddComponent<MeshFilter>();
+
+				var meshRender = convexGO.GetComponent<MeshRenderer>();
+				if (meshRender == null)
+					meshRender = convexGO.AddComponent<MeshRenderer>();
+
+				var materialsList = new List<Material>();
+				materialsList.Add(visleavesToOcclusionMtl);
+				meshRender.SetSharedMaterials(materialsList);
+
+				// mesh.isReadable = false;
+				mesh.UploadMeshData(true);
+				meshFilter.mesh = mesh;
+
+				meshRender.receiveShadows = false;
+				meshRender.shadowCastingMode = ShadowCastingMode.Off;
+				meshRender.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off;
+				meshRender.reflectionProbeUsage = UnityEngine.Rendering.ReflectionProbeUsage.Off;
+				convexGO.tag = "EditorOnly";
+				GameObjectUtility.SetStaticEditorFlags(convexGO, StaticEditorFlags.OccluderStatic | StaticEditorFlags.BatchingStatic);
 			}
 
 			if (compSettings.collision == CollisionMode.ConvexBrushes) {

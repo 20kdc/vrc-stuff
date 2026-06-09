@@ -43,7 +43,7 @@ namespace KDCVRCBSP.ECL {
 
 				// 'out-of-compiler' autoorigin
 				if (model != null && GetBool("_kdcbsp_autoorigin", false)) {
-					Vector3d newOrigin = (model.min + model.max) / 2;
+					Vector3d newOrigin = (model.bounds.min + model.bounds.max) / 2;
 					Vector3d internalTranslation = origin - newOrigin;
 					model.Translate(internalTranslation);
 					this.origin = newOrigin;
@@ -54,9 +54,9 @@ namespace KDCVRCBSP.ECL {
 		public class Model {
 			/// Distinct renderables are used when mesh separation is required.
 			public List<ModelRenderable> renderables = new();
-			public Vector3d min, max;
+			public AABB3d bounds;
 			public List<Brush> brushes = new();
-			public List<List<Plane3d>> viewLeaves = new();
+			public List<Plane3d[]> viewLeaves = new();
 
 			public void AddTri(string tex, (Vertex, Vertex, Vertex) tri, int area, Dictionary<int, Dictionary<string, ModelTriMesh>> table) {
 				Dictionary<string, ModelTriMesh> areaTable;
@@ -75,15 +75,133 @@ namespace KDCVRCBSP.ECL {
 			}
 
 			public void Translate(Vector3d t) {
-				min += t;
-				max += t;
+				bounds.min += t;
+				bounds.max += t;
 				foreach (var renderable in renderables)
 					renderable.Translate(t);
 				foreach (var brush in brushes)
 					brush.Translate(t);
 				foreach (var planeList in viewLeaves)
-					for (int i = 0; i < planeList.Count; i++)
+					for (int i = 0; i < planeList.Length; i++)
 						planeList[i] = planeList[i].Translated(t);
+			}
+
+			public List<Convex3d<bool>> IntoOcclusionGeometry(double occlusionBorder, double worldBorder) {
+				bool debugOccy = false;
+				if (debugOccy)
+					Console.WriteLine(" leaf count: " + viewLeaves.Count);
+				// occluder geo time
+				Plane3d GenAxialPlane(AABB3d bounds, int id, double nudge) {
+					double src;
+					Vector3d normal;
+					bool flip = false;
+					if (id == 0) {
+						normal = new Vector3d(1, 0, 0);
+						src = bounds.max.x + nudge;
+					} else if (id == 1) {
+						normal = new Vector3d(-1, 0, 0);
+						src = bounds.min.x - nudge;
+						flip = true;
+					} else if (id == 2) {
+						normal = new Vector3d(0, 1, 0);
+						src = bounds.max.y + nudge;
+					} else if (id == 3) {
+						normal = new Vector3d(0, -1, 0);
+						src = bounds.min.y - nudge;
+						flip = true;
+					} else if (id == 4) {
+						normal = new Vector3d(0, 0, 1);
+						src = bounds.max.z + nudge;
+					} else {
+						normal = new Vector3d(0, 0, -1);
+						src = bounds.min.z - nudge;
+						flip = true;
+					}
+					return new Plane3d(normal, flip ? -src : src);
+				}
+				var initiator = Convex3d<bool>.FromPlanes(new Plane3d[] {
+					bounds.GenAxialPlane(0, worldBorder),
+					bounds.GenAxialPlane(1, worldBorder),
+					bounds.GenAxialPlane(2, worldBorder),
+					bounds.GenAxialPlane(3, worldBorder),
+					bounds.GenAxialPlane(4, worldBorder),
+					bounds.GenAxialPlane(5, worldBorder),
+				}, false, 0.01d, 65536d, true);
+				List<Convex3d<bool>> occluderGeo = new();
+				if (initiator == null)
+					return occluderGeo;
+				occluderGeo.Add(initiator);
+				List<int> leafIndices = new();
+				Convex3d<bool>[] leafConvexes = new Convex3d<bool>[viewLeaves.Count];
+				for (int i = 0; i < viewLeaves.Count; i++) {
+					leafIndices.Add(i);
+					var leaf = viewLeaves[i];
+					var preBuildUnexpanded = Convex3d<bool>.FromPlanes(leaf, false, 0.01d, 65536d, true);
+					// if this fails, give up now on this leaf.
+					if (preBuildUnexpanded == null)
+						continue;
+					Plane3d[] expanded = new Plane3d[leaf.Length + 6];
+					for (int j = 0; j < leaf.Length; j++)
+						expanded[j] = new Plane3d(leaf[j].normal, leaf[j].distance + occlusionBorder);
+					// axial bevelling
+					for (int j = 0; j < 6; j++)
+						expanded[leaf.Length + j] = GenAxialPlane(preBuildUnexpanded.bounds, j, occlusionBorder);
+					leafConvexes[i] = Convex3d<bool>.FromPlanes(expanded, false, 0.01d, 65536d, true);
+				}
+				leafIndices.Sort((a, b) => {
+					var ca = viewLeaves[a].Length;
+					var cb = viewLeaves[b].Length;
+					if (ca < cb)
+						return 1;
+					else if (ca > cb)
+						return -1;
+					else
+						return 0;
+				});
+				int processed = 0;
+				foreach (var leafIndex in leafIndices) {
+					var leaf = viewLeaves[leafIndex];
+					if (debugOccy)
+						Console.WriteLine(" " + processed + " ocg count: " + occluderGeo.Count);
+					processed++;
+					var tmp = leafConvexes[leafIndex];
+					if (tmp == null || tmp.faces.Count < 1)
+						continue;
+					List<Convex3d<bool>> newGeo = new();
+					foreach (var occyUnderTest in occluderGeo) {
+						// broadphase
+						if (!occyUnderTest.bounds.Intersects(tmp.bounds, 1d)) {
+							newGeo.Add(occyUnderTest);
+							continue;
+						}
+						// check if actually intersecting
+						bool completeEscape = false;
+						foreach (var face in tmp.faces) {
+							var (below, above) = occyUnderTest.Cut(face.plane, false);
+							if (below == null) {
+								completeEscape = true;
+								break;
+							}
+						}
+						if (completeEscape) {
+							newGeo.Add(occyUnderTest);
+							continue;
+						}
+						// alright, it's intersecting, eliminate
+						var occyHold = occyUnderTest;
+						foreach (var face in tmp.faces) {
+							if (occyHold == null)
+								break;
+							var (below, above) = occyHold.Cut(face.plane, false);
+							if (above != null)
+								newGeo.Add(above);
+							occyHold = below;
+						}
+						// occyHold is within the leaf and is thus discarded.
+					}
+					occluderGeo = newGeo;
+				}
+				return occluderGeo;
 			}
 		}
 

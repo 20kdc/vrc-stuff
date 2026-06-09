@@ -120,15 +120,17 @@ namespace KDCVRCBSP.ECL {
 				int faceStart = pos.GetS32(56);
 				int faceCount = pos.GetS32(60);
 				var model = new ECLBSPFile.Model {
-					min = (
-						pos.GetF32(0),
-						pos.GetF32(4),
-						pos.GetF32(8)
-					),
-					max = (
-						pos.GetF32(12),
-						pos.GetF32(16),
-						pos.GetF32(20)
+					bounds = new AABB3d(
+						(
+							pos.GetF32(0),
+							pos.GetF32(4),
+							pos.GetF32(8)
+						),
+						(
+							pos.GetF32(12),
+							pos.GetF32(16),
+							pos.GetF32(20)
+						)
 					),
 					//origin = GetPosition(bsp, pos + 24, worldScale),
 				};

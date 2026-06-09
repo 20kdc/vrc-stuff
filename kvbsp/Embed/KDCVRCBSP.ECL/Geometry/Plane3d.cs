@@ -2,6 +2,7 @@ namespace KDCVRCBSP.ECL {
 	using System.Runtime.CompilerServices;
 	using VectorD = Vector3d;
 	using Self = Plane3d;
+    using System;
 
     /// Plane in 3D space.
     public partial struct Plane3d {
@@ -74,6 +75,10 @@ namespace KDCVRCBSP.ECL {
 		public Self Translated(VectorD t) {
 			// same normal, new distance
 			return new Self(normal, distance + normal.Dot(t));
+		}
+
+		public bool Near(Self other, double distanceEpsilon) {
+			return ((normal - other.normal).Length <= distanceEpsilon) && (Math.Abs(distance - other.distance) <= distanceEpsilon);
 		}
 	}
 }

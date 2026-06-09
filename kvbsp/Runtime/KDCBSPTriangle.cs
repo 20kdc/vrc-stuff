@@ -69,6 +69,35 @@ namespace KDCVRCBSP {
 		}
 
 		/// Converts a brush to triangles.
+		public static void ConvexToTriangles<D>(Convex3d<D> convex, List<KDCBSPTriangle> triangles, float worldScale) {
+			float epsilon = 0.05f;
+			float initQuadSize = 131072;
+			foreach (var face in convex.faces) {
+				// convert from ECL to Unity
+				Vector3[] windingConv = new Vector3[face.winding.Count];
+				for (int j = 0; j < windingConv.Length; j++) {
+					int revIndex = face.winding.Count - (j + 1);
+					var pos = KDCBSPUtilities.TransformPosition(face.winding[j], worldScale);
+					windingConv[revIndex] = pos;
+				}
+
+				var a = windingConv[0];
+				for (int j = 1; j < windingConv.Length - 1; j++) {
+					var b = windingConv[j];
+					var c = windingConv[j + 1];
+					triangles.Add(new KDCBSPTriangle {
+						a = a,
+						au = new Vector2(0, 0),
+						b = b,
+						bu = new Vector2(0, 0),
+						c = c,
+						cu = new Vector2(0, 0)
+					});
+				}
+			}
+		}
+
+		/// Converts a brush to triangles.
 		public static void BrushToTriangles(ECLBSPFile.Brush brush, List<KDCBSPTriangle> triangles, float worldScale) {
 			float epsilon = 0.05f;
 			float initQuadSize = 131072;

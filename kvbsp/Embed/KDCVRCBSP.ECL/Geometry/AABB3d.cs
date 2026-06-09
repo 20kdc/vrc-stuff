@@ -9,6 +9,11 @@ namespace KDCVRCBSP.ECL {
 		public VectorD min;
 		public VectorD max;
 
+		public AABB3d(VectorD min, VectorD max) {
+			this.min = min;
+			this.max = max;
+		}
+
 		/// Creates an AABB from a set of points.
 		public AABB3d(IEnumerable<VectorD> source) {
 			bool first = true;
@@ -24,6 +29,43 @@ namespace KDCVRCBSP.ECL {
 					max = max.Max(v);
 				}
 			}
+		}
+
+		public double Volume {
+			get {
+				var size = max - min;
+				return size.x * size.y * size.z;
+			}
+		}
+
+		/// Create axial planes.
+		public Plane3d GenAxialPlane(int id, double nudge) {
+			double src;
+			Vector3d normal;
+			bool flip = false;
+			if (id == 0) {
+				normal = new Vector3d(1, 0, 0);
+				src = max.x + nudge;
+			} else if (id == 1) {
+				normal = new Vector3d(-1, 0, 0);
+				src = min.x - nudge;
+				flip = true;
+			} else if (id == 2) {
+				normal = new Vector3d(0, 1, 0);
+				src = max.y + nudge;
+			} else if (id == 3) {
+				normal = new Vector3d(0, -1, 0);
+				src = min.y - nudge;
+				flip = true;
+			} else if (id == 4) {
+				normal = new Vector3d(0, 0, 1);
+				src = max.z + nudge;
+			} else {
+				normal = new Vector3d(0, 0, -1);
+				src = min.z - nudge;
+				flip = true;
+			}
+			return new Plane3d(normal, flip ? -src : src);
 		}
 
 		/// Merges a point into the AABB.

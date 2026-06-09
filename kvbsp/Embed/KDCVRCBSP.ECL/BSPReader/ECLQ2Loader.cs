@@ -1,5 +1,4 @@
 using System;
-using System.IO;
 using System.Text;
 using System.Collections.Generic;
 
@@ -7,6 +6,9 @@ namespace KDCVRCBSP.ECL {
 	/// Loads a Quake 2 BSP file.
 	/// This handles the binary format details, skipping over parts of the format irrelevant to this use.
 	public static class ECLQ2Loader {
+		public const int CONTENTS_SOLID      = 0x00000001;
+		public const int CONTENTS_PLAYERCLIP = 0x00010000;
+		public const int CONTENTS_CURRENT_0  = 0x00040000;
 		public static ECLBSPFile Load(byte[] bspRaw, bool qbism) {
 			var bsp = new ECLLoadCom.LumpTable {
 				file = new(bspRaw),
@@ -152,12 +154,10 @@ namespace KDCVRCBSP.ECL {
 						texUV = texInfo.Item2
 					};
 				}
-				// CONTENTS_CURRENT_0
 				// We use this as a 'secret handshake' to implement the 'noclip' brush.
 				// Noclip brushes are solid (so block vis), but don't create collision.
-				bool hasNoclipContents = (contents & 0x40000) != 0;
-				// CONTENTS_SOLID | CONTENTS_PLAYERCLIP
-				bool hasClipContents = (contents & (1 | 0x10000)) != 0;
+				bool hasNoclipContents = (contents & CONTENTS_CURRENT_0) != 0;
+				bool hasClipContents = (contents & (CONTENTS_SOLID | CONTENTS_PLAYERCLIP)) != 0;
 				brushes[idx] = new ECLBSPFile.Brush {
 					illusionary = hasNoclipContents || !hasClipContents,
 					sides = brushSides
@@ -173,25 +173,25 @@ namespace KDCVRCBSP.ECL {
 			foreach ((int idx, var pos) in lumpModels.StructArray(48, out models)) {
 				int headNode = pos.GetS32(36);
 				var model = new ECLBSPFile.Model {
-					min = (
+					bounds = new AABB3d((
 						pos.GetF32(0),
 						pos.GetF32(4),
 						pos.GetF32(8)
-					),
-					max = (
+					), (
 						pos.GetF32(12),
 						pos.GetF32(16),
 						pos.GetF32(20)
-					),
+					)),
 					//origin = GetPosition(bsp, pos + 24, worldScale),
 				};
 				HashSet<int> brushNumSet = new();
 				HashSet<int> faceNumSet = new();
 				Dictionary<int, Dictionary<string, ECLBSPFile.ModelTriMesh>> areaTable = new();
-				void CollectLeaves(int node) {
+				void CollectLeaves(int node, Plane3d[] splitChain) {
 					// For qbism format check https://github.com/qbism/q2tools-220/blob/3fcf535be656d8ff38a9b95238fc741f3aebbd09/src/qfiles.h#L575
 					if (node < 0) {
 						int area;
+						int contents;
 						int firstLeafFace;
 						int numLeafFaces;
 						int firstLeafBrush;
@@ -199,6 +199,7 @@ namespace KDCVRCBSP.ECL {
 						if (!qbism) {
 							// dleaf_t 4 + 2 + 2 + (3 * 2) + (3 * 2) + 2 + 2 + 2 + 2
 							var leafOfs = lumpLeaves.GetStruct(-(node + 1), 28);
+							contents = leafOfs.GetS32(0);
 							area = leafOfs.GetU16(6);
 							firstLeafFace = leafOfs.GetU16(20);
 							numLeafFaces = leafOfs.GetU16(22);
@@ -207,6 +208,7 @@ namespace KDCVRCBSP.ECL {
 						} else {
 							// dleaf_tx 4 + 4 + 4 + (3 * 4) + (3 * 4) + 4 + 4 + 4 + 4
 							var leafOfs = lumpLeaves.GetStruct(-(node + 1), 52);
+							contents = leafOfs.GetS32(0);
 							area = leafOfs.GetS32(8);
 							firstLeafFace = leafOfs.GetS32(36);
 							numLeafFaces = leafOfs.GetS32(40);
@@ -233,6 +235,8 @@ namespace KDCVRCBSP.ECL {
 							if (brushNumSet.Add(leafBrush))
 								model.brushes.Add(brushes[leafBrush]);
 						}
+						if ((contents & CONTENTS_SOLID) == 0)
+							model.viewLeaves.Add(splitChain);
 					} else {
 						// the start of dnode_t and dnode_tx is the same
 						ECLLoadCom.View nodeOfs;
@@ -243,14 +247,16 @@ namespace KDCVRCBSP.ECL {
 							// dnode_tx 4 + 8 + (3 * 4) + (3 * 4) + 4 + 4
 							nodeOfs = lumpNodes.GetStruct(node, 44);
 						}
-						int plane = nodeOfs.GetS32(0);
+						int planeIndex = nodeOfs.GetS32(0);
+						//Console.WriteLine(planeIndex);
+						var plane = planes[planeIndex];
 						int childA = nodeOfs.GetS32(4);
 						int childB = nodeOfs.GetS32(8);
-						CollectLeaves(childA);
-						CollectLeaves(childB);
+						CollectLeaves(childA, ECLLoadCom.AppendPlane(splitChain, plane.Flipped));
+						CollectLeaves(childB, ECLLoadCom.AppendPlane(splitChain, plane));
 					}
 				}
-				CollectLeaves(headNode);
+				CollectLeaves(headNode, Array.Empty<Plane3d>());
 				models[idx] = model;
 			}
 

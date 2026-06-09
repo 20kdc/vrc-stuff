@@ -89,6 +89,14 @@ namespace KDCVRCBSP.ECL {
 			return planes;
 		}
 
+		/// Used in leaf building.
+		public static Plane3d[] AppendPlane(Plane3d[] src, Plane3d plane) {
+			Plane3d[] appended = new Plane3d[src.Length + 1];
+			src.CopyTo(appended, 0);
+			appended[src.Length] = plane;
+			return appended;
+		}
+
 		public static Vector3d[] HandleVertexLump(View lumpVertexes) {
 			Vector3d[] vertexes;
 			foreach ((int idx, var pos) in lumpVertexes.StructArray(12, out vertexes)) {

@@ -102,8 +102,8 @@ namespace KDCVRCBSP {
 			var mdl = entity.model;
 			if (mdl == null)
 				return;
-			var minT = TransformPosition(mdl.min, worldScale);
-			var maxT = TransformPosition(mdl.max, worldScale);
+			var minT = TransformPosition(mdl.bounds.min, worldScale);
+			var maxT = TransformPosition(mdl.bounds.max, worldScale);
 			centre = (minT + maxT) / 2;
 			size = Vector3.Max(maxT, minT) - Vector3.Min(maxT, minT);
 		}

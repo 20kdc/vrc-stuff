@@ -63,6 +63,18 @@ namespace KDCVRCBSP {
 		[SerializeField]
 		public FlagMod reflectionProbeStatic;
 
+		[Tooltip("Combined material and enable flag for visleaves to occlusion. This creates editor-only occlusion geometry.")]
+		[SerializeField]
+		public LazyLoadReference<Material> visleavesToOcclusion = null;
+
+		[Tooltip("Visleaves to occlusion map margin.")]
+		[SerializeField]
+		public double visleavesToOcclusionMapMargin = 1d;
+
+		[Tooltip("Visleaves to occlusion gap between wall and occlusion.")]
+		[SerializeField]
+		public double visleavesToOcclusionWallGap = 0.25d;
+
 		public object Clone() {
 			return MemberwiseClone();
 		}

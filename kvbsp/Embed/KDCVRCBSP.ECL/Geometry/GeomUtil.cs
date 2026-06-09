@@ -65,7 +65,7 @@ namespace KDCVRCBSP.ECL {
 			Plane3d p2 = new Plane3d(res[0], res[1], res[2]);
 			// this is to catch REALLY wrong values only, so this isn't very tight.
 			if ((p.normal.Dot(p2.normal) < 0.9d) || (Math.Abs(p.distance - p2.distance) > 0.1d))
-				throw new Exception("GenInitialWinding created bad winding for " + p + ", resulted in " + p2);
+				throw new Exception("GenInitialWinding created bad winding for " + p + ", resulted in " + p2 + ": " + res[0] + " " + res[1] + " " + res[2] + " pa" + primaryAxis + " q=" + q);
 			return res;
 		}
 

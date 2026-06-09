@@ -19,6 +19,8 @@ namespace KDCVRCBSP.ECL {
 
 		public Convex3d(IReadOnlyList<Face> faces, double distanceEpsilon, double initialWindingSize) {
 			this.faces = faces;
+			this.distanceEpsilon = distanceEpsilon;
+			this.initialWindingSize = initialWindingSize;
 			AABB3d boundsAdj = new AABB3d {
 				min = Vector3d.Zero,
 				max = Vector3d.Zero
@@ -64,12 +66,32 @@ namespace KDCVRCBSP.ECL {
 			return new Convex3d<E>(newFaces, distanceEpsilon, initialWindingSize);
 		}
 
+		public Convex3d<D> SubstituteFaceData(Face fSrc, D newData) {
+			List<Convex3d<D>.Face> newFaces = new();
+			foreach (Face f in faces) {
+				if (f == fSrc) {
+					newFaces.Add(f.WithData(newData));
+				} else {
+					newFaces.Add(f);
+				}
+			}
+			return new Convex3d<D>(newFaces, distanceEpsilon, initialWindingSize);
+		}
+
 		/// Cuts a convex to create up to two new convexes.
 		public (Convex3d<D>, Convex3d<D>) Cut(Plane3d plane, D planeData) {
+			var planeFlipped = plane.Flipped;
 			var winding = GeomUtil.GenInitialWinding(plane, initialWindingSize);
 			List<Face> facesBelow = new();
 			List<Face> facesAbove = new();
 			foreach (var face in this.faces) {
+				if (face.plane.Near(plane, distanceEpsilon)) {
+					// must be entirely below
+					return (this.SubstituteFaceData(face, planeData), null);
+				} else if (face.plane.Near(plane, distanceEpsilon)) {
+					// must be entirely above
+					return (null, this.SubstituteFaceData(face, planeData));
+				}
 				face.plane.CutWinding(winding, null, distanceEpsilon);
 				(var faceBelow, var faceAbove) = face.Cut(plane, distanceEpsilon);
 				if (faceBelow != null)
@@ -82,7 +104,7 @@ namespace KDCVRCBSP.ECL {
 				facesBelow.Add(new Face(plane, winding, planeData));
 				List<Vector3d> windingRev = new(winding);
 				windingRev.Reverse();
-				facesAbove.Add(new Face(plane.Flipped, windingRev, planeData));
+				facesAbove.Add(new Face(planeFlipped, windingRev, planeData));
 			}
 			return (
 				(facesBelow.Count < ConvexCollapseLimit) ? null : new Convex3d<D>(facesBelow, distanceEpsilon, initialWindingSize),
@@ -140,26 +162,48 @@ namespace KDCVRCBSP.ECL {
 			}
 		}
 
+		/// Same as the other FromPlanes, but sets up a filled array automatically for simple cases.
+		public static Convex3d<D> FromPlanes(Plane3d[] planes, D associated, double distanceEpsilon, double initialWindingSize, bool acceptUnbounded = false) {
+			D[] arr = new D[planes.Length];
+			for (int i = 0; i < planes.Length; i++)
+				arr[i] = associated;
+			return FromPlanes(planes, arr, distanceEpsilon, initialWindingSize, acceptUnbounded);
+		}
+
 		/// Creates a convex out of planes.
-		/// Returns null if the brush has less than the minimum amount of faces to be a solid (ConvexCollapseLimit)
-		/// Unless acceptUnbounded is true.
+		/// Returns null if the brush has less than the minimum amount of faces to be a solid (ConvexCollapseLimit)...
+		/// Unless acceptUnbounded is true (since unbounded convexes can easily have this).
 		public static Convex3d<D> FromPlanes(Plane3d[] planes, D[] associated, double distanceEpsilon, double initialWindingSize, bool acceptUnbounded = false) {
 			List<Face> faces = new();
 			for (int i = 0; i < planes.Length; i++) {
 				var winding = GeomUtil.GenInitialWinding(planes[i], initialWindingSize);
+				bool fault = false;
 				for (int j = 0; j < planes.Length; j++) {
 					if (i == j)
 						continue;
+					if (j < i) {
+						// if coplanarity happens, existing plane takes priority
+						if (planes[i].Near(planes[j], distanceEpsilon)) {
+							fault = true;
+							break;
+						}
+					}
 					planes[j].CutWinding(winding, null, distanceEpsilon);
-					if (winding.Count < WindingCollapseLimit)
+					if (winding.Count < WindingCollapseLimit) {
+						fault = true;
 						break;
+					}
 				}
-				if (winding.Count >= WindingCollapseLimit)
-					faces.Add(new Face(planes[i], winding, associated[i]));
+				if (fault)
+					continue;
+				faces.Add(new Face(planes[i], winding, associated[i]));
 			}
 			if ((faces.Count < ConvexCollapseLimit) && !acceptUnbounded)
 				return null;
-			return new Convex3d<D>(faces, distanceEpsilon, initialWindingSize);
+			var convex = new Convex3d<D>(faces, distanceEpsilon, initialWindingSize);
+			if (convex.IsUnclosed && !acceptUnbounded)
+				return null;
+			return convex;
 		}
 	}
 }
