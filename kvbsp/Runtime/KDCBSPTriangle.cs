@@ -49,23 +49,19 @@ namespace KDCVRCBSP {
 		}
 
 		/// Converts a brush to triangles.
-		public static void BrushToTriangles(KDCBSPIntermediate.Brush brush, List<KDCBSPTriangle> triangles, float worldScale) {
-			Plane3d[] planes = new Plane3d[brush.sides.Length];
-			for (int i = 0; i < brush.sides.Length; i++)
-				planes[i] = KDCBSPUtilities.ToECL(brush.sides[i].plane);
-
-			float epsilon = 0.05f / worldScale;
-			float initQuadSize = 131072 / worldScale;
+		public static void BrushToTriangles(ECLBSPFile.Brush brush, List<KDCBSPTriangle> triangles, float worldScale) {
+			float epsilon = 0.05f;
+			float initQuadSize = 131072;
 			for (int i = 0; i < brush.sides.Length; i++) {
 				// note this non-Geo2 quick rewrite of the convex cutting code.
 				// so sad
 				// create initial
-				List<Vector3d> winding = GeomUtil.GenInitialWinding(planes[i], initQuadSize);
+				List<Vector3d> winding = GeomUtil.GenInitialWinding(brush.sides[i].plane, initQuadSize);
 				// cut
 				for (int j = 0; j < brush.sides.Length; j++) {
 					if (j == i)
 						continue;
-					planes[j].CutWinding(winding, null, epsilon);
+					brush.sides[j].plane.CutWinding(winding, null, epsilon);
 					if (winding.Count < 3)
 						break;
 				}
@@ -77,7 +73,7 @@ namespace KDCVRCBSP {
 				Vector3[] windingConv = new Vector3[winding.Count];
 				for (int j = 0; j < windingConv.Length; j++) {
 					int revIndex = winding.Count - (j + 1);
-					var pos = KDCBSPUtilities.FromECL(winding[j]);
+					var pos = KDCBSPUtilities.TransformPosition(winding[j], worldScale);
 					windingConv[revIndex] = pos;
 				}
 

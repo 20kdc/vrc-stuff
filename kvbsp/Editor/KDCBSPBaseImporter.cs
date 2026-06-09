@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEditor;
 using UnityEditor.AssetImporters;
+using KDCVRCBSP.ECL;
 
 using FlagMod = KDCVRCBSP.KDCBSPBrushEntitySettings.FlagMod;
 using CollisionMode = KDCVRCBSP.KDCBSPBrushEntitySettings.CollisionMode;
@@ -279,21 +280,21 @@ namespace KDCVRCBSP {
 			}
 		}
 
-		public static LayerMask BrushContentsLayerMaskParameterized(KDCBSPEntityParameterizer[] custom, LayerMask entityLayer, KDCBSPIntermediate.Brush brush) {
+		public static LayerMask BrushContentsLayerMaskParameterized(KDCBSPEntityParameterizer[] custom, LayerMask entityLayer, ECLBSPFile.Brush brush) {
 			LayerMask layerMask = brush.illusionary ? 0 : entityLayer;
 			foreach (var c in custom)
 				layerMask = c.EntityConvexBrushLayer(entityLayer, layerMask, brush);
 			return layerMask;
 		}
 
-		public (KDCBSPAbstractMaterialConfig, float) FindPrimarySide(KDCBSPImportContext importContext, KDCBSPIntermediate.Brush brush) {
+		public (KDCBSPAbstractMaterialConfig, float) FindPrimarySide(KDCBSPImportContext importContext, ECLBSPFile.Brush brush) {
 			KDCBSPAbstractMaterialConfig bPrimary = null;
 			float bPrimaryWeight = float.MinValue;
 			foreach (var bSide in brush.sides) {
 				var assignment = importContext.LookupMaterial(bSide.tex);
 				if (assignment == null)
 					continue;
-				float weight = assignment.GetCollisionConvexPriority(bSide.plane.normal);
+				float weight = assignment.GetCollisionConvexPriority(KDCBSPUtilities.TransformNormal(bSide.plane.normal));
 				if (weight > bPrimaryWeight) {
 					bPrimary = assignment;
 					bPrimaryWeight = weight;

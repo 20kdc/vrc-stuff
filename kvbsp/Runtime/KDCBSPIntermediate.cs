@@ -58,7 +58,7 @@ namespace KDCVRCBSP {
 			public Vector3 mins, maxs;
 			public Face[] faces;
 			// If explicit UV-mapped face support is required, add 'UVFace' struct and appropriate array here.
-			public Brush[] brushes;
+			public ECLBSPFile.Brush[] brushes;
 		}
 
 		public struct Face {
@@ -66,16 +66,6 @@ namespace KDCVRCBSP {
 			// In addition the renderfaces system in the ECL uses the pos+uv layout.
 			public string tex;
 			public (Vector3, Vector2)[] winding;
-		}
-
-		public struct Brush {
-			public bool illusionary;
-			public BrushSide[] sides;
-		}
-
-		public struct BrushSide {
-			public Plane plane;
-			public string tex;
 		}
 
 		// -- Loader Picker --
@@ -91,7 +81,6 @@ namespace KDCVRCBSP {
 					model.mins = KDCBSPUtilities.TransformPosition(entity.model.min, worldScale);
 					model.maxs = KDCBSPUtilities.TransformPosition(entity.model.max, worldScale);
 					List<Face> faces = new();
-					List<Brush> brushes = new();
 					foreach (var area in entity.model.areas) {
 						foreach (var srcRenderable in area) {
 							if (srcRenderable is ECLBSPFile.ModelTriangle tri) {
@@ -112,20 +101,8 @@ namespace KDCVRCBSP {
 							}
 						}
 					}
-					foreach (var srcBrush in entity.model.brushes) {
-						Brush dstBrush = new();
-						dstBrush.illusionary = srcBrush.illusionary;
-						dstBrush.sides = new BrushSide[srcBrush.sides.Length];
-						for (int i = 0; i < srcBrush.sides.Length; i++) {
-							dstBrush.sides[i] = new BrushSide {
-								tex = srcBrush.sides[i].tex,
-								plane = KDCBSPUtilities.TransformPlane(srcBrush.sides[i].plane, worldScale),
-							};
-						}
-						brushes.Add(dstBrush);
-					}
 					model.faces = faces.ToArray();
-					model.brushes = brushes.ToArray();
+					model.brushes = entity.model.brushes.ToArray();
 				}
 				var ime = new Entity(entity, worldScale, model, KDCBSPUtilities.TransformPosition(entity.origin, worldScale));
 				intermediate.entities.Add(ime);

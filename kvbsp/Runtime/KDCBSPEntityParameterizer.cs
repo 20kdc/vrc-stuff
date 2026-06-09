@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering;
 using VRC.SDKBase;
+using KDCVRCBSP.ECL;
 
 namespace KDCVRCBSP {
 	/**
@@ -30,7 +31,7 @@ namespace KDCVRCBSP {
 		}
 
 		/// modLayer defaults to the 'default logic', but is also the output of the last entity parameterizer.
-		public virtual LayerMask EntityConvexBrushLayer(LayerMask entityLayer, LayerMask modLayer, KDCBSPIntermediate.Brush brush) {
+		public virtual LayerMask EntityConvexBrushLayer(LayerMask entityLayer, LayerMask modLayer, ECLBSPFile.Brush brush) {
 			return modLayer;
 		}
 

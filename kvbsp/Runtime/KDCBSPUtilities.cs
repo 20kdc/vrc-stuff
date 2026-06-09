@@ -114,6 +114,10 @@ namespace KDCVRCBSP {
 			return TransformPosition((float) src.x, (float) src.y, (float) src.z, worldScale);
 		}
 
+		public static Vector3 TransformNormal(Vector3d src) {
+			return new Vector3d((float) src.x, (float) src.z, (float) src.y);
+		}
+
 		public static Vector3 TransformPosition(float nX, float nY, float nZ, float worldScale) {
 			// [TRANSFORM]
 			// positive X in TB is positive X in Unity
