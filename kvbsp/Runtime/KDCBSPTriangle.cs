@@ -119,9 +119,9 @@ namespace KDCVRCBSP {
 				// convert from ECL to Unity
 				Vector3[] windingConv = new Vector3[winding.Count];
 				for (int j = 0; j < windingConv.Length; j++) {
-					int revIndex = winding.Count - (j + 1);
+					// int revIndex = winding.Count - (j + 1);
 					var pos = KDCBSPUtilities.TransformPosition(winding[j], worldScale);
-					windingConv[revIndex] = pos;
+					windingConv[j] = pos;
 				}
 
 				var a = windingConv[0];

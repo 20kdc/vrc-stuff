@@ -1,10 +1,15 @@
 using System.Text;
 using System.Collections.Generic;
+using System;
 
 namespace KDCVRCBSP.ECL {
 	/// Q1/HL loader.
 	/// This exists essentially as a joke, because the lack of a brush structure and poor filename support makes it essentially infinitely inferior to the Q2 format for real use.
 	public static class ECLQHLLoader {
+		// CONTENTS bits aren't bitflags like they are in post-Q1 engines.
+		public const int CONTENTS_SOLID = -2;
+		public const int FakeBrushesLimitNudge = 32;
+
 		public static ECLBSPFile Load(byte[] bspRaw) {
 			var bsp = new ECLLoadCom.LumpTable {
 				file = new(bspRaw),
@@ -18,8 +23,10 @@ namespace KDCVRCBSP.ECL {
 			var lumpPlanes = bsp[1];
 			var lumpMiptex = bsp[2];
 			var lumpVertexes = bsp[3];
+			var lumpNodes = bsp[5];
 			var lumpTexInfos = bsp[6];
 			var lumpFaces = bsp[7];
+			var lumpLeaves = bsp[10];
 			var lumpEdges = bsp[12];
 			var lumpSurfEdges = bsp[13];
 			var lumpModels = bsp[14];
@@ -116,6 +123,7 @@ namespace KDCVRCBSP.ECL {
 			/// Models. Entities point to these (or implicitly in the case of model 0, aka worldspawn).
 			ECLBSPFile.Model[] models;
 			foreach ((int idx, var pos) in lumpModels.StructArray(64, out models)) {
+				int headNode = pos.GetS32(36);
 				int faceStart = pos.GetS32(56);
 				int faceCount = pos.GetS32(60);
 				var model = new ECLBSPFile.Model {
@@ -136,6 +144,50 @@ namespace KDCVRCBSP.ECL {
 				Dictionary<int, Dictionary<string, ECLBSPFile.ModelTriMesh>> areaTable = new();
 				for (int i = 0; i < faceCount; i++)
 					AddFaceToModel(model, faceStart + i, areaTable);
+				Plane3d[] axialPlanes = new Plane3d[6];
+				for (int i = 0; i < 6; i++)
+					axialPlanes[i] = model.bounds.GenAxialPlane(i, FakeBrushesLimitNudge);
+				void CollectLeaves(int node, Plane3d[] splitChain) {
+					if (node < 0) {
+						// dleaf_t 4 + 4 + (3 * 2) + (3 * 2) + 2 + 2 + 4
+						var leafOfs = lumpLeaves.GetStruct(-(node + 1), 28);
+						int contents = leafOfs.GetS32(0);
+						if (contents != CONTENTS_SOLID) {
+							model.viewLeaves.Add(splitChain);
+						} else {
+							var appended = ECLLoadCom.AppendPlanes(splitChain, axialPlanes);
+							Convex3d<bool> fakeConvex = Convex3d<bool>.FromPlanes(appended, false, 1d / 256d, 65536d);
+							if (fakeConvex != null) {
+								ECLBSPFile.BrushSide[] sides = new ECLBSPFile.BrushSide[fakeConvex.faces.Count];
+								for (int i = 0; i < sides.Length; i++)
+									sides[i] = new ECLBSPFile.BrushSide {
+										plane = fakeConvex.faces[i].plane,
+										tex = "common/clip",
+										texUV = new BrushUV {
+											texSAxis = (1, 0, 0),
+											texTAxis = (0, 1, 0),
+										}
+									};
+								model.brushes.Add(new ECLBSPFile.Brush {
+									illusionary = false,
+									occyViewpoint = false,
+									sides = sides
+								});
+							}
+						}
+					} else {
+						// dnode_t 4 + (2 * 2) + (3 * 2) + (3 * 2) + 2 + 2
+						ECLLoadCom.View nodeOfs = lumpNodes.GetStruct(node, 24);
+						int planeIndex = nodeOfs.GetS32(0);
+						//Console.WriteLine(planeIndex);
+						var plane = planes[planeIndex];
+						int childA = nodeOfs.GetS16(4);
+						int childB = nodeOfs.GetS16(6);
+						CollectLeaves(childA, ECLLoadCom.AppendPlane(splitChain, plane.Flipped));
+						CollectLeaves(childB, ECLLoadCom.AppendPlane(splitChain, plane));
+					}
+				}
+				CollectLeaves(headNode, Array.Empty<Plane3d>());
 				models[idx] = model;
 			}
 

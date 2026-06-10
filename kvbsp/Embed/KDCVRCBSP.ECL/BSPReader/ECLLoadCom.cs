@@ -97,6 +97,13 @@ namespace KDCVRCBSP.ECL {
 			return appended;
 		}
 
+		public static Plane3d[] AppendPlanes(Plane3d[] src, Plane3d[] src2) {
+			Plane3d[] appended = new Plane3d[src.Length + src2.Length];
+			src.CopyTo(appended, 0);
+			src2.CopyTo(appended, src.Length);
+			return appended;
+		}
+
 		public static Vector3d[] HandleVertexLump(View lumpVertexes) {
 			Vector3d[] vertexes;
 			foreach ((int idx, var pos) in lumpVertexes.StructArray(12, out vertexes)) {
