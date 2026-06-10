@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Text;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -52,8 +53,8 @@ namespace KDCVRCBSP {
 			}
 		}
 
-		/// Sets up the baseq2 directory.
-		public virtual void SetupBaseQ2() {
+		/// Sets up the VFS directory.
+		public virtual void SetupVFS() {
 			string path = AssetDatabase.GetAssetPath(this);
 			if (path == null) {
 				Debug.LogError("No asset path for workspace being setup!");
@@ -62,18 +63,32 @@ namespace KDCVRCBSP {
 				if (baseDir == null) {
 					Debug.LogError("No base dir for workspace being setup!");
 				} else {
-					string baseq2Dir = Path.Join(baseDir, "baseq2");
+					string vfsDir = Path.Join(baseDir, "assets");
 					try {
-						Directory.CreateDirectory(FileUtil.GetPhysicalPath(baseq2Dir));
+						Directory.CreateDirectory(FileUtil.GetPhysicalPath(vfsDir));
 					} catch (Exception ex) {
 						Debug.LogException(ex);
 					}
 					try {
+						var encoding = new UTF8Encoding(false);
 						FindEverything(out var materials);
 						SortedDictionary<string, byte[]> files = new();
-						foreach (var (key, value) in materials)
+						string shaderFile = "";
+						foreach (var (key, value) in materials) {
 							value.Item2.PAKContribute(files, key, value.Item1);
-						KDCBSPUtilities.UpdatePAKFile(FileUtil.GetPhysicalPath(baseq2Dir), KDCBSPPK3Writer.MakePK3(files));
+							if (!key.Contains(" ")) {
+								string q3shader = value.Item2.PAKGetQ3Shader(key, value.Item1);
+								if (q3shader != "") {
+									// needs 'textures/' prefix or Radiant believes it doesn't exist :<
+									shaderFile += "\ntextures/" + key + " {\n";
+									shaderFile += q3shader;
+									shaderFile += "\n}\n";
+								}
+							}
+						}
+						files["scripts/kvbspGen.shader"] = encoding.GetBytes(shaderFile);
+						files["scripts/shaderlist.txt"] = encoding.GetBytes("kvbspGen\n");
+						KDCBSPUtilities.UpdatePAKFile(FileUtil.GetPhysicalPath(vfsDir), KDCBSPPK3Writer.MakePK3(files));
 					} catch (Exception ex) {
 						Debug.LogException(ex);
 					}

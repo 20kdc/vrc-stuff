@@ -80,6 +80,13 @@ namespace KDCVRCBSP {
 			return KDCBSPUtilities.ReadLPBytesOrNull(hypothesis);
 		}
 
+		public virtual string PAKGetQ3Shader(string materialPath, string discoveryPath) {
+			if (materialPath.Contains(" "))
+				return "";
+			// if possible, we need this for netradiant-custom to work
+			return "{\nmap textures/" + materialPath + ".png\nrgbGen identity\n}";
+		}
+
 		public abstract class Simple : KDCBSPAbstractMaterialConfig {
 			/// Base priority for determining which material a brush is made of. The normal Y (-1 to 1) is added to this, to bias in favour of floors by default.
 			public abstract float BaseCollisionConvexPriority { get; }

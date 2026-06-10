@@ -26,8 +26,11 @@ namespace KDCVRCBSP.ECL {
 			} else if (bsp[0] == (byte) 'Q' && kwBSP && version == 38) {
 				// qbism
 				return ECLQ2Loader.Load(bsp, true);
+			} else if (bsp[0] == (byte) 'I' && kwBSP && version == 46) {
+				// return ECLQ3Loader.Load(bsp);
+				throw new Exception("Quake 3 BSP not yet supported");
 			} else {
-				throw new Exception("Doesn't look like a supported BSP file (Quake 2 with possible qbism extensions)");
+				throw new Exception("Doesn't look like a supported BSP file (Quake 2 with possible qbism extensions. Quake 1 & GoldSrc supported with caveats)");
 			}
 		}
 

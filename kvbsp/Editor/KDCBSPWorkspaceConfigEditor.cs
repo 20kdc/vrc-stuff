@@ -33,7 +33,7 @@ namespace KDCVRCBSP {
 			EditorGUILayout.PropertyField(pParentWorkspaces);
 
 			if (GUILayout.Button("Update Quake VFS")) {
-				((KDCBSPAbstractWorkspaceConfig) target).SetupBaseQ2();
+				((KDCBSPAbstractWorkspaceConfig) target).SetupVFS();
 			}
 			GUILayout.Label("Run this on your game root workspace when editing materials.", EditorStyles.wordWrappedLabel);
 			GUILayout.Label("TrenchBroom may need to be restarted.", EditorStyles.wordWrappedLabel);
