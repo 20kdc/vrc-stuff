@@ -11,6 +11,9 @@ namespace KDCVRCBSP {
 	 * Contains various utilities.
 	 */
 	public static class KDCBSPUtilities {
+		public const double DistanceEpsilon = 1d / 256d;
+		public const double InitialWindingSize = 65536d;
+
 		public const string KVBSP_BASE = "Packages/t20kdc.vrc-bsp/";
 
 		/// Using Unity paths, get bytes or null.

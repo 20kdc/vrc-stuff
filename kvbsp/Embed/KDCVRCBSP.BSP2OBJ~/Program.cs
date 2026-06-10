@@ -56,7 +56,7 @@ namespace KDCVRCBSP.BSP2OBJ {
 								leafIdx++;
 							}
 						}
-						var occluderGeo = entity.model.IntoOcclusionGeometry(16, 32);
+						var occluderGeo = ECLOccy.IntoOcclusionGeometry(entity.model, 16, 32, 0.05d, 65536d, true);
 						List<(ECLBSPFile.Vertex, ECLBSPFile.Vertex, ECLBSPFile.Vertex)> occyTris = new();
 						foreach (var geo in occluderGeo)
 							Convex2Tris(geo, occyTris);

@@ -125,6 +125,111 @@ namespace KDCVRCBSP.ECL {
 			return preparedA.Item1 - (preparedA.Item2.normal * (travel1 * pointDistA0));
 		}
 
+		/// Triangulates a polygon, accounting for T-junction fixing and other such oddities.
+		public static (int, int, int)[] TriangulateConvexPolygon(Vector3d[] positions, double distanceEpsilon) {
+			if (positions.Length < 2)
+				return new (int, int, int)[0];
+			(int, int, int)[] triangulation = new (int, int, int)[positions.Length - 2];
+			List<int> initLoop = new();
+			for (int i = 0; i < positions.Length; i++)
+				initLoop.Add(i);
+			HashSet<ulong> failCache = new();
+			if (!TriangulateConvexPolygon(positions, triangulation, 0, triangulation.Length, initLoop, failCache, distanceEpsilon)) {
+				// Console.WriteLine("WARN TRIANGLE FAN FB");
+				// fall back to triangle fan
+				for (int i = 0; i < triangulation.Length; i++)
+					triangulation[i] = (0, i + 1, i + 2);
+			}
+			return triangulation;
+		}
+
+		public static bool TriangulateConvexPolygon(Vector3d[] positions, (int, int, int)[] buffer, int bufferStart, int bufferLen, List<int> loop, HashSet<ulong> failCache, double distanceEpsilon) {
+			if (loop.Count < 3)
+				return false;
+			ulong failCacheHash = 0;
+			for (int i = 0; i < loop.Count; i++) {
+				int v = loop[i];
+				failCacheHash ^= (ulong) v;
+				failCacheHash ^= failCacheHash << 56;
+				failCacheHash >>= 4;
+			}
+			if (failCache.Contains(failCacheHash))
+				return false;
+			if (loop.Count == 3) {
+				var a = loop[0];
+				var ap = positions[a];
+				var b = loop[1];
+				var bp = positions[b];
+				var c = loop[2];
+				var cp = positions[c];
+				if (bufferLen != 1)
+					throw new Exception("Internal calculation error in TriangulatePolygon, bufferLen of tri != 1");
+				PrepOnLine(positions[a], positions[b], out var prepared);
+				if (OnLineDist(prepared, positions[c]).Item1 < distanceEpsilon) {
+					// Console.WriteLine($"{a} {b} {c} fail");
+					failCache.Add(failCacheHash);
+					return false;
+				}
+				buffer[bufferStart] = (
+					a,
+					b,
+					c
+				);
+				return true;
+			}
+			int pivotLen = (loop.Count - 4) / 2;
+			if (pivotLen < 3)
+				pivotLen = 3;
+			for (int leftStart = 0; leftStart < loop.Count; leftStart++) {
+				for (int leftLenAdj = 0; leftLenAdj < loop.Count - 4; leftLenAdj++) {
+					// leftLen goes from 3 to loop.Count - 1.
+					// However, there's a special reordering exception.
+					int leftLen = leftLenAdj + 3;
+					// We swap trying the 'pivot length' and 3.
+					// 3 is not efficient for recursive breakdown as it means errors happen on the B side (late).
+					if (leftLen == 3)
+						leftLen = pivotLen;
+					else if (leftLen == pivotLen)
+						leftLen = 3;
+
+					// split loop
+					// +-I-+
+					// |   |
+					// +-J-+
+					// start = 1, len = 4
+					List<int> left = new();
+					List<int> right = new();
+					// inclusive end!
+					int leftEnd = (leftStart + leftLen) - 1;
+					// if leftEnd would be at loop.Count, then we want it to be (thus, include) vertex 0
+					// note we don't use modulo here (else it eats all the vertices)
+					int leftEndRemapped = leftEnd - loop.Count;
+					for (int k = 0; k < loop.Count; k++) {
+						if ((k <= leftStart || k >= leftEnd) && !(k < leftEndRemapped))
+							right.Add(loop[k]);
+						if ((k >= leftStart && k <= leftEnd) || (k <= leftEndRemapped))
+							left.Add(loop[k]);
+					}
+					int leftTris = left.Count - 2;
+					int rightTris = right.Count - 2;
+					// this shouldn't happen, but if it did happen it'd be the beginning of an endless loop
+					if (leftTris == 0 || rightTris == 0)
+						continue;
+
+					if (bufferLen != (leftTris + rightTris))
+						throw new Exception($"Calculation error in TriangulatePolygon {leftTris} + {rightTris} != {bufferLen}");
+					bool a = TriangulateConvexPolygon(positions, buffer, bufferStart, leftTris, left, failCache, distanceEpsilon);
+					if (!a)
+						continue;
+					bool b = TriangulateConvexPolygon(positions, buffer, bufferStart + leftTris, rightTris, right, failCache, distanceEpsilon);
+					if (b)
+						return true;
+				}
+			}
+			failCache.Add(failCacheHash);
+			return false;
+		}
+
 		// -- Debug --
 
 		/// OBJ test (to check winding chopper in practice)

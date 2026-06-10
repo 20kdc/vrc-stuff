@@ -9,5 +9,5 @@ tryfile() {
 }
 tryfile ../../../../vrc-projects/qroot/projekt/preproom2-compile.bsp dump
 tryfile ../../../kvassets/Assets/mapTest/areaportal-compile.bsp dump_ap
-tryfile ~/.steam/steam/steamapps/common/Half-Life/valve/maps/boot_camp.bsp dump_hl
-tryfile /media/fusion/kdcworkaround/SteamLibrary/steamapps/common/Half-Life/valve/maps/boot_camp.bsp dump_hl
+tryfile ~/.steam/steam/steamapps/common/Half-Life/valve/maps/crossfire.bsp dump_hl
+tryfile /media/fusion/kdcworkaround/SteamLibrary/steamapps/common/Half-Life/valve/maps/crossfire.bsp dump_hl

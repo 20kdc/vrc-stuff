@@ -126,8 +126,7 @@ namespace KDCVRCBSP.ECL {
 						colourA = 255
 					};
 				}
-				for (int i = 2; i < winding.Length; i++)
-					model.AddTri(texInfoVal.Item1, (winding[0], winding[i - 1], winding[i]), area, areaTable);
+				model.AddPolygon(texInfoVal.Item1, winding, area, areaTable);
 			}
 
 			ECLBSPFile.Brush[] brushes;
@@ -160,6 +159,7 @@ namespace KDCVRCBSP.ECL {
 				bool hasClipContents = (contents & (CONTENTS_SOLID | CONTENTS_PLAYERCLIP)) != 0;
 				brushes[idx] = new ECLBSPFile.Brush {
 					illusionary = hasNoclipContents || !hasClipContents,
+					occyViewpoint = hasNoclipContents,
 					sides = brushSides
 				};
 			}

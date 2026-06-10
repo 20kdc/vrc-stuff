@@ -177,7 +177,7 @@ namespace KDCVRCBSP {
 
 			var visleavesToOcclusionMtl = compSettings.visleavesToOcclusion.asset;
 			if (visleavesToOcclusionMtl != null && model.viewLeaves.Count > 0) {
-				var occlusionGeometry = model.IntoOcclusionGeometry(compSettings.visleavesToOcclusionWallGap * worldScale, compSettings.visleavesToOcclusionMapMargin * worldScale);
+				var occlusionGeometry = ECLOccy.IntoOcclusionGeometry(model, compSettings.visleavesToOcclusionWallGap * worldScale, compSettings.visleavesToOcclusionMapMargin * worldScale, KDCBSPUtilities.DistanceEpsilon, KDCBSPUtilities.InitialWindingSize, false);
 
 				List<KDCBSPTriangle> occlusionMesh = new();
 

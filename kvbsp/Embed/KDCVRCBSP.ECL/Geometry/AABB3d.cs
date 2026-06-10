@@ -9,6 +9,8 @@ namespace KDCVRCBSP.ECL {
 		public VectorD min;
 		public VectorD max;
 
+		public static Self Zero = new AABB3d(VectorD.Zero, VectorD.Zero);
+
 		public AABB3d(VectorD min, VectorD max) {
 			this.min = min;
 			this.max = max;

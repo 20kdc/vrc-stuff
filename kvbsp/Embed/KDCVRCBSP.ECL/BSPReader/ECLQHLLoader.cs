@@ -106,8 +106,7 @@ namespace KDCVRCBSP.ECL {
 						colourA = 255
 					};
 				}
-				for (int i = 2; i < winding.Length; i++)
-					model.AddTri(texInfoVal.Item1, (winding[0], winding[i - 1], winding[i]), 0, areaTable);
+				model.AddPolygon(texInfoVal.Item1, winding, 0, areaTable);
 			}
 
 			// Despite lump order, models *must* be processed just before entities.

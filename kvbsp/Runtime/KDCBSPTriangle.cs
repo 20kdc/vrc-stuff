@@ -70,8 +70,6 @@ namespace KDCVRCBSP {
 
 		/// Converts a brush to triangles.
 		public static void ConvexToTriangles<D>(Convex3d<D> convex, List<KDCBSPTriangle> triangles, float worldScale) {
-			float epsilon = 0.05f;
-			float initQuadSize = 131072;
 			foreach (var face in convex.faces) {
 				// convert from ECL to Unity
 				Vector3[] windingConv = new Vector3[face.winding.Count];
@@ -99,8 +97,8 @@ namespace KDCVRCBSP {
 
 		/// Converts a brush to triangles.
 		public static void BrushToTriangles(ECLBSPFile.Brush brush, List<KDCBSPTriangle> triangles, float worldScale) {
-			float epsilon = 0.05f;
-			float initQuadSize = 131072;
+			double epsilon = KDCBSPUtilities.DistanceEpsilon;
+			double initQuadSize = KDCBSPUtilities.InitialWindingSize;
 			for (int i = 0; i < brush.sides.Length; i++) {
 				// note this non-Geo2 quick rewrite of the convex cutting code.
 				// so sad
