@@ -6,6 +6,17 @@ using System.Runtime.CompilerServices;
 namespace KDCVRCBSP.ECL {
 	/// Common loader code.
 	public static class ECLLoadCom {
+		public const int FakeBrushesLimitNudge = 32;
+		public const double FakeBrushesEpsilon = 1d / 256d;
+		public const double FakeBrushesWindingSize = 65536d;
+
+		public static Plane3d[] FakeBrushesAxialPlanes(AABB3d bounds) {
+			Plane3d[] axialPlanes = new Plane3d[6];
+			for (int i = 0; i < 6; i++)
+				axialPlanes[i] = bounds.GenAxialPlane(i, ECLLoadCom.FakeBrushesLimitNudge);
+			return axialPlanes;
+		}
+
 		public struct View {
 			public byte[] data;
 			public int ofs;

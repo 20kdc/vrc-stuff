@@ -190,29 +190,30 @@ namespace KDCVRCBSP.ECL {
 
 				Dictionary<int, Dictionary<string, ECLBSPFile.ModelTriMesh>> areaTable = new();
 				// In Q3BSP, only the root model has a tree.
-				if (idx == 0 && false) {
+				if (idx == 0) {
+					Plane3d[] axialPlanes = ECLLoadCom.FakeBrushesAxialPlanes(model.bounds);
 					HashSet<int> faceNumSet = new();
 					void CollectLeaves(int node, Plane3d[] splitChain) {
 						if (node < 0) {
-							// dleaf_tx 4 + 4 + 4 + (3 * 4) + (3 * 4) + 4 + 4 + 4 + 4
-							var leafOfs = lumpLeaves.GetStruct(-(node + 1), 52);
-							int contents = leafOfs.GetS32(0);
-							int area = leafOfs.GetS32(8);
-							int firstLeafFace = leafOfs.GetS32(36);
-							int numLeafFaces = leafOfs.GetS32(40);
-							int firstLeafBrush = leafOfs.GetS32(44);
-							int numLeafBrushes = leafOfs.GetS32(48);
+							// 12 * 4 = 48
+							var leafOfs = lumpLeaves.GetStruct(-(node + 1), 48);
+							int cluster = leafOfs.GetS32(0);
+							int area = leafOfs.GetS32(4);
+							// mins: 8, 12, 16
+							// maxs: 20, 24, 28
+							int firstLeafFace = leafOfs.GetS32(32);
+							int numLeafFaces = leafOfs.GetS32(36);
 							for (int i = 0; i < numLeafFaces; i++) {
 								int leafFace = lumpLeafFaces.GetS32((firstLeafFace + i) * 4);
 								if (faceNumSet.Add(leafFace))
 									AddFaceToModel(model, area, leafFace, areaTable);
 							}
-							if ((contents & CONTENTS_SOLID) == 0)
+							if (cluster >= 0)
 								model.viewLeaves.Add(splitChain);
 						} else {
 							// the start of dnode_t and dnode_tx is the same
-							// dnode_tx 4 + 8 + (3 * 4) + (3 * 4) + 4 + 4
-							ECLLoadCom.View nodeOfs = lumpNodes.GetStruct(node, 44);
+							// (3 * 4 = 12) + (6 * 4 = 24) = 36
+							ECLLoadCom.View nodeOfs = lumpNodes.GetStruct(node, 36);
 							int planeIndex = nodeOfs.GetS32(0);
 							//Console.WriteLine(planeIndex);
 							var plane = planes[planeIndex];
@@ -222,7 +223,7 @@ namespace KDCVRCBSP.ECL {
 							CollectLeaves(childB, ECLLoadCom.AppendPlane(splitChain, plane));
 						}
 					}
-					CollectLeaves(0, Array.Empty<Plane3d>());
+					CollectLeaves(0, axialPlanes);
 				} else {
 					// For brush entities, we 'naively' collate all faces.
 					for (int i = 0; i < numFaces; i++)

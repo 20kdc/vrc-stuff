@@ -8,7 +8,6 @@ namespace KDCVRCBSP.ECL {
 	public static class ECLQHLLoader {
 		// CONTENTS bits aren't bitflags like they are in post-Q1 engines.
 		public const int CONTENTS_SOLID = -2;
-		public const int FakeBrushesLimitNudge = 32;
 
 		public static ECLBSPFile Load(byte[] bspRaw) {
 			var bsp = new ECLLoadCom.LumpTable {
@@ -144,9 +143,7 @@ namespace KDCVRCBSP.ECL {
 				Dictionary<int, Dictionary<string, ECLBSPFile.ModelTriMesh>> areaTable = new();
 				for (int i = 0; i < faceCount; i++)
 					AddFaceToModel(model, faceStart + i, areaTable);
-				Plane3d[] axialPlanes = new Plane3d[6];
-				for (int i = 0; i < 6; i++)
-					axialPlanes[i] = model.bounds.GenAxialPlane(i, FakeBrushesLimitNudge);
+				Plane3d[] axialPlanes = ECLLoadCom.FakeBrushesAxialPlanes(model.bounds);
 				void CollectLeaves(int node, Plane3d[] splitChain) {
 					if (node < 0) {
 						// dleaf_t 4 + 4 + (3 * 2) + (3 * 2) + 2 + 2 + 4
@@ -155,8 +152,7 @@ namespace KDCVRCBSP.ECL {
 						if (contents != CONTENTS_SOLID) {
 							model.viewLeaves.Add(splitChain);
 						} else {
-							var appended = ECLLoadCom.AppendPlanes(splitChain, axialPlanes);
-							Convex3d<bool> fakeConvex = Convex3d<bool>.FromPlanes(appended, false, 1d / 256d, 65536d);
+							Convex3d<bool> fakeConvex = Convex3d<bool>.FromPlanes(splitChain, false, ECLLoadCom.FakeBrushesEpsilon, ECLLoadCom.FakeBrushesWindingSize);
 							if (fakeConvex != null) {
 								ECLBSPFile.BrushSide[] sides = new ECLBSPFile.BrushSide[fakeConvex.faces.Count];
 								for (int i = 0; i < sides.Length; i++)
@@ -187,7 +183,7 @@ namespace KDCVRCBSP.ECL {
 						CollectLeaves(childB, ECLLoadCom.AppendPlane(splitChain, plane));
 					}
 				}
-				CollectLeaves(headNode, Array.Empty<Plane3d>());
+				CollectLeaves(headNode, axialPlanes);
 				models[idx] = model;
 			}
 
