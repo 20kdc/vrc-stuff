@@ -1,6 +1,4 @@
 using System;
-using System.IO;
-using System.Text;
 using System.Collections.Generic;
 
 namespace KDCVRCBSP.ECL {
@@ -27,8 +25,8 @@ namespace KDCVRCBSP.ECL {
 				// qbism
 				return ECLQ2Loader.Load(bsp, true);
 			} else if (bsp[0] == (byte) 'I' && kwBSP && version == 46) {
-				// return ECLQ3Loader.Load(bsp);
-				throw new Exception("Quake 3 BSP not yet supported");
+				return ECLQ3Loader.Load(bsp);
+				// throw new Exception("Quake 3 BSP not yet supported");
 			} else {
 				throw new Exception("Doesn't look like a supported BSP file (Quake 2 with possible qbism extensions. Quake 1 & GoldSrc supported with caveats)");
 			}
@@ -105,6 +103,40 @@ namespace KDCVRCBSP.ECL {
 			// q3bsp supports this, but should we? it adds extra VRAM load.
 			// I guess have support for loading it and then just conveniently forget it during meshgen
 			public byte colourR, colourG, colourB, colourA;
+
+			public static Vertex BezierEval(Vertex a, Vertex b, Vertex c, double pos) {
+				// Determine weights.
+				double posInv = 1 - pos;
+				double weightA = 0;
+				double weightB = 0;
+				double weightC = 0;
+				// for i = 0, 10 do v = i / 10 print((v * (1 - v))) end
+				// Add AB weight. Left side is vertex weight. Right side is line weight.
+				weightA += posInv * posInv;
+				weightB += pos * posInv;
+				// Add BC weight.
+				weightB += posInv * pos;
+				weightC += pos * pos;
+				// Determine 'trivial' weights.
+				double trivialA = Math.Max(1 - (pos * 2), 0);
+				double trivialB = 1 - (Math.Abs(pos - 0.5) * 2);
+				double trivialC = Math.Max((pos * 2) - 1, 0);
+
+				byte TrivialInterpolateColourByte(byte ba, byte bb, byte bc) {
+					double r = (ba * trivialA) + (bb * trivialB) + (bc * trivialC);
+					return (byte) Math.Min(Math.Max(Math.Round(r), 0), 255);
+				}
+
+				return new Vertex {
+					position = (a.position * weightA) + (b.position * weightB) + (c.position * weightC),
+					normal = ((a.normal * weightA) + (b.normal * weightB) + (c.normal * weightC)).Normalized,
+					uv = (a.uv * trivialA) + (b.uv * trivialB) + (c.uv * trivialC),
+					colourR = TrivialInterpolateColourByte(a.colourR, b.colourR, c.colourR),
+					colourG = TrivialInterpolateColourByte(a.colourG, b.colourG, c.colourG),
+					colourB = TrivialInterpolateColourByte(a.colourB, b.colourB, c.colourB),
+					colourA = TrivialInterpolateColourByte(a.colourA, b.colourA, c.colourA),
+				};
+			}
 		}
 
 		public abstract class ModelRenderable {
@@ -130,6 +162,105 @@ namespace KDCVRCBSP.ECL {
 			}
 
 			public override IReadOnlyList<(Vertex, Vertex, Vertex)> Build() {
+				return tris;
+			}
+		}
+
+		public class ModelQ3Patch : ModelRenderable {
+			public Vertex[,] grid;
+
+			public override void Translate(Vector3d t) {
+				for (int i = 0; i < grid.GetLength(0); i++)
+					for (int j = 0; j < grid.GetLength(1); j++)
+						grid[i, j].position += t;
+			}
+
+			public (int, int) PatchCount {
+				get {
+					int patchCountW = (grid.GetLength(0) - 1) / 2;
+					if (patchCountW < 0)
+						patchCountW = 0;
+					int patchCountH = (grid.GetLength(1) - 1) / 2;
+					if (patchCountH < 0)
+						patchCountH = 0;
+					return (patchCountW, patchCountH);
+				}
+			}
+
+			/// The amount of vertices required for the patch at a given resolution.
+			/// Resolution is defined here as the number of 'mid-curve' vertices, as first and last vertices are always present.
+			public (int, int) ExpandedSizeForResolution(int resW, int resH) {
+				(int patchCountW, int patchCountH) = PatchCount;
+				return (
+					patchCountW == 0 ? 0 : (1 + (patchCountW * (resW + 1))),
+					patchCountH == 0 ? 0 : (1 + (patchCountH * (resH + 1)))
+				);
+			}
+
+			public Vertex Resolve(int x, int y, int resW, int resH) {
+				// In this coordinate system, the lower-right edge belongs to the next patch.
+				int inPatchX = x % (resW + 1);
+				int inPatchY = y % (resH + 1);
+				double polX = ((double) inPatchX) / (resW + 1);
+				double polY = ((double) inPatchY) / (resH + 1);
+				int patchX = x / (resW + 1);
+				int patchY = y / (resH + 1);
+				int baseX = patchX * 2;
+				int baseY = patchY * 2;
+				bool flightX = baseX >= (grid.GetLength(0) - 1);
+				bool flightY = baseY >= (grid.GetLength(1) - 1);
+				if (flightX && flightY) {
+					return grid[baseX + 0, baseY + 0];
+				} else if (flightX) {
+					var v00 = grid[baseX + 0, baseY + 0];
+					var v01 = grid[baseX + 0, baseY + 1];
+					var v02 = grid[baseX + 0, baseY + 2];
+					return Vertex.BezierEval(v00, v01, v02, polY);
+				} else if (flightY) {
+					var v00 = grid[baseX + 0, baseY + 0];
+					var v10 = grid[baseX + 1, baseY + 0];
+					var v20 = grid[baseX + 2, baseY + 0];
+					return Vertex.BezierEval(v00, v10, v20, polX);
+				} else {
+					var v00 = grid[baseX + 0, baseY + 0];
+					var v10 = grid[baseX + 1, baseY + 0];
+					var v20 = grid[baseX + 2, baseY + 0];
+					var v01 = grid[baseX + 0, baseY + 1];
+					var v11 = grid[baseX + 1, baseY + 1];
+					var v21 = grid[baseX + 2, baseY + 1];
+					var v02 = grid[baseX + 0, baseY + 2];
+					var v12 = grid[baseX + 1, baseY + 2];
+					var v22 = grid[baseX + 2, baseY + 2];
+					var col0 = Vertex.BezierEval(v00, v01, v02, polY);
+					var col1 = Vertex.BezierEval(v10, v11, v12, polY);
+					var col2 = Vertex.BezierEval(v20, v21, v22, polY);
+					return Vertex.BezierEval(col0, col1, col2, polX);
+				}
+			}
+
+			public override IReadOnlyList<(Vertex, Vertex, Vertex)> Build() {
+				List<(Vertex, Vertex, Vertex)> tris = new();
+				// Extremely temporary code. Indexed mesh support will be a likely future requirement. - 🟪
+				int resolution = 4;
+				(int resolvedW, int resolvedH) = ExpandedSizeForResolution(resolution, resolution);
+				Vertex[,] resolved = new Vertex[resolvedW, resolvedH];
+				for (int i = 0; i < resolvedW; i++)
+					for (int j = 0; j < resolvedH; j++)
+						resolved[i, j] = Resolve(i, j, resolution, resolution);
+				for (int i = 0; i < resolvedW - 1; i++) {
+					for (int j = 0; j < resolvedH - 1; j++) {
+						tris.Add((
+							resolved[i, j],
+							resolved[i, j + 1],
+							resolved[i + 1, j]
+						));
+						tris.Add((
+							resolved[i + 1, j],
+							resolved[i, j + 1],
+							resolved[i + 1, j + 1]
+						));
+					}
+				}
 				return tris;
 			}
 		}

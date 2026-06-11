@@ -12,6 +12,29 @@ namespace KDCVRCBSP.ECL {
 		/// Basis for texture matrix.
 		public Vector2d texOffset;
 
+		public static BrushUV Fake(Vector3d normal) {
+			return Fake(normal.PrimaryAxis);
+		}
+
+		public static BrushUV Fake(int primaryAxis) {
+			if (primaryAxis == 0) {
+				return new BrushUV {
+					texSAxis = (0, 1, 0),
+					texTAxis = (0, 0, 1)
+				};
+			} else if (primaryAxis == 1) {
+				return new BrushUV {
+					texSAxis = (1, 0, 0),
+					texTAxis = (0, 0, 1)
+				};
+			} else {
+				return new BrushUV {
+					texSAxis = (1, 0, 0),
+					texTAxis = (0, 1, 0)
+				};
+			}
+		}
+
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public Vector2d MapUV(Vector3d i) {
 			return texOffset + new Vector2d((i * texSAxis).Sum, (i * texTAxis).Sum);

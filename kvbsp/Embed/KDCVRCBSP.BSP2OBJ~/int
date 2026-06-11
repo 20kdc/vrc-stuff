@@ -2,12 +2,17 @@
 
 tryfile() {
 	if [ -e "$1" ]; then
+		echo "$1:"
 		dotnet run "$1" "/media/ramdisk/$2.obj"
 	else
-		echo "$1 does not exist"
+		echo "$1: does not exist"
 	fi
 }
 tryfile ../../../../vrc-projects/qroot/projekt/preproom2-compile.bsp dump
 tryfile ../../../kvassets/Assets/mapTest/areaportal-compile.bsp dump_ap
+tryfile ../../../kvassets/Assets/mapTest/q3test.bsp dump_q3
+# 🟪 : Atelier makes heavy use of curvature, making it a useful testing ground for Bezier evaluation.
+# Xonotic is readily available for comparison of geometry.
+tryfile /media/era3-sync/external/reference-data/xonotic-atelier.bsp dump_xo
 tryfile ~/.steam/steam/steamapps/common/Half-Life/valve/maps/crossfire.bsp dump_hl
 tryfile /media/fusion/kdcworkaround/SteamLibrary/steamapps/common/Half-Life/valve/maps/crossfire.bsp dump_hl
