@@ -18,7 +18,7 @@ namespace KDCVRCBSP {
 		/// This is the only situation where we check; deleting yourself anywhere else will cause chaos.
 		/// Notably, deleting your MonoBehaviour here will abort the entity creation process, EVEN IF you don't delete your gameobject or other behaviours.
 		/// This can interrupt important things, so don't do that.
-		public virtual void EntityParameterize(ECLBSPFile bsp, ECLBSPFile.Entity entity, string uniqueName, float worldScale) {
+		public virtual void EntityParameterize(IKDCBSPImportContext ctx, ECLBSPFile.Entity entity, string uniqueName) {
 			// do nothing
 		}
 

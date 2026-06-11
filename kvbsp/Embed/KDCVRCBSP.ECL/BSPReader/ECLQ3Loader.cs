@@ -233,7 +233,9 @@ namespace KDCVRCBSP.ECL {
 				models[idx] = model;
 			}
 
-			return ECLLoadCom.ParseQuakeEntities(lumpEntities, models);
+			var file = ECLLoadCom.ParseQuakeEntities(lumpEntities, models);
+			file.uvPremultiplied = true;
+			return file;
 		}
 	}
 }

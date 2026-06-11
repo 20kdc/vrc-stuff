@@ -18,26 +18,21 @@ namespace KDCVRCBSP {
 		/// Sets up the workspace config search order. This does not include this workspace config.
 		/// Duplicates are not allowed. This function is expected to be recursive.
 		/// DO NOT CALL THIS FUNCTION ; Call PrepareSearchOrder instead (it adds the builtin workspace)
-		public abstract void BuildSearchOrder(AssetImportContext ctx, List<KDCBSPAbstractWorkspaceConfig> searchOrder);
-
-		/// Sets up the workspace config search order.
-		/// This version does not require AssetImportContext.
-		/// DO NOT CALL THIS FUNCTION ; Call PrepareSearchOrderEditor instead (it adds the builtin workspace)
-		public abstract void BuildSearchOrderEditor(List<KDCBSPAbstractWorkspaceConfig> searchOrder);
+		public abstract void BuildSearchOrder(IKDCBSPAssetContext ctx, List<KDCBSPAbstractWorkspaceConfig> searchOrder);
 
 		/// Returns the fallback material.
-		public abstract KDCBSPAbstractMaterialConfig FallbackMaterial(AssetImportContext ctx);
+		public abstract KDCBSPAbstractMaterialConfig FallbackMaterial(IKDCBSPAssetContext ctx);
 
 		/// Looks up a material in this config, or returns null.
 		/// Note it does not check 'sub-configs' as covered in the search order.
-		public abstract KDCBSPAbstractMaterialConfig LookupMaterial(AssetImportContext ctx, string path);
+		public abstract KDCBSPAbstractMaterialConfig LookupMaterial(IKDCBSPAssetContext ctx, string path);
 
 		/// Returns the fallback entity type.
-		public abstract GameObject FallbackEntity(AssetImportContext ctx);
+		public abstract GameObject FallbackEntity(IKDCBSPAssetContext ctx);
 
 		/// Looks up an entity type in this config, or returns null.
 		/// Note it does not check 'sub-configs' as covered in the search order.
-		public abstract GameObject LookupEntity(AssetImportContext ctx, string classname);
+		public abstract GameObject LookupEntity(IKDCBSPAssetContext ctx, string classname);
 
 		/// Contributes (overwriting) to a map from material names to their material paths and material configs.
 		/// The idea is to get a full materials index as part of TrenchBroom material setup.
@@ -45,7 +40,7 @@ namespace KDCVRCBSP {
 
 		/// General 'find everything' function, called upon by SetupBaseQ2 among others.
 		public virtual void FindEverything(out SortedDictionary<string, (string, KDCBSPAbstractMaterialConfig)> materials) {
-			var lst = PrepareSearchOrderEditor();
+			var lst = PrepareSearchOrder(new KDCBSPNonImportAssetContext());
 			lst.Reverse();
 			materials = new();
 			foreach (var elm in lst) {
@@ -97,25 +92,12 @@ namespace KDCVRCBSP {
 		}
 
 		/// Prepares a finished search order.
-		public List<KDCBSPAbstractWorkspaceConfig> PrepareSearchOrder(AssetImportContext ctx) {
+		public List<KDCBSPAbstractWorkspaceConfig> PrepareSearchOrder(IKDCBSPAssetContext ctx) {
 			List<KDCBSPAbstractWorkspaceConfig> searchOrder = new();
 			searchOrder.Add(this);
 			BuildSearchOrder(ctx, searchOrder);
 
-			var builtInWorkspace = KDCBSPImportContext.DependsOnArtifact<KDCBSPAbstractWorkspaceConfig>(ctx, KDCBSPUtilities.KVBSP_BASE + "Assets/builtinWorkspace.asset");
-			if (builtInWorkspace != null)
-				searchOrder.Add(builtInWorkspace);
-
-			return searchOrder;
-		}
-
-		/// Prepares a finished search order (for use in non-importer code)
-		public List<KDCBSPAbstractWorkspaceConfig> PrepareSearchOrderEditor() {
-			List<KDCBSPAbstractWorkspaceConfig> searchOrder = new();
-			searchOrder.Add(this);
-			BuildSearchOrderEditor(searchOrder);
-
-			var builtInWorkspace = (KDCBSPAbstractWorkspaceConfig) AssetDatabase.LoadAssetAtPath(KDCBSPUtilities.KVBSP_BASE + "Assets/builtinWorkspace.asset", typeof(KDCBSPAbstractWorkspaceConfig));
+			var builtInWorkspace = ctx.DependsOnArtifact<KDCBSPAbstractWorkspaceConfig>(KDCBSPUtilities.KVBSP_BASE + "Assets/builtinWorkspace.asset");
 			if (builtInWorkspace != null)
 				searchOrder.Add(builtInWorkspace);
 

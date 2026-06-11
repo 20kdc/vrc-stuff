@@ -3,8 +3,6 @@ using System.IO;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering;
-using UnityEditor;
-using UnityEditor.AssetImporters;
 
 namespace KDCVRCBSP {
 	/**
@@ -55,8 +53,8 @@ namespace KDCVRCBSP {
 		}
 
 		/// Implements retrieving the material information.
-		public override SimpleMaterialInfo GetMaterial(KDCBSPImportContext ctx, string materialName, string meshAssetName) {
-			var m = KDCBSPImportContext.DependsOnArtifact<Material>(ctx.assetImportContext, material);
+		public override SimpleMaterialInfo GetMaterial(IKDCBSPImportContext ctx, string materialName, string meshAssetName) {
+			var m = ctx.DependsOnArtifact<Material>(material);
 			Vector2 s = UVSizeFromMaterial(m);
 			return new SimpleMaterialInfo {
 				material = m,

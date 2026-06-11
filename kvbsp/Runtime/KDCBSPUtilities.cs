@@ -67,6 +67,15 @@ namespace KDCVRCBSP {
 #endif
 		}
 
+		/// Unwraps a mesh for lightmapping.
+		public static void LightmapUnwrap(Mesh mesh, KDCBSPBrushEntitySettings compSettings) {
+#if UNITY_EDITOR
+			UnityEditor.UnwrapParam.SetDefaults(out UnityEditor.UnwrapParam lightmapSettings);
+			lightmapSettings.packMargin = compSettings.lightmapPackMargin;
+			UnityEditor.Unwrapping.GenerateSecondaryUVSet(mesh, lightmapSettings);
+#endif
+		}
+
 		/// So a problem is that TrenchBroom will hold a PAK file open for as long as it wants and expects it not to change.
 		/// If you change it anyway, bad things happen.
 		/// This is not to mention the Windows file exclusion issues this risks.
@@ -141,38 +150,6 @@ namespace KDCVRCBSP {
 			// positive Y in TB is positive Z in Unity
 			// positive Z in TB is positive Y in Unity
 			return new Vector3(nX, nZ, nY) / worldScale;
-		}
-
-		// -- FromECL conv --
-
-		public static Vector2 FromECL(Vector2d src) {
-			return new Vector2((float) src.x, (float) src.y);
-		}
-
-		public static Vector3 FromECL(Vector3d src) {
-			return new Vector3((float) src.x, (float) src.y, (float) src.z);
-		}
-
-		public static Plane FromECL(Plane3d plane) {
-			// Note the inversion of distance.
-			// The ECL uses the same plane definition as Godot and ID (N=(1,0,0) D=32 means the X+ plane at (32,0,0))
-			// Unity's plane definition is such that the same input would mean an X+ plane at (-32,0,0).
-			return new Plane(FromECL(plane.normal), (float) -plane.distance);
-		}
-
-		// -- ToECL conv --
-
-		public static Vector2d ToECL(Vector2 src) {
-			return new Vector2d(src.x, src.y);
-		}
-
-		public static Vector3d ToECL(Vector3 src) {
-			return new Vector3d(src.x, src.y, src.z);
-		}
-
-		public static Plane3d ToECL(Plane plane) {
-			// See FromECL for rationale
-			return new Plane3d(ToECL(plane.normal), -plane.distance);
 		}
 	}
 }

@@ -63,9 +63,9 @@ namespace KDCVRCBSP {
 			}
 		}
 
-		public override void BuildSearchOrder(AssetImportContext ctx, List<KDCBSPAbstractWorkspaceConfig> searchOrder) {
+		public override void BuildSearchOrder(IKDCBSPAssetContext ctx, List<KDCBSPAbstractWorkspaceConfig> searchOrder) {
 			foreach (var workspace in parentWorkspaces) {
-				KDCBSPAbstractWorkspaceConfig ws = KDCBSPImportContext.DependsOnArtifact(ctx, workspace);
+				KDCBSPAbstractWorkspaceConfig ws = ctx.DependsOnArtifact(workspace);
 				if (ws != null) {
 					if (searchOrder.Contains(ws))
 						continue;
@@ -75,38 +75,26 @@ namespace KDCVRCBSP {
 			}
 		}
 
-		public override void BuildSearchOrderEditor(List<KDCBSPAbstractWorkspaceConfig> searchOrder) {
-			foreach (var workspace in parentWorkspaces) {
-				KDCBSPAbstractWorkspaceConfig ws = workspace.asset;
-				if (ws != null) {
-					if (searchOrder.Contains(ws))
-						continue;
-					searchOrder.Add(ws);
-					ws.BuildSearchOrderEditor(searchOrder);
-				}
-			}
-		}
-
-		public override KDCBSPAbstractMaterialConfig FallbackMaterial(AssetImportContext ctx) {
-			KDCBSPAbstractMaterialConfig fbc = KDCBSPImportContext.DependsOnArtifact(ctx, fallbackMaterial);
+		public override KDCBSPAbstractMaterialConfig FallbackMaterial(IKDCBSPAssetContext ctx) {
+			KDCBSPAbstractMaterialConfig fbc = ctx.DependsOnArtifact(fallbackMaterial);
 			if (fbc == null) {
-				fbc = KDCBSPImportContext.DependsOnArtifact<KDCBSPAbstractMaterialConfig>(ctx, KDCBSPUtilities.KVBSP_BASE + "Assets/missingMaterial.asset");
+				fbc = ctx.DependsOnArtifact<KDCBSPAbstractMaterialConfig>(KDCBSPUtilities.KVBSP_BASE + "Assets/missingMaterial.asset");
 				fallbackMaterial = fbc;
 				return fbc;
 			}
 			return fbc;
 		}
 
-		public override KDCBSPAbstractMaterialConfig LookupMaterial(AssetImportContext ctx, string path) {
+		public override KDCBSPAbstractMaterialConfig LookupMaterial(IKDCBSPAssetContext ctx, string path) {
 			string baseDir = FullMaterialsBase;
 			if (baseDir == null)
 				return null;
 			string path1 = Path.Join(baseDir, path + ".asset");
 			string path2 = Path.Join(baseDir, path + ".mat");
-			KDCBSPAbstractMaterialConfig amc = KDCBSPImportContext.DependsOnArtifact<KDCBSPAbstractMaterialConfig>(ctx, path1);
+			KDCBSPAbstractMaterialConfig amc = ctx.DependsOnArtifact<KDCBSPAbstractMaterialConfig>(path1);
 			if (amc != null)
 				return amc;
-			Material fbc = KDCBSPImportContext.DependsOnArtifact<Material>(ctx, path2);
+			Material fbc = ctx.DependsOnArtifact<Material>(path2);
 			if (fbc != null) {
 				// Auto-create a material for ease of use.
 				KDCBSPMaterialConfig cfg = (KDCBSPMaterialConfig) ScriptableObject.CreateInstance(typeof(KDCBSPMaterialConfig));
@@ -116,22 +104,22 @@ namespace KDCVRCBSP {
 			return null;
 		}
 
-		public override GameObject FallbackEntity(AssetImportContext ctx) {
-			GameObject fbc = KDCBSPImportContext.DependsOnArtifact(ctx, fallbackEntity);
+		public override GameObject FallbackEntity(IKDCBSPAssetContext ctx) {
+			GameObject fbc = ctx.DependsOnArtifact(fallbackEntity);
 			if (fbc == null) {
-				fbc = KDCBSPImportContext.DependsOnArtifact<GameObject>(ctx, KDCBSPUtilities.KVBSP_BASE + "Assets/missingEntity.prefab");
+				fbc = ctx.DependsOnArtifact<GameObject>(KDCBSPUtilities.KVBSP_BASE + "Assets/missingEntity.prefab");
 				fallbackEntity = fbc;
 				return fbc;
 			}
 			return fbc;
 		}
 
-		public override GameObject LookupEntity(AssetImportContext ctx, string classname) {
+		public override GameObject LookupEntity(IKDCBSPAssetContext ctx, string classname) {
 			string baseDir = FullEntitiesBase;
 			if (baseDir == null)
 				return null;
 			string path1 = Path.Join(baseDir, classname + ".prefab");
-			GameObject amc = KDCBSPImportContext.DependsOnArtifact<GameObject>(ctx, path1);
+			GameObject amc = ctx.DependsOnArtifact<GameObject>(path1);
 			if (amc != null)
 				return amc;
 			return null;

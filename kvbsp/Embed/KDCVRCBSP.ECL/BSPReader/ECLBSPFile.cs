@@ -6,6 +6,8 @@ namespace KDCVRCBSP.ECL {
 	/// BSP file for ECL.
 	public class ECLBSPFile {
 		public Entity worldspawn;
+		/// Really the 'quake 3 flag'.
+		public bool uvPremultiplied = false;
 		public List<Entity> entities = new();
 
 		/// Just a proxy for KDCBSPQ2Loader right now.
