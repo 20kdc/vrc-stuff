@@ -69,6 +69,7 @@ namespace KDCVRCBSP.ECL {
 				ModelTriMesh mesh;
 				if (!areaTable.TryGetValue(tex, out mesh)) {
 					mesh = new();
+					mesh.concaveCollision = false;
 					mesh.tex = tex;
 					areaTable[tex] = mesh;
 					renderables.Add(mesh);
@@ -110,9 +111,16 @@ namespace KDCVRCBSP.ECL {
 		}
 
 		public abstract class ModelRenderable {
+			/// Texture/material.
 			public string tex;
+
+			/// If true, this is also a concave collider.
+			/// This is used for Q3 bezier patches.
+			public bool concaveCollision;
+
 			/// Translates this renderable.
 			public abstract void Translate(Vector3d t);
+
 			/// Returns a mesh.
 			/// Notably, if/when LOD is introduced (for q3 patches), this is where that would be selected.
 			/// DO NOT MODIFY.

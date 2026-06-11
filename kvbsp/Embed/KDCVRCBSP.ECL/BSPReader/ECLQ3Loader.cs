@@ -123,6 +123,7 @@ namespace KDCVRCBSP.ECL {
 						throw new Exception($"Bezier patch of size {patchW}, {patchH} did not match with vertex count {vertices.Length}.");
 					var patch = new ECLBSPFile.ModelQ3Patch();
 					patch.tex = texture;
+					patch.concaveCollision = true;
 					patch.grid = new ECLMesh.Vertex[patchW, patchH];
 					int vtxIdx = 0;
 					for (int j = 0; j < patchH; j++)
