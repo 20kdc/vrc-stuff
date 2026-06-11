@@ -81,10 +81,10 @@ namespace KDCVRCBSP.ECL {
 				var meshvertsPos = lumpMeshverts.Subview(firstMeshvert * 4, numMeshverts * 4);
 
 				// NOT a winding.
-				ECLBSPFile.Vertex[] vertices = new ECLBSPFile.Vertex[numVertices];
+				ECLMesh.Vertex[] vertices = new ECLMesh.Vertex[numVertices];
 				for (int i = 0; i < numVertices; i++) {
 					var vertexPos = lumpVertexes.GetStruct(firstVertex + i, 44);
-					vertices[i] = new ECLBSPFile.Vertex {
+					vertices[i] = new ECLMesh.Vertex {
 						position = (
 							vertexPos.GetF32(0),
 							vertexPos.GetF32(4),
@@ -123,7 +123,7 @@ namespace KDCVRCBSP.ECL {
 						throw new Exception($"Bezier patch of size {patchW}, {patchH} did not match with vertex count {vertices.Length}.");
 					var patch = new ECLBSPFile.ModelQ3Patch();
 					patch.tex = texture;
-					patch.grid = new ECLBSPFile.Vertex[patchW, patchH];
+					patch.grid = new ECLMesh.Vertex[patchW, patchH];
 					int vtxIdx = 0;
 					for (int j = 0; j < patchH; j++)
 						for (int i = 0; i < patchW; i++)

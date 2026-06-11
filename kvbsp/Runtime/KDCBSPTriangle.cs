@@ -19,8 +19,8 @@ namespace KDCVRCBSP {
 		public Vector3 cn;
 		public Vector2 cu;
 
-		public static KDCBSPTriangle FromECLTri((ECLBSPFile.Vertex, ECLBSPFile.Vertex, ECLBSPFile.Vertex) tri, float worldScale) {
-			(Vector3, Vector3, Vector2) ConvVtx(ECLBSPFile.Vertex vtx) {
+		public static KDCBSPTriangle FromECLTri((ECLMesh.Vertex, ECLMesh.Vertex, ECLMesh.Vertex) tri, float worldScale) {
+			(Vector3, Vector3, Vector2) ConvVtx(ECLMesh.Vertex vtx) {
 				return (
 					KDCBSPUtilities.TransformPosition(vtx.position, worldScale),
 					KDCBSPUtilities.TransformNormal(vtx.normal),

@@ -157,8 +157,9 @@ namespace KDCVRCBSP {
 					}
 
 					List<KDCBSPTriangle> triangles = new();
-					foreach (var tri in renderable.Build())
-						triangles.Add(KDCBSPTriangle.FromECLTri(tri, worldScale));
+					var renderableMesh = renderable.Build();
+					foreach (var tri in renderableMesh.triangles)
+						triangles.Add(KDCBSPTriangle.FromECLTri((renderableMesh.vertices[tri.Item1], renderableMesh.vertices[tri.Item2], renderableMesh.vertices[tri.Item3]), worldScale));
 
 					var materialGO = assignment.BuildVisualObject(importContext, nameSuffix, assetPrefix + "mesh " + nameSuffix, triangles, visualsGO, compSettings);
 					if (materialGO == null)
@@ -261,8 +262,9 @@ namespace KDCVRCBSP {
 					if (assignment != null)
 						if (!assignment.collisionEnable)
 							continue;
-					foreach (var tri in renderable.Build())
-						concave.Add(KDCBSPTriangle.FromECLTri(tri, worldScale));
+					var renderableMesh = renderable.Build();
+					foreach (var tri in renderableMesh.triangles)
+						concave.Add(KDCBSPTriangle.FromECLTri((renderableMesh.vertices[tri.Item1], renderableMesh.vertices[tri.Item2], renderableMesh.vertices[tri.Item3]), worldScale));
 				}
 				Mesh mesh = KDCBSPTriangle.TrianglesToMesh(concave, Vector2.one);
 				importContext.assetImportContext.AddObjectToAsset(assetPrefix + "concave", mesh);

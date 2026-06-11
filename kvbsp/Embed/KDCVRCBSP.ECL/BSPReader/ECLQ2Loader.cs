@@ -101,7 +101,7 @@ namespace KDCVRCBSP.ECL {
 				if (side != 0)
 					planeCorrected = planeCorrected.Flipped;
 				var texInfoVal = GetTexInfoOrFallback(texInfo);
-				ECLBSPFile.Vertex[] winding = new ECLBSPFile.Vertex[numEdges];
+				ECLMesh.Vertex[] winding = new ECLMesh.Vertex[numEdges];
 				for (int i = 0; i < numEdges; i++) {
 					// has to be mapped using surfedges - see https://github.com/id-Software/Quake-2-Tools/blob/master/bsp/qbsp3/writebsp.c#L213
 					int sebVal = lumpSurfEdges.GetS32((firstEdge + i) * 4); // surfedge
@@ -116,7 +116,7 @@ namespace KDCVRCBSP.ECL {
 						vertex = lumpEdges.GetS32(totalVtx * 4);
 					}
 					var vtx = vertexes[vertex];
-					winding[i] = new ECLBSPFile.Vertex {
+					winding[i] = new ECLMesh.Vertex {
 						position = vtx,
 						uv = texInfoVal.Item2.MapUV(vtx),
 						normal = planeCorrected.normal,

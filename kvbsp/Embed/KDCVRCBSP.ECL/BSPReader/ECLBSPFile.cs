@@ -60,7 +60,7 @@ namespace KDCVRCBSP.ECL {
 			public List<Brush> brushes = new();
 			public List<Plane3d[]> viewLeaves = new();
 
-			public void AddTri(string tex, (Vertex, Vertex, Vertex) tri, int area, Dictionary<int, Dictionary<string, ModelTriMesh>> table) {
+			public ModelTriMesh EnsureGeneralTriMesh(string tex, int area, Dictionary<int, Dictionary<string, ModelTriMesh>> table) {
 				Dictionary<string, ModelTriMesh> areaTable;
 				if (!table.TryGetValue(area, out areaTable)) {
 					areaTable = new();
@@ -73,15 +73,27 @@ namespace KDCVRCBSP.ECL {
 					areaTable[tex] = mesh;
 					renderables.Add(mesh);
 				}
-				mesh.tris.Add(tri);
+				return mesh;
 			}
 
-			public void AddPolygon(string tex, ECLBSPFile.Vertex[] winding, int area, Dictionary<int, Dictionary<string, ModelTriMesh>> table) {
+			public void AddTri(string tex, (ECLMesh.Vertex, ECLMesh.Vertex, ECLMesh.Vertex) tri, int area, Dictionary<int, Dictionary<string, ModelTriMesh>> table) {
+				ModelTriMesh mesh = EnsureGeneralTriMesh(tex, area, table);
+				int baseVtx = mesh.vertices.Count;
+				mesh.vertices.Add(tri.Item1);
+				mesh.vertices.Add(tri.Item2);
+				mesh.vertices.Add(tri.Item3);
+				mesh.tris.Add((baseVtx, baseVtx + 1, baseVtx + 2));
+			}
+
+			public void AddPolygon(string tex, ECLMesh.Vertex[] winding, int area, Dictionary<int, Dictionary<string, ModelTriMesh>> table) {
+				ModelTriMesh mesh = EnsureGeneralTriMesh(tex, area, table);
+				int baseVtx = mesh.vertices.Count;
+				mesh.vertices.AddRange(winding);
 				Vector3d[] positions = new Vector3d[winding.Length];
 				for (int i = 0; i < positions.Length; i++)
 					positions[i] = winding[i].position;
 				foreach ((int a, int b, int c) in GeomUtil.TriangulateConvexPolygon(positions, 0.01d))
-					AddTri(tex, (winding[a], winding[b], winding[c]), area, table);
+					mesh.tris.Add((baseVtx + a, baseVtx + b, baseVtx + c));
 			}
 
 			public void Translate(Vector3d t) {
@@ -97,80 +109,35 @@ namespace KDCVRCBSP.ECL {
 			}
 		}
 
-		public struct Vertex {
-			public Vector3d position;
-			public Vector3d normal;
-			public Vector2d uv;
-			// q3bsp supports this, but should we? it adds extra VRAM load.
-			// I guess have support for loading it and then just conveniently forget it during meshgen
-			public byte colourR, colourG, colourB, colourA;
-
-			public static Vertex BezierEval(Vertex a, Vertex b, Vertex c, double pos) {
-				// Determine weights.
-				double posInv = 1 - pos;
-				// combined effects of all lines
-				double weightA = posInv * posInv;
-				double weightB = pos * posInv * 2;
-				double weightC = pos * pos;
-				// for i = 0, 10 do v = i / 10 print((v * (1 - v))) end
-				// Add AB weight. Left side is vertex weight. Right side is line weight.
-				// weightA += posInv * posInv;
-				// weightB += pos * posInv;
-				// Add BC weight.
-				// weightB += posInv * pos;
-				// weightC += pos * pos;
-
-				// Determine 'trivial' weights.
-				double trivialA = Math.Max(1 - (pos * 2), 0);
-				double trivialB = 1 - (Math.Abs(pos - 0.5) * 2);
-				double trivialC = Math.Max((pos * 2) - 1, 0);
-
-				byte TrivialInterpolateColourByte(byte ba, byte bb, byte bc) {
-					double r = (ba * trivialA) + (bb * trivialB) + (bc * trivialC);
-					return (byte) Math.Min(Math.Max(Math.Round(r), 0), 255);
-				}
-
-				return new Vertex {
-					position = (a.position * weightA) + (b.position * weightB) + (c.position * weightC),
-					normal = ((a.normal * weightA) + (b.normal * weightB) + (c.normal * weightC)).Normalized,
-					uv = (a.uv * trivialA) + (b.uv * trivialB) + (c.uv * trivialC),
-					colourR = TrivialInterpolateColourByte(a.colourR, b.colourR, c.colourR),
-					colourG = TrivialInterpolateColourByte(a.colourG, b.colourG, c.colourG),
-					colourB = TrivialInterpolateColourByte(a.colourB, b.colourB, c.colourB),
-					colourA = TrivialInterpolateColourByte(a.colourA, b.colourA, c.colourA),
-				};
-			}
-		}
-
 		public abstract class ModelRenderable {
 			public string tex;
 			/// Translates this renderable.
 			public abstract void Translate(Vector3d t);
-			/// Returns a list of triangles.
+			/// Returns a mesh.
 			/// Notably, if/when LOD is introduced (for q3 patches), this is where that would be selected.
-			public abstract IReadOnlyList<(Vertex, Vertex, Vertex)> Build();
+			/// DO NOT MODIFY.
+			public abstract ECLMesh Build();
 		}
 
 		public class ModelTriMesh : ModelRenderable {
-			public List<(Vertex, Vertex, Vertex)> tris = new();
+			public List<ECLMesh.Vertex> vertices = new();
+			public List<(int, int, int)> tris = new();
 
 			public override void Translate(Vector3d t) {
-				for (int i = 0; i < tris.Count; i++) {
-					var tri = tris[i];
-					tri.Item1.position += t;
-					tri.Item2.position += t;
-					tri.Item3.position += t;
-					tris[i] = tri;
+				for (int i = 0; i < vertices.Count; i++) {
+					var vtx = vertices[i];
+					vtx.position += t;
+					vertices[i] = vtx;
 				}
 			}
 
-			public override IReadOnlyList<(Vertex, Vertex, Vertex)> Build() {
-				return tris;
+			public override ECLMesh Build() {
+				return new ECLMesh(vertices, tris);
 			}
 		}
 
 		public class ModelQ3Patch : ModelRenderable {
-			public Vertex[,] grid;
+			public ECLMesh.Vertex[,] grid;
 
 			public override void Translate(Vector3d t) {
 				for (int i = 0; i < grid.GetLength(0); i++)
@@ -200,7 +167,7 @@ namespace KDCVRCBSP.ECL {
 				);
 			}
 
-			public Vertex Resolve(int x, int y, int resW, int resH) {
+			public ECLMesh.Vertex Resolve(int x, int y, int resW, int resH) {
 				// In this coordinate system, the lower-right edge belongs to the next patch.
 				int inPatchX = x % (resW + 1);
 				int inPatchY = y % (resH + 1);
@@ -210,20 +177,20 @@ namespace KDCVRCBSP.ECL {
 				int patchY = y / (resH + 1);
 				int baseX = patchX * 2;
 				int baseY = patchY * 2;
-				bool flightX = baseX >= (grid.GetLength(0) - 1);
-				bool flightY = baseY >= (grid.GetLength(1) - 1);
+				bool flightX = (baseX >= (grid.GetLength(0) - 2)) || (inPatchX == 0);
+				bool flightY = (baseY >= (grid.GetLength(1) - 2)) || (inPatchY == 0);
 				if (flightX && flightY) {
 					return grid[baseX + 0, baseY + 0];
 				} else if (flightX) {
 					var v00 = grid[baseX + 0, baseY + 0];
 					var v01 = grid[baseX + 0, baseY + 1];
 					var v02 = grid[baseX + 0, baseY + 2];
-					return Vertex.BezierEval(v00, v01, v02, polY);
+					return ECLMesh.Vertex.BezierEval(v00, v01, v02, polY);
 				} else if (flightY) {
 					var v00 = grid[baseX + 0, baseY + 0];
 					var v10 = grid[baseX + 1, baseY + 0];
 					var v20 = grid[baseX + 2, baseY + 0];
-					return Vertex.BezierEval(v00, v10, v20, polX);
+					return ECLMesh.Vertex.BezierEval(v00, v10, v20, polX);
 				} else {
 					var v00 = grid[baseX + 0, baseY + 0];
 					var v10 = grid[baseX + 1, baseY + 0];
@@ -234,38 +201,39 @@ namespace KDCVRCBSP.ECL {
 					var v02 = grid[baseX + 0, baseY + 2];
 					var v12 = grid[baseX + 1, baseY + 2];
 					var v22 = grid[baseX + 2, baseY + 2];
-					var col0 = Vertex.BezierEval(v00, v01, v02, polY);
-					var col1 = Vertex.BezierEval(v10, v11, v12, polY);
-					var col2 = Vertex.BezierEval(v20, v21, v22, polY);
-					return Vertex.BezierEval(col0, col1, col2, polX);
+					var col0 = ECLMesh.Vertex.BezierEval(v00, v01, v02, polY);
+					var col1 = ECLMesh.Vertex.BezierEval(v10, v11, v12, polY);
+					var col2 = ECLMesh.Vertex.BezierEval(v20, v21, v22, polY);
+					return ECLMesh.Vertex.BezierEval(col0, col1, col2, polX);
 				}
 			}
 
-			public override IReadOnlyList<(Vertex, Vertex, Vertex)> Build() {
-				List<(Vertex, Vertex, Vertex)> tris = new();
-				// Extremely temporary code. Indexed mesh support will be a likely future requirement. - 🟪
+			public override ECLMesh Build() {
 				int resolution = 3;
 				(int resolvedW, int resolvedH) = ExpandedSizeForResolution(resolution, resolution);
-				Vertex[,] resolved = new Vertex[resolvedW, resolvedH];
-				Parallel.For(0, resolvedW, (i, _) => {
-					for (int j = 0; j < resolvedH; j++)
-						resolved[i, j] = Resolve(i, j, resolution, resolution);
+				ECLMesh.Vertex[] resolved = new ECLMesh.Vertex[resolvedW * resolvedH];
+				Parallel.For(0, resolvedW * resolvedH, (i, _) => {
+					resolved[i] = Resolve(i % resolvedW, i / resolvedW, resolution, resolution);
 				});
+				int Idx(int i, int j) {
+					return i + (j * resolvedW);
+				}
+				List<(int, int, int)> tris = new();
 				for (int i = 0; i < resolvedW - 1; i++) {
 					for (int j = 0; j < resolvedH - 1; j++) {
 						tris.Add((
-							resolved[i, j],
-							resolved[i, j + 1],
-							resolved[i + 1, j]
+							Idx(i, j),
+							Idx(i, j + 1),
+							Idx(i + 1, j)
 						));
 						tris.Add((
-							resolved[i + 1, j],
-							resolved[i, j + 1],
-							resolved[i + 1, j + 1]
+							Idx(i + 1, j),
+							Idx(i, j + 1),
+							Idx(i + 1, j + 1)
 						));
 					}
 				}
-				return tris;
+				return new(resolved, tris);
 			}
 		}
 
