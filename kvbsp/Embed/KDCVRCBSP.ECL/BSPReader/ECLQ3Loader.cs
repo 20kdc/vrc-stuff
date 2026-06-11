@@ -47,8 +47,11 @@ namespace KDCVRCBSP.ECL {
 						break;
 					strlen++;
 				}
+				string texName = encoding.GetString(pos.data, pos.ofs + strofs, strlen);
+				if (texName.StartsWith("textures/"))
+					texName = texName.Substring(9);
 				textures[idx] = (
-					encoding.GetString(pos.data, pos.ofs + strofs, strlen),
+					texName,
 					// contents
 					pos.GetS32(68)
 				);
