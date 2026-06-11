@@ -33,7 +33,7 @@ namespace KDCVRCBSP.ECL {
 			var lumpMeshverts = bsp[11];
 			var lumpFaces = bsp[13];
 
-			Plane3d[] planes = ECLLoadCom.HandlePlanesLump(lumpPlanes, false);
+			Plane3d[] planes = ECLLoadCom.HandlePlanesLump(lumpPlanes, true);
 			Vector3d[] vertexes = ECLLoadCom.HandleVertexLump(lumpVertexes);
 
 			var encoding = new UTF8Encoding(false);

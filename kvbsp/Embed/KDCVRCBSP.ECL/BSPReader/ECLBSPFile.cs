@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace KDCVRCBSP.ECL {
 	/// BSP file for ECL.
@@ -24,11 +25,11 @@ namespace KDCVRCBSP.ECL {
 			} else if (bsp[0] == (byte) 'Q' && kwBSP && version == 38) {
 				// qbism
 				return ECLQ2Loader.Load(bsp, true);
-			} else if (bsp[0] == (byte) 'I' && kwBSP && version == 46) {
+			} else if (bsp[0] == (byte) 'I' && kwBSP && (version == 46 || version == 47)) {
 				return ECLQ3Loader.Load(bsp);
 				// throw new Exception("Quake 3 BSP not yet supported");
 			} else {
-				throw new Exception("Doesn't look like a supported BSP file (Quake 2 with possible qbism extensions. Quake 1 & GoldSrc supported with caveats)");
+				throw new Exception("Doesn't look like a supported BSP file (Quake 2 (includes qbism format). Quake 1 & GoldSrc supported with caveats, Quake 3 / Quake Live)");
 			}
 		}
 
@@ -107,17 +108,18 @@ namespace KDCVRCBSP.ECL {
 			public static Vertex BezierEval(Vertex a, Vertex b, Vertex c, double pos) {
 				// Determine weights.
 				double posInv = 1 - pos;
-				double weightA = 0;
-				double weightB = 0;
-				double weightC = 0;
+				// combined effects of all lines
+				double weightA = posInv * posInv;
+				double weightB = pos * posInv * 2;
+				double weightC = pos * pos;
 				// for i = 0, 10 do v = i / 10 print((v * (1 - v))) end
 				// Add AB weight. Left side is vertex weight. Right side is line weight.
-				weightA += posInv * posInv;
+				// weightA += posInv * posInv;
 				// weightB += pos * posInv;
-				weightB += pos * posInv * 2; // combination of both weightB lines
 				// Add BC weight.
 				// weightB += posInv * pos;
-				weightC += pos * pos;
+				// weightC += pos * pos;
+
 				// Determine 'trivial' weights.
 				double trivialA = Math.Max(1 - (pos * 2), 0);
 				double trivialB = 1 - (Math.Abs(pos - 0.5) * 2);
@@ -242,12 +244,13 @@ namespace KDCVRCBSP.ECL {
 			public override IReadOnlyList<(Vertex, Vertex, Vertex)> Build() {
 				List<(Vertex, Vertex, Vertex)> tris = new();
 				// Extremely temporary code. Indexed mesh support will be a likely future requirement. - 🟪
-				int resolution = 4;
+				int resolution = 3;
 				(int resolvedW, int resolvedH) = ExpandedSizeForResolution(resolution, resolution);
 				Vertex[,] resolved = new Vertex[resolvedW, resolvedH];
-				for (int i = 0; i < resolvedW; i++)
+				Parallel.For(0, resolvedW, (i, _) => {
 					for (int j = 0; j < resolvedH; j++)
 						resolved[i, j] = Resolve(i, j, resolution, resolution);
+				});
 				for (int i = 0; i < resolvedW - 1; i++) {
 					for (int j = 0; j < resolvedH - 1; j++) {
 						tris.Add((

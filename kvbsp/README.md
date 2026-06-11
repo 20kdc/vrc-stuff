@@ -1,6 +1,6 @@
-# Quake 2 BSP Import
+# Quake BSP Import
 
-This Quake 2 BSP importer allows creating static world geometry with, i.e. TrenchBroom and a more recent `ericw-tools` (such as one of the 2.0.0 alpha releases from <https://github.com/ericwa/ericw-tools/releases>).
+This Quake 1/2/3/GoldSrc BSP importer allows creating static world geometry with, i.e. TrenchBroom and a more recent `ericw-tools` (such as one of the 2.0.0 alpha releases from <https://github.com/ericwa/ericw-tools/releases>).
 
 The basic idea is that:
 
@@ -149,3 +149,20 @@ In particular:
 * It is possible to override the visual mesh generation on a material-by-material basis by extending `KDCBSPAbstractMaterialConfig`. This may be useful if you're doing something fancy/weird with specially marked materials.
 * Extending `KDCBSPAbstractWorkspaceConfig` allows you to define custom search logic (perhaps for texture auto-import).
 
+## Occluder Geometry Generation
+
+Look, IDK what to tell you. It generates `EditorOnly` meshes which are marked as static occluders. It generates these away from the walls using basically the same principle Quake used for clipnodes in reverse so that Unity doesn't inevitably bug out because the occluder cells are too big or something.
+
+## Quake Live/Quake 3 BSP support
+
+This is useful if you like the bezier patches feature these BSP versions add.
+
+The generated data directory is called `baseq3` in order to support the 'Quake Live' configuration of Radiant-series editors, which enables the necessary PNG file support.
+
+Work to figure out how to deal with various details of coordinate transforms and weird filenames and such is 'ongoing'.
+
+It also looks like the Quake 3 map compiler maps UVs to the 0-1 range all by itself and the toolset requires `textures/` to appear at the start of everything which we then have to remove.
+
+Leaves (for occy) are not yet supported.
+
+This is an ongoing project.

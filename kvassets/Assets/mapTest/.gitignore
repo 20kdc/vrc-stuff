@@ -13,5 +13,7 @@
 *.prt.meta
 *.json.meta
 *.log.meta
+*.srf.meta
+*.bak.meta
 *.pts
 *.pts.meta

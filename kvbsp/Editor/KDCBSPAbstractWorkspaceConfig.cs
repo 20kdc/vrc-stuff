@@ -63,7 +63,7 @@ namespace KDCVRCBSP {
 				if (baseDir == null) {
 					Debug.LogError("No base dir for workspace being setup!");
 				} else {
-					string vfsDir = Path.Join(baseDir, "assets");
+					string vfsDir = Path.Join(baseDir, "baseq3");
 					try {
 						Directory.CreateDirectory(FileUtil.GetPhysicalPath(vfsDir));
 					} catch (Exception ex) {
