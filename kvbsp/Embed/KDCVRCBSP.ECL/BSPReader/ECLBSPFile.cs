@@ -113,9 +113,10 @@ namespace KDCVRCBSP.ECL {
 				// for i = 0, 10 do v = i / 10 print((v * (1 - v))) end
 				// Add AB weight. Left side is vertex weight. Right side is line weight.
 				weightA += posInv * posInv;
-				weightB += pos * posInv;
+				// weightB += pos * posInv;
+				weightB += pos * posInv * 2; // combination of both weightB lines
 				// Add BC weight.
-				weightB += posInv * pos;
+				// weightB += posInv * pos;
 				weightC += pos * pos;
 				// Determine 'trivial' weights.
 				double trivialA = Math.Max(1 - (pos * 2), 0);
