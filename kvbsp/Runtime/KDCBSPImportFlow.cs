@@ -14,6 +14,7 @@ namespace KDCVRCBSP {
 	 * KDCBSPImportFlow contains almsot all of the import flow.
 	 */
 	public static class KDCBSPImportFlow {
+		private const bool Profiling = false;
 
 		public static GameObject BuildMap(IKDCBSPImportContext importContext, KDCBSPBrushEntitySettings worldspawnCompilation) {
 			var data = importContext.BSP;
@@ -52,6 +53,7 @@ namespace KDCVRCBSP {
 
 		/// Creates and returns an entity.
 		public static GameObject CreateEntity(IKDCBSPImportContext importContext, KDCBSPBrushEntitySettings worldspawnCompilation, ECLBSPFile.Entity entity, string classname, string uniqueName, GameObject parent, List<KDCBSPEntityParameterizer> postProcessThese) {
+			bool isWorldspawn = entity == importContext.BSP.worldspawn;
 			var worldScale = importContext.WorldScale;
 			// Create the entity prefab.
 			var prefab = importContext.LookupEntity(classname);
@@ -81,7 +83,7 @@ namespace KDCVRCBSP {
 				c.EntityParameterize(importContext, entity, uniqueName);
 				if (c == null)
 					return null;
-				compSettings = c.EntityGetBrushSettings(entity == importContext.BSP.worldspawn, compSettings);
+				compSettings = c.EntityGetBrushSettings(isWorldspawn, compSettings);
 			}
 
 			foreach (var c in custom)
@@ -109,6 +111,12 @@ namespace KDCVRCBSP {
 
 			var model = entity.model;
 
+			bool profileThis = Profiling && isWorldspawn;
+			System.Diagnostics.Stopwatch stopwatch = profileThis ? new() : null;
+
+			if (stopwatch != null)
+				stopwatch.Start();
+
 			if (compSettings.visuals) {
 				GameObject visualsGO = new GameObject("visuals");
 
@@ -126,12 +134,9 @@ namespace KDCVRCBSP {
 						texCounters[renderable.tex] = 1;
 					}
 
-					List<KDCBSPTriangle> triangles = new();
 					var renderableMesh = renderable.Build();
-					foreach (var tri in renderableMesh.triangles)
-						triangles.Add(KDCBSPTriangle.FromECLTri((renderableMesh.vertices[tri.Item1], renderableMesh.vertices[tri.Item2], renderableMesh.vertices[tri.Item3]), worldScale));
 
-					var materialGO = assignment.BuildVisualObject(importContext, nameSuffix, assetPrefix + "mesh " + nameSuffix, triangles, visualsGO, compSettings);
+					var materialGO = assignment.BuildVisualObject(importContext, nameSuffix, assetPrefix + "mesh " + nameSuffix, renderableMesh, visualsGO, compSettings);
 					if (materialGO == null)
 						continue;
 
@@ -139,11 +144,17 @@ namespace KDCVRCBSP {
 
 					var meshRenderer = materialGO.GetComponent<MeshRenderer>();
 					if (meshRenderer != null)
-						KDCBSPImportFlow.SetupBrushRenderer(compSettings, assignment, meshRenderer);
+						SetupBrushRenderer(compSettings, assignment, meshRenderer);
 				}
 
 				visualsGO.transform.parent = entGO.transform;
 				visualsGO.transform.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
+			}
+
+			if (stopwatch != null) {
+				stopwatch.Stop();
+				Debug.Log($"KVBSP PROFILING, VISUALS {stopwatch.Elapsed}");
+				stopwatch.Reset();
 			}
 
 			var visleavesToOcclusionMtl = compSettings.visleavesToOcclusion.asset;
@@ -185,6 +196,9 @@ namespace KDCVRCBSP {
 				KDCBSPUtilities.SetStaticEditorFlags(convexGO, StaticEditorFlags.OccluderStatic | StaticEditorFlags.BatchingStatic);
 			}
 
+			if (stopwatch != null)
+				stopwatch.Start();
+
 			if (compSettings.collision == CollisionMode.ConvexBrushes) {
 				GameObject collisionGO = new GameObject("collision");
 
@@ -193,7 +207,7 @@ namespace KDCVRCBSP {
 					string convexName = "convex" + idx;
 					idx++;
 					// figure out primary side {
-					(KDCBSPAbstractMaterialConfig bPrimary, float bPrimaryWeight) = KDCBSPImportFlow.FindPrimarySide(importContext, b);
+					(KDCBSPAbstractMaterialConfig bPrimary, float bPrimaryWeight) = FindPrimarySide(importContext, b);
 					bool collisionEnable = bPrimary != null ? bPrimary.collisionEnable : true;
 					var collisionMaterial = bPrimary != null ? bPrimary.collisionMaterial.asset : null;
 					// }
@@ -201,7 +215,7 @@ namespace KDCVRCBSP {
 						continue;
 
 					// figures out contents and such
-					LayerMask layerMask = KDCBSPImportFlow.BrushContentsLayerMaskParameterized(custom, (LayerMask) (1 << entGO.layer), b);
+					LayerMask layerMask = BrushContentsLayerMaskParameterized(custom, (LayerMask) (1 << entGO.layer), b);
 
 					int layer = KDCBSPUtilities.LayerMaskToLayer(layerMask);
 					if (layer == -1)
@@ -253,7 +267,7 @@ namespace KDCVRCBSP {
 					string convexName = "convex" + idx;
 					idx++;
 					// figure out primary side {
-					(KDCBSPAbstractMaterialConfig bPrimary, float bPrimaryWeight) = KDCBSPImportFlow.FindPrimarySide(importContext, b);
+					(KDCBSPAbstractMaterialConfig bPrimary, float bPrimaryWeight) = FindPrimarySide(importContext, b);
 					bool collisionEnable = bPrimary != null ? bPrimary.collisionEnable : true;
 					// }
 
@@ -266,7 +280,7 @@ namespace KDCVRCBSP {
 					}
 
 					// figures out contents and such
-					LayerMask layerMask = KDCBSPImportFlow.BrushContentsLayerMaskParameterized(custom, (LayerMask) (1 << entGO.layer), b);
+					LayerMask layerMask = BrushContentsLayerMaskParameterized(custom, (LayerMask) (1 << entGO.layer), b);
 
 					if (layerMask == 0)
 						continue;
@@ -283,6 +297,12 @@ namespace KDCVRCBSP {
 				collider.sharedMaterial = collisionMaterial;
 				collider.sharedMesh = mesh;
 				compSettings.ApplyColliderSettings(collider);
+			}
+
+			if (stopwatch != null) {
+				stopwatch.Stop();
+				Debug.Log($"KVBSP PROFILING, COLLISION {stopwatch.Elapsed}");
+				stopwatch.Reset();
 			}
 
 			return entGO;

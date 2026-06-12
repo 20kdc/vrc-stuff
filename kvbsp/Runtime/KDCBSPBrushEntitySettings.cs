@@ -18,6 +18,7 @@ namespace KDCVRCBSP {
 		public float lightmapPackMargin = 0.01f;
 
 		/// Handler at KDCBSPImporter.SetupBrushRenderer, KDCBSPImporter.CreateEntity
+		/// also BuildVisualObject; if LM scale is <= 0.0, we don't unwrap for lightmaps
 		[Tooltip("Lightmap scale.")]
 		[SerializeField]
 		public float lightmapScale = 1f;

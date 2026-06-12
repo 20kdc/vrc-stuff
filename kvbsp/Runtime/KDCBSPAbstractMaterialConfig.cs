@@ -32,7 +32,7 @@ namespace KDCVRCBSP {
 		/// 'data' may be modified as you wish.
 		/// A key note: If LightProbeUsage or ReflectionProbeUsage is set to off here, they *stay* off.
 		/// This allows the renderer to indicate it doesn't use these features, as an optimization.
-		public abstract GameObject BuildVisualObject(IKDCBSPImportContext ctx, string materialName, string meshAssetName, List<KDCBSPTriangle> data, GameObject visualsGO, KDCBSPBrushEntitySettings brushEntitySettings);
+		public abstract GameObject BuildVisualObject(IKDCBSPImportContext ctx, string materialName, string meshAssetName, ECLMesh data, GameObject visualsGO, KDCBSPBrushEntitySettings brushEntitySettings);
 
 		/// Calculates the collision convex priority for a given normal.
 		/// This is used when deciding which material config to use for physics materials/etc.
@@ -92,7 +92,7 @@ namespace KDCVRCBSP {
 			/// Implements retrieving the material information.
 			public abstract SimpleMaterialInfo GetMaterial(IKDCBSPImportContext ctx, string materialName, string meshAssetName);
 
-			public override GameObject BuildVisualObject(IKDCBSPImportContext ctx, string materialName, string meshAssetName, List<KDCBSPTriangle> data, GameObject visualsGO, KDCBSPBrushEntitySettings brushEntitySettings) {
+			public override GameObject BuildVisualObject(IKDCBSPImportContext ctx, string materialName, string meshAssetName, ECLMesh data, GameObject visualsGO, KDCBSPBrushEntitySettings brushEntitySettings) {
 
 				var mInfo = GetMaterial(ctx, materialName, meshAssetName);
 
@@ -116,9 +116,12 @@ namespace KDCVRCBSP {
 					Debug.LogWarning($"Fixing non-finite uvMul in material {materialName} mesh asset {meshAssetName} to prevent lightmapper freeze.\nPlease setup a KDCBSPMaterialConfig with an explicit size!");
 					uvMul = Vector2.one;
 				}
-				Mesh mesh = KDCBSPTriangle.TrianglesToMesh(data, uvMul);
 
-				KDCBSPUtilities.LightmapUnwrap(mesh, brushEntitySettings);
+				Mesh mesh = KDCBSPUtilities.ImportECLMesh(data, uvMul, ctx.WorldScale);
+
+				// Unwrapping is costly, so we should only do it if the lightmap scale is set.
+				if (brushEntitySettings.lightmapScale > 0)
+					KDCBSPUtilities.LightmapUnwrap(mesh, brushEntitySettings);
 
 				ctx.AddObjectToAsset(meshAssetName, mesh);
 

@@ -106,7 +106,7 @@ namespace KDCVRCBSP {
 			return layer;
 		}
 
-		// -- Loader Assist --
+		// -- Main import assist --
 
 		public static void GetEntityBox(ECLBSPFile.Entity entity, float worldScale, out Vector3 centre, out Vector3 size) {
 			centre = Vector3.zero;
@@ -118,6 +118,35 @@ namespace KDCVRCBSP {
 			var maxT = TransformPosition(mdl.bounds.max, worldScale);
 			centre = (minT + maxT) / 2;
 			size = Vector3.Max(maxT, minT) - Vector3.Min(maxT, minT);
+		}
+
+		public static Mesh ImportECLMesh(ECLMesh mesh, Vector2 uvMul, float worldScale) {
+			var vertices = new Vector3[mesh.vertices.Count];
+			var normals = new Vector3[mesh.vertices.Count];
+			var uvs = new Vector2[mesh.vertices.Count];
+			var indices = new int[mesh.triangles.Count * 3];
+
+			for (int i = 0; i < mesh.vertices.Count; i++) {
+				var v = mesh.vertices[i];
+				// [TRANSFORM] hand-inline just in case
+				vertices[i] = new Vector3((float) v.position.x, (float) v.position.z, (float) v.position.y) / worldScale;
+				normals[i] = new Vector3((float) v.normal.x, (float) v.normal.z, (float) v.normal.y);
+				uvs[i] = new Vector2((float) v.uv.x, (float) v.uv.y) * uvMul;
+			}
+
+			for (int j = 0; j < mesh.triangles.Count; j++) {
+				int b = j * 3;
+				var tri = mesh.triangles[j];
+				indices[b] = tri.Item1;
+				indices[b + 1] = tri.Item2;
+				indices[b + 2] = tri.Item3;
+			}
+
+			Mesh res = new Mesh { vertices = vertices, normals = normals, uv = uvs, triangles = indices };
+			// res.RecalculateNormals();
+			res.RecalculateTangents();
+			res.Optimize();
+			return res;
 		}
 
 		// -- Transform functions --
