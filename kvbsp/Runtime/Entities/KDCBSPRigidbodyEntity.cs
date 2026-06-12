@@ -9,7 +9,7 @@ namespace KDCVRCBSP {
 	/**
 	 * Entity parameterizer for func_pickup.
 	 */
-	public class KDCBSPRigidbodyEntityParameterizer : KDCBSPEntity {
+	public class KDCBSPRigidbodyEntity : KDCBSPEntity {
 		public override void EntityCompile(IKDCBSPImportContext importContext, ECLBSPFile.Entity entity, string uniqueName) {
 			base.EntityCompile(importContext, entity, uniqueName);
 			bool kinematic = entity.GetBool("kinematic", true);

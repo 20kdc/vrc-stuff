@@ -9,7 +9,7 @@ namespace KDCVRCBSP {
 	/**
 	 * Entity parameterizer for func_occluder.
 	 */
-	public class KDCBSPOccluderEntityParameterizer : KDCBSPEntity {
+	public class KDCBSPOccluderEntity : KDCBSPEntity {
 		public override void EntityCompile(IKDCBSPImportContext importContext, ECLBSPFile.Entity entity, string uniqueName) {
 			// don't bother calling base
 			bool open = entity.GetBool("open", false);

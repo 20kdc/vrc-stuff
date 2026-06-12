@@ -14,18 +14,18 @@ namespace KDCVRCBSP {
 	 */
 	[System.Serializable]
 	public class KDCBSPBrushEntitySettings : ICloneable {
-		/// Handler at KDCBSPImporter.BrushEntitySettingsToUnwrapParam, KDCBSPAbstractMaterialConfig.Simple.BuildVisualObject
+		/// Handler at KDCBSPUtilities.ImportECLMeshVisual
 		[Tooltip("Lightmap pack margin.")]
 		[SerializeField]
 		public float lightmapPackMargin = 0.01f;
 
-		/// Handler at KDCBSPImporter.SetupBrushRenderer, KDCBSPImporter.CreateEntity
+		/// Handler at KDCBSPBrushEntityFlow.SetupBrushRenderer, KDCBSPBrushEntityFlow.Compile
 		/// also BuildVisualObject; if LM scale is <= 0.0, we don't unwrap for lightmaps
 		[Tooltip("Lightmap scale.")]
 		[SerializeField]
 		public float lightmapScale = 1f;
 
-		/// Handler at KDCBSPImporter.CreateEntity
+		/// Handler at KDCBSPBrushEntityFlow.Compile
 		[Tooltip("Enables visuals (as opposed to collision only).")]
 		[SerializeField]
 		public bool visuals = true;
@@ -35,21 +35,21 @@ namespace KDCVRCBSP {
 		[SerializeField]
 		public LazyLoadReference<GameObject> rendererTemplate = null;
 
-		/// Handler at KDCBSPImporter.CreateEntity
+		/// Handler at KDCBSPBrushEntityFlow.Compile
 		[Tooltip("Controls if/how collision is generated.")]
 		[SerializeField]
 		public CollisionMode collision;
-		/// Handler at KDCBSPImporter.CreateEntity
+		/// Handler at ApplyColliderSettings.
 		[Tooltip("Controls the Is Trigger flag on collision.")]
 		[SerializeField]
 		public bool collisionIsTrigger;
 
 		// UnityEditor-less proxies
-		// Handlers at KDCBSPImporter.CreateEntity
+		// Handlers at KDCBSPBrushEntityFlow.Compile
 		[Tooltip("Overrides the Contribute GI static flag.")]
 		[SerializeField]
 		public FlagMod contributeGI;
-		/// Handler at KDCBSPImporter.SetupBrushRenderer, KDCBSPImporter.CreateEntity
+		/// Handler at KDCBSPBrushEntityFlow.SetupBrushRenderer, KDCBSPBrushEntityFlow.Compile
 		[Tooltip("Overrides ReceiveGI between lightmaps (on) and light probes (off).")]
 		[SerializeField]
 		public FlagMod lightmaps;
@@ -82,7 +82,7 @@ namespace KDCVRCBSP {
 			return MemberwiseClone();
 		}
 
-		/// Called in CreateEntity **after** the entity parameterizer has had its say.
+		/// Handler at KDCBSPEntity.EntityCompile
 		public void ParseEntityOverrides(ECLBSPFile.Entity entity) {
 			void ParseFlagMod(string s, ref FlagMod mod) {
 				string sv = entity[s];
@@ -105,6 +105,7 @@ namespace KDCVRCBSP {
 			ParseFlagMod("_kdcbsp_reflection_probe_static", ref reflectionProbeStatic);
 		}
 
+		/// Handler at KDCBSPBrushEntityFlow.Compile
 		public StaticEditorFlags ModifyStaticEditorFlags(StaticEditorFlags visStaticFlags) {
 			void ModSEF(ref StaticEditorFlags sef, FlagMod mod, StaticEditorFlags v) {
 				if (mod == FlagMod.On)
@@ -121,6 +122,7 @@ namespace KDCVRCBSP {
 		}
 
 		/// Applies the settings in this instance to the given collider.
+		/// Handler at KDCBSPBrushEntityFlow.Compile
 		public void ApplyColliderSettings(Collider collider) {
 			collider.isTrigger = collisionIsTrigger;
 		}

@@ -14,7 +14,26 @@ namespace KDCVRCBSP {
 	public static class KDCBSPBrushEntityFlow {
 		private const bool Profiling = false;
 
-		public static void Compile(GameObject entGO, IKDCBSPImportContext importContext, bool isWorldspawn, ECLBSPFile.Model model, string assetPrefix, KDCBSPBrushEntitySettings compSettings, Action<Collider, KDCBSPAbstractMaterialConfig, ECLBSPFile.Brush> entColliderSettings) {
+		/// Implementation of KDCBSPEntity.EntityCompile
+		public static void CompileDefault(GameObject gameObject, IKDCBSPImportContext importContext, ECLBSPFile.Entity entity, string uniqueName, Func<bool, KDCBSPBrushEntitySettings, KDCBSPBrushEntitySettings> entityGetBrushSettings, Action<IKDCBSPImportContext, Collider, KDCBSPAbstractMaterialConfig, ECLBSPFile.Brush> entColliderSettings) {
+			var model = entity.model;
+			if (model == null)
+				return;
+
+			KDCBSPBrushEntitySettings compSettings = (KDCBSPBrushEntitySettings) importContext.WorldspawnCompilation.Clone();
+			bool isWorldspawn = entity == importContext.BSP.worldspawn;
+			compSettings = entityGetBrushSettings(isWorldspawn, compSettings);
+
+			if (compSettings == null)
+				return;
+
+			compSettings.ParseEntityOverrides(entity);
+
+			var assetPrefix = uniqueName + " ";
+			KDCBSPBrushEntityFlow.Compile(gameObject, importContext, isWorldspawn, model, assetPrefix, compSettings, entColliderSettings);
+		}
+
+		public static void Compile(GameObject entGO, IKDCBSPImportContext importContext, bool isWorldspawn, ECLBSPFile.Model model, string assetPrefix, KDCBSPBrushEntitySettings compSettings, Action<IKDCBSPImportContext, Collider, KDCBSPAbstractMaterialConfig, ECLBSPFile.Brush> entColliderSettings) {
 			var worldScale = importContext.WorldScale;
 
 			// Figure out what static flags we want.
@@ -115,7 +134,7 @@ namespace KDCVRCBSP {
 					collider.sharedMaterial = assignment.collisionMaterial.asset;
 					collider.sharedMesh = mesh;
 					compSettings.ApplyColliderSettings(collider);
-					entColliderSettings(collider, assignment, null);
+					entColliderSettings(importContext, collider, assignment, null);
 				}
 			}
 
@@ -154,7 +173,7 @@ namespace KDCVRCBSP {
 					collider.sharedMaterial = collisionMaterial;
 					collider.sharedMesh = mesh;
 					compSettings.ApplyColliderSettings(collider);
-					entColliderSettings(collider, bPrimary, b);
+					entColliderSettings(importContext, collider, bPrimary, b);
 				}
 				collisionGO.transform.parent = entGO.transform;
 				collisionGO.transform.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
@@ -169,7 +188,7 @@ namespace KDCVRCBSP {
 				collider.sharedMaterial = guessedPrimaryMaterial != null ? guessedPrimaryMaterial.collisionMaterial.asset : null;
 				collider.sharedMesh = mesh;
 				compSettings.ApplyColliderSettings(collider);
-				entColliderSettings(collider, guessedPrimaryMaterial, null);
+				entColliderSettings(importContext, collider, guessedPrimaryMaterial, null);
 			}
 
 			if (stopwatch != null) {

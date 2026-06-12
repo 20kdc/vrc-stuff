@@ -17,23 +17,7 @@ namespace KDCVRCBSP {
 #endif
 	{
 		public virtual void EntityCompile(IKDCBSPImportContext importContext, ECLBSPFile.Entity entity, string uniqueName) {
-			var model = entity.model;
-			if (model == null)
-				return;
-
-			KDCBSPBrushEntitySettings compSettings = (KDCBSPBrushEntitySettings) importContext.WorldspawnCompilation.Clone();
-			bool isWorldspawn = entity == importContext.BSP.worldspawn;
-			compSettings = EntityGetBrushSettings(isWorldspawn, compSettings);
-
-			if (compSettings == null)
-				return;
-
-			compSettings.ParseEntityOverrides(entity);
-
-			var assetPrefix = uniqueName + " ";
-			KDCBSPBrushEntityFlow.Compile(gameObject, importContext, isWorldspawn, model, assetPrefix, compSettings, (collider, primaryMaterial, brush) => {
-				EntityBrushApplyColliderSettings(importContext, collider, primaryMaterial, brush);
-			});
+			KDCBSPBrushEntityFlow.CompileDefault(gameObject, importContext, entity, uniqueName, EntityGetBrushSettings, EntityBrushApplyColliderSettings);
 		}
 
 		/// Returns the brush entity compile settings for this brush entity.

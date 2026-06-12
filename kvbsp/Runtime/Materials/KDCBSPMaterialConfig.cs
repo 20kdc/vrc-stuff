@@ -9,7 +9,7 @@ namespace KDCVRCBSP {
 	 * KDCBSPMaterialConfig defines things materials care about.
 	 */
 	[CreateAssetMenu(menuName = "KDCVRCTools/KDCBSP Material Config", fileName = "materialConfig")]
-	public class KDCBSPMaterialConfig : KDCBSPAbstractMaterialConfig.Simple {
+	public class KDCBSPMaterialConfig : KDCBSPSimpleAbstractMaterialConfig {
 		[Tooltip("Base priority for determining which material a brush is made of. The normal Y (-1 to 1) is added to this, to bias in favour of floors by default.")]
 		[SerializeField]
 		public float baseCollisionConvexPriority;
