@@ -5,6 +5,8 @@ using UnityEngine;
 using UnityEngine.Rendering;
 using KDCVRCBSP.ECL;
 
+using StaticEditorFlags = KDCVRCBSP.KDCBSPRuntimeStaticEditorFlags;
+
 namespace KDCVRCBSP {
 	/**
 	 * Brush entity compile settings.
@@ -101,6 +103,21 @@ namespace KDCVRCBSP {
 			ParseFlagMod("_kdcbsp_occludee_static", ref occludeeStatic);
 			ParseFlagMod("_kdcbsp_batching_static", ref batchingStatic);
 			ParseFlagMod("_kdcbsp_reflection_probe_static", ref reflectionProbeStatic);
+		}
+
+		public StaticEditorFlags ModifyStaticEditorFlags(StaticEditorFlags visStaticFlags) {
+			void ModSEF(ref StaticEditorFlags sef, FlagMod mod, StaticEditorFlags v) {
+				if (mod == FlagMod.On)
+					sef |= v;
+				else if (mod == FlagMod.Off)
+					sef &= ~v;
+			}
+			ModSEF(ref visStaticFlags, contributeGI, StaticEditorFlags.ContributeGI);
+			ModSEF(ref visStaticFlags, occluderStatic, StaticEditorFlags.OccluderStatic);
+			ModSEF(ref visStaticFlags, occludeeStatic, StaticEditorFlags.OccludeeStatic);
+			ModSEF(ref visStaticFlags, batchingStatic, StaticEditorFlags.BatchingStatic);
+			ModSEF(ref visStaticFlags, reflectionProbeStatic, StaticEditorFlags.ReflectionProbeStatic);
+			return visStaticFlags;
 		}
 
 		/// Applies the settings in this instance to the given collider.

@@ -18,19 +18,7 @@ namespace KDCVRCBSP {
 			var worldScale = importContext.WorldScale;
 
 			// Figure out what static flags we want.
-			StaticEditorFlags visStaticFlags = KDCBSPUtilities.GetStaticEditorFlags(entGO);
-
-			void ModSEF(ref StaticEditorFlags sef, FlagMod mod, StaticEditorFlags v) {
-				if (mod == FlagMod.On)
-					sef |= v;
-				else if (mod == FlagMod.Off)
-					sef &= ~v;
-			}
-			ModSEF(ref visStaticFlags, compSettings.contributeGI, StaticEditorFlags.ContributeGI);
-			ModSEF(ref visStaticFlags, compSettings.occluderStatic, StaticEditorFlags.OccluderStatic);
-			ModSEF(ref visStaticFlags, compSettings.occludeeStatic, StaticEditorFlags.OccludeeStatic);
-			ModSEF(ref visStaticFlags, compSettings.batchingStatic, StaticEditorFlags.BatchingStatic);
-			ModSEF(ref visStaticFlags, compSettings.reflectionProbeStatic, StaticEditorFlags.ReflectionProbeStatic);
+			StaticEditorFlags visStaticFlags = compSettings.ModifyStaticEditorFlags(KDCBSPUtilities.GetStaticEditorFlags(entGO));
 
 			bool profileThis = Profiling && isWorldspawn;
 			System.Diagnostics.Stopwatch stopwatch = profileThis ? new() : null;
