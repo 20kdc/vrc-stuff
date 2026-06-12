@@ -1,7 +1,11 @@
 {
-    "name": "KDCVRCBSP.ECL",
+    "name": "KDCBSPGameRootProgs",
     "rootNamespace": "",
-    "references": [],
+    "references": [
+        "KDCVRCBSP",
+        "KDCVRCBSP.ECL",
+        "UdonSharp.Runtime"
+    ],
     "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,
@@ -10,5 +14,5 @@
     "autoReferenced": true,
     "defineConstraints": [],
     "versionDefines": [],
-    "noEngineReferences": true
+    "noEngineReferences": false
 }

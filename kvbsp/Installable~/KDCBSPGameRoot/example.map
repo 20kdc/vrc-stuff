@@ -139,3 +139,19 @@
 ( -68.68629150101528 -59.59591794226545 32 ) ( -60.40408205773454 -28.6862915010153 32 ) ( -60.40408205773454 -28.6862915010153 0 ) dev/32 [ 0.258819045102523 0.9659258262890675 0 11.342556 ] [ 0 0 -1 0 ] 90 1 1
 }
 }
+// entity 6
+{
+"classname" "monster_dopefish"
+"origin" "-72 104 200"
+"message" "hello!"
+"targetname" "dopefish_a"
+"friend" "dopefish_b"
+}
+// entity 7
+{
+"classname" "monster_dopefish"
+"origin" "-40 104 200"
+"message" "world!"
+"targetname" "dopefish_b"
+"friend" "dopefish_a"
+}

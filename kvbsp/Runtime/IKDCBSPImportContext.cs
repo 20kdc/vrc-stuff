@@ -34,8 +34,14 @@ namespace KDCVRCBSP {
 		/// Adds an object to the asset being built. Be sure to ensure unique names.
 		public void AddObjectToAsset(string name, UnityEngine.Object asset);
 
+		// Targetname utils
 		public int AttachTargetname(string targetname, IKDCBSPEntity entity);
 		public IKDCBSPEntity FindByTargetname(string targetname);
 		public IReadOnlyList<IKDCBSPEntity> FindAllByTargetname(string targetname);
+
+		// Parameterizer utils
+		public Vector3 TransformPosition(Vector3d src);
+		public Vector3 TransformNormal(Vector3d src);
+		public Plane TransformPlane(Plane3d plane);
 	}
 }

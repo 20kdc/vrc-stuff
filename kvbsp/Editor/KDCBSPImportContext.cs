@@ -107,5 +107,8 @@ namespace KDCVRCBSP {
 			return Array.Empty<IKDCBSPEntity>();
 		}
 
+		public Vector3 TransformPosition(Vector3d src) => KDCBSPUtilities.TransformPosition(src, WorldScale);
+		public Vector3 TransformNormal(Vector3d src) => KDCBSPUtilities.TransformNormal(src);
+		public Plane TransformPlane(Plane3d plane) => KDCBSPUtilities.TransformPlane(plane, WorldScale);
 	}
 }
