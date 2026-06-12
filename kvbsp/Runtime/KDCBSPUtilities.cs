@@ -143,7 +143,7 @@ namespace KDCVRCBSP {
 				if (visual) {
 					normals[i] = new Vector3((float) v.normal.x, (float) v.normal.z, (float) v.normal.y);
 					// ID UVs are the opposite way around to Unity UVs, or something. IDK.
-					uvs[i] = new Vector2((float) v.uv.x, 1 - (float) v.uv.y) * uvMul;
+					uvs[i] = new Vector2((float) v.uv.x, -(float) v.uv.y) * uvMul;
 				}
 			}
 
