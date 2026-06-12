@@ -108,7 +108,8 @@ namespace KDCVRCBSP {
 			if (lmi == 0)
 				return -1;
 			int layer = 0;
-			while (lmi != 0) {
+			// it will reach 1 before it reaches 0
+			while (lmi > 1) {
 				lmi >>= 1;
 				layer++;
 			}

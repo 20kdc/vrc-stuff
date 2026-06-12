@@ -14,7 +14,7 @@ namespace KDCVRCBSP {
 	public static class KDCBSPBrushEntityFlow {
 		private const bool Profiling = false;
 
-		public static void Compile(GameObject entGO, IKDCBSPImportContext importContext, bool isWorldspawn, ECLBSPFile.Model model, string assetPrefix, KDCBSPBrushEntitySettings compSettings, Func<ECLBSPFile.Brush, LayerMask> mapLayers) {
+		public static void Compile(GameObject entGO, IKDCBSPImportContext importContext, bool isWorldspawn, ECLBSPFile.Model model, string assetPrefix, KDCBSPBrushEntitySettings compSettings, Action<Collider, KDCBSPAbstractMaterialConfig, ECLBSPFile.Brush> entColliderSettings) {
 			var worldScale = importContext.WorldScale;
 
 			// Figure out what static flags we want.
@@ -26,55 +26,112 @@ namespace KDCVRCBSP {
 			if (stopwatch != null)
 				stopwatch.Start();
 
-			if (compSettings.visuals) {
-				GameObject visualsGO = new GameObject("visuals");
+			GameObject visualsGO = compSettings.visuals ? new GameObject("visuals") : null;
+			GameObject collisionGO = (compSettings.collision == CollisionMode.ConvexBrushes) ? new GameObject("collision") : null;
+			List<ECLMesh> rootCollision = (compSettings.collision == CollisionMode.ConcaveRoot || compSettings.collision == CollisionMode.SingleConvexRoot) ? new() : null;
+			// used for root collision modes, anything renderable goes in here
+			KDCBSPAbstractMaterialConfig guessedPrimaryMaterial = null;
 
-				Dictionary<string, int> texCounters = new();
-				foreach (var renderable in model.renderables) {
-					var assignment = importContext.LookupMaterial(renderable.tex);
-					if (assignment == null)
-						continue;
+			Dictionary<string, int> texCounters = new();
 
-					string nameSuffix = renderable.tex;
-					if (texCounters.TryGetValue(renderable.tex, out int counter)) {
-						nameSuffix += " " + counter;
-						texCounters[renderable.tex] = counter + 1;
-					} else {
-						texCounters[renderable.tex] = 1;
-					}
+			// Renderables (including bezier patches).
+			foreach (var renderable in model.renderables) {
+				var assignment = importContext.LookupMaterial(renderable.tex);
+				if (assignment == null)
+					continue;
+				guessedPrimaryMaterial = assignment;
 
-					var renderableMesh = renderable.Build();
+				int collisionLayer = assignment.collisionEnable ? entGO.layer : -1; //KDCBSPUtilities.LayerMaskToLayer(layerMask); FIGURE OUT LAYER REMAPPING
+				bool collisionEnable = collisionLayer != -1;
 
-					var materialGO = assignment.BuildVisualObject(importContext, nameSuffix, assetPrefix + "mesh " + nameSuffix, renderableMesh, visualsGO, compSettings);
-					if (materialGO == null)
-						continue;
+				bool buildRender = visualsGO != null;
+				bool buildRootCollision = (rootCollision != null) && collisionEnable;
+				bool buildCollisionGO = renderable.concaveCollision && (collisionGO != null) && collisionEnable;
 
-					KDCBSPUtilities.SetStaticEditorFlags(materialGO, visStaticFlags);
+				// If we have nothing to do here, skip this renderable.
+				if (!(buildRender || buildCollisionGO || buildRootCollision))
+					continue;
 
-					var meshRenderer = materialGO.GetComponent<MeshRenderer>();
-					if (meshRenderer != null)
-						SetupBrushRenderer(compSettings, assignment, meshRenderer);
+				// Ok, now all the expensive stuff, please.
+
+				string nameSuffix = renderable.tex;
+				if (texCounters.TryGetValue(renderable.tex, out int counter)) {
+					nameSuffix += " " + counter;
+					texCounters[renderable.tex] = counter + 1;
+				} else {
+					texCounters[renderable.tex] = 1;
 				}
 
+				ECLMesh eclMesh = renderable.Build();
+
+				// If a default mesh build occurs, we cache it here.
+				Mesh[] renderCollReuseCache = new Mesh[1];
+				var meshAssetName = assetPrefix + " mesh " + nameSuffix;
+
+				// Build visuals FIRST.
+				if (buildRender) {
+					var materialGO = assignment.BuildVisualObject(importContext, nameSuffix, meshAssetName + "-custom", eclMesh, (uvMul) => {
+						if (renderCollReuseCache[0] != null) {
+							Debug.LogWarning($"Rerunning of default build in {meshAssetName}. This is not supported.");
+							return renderCollReuseCache[0];
+						}
+
+						if ((!float.IsFinite(uvMul.x)) || (!float.IsFinite(uvMul.y))) {
+							Debug.LogWarning($"Fixing non-finite uvMul in {meshAssetName} to prevent lightmapper freeze.\nPlease setup a KDCBSPMaterialConfig with an explicit size!");
+							uvMul = Vector2.one;
+						}
+
+						Mesh res = KDCBSPUtilities.ImportECLMeshVisual(eclMesh, uvMul, worldScale, compSettings);
+						importContext.AddObjectToAsset(meshAssetName, res);
+						renderCollReuseCache[0] = res;
+						return res;
+					}, visualsGO, compSettings);
+
+					if (materialGO != null) {
+						KDCBSPUtilities.SetStaticEditorFlags(materialGO, visStaticFlags);
+
+						var meshRenderer = materialGO.GetComponent<MeshRenderer>();
+						if (meshRenderer != null)
+							SetupBrushRenderer(compSettings, assignment, meshRenderer);
+					}
+				}
+
+				if (buildRootCollision)
+					rootCollision.Add(eclMesh);
+
+				if (buildCollisionGO) {
+					Mesh mesh = renderCollReuseCache[0];
+					if (mesh == null) {
+						mesh = KDCBSPUtilities.ImportECLMeshCollision(eclMesh, worldScale);
+						importContext.AddObjectToAsset(meshAssetName + "-collider", mesh);
+					}
+
+					GameObject concaveGO = new GameObject("concave " + nameSuffix);
+					concaveGO.transform.parent = collisionGO.transform;
+					concaveGO.layer = collisionLayer;
+
+					var collider = concaveGO.AddComponent(typeof(MeshCollider)) as MeshCollider;
+					collider.convex = false;
+					collider.sharedMaterial = assignment.collisionMaterial.asset;
+					collider.sharedMesh = mesh;
+					compSettings.ApplyColliderSettings(collider);
+					entColliderSettings(collider, assignment, null);
+				}
+			}
+
+			if (visualsGO != null) {
 				visualsGO.transform.parent = entGO.transform;
 				visualsGO.transform.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
 			}
 
-			if (stopwatch != null) {
-				stopwatch.Stop();
-				Debug.Log($"KVBSP PROFILING, VISUALS {stopwatch.Elapsed}");
-				stopwatch.Reset();
-			}
-
-			if (stopwatch != null)
-				stopwatch.Start();
-
-			if (compSettings.collision == CollisionMode.ConvexBrushes) {
-				GameObject collisionGO = new GameObject("collision");
-
+			if (collisionGO != null) {
+				// In the 'individual convexes' mode, we actually put some effort in.
 				var idx = 0;
 				foreach (var b in model.brushes) {
-					string convexName = "convex" + idx;
+					if (b.illusionary)
+						continue;
+
+					string convexName = "convex " + idx;
 					idx++;
 					// figure out primary side {
 					(KDCBSPAbstractMaterialConfig bPrimary, float bPrimaryWeight) = FindPrimarySide(importContext, b);
@@ -84,93 +141,40 @@ namespace KDCVRCBSP {
 					if (!collisionEnable)
 						continue;
 
-					// figures out contents and such
-					LayerMask layerMask = mapLayers(b);
-
-					int layer = KDCBSPUtilities.LayerMaskToLayer(layerMask);
-					if (layer == -1)
-						continue;
-
 					ECLMesh eclMesh = ECLMesh.ToCollisionMesh(b, KDCBSPUtilities.DistanceEpsilon, KDCBSPUtilities.InitialWindingSize);
+					Mesh mesh = KDCBSPUtilities.ImportECLMeshCollision(eclMesh, worldScale);
+					importContext.AddObjectToAsset(assetPrefix + convexName, mesh);
 
 					GameObject convexGO = new GameObject(convexName);
 					convexGO.transform.parent = collisionGO.transform;
-					convexGO.layer = layer;
+					convexGO.layer = entGO.layer;
 
-					Mesh mesh = KDCBSPUtilities.ImportECLMeshCollision(eclMesh, worldScale);
-					importContext.AddObjectToAsset(assetPrefix + convexName, mesh);
 					var collider = convexGO.AddComponent(typeof(MeshCollider)) as MeshCollider;
 					collider.convex = true;
 					collider.sharedMaterial = collisionMaterial;
 					collider.sharedMesh = mesh;
 					compSettings.ApplyColliderSettings(collider);
+					entColliderSettings(collider, bPrimary, b);
 				}
 				collisionGO.transform.parent = entGO.transform;
 				collisionGO.transform.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
-			} else if (compSettings.collision == CollisionMode.ConcaveRoot) {
-				List<ECLMesh> concaveParts = new();
-				foreach (var renderable in model.renderables) {
-					var assignment = importContext.LookupMaterial(renderable.tex);
-					if (assignment != null)
-						if (!assignment.collisionEnable)
-							continue;
-					concaveParts.Add(renderable.Build());
-				}
-				Mesh mesh = KDCBSPUtilities.ImportECLMeshCollision(ECLMesh.Concatenate(concaveParts), worldScale);
-				importContext.AddObjectToAsset(assetPrefix + "concave", mesh);
+			}
+
+			if (rootCollision != null) {
+				// The root collision built earlier is applied.
+				Mesh mesh = KDCBSPUtilities.ImportECLMeshCollision(ECLMesh.Concatenate(rootCollision), worldScale);
+				importContext.AddObjectToAsset(assetPrefix + "rootCollision", mesh);
 				var collider = entGO.AddComponent(typeof(MeshCollider)) as MeshCollider;
-				collider.convex = false;
+				collider.convex = compSettings.collision == CollisionMode.SingleConvexRoot;
+				collider.sharedMaterial = guessedPrimaryMaterial != null ? guessedPrimaryMaterial.collisionMaterial.asset : null;
 				collider.sharedMesh = mesh;
 				compSettings.ApplyColliderSettings(collider);
-			} else if (compSettings.collision == CollisionMode.SingleConvexRoot) {
-				List<(Vector3d, IReadOnlyList<Vector3d>)> convexFaces = new();
-				var idx = 0;
-				// Note the attempt to find a 'true' primary material.
-				// The hope is that this works decently well, but no promises.
-				KDCBSPAbstractMaterialConfig bFullPrimary = null;
-				float bFullPrimaryWeight = float.MinValue;
-				foreach (var b in model.brushes) {
-					string convexName = "convex" + idx;
-					idx++;
-					// figure out primary side {
-					(KDCBSPAbstractMaterialConfig bPrimary, float bPrimaryWeight) = FindPrimarySide(importContext, b);
-					bool collisionEnable = bPrimary != null ? bPrimary.collisionEnable : true;
-					// }
-
-					if (!collisionEnable)
-						continue;
-
-					if (bPrimaryWeight > bFullPrimaryWeight) {
-						bFullPrimary = bPrimary;
-						bFullPrimaryWeight = bPrimaryWeight;
-					}
-
-					// figures out contents and such
-					LayerMask layerMask = mapLayers(b);
-
-					if (layerMask == 0)
-						continue;
-
-					var convex = Convex3d<bool>.FromPlanes(b.ToPlanes(), false, KDCBSPUtilities.DistanceEpsilon, KDCBSPUtilities.InitialWindingSize);
-					foreach (var face in convex.faces)
-						convexFaces.Add((face.plane.normal, face.winding));
-				}
-
-				var collisionMaterial = bFullPrimary != null ? bFullPrimary.collisionMaterial.asset : null;
-
-				Mesh mesh = KDCBSPUtilities.ImportECLMeshCollision(ECLMesh.ToCollisionMesh(convexFaces), worldScale);
-				importContext.AddObjectToAsset(assetPrefix + "convex", mesh);
-				var collider = entGO.AddComponent(typeof(MeshCollider)) as MeshCollider;
-				collider.convex = true;
-				collider.sharedMaterial = collisionMaterial;
-				collider.sharedMesh = mesh;
-				compSettings.ApplyColliderSettings(collider);
+				entColliderSettings(collider, guessedPrimaryMaterial, null);
 			}
 
 			if (stopwatch != null) {
 				stopwatch.Stop();
-				Debug.Log($"KVBSP PROFILING, COLLISION {stopwatch.Elapsed}");
-				stopwatch.Reset();
+				Debug.Log($"KVBSP MAIN PROCESSING: {stopwatch.Elapsed}");
 			}
 
 			// Occlusion is essentially an entirely separate thing (thankfully).

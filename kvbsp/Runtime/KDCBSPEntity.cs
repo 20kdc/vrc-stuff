@@ -30,8 +30,8 @@ namespace KDCVRCBSP {
 
 			compSettings.ParseEntityOverrides(entity);
 
-			KDCBSPBrushEntityFlow.Compile(gameObject, importContext, isWorldspawn, model, uniqueName, compSettings, (brush) => {
-				return EntityConvexBrushLayer(1 << gameObject.layer, brush);
+			KDCBSPBrushEntityFlow.Compile(gameObject, importContext, isWorldspawn, model, uniqueName, compSettings, (collider, primaryMaterial, brush) => {
+				EntityBrushApplyColliderSettings(importContext, collider, primaryMaterial, brush);
 			});
 		}
 
@@ -44,11 +44,14 @@ namespace KDCVRCBSP {
 			return worldspawnCompilation;
 		}
 
-		/// Allows picking which layer a brush's convex goes on.
-		/// This can also force brushes to be i.e. non-illusionary.
-		/// (This might be changed to be per-material in future? Ultimately, the entity will get the final say.)
-		public virtual LayerMask EntityConvexBrushLayer(LayerMask entityLayer, ECLBSPFile.Brush brush) {
-			return brush.illusionary ? 0 : entityLayer;
+		/// Applies any custom collider settings.
+		/// This is applied after any collider settings in the brush entity settings.
+		/// This may change layers (the default is to match the entity's layer), and do all sorts of other fun things.
+		/// A primary material may not be present under some circumstances.
+		/// Note that a brush isn't always present. When it is present, it implies that this collider is solely for that brush.
+		/// The illusionary flag has already been processed and accounted for (when possible)
+		public virtual void EntityBrushApplyColliderSettings(IKDCBSPImportContext importContext, Collider collider, KDCBSPAbstractMaterialConfig primaryMaterial, ECLBSPFile.Brush brush) {
+
 		}
 
 		public virtual void EntityPostProcess(IKDCBSPImportContext importContext) {
