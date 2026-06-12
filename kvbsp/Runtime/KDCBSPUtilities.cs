@@ -142,7 +142,8 @@ namespace KDCVRCBSP {
 				vertices[i] = new Vector3((float) v.position.x, (float) v.position.z, (float) v.position.y) / worldScale;
 				if (visual) {
 					normals[i] = new Vector3((float) v.normal.x, (float) v.normal.z, (float) v.normal.y);
-					uvs[i] = new Vector2((float) v.uv.x, (float) v.uv.y) * uvMul;
+					// ID UVs are the opposite way around to Unity UVs, or something. IDK.
+					uvs[i] = new Vector2((float) v.uv.x, 1 - (float) v.uv.y) * uvMul;
 				}
 			}
 
