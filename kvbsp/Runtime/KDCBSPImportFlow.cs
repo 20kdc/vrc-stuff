@@ -10,14 +10,25 @@ namespace KDCVRCBSP {
 	 * KDCBSPImportFlow contains almsot all of the import flow.
 	 */
 	public static class KDCBSPImportFlow {
+
+		private struct EntRecord {
+			public ECLBSPFile.Entity entity;
+			public GameObject gameObject;
+			public IKDCBSPEntity entityDef;
+			public string uniqueName;
+		}
+
 		public static GameObject BuildMap(IKDCBSPImportContext importContext) {
 			var data = importContext.BSP;
 
-			List<IKDCBSPEntity> postProcessThese = new();
+			// pass 1: create unparameterized objects
 
-			GameObject mapGO = CreateEntity(importContext, data.worldspawn, "worldspawn", "worldspawn ", null, postProcessThese);
-			if (mapGO == null)
-				throw new Exception("worldspawn being gone means something has gone horribly wrong, so rather than risking import corruption we choose to bail here");
+			List<EntRecord> processList = new();
+
+			var mapEntRecord = InstantiateEntity(importContext, data.worldspawn, "worldspawn", "worldspawn ", null);
+			processList.Add(mapEntRecord);
+
+			var mapGO = mapEntRecord.gameObject;
 
 			Dictionary<string, int> entCounters = new();
 			foreach (var entity in data.entities) {
@@ -32,19 +43,27 @@ namespace KDCVRCBSP {
 				int eid = entCounters[classname];
 				entCounters[classname] = eid + 1;
 				// ...
-				CreateEntity(importContext, entity, classname, classname + " " + eid, mapGO, postProcessThese);
+				processList.Add(InstantiateEntity(importContext, entity, classname, classname + " " + eid, mapGO));
 			}
 
-			// entity tree is complete, postprocess/link
-			foreach (var c in postProcessThese)
-				c.EntityPostProcess(importContext);
+			// pass 2: run main entity compile
+
+			foreach (var c in processList) {
+				c.entityDef.EntityCompile(importContext, c.entity, c.uniqueName);
+				if (mapGO == null)
+					throw new Exception("worldspawn being gone means something has gone horribly wrong, so rather than risking import corruption we choose to bail here");
+			}
+
+			// pass 3: postprocess
+
+			foreach (var c in processList)
+				if (c.entityDef != null)
+					c.entityDef.EntityPostProcess(importContext);
 			return mapGO;
 		}
 
-		// -- Primary Entity Converter --
-
 		/// Creates and returns an entity.
-		public static GameObject InstantiateEntity(IKDCBSPImportContext importContext, ECLBSPFile.Entity entity, string classname, string uniqueName, GameObject parent) {
+		private static EntRecord InstantiateEntity(IKDCBSPImportContext importContext, ECLBSPFile.Entity entity, string classname, string uniqueName, GameObject parent) {
 			var worldScale = importContext.WorldScale;
 
 			// Create the entity prefab.
@@ -60,21 +79,6 @@ namespace KDCVRCBSP {
 				entGO = (GameObject) UnityEngine.Object.Instantiate(prefab);
 			}
 
-			// Name it.
-			string targetname = entity["targetname"];
-			if (targetname != "")
-				entGO.name = targetname;
-			else
-				entGO.name = uniqueName;
-
-			return entGO;
-		}
-
-		/// Creates and returns an entity.
-		public static GameObject CreateEntity(IKDCBSPImportContext importContext, ECLBSPFile.Entity entity, string classname, string uniqueName, GameObject parent, List<IKDCBSPEntity> postProcessThese) {
-			var entGO = InstantiateEntity(importContext, entity, classname, uniqueName, parent);
-
-			// Find the entity parameterizer.
 			IKDCBSPEntity entityDef = null;
 			{
 				var entityDefArray = entGO.GetComponents<IKDCBSPEntity>();
@@ -88,13 +92,24 @@ namespace KDCVRCBSP {
 					entityDef = entGO.AddComponent<KDCBSPEntity>();
 			}
 
-			var assetPrefix = uniqueName + " ";
+			// Name it.
+			string targetname = entity["targetname"];
+			if (targetname != "") {
+				int existing = importContext.AttachTargetname(targetname, entityDef);
+				if (existing != 0)
+					entGO.name = targetname + " " + existing;
+				else
+					entGO.name = targetname;
+			} else {
+				entGO.name = "unnamed " + uniqueName;
+			}
 
-			entityDef.EntityCompile(importContext, entity, uniqueName);
-			if (entityDef == null)
-				return null;
-			postProcessThese.Add(entityDef);
-			return entGO;
+			return new EntRecord {
+				entity = entity,
+				gameObject = entGO,
+				entityDef = entityDef,
+				uniqueName = uniqueName
+			};
 		}
 	}
 }

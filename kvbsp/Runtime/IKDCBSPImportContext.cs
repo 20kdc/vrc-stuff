@@ -33,5 +33,9 @@ namespace KDCVRCBSP {
 
 		/// Adds an object to the asset being built. Be sure to ensure unique names.
 		public void AddObjectToAsset(string name, UnityEngine.Object asset);
+
+		public int AttachTargetname(string targetname, IKDCBSPEntity entity);
+		public IKDCBSPEntity FindByTargetname(string targetname);
+		public IReadOnlyList<IKDCBSPEntity> FindAllByTargetname(string targetname);
 	}
 }

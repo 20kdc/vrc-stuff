@@ -17,10 +17,10 @@ namespace KDCVRCBSP {
 		/// Entity compile.
 		/// If the behaviour goes missing (becomes '== null' according to Unity), it is assumed that compilation of this entity has been denied.
 		/// See KDCBSPDelmeEntity for what that looks like.
+		/// Note that all targetnames are resolved before compilation, so you can find them in the import context.
 		public void EntityCompile(IKDCBSPImportContext importContext, ECLBSPFile.Entity entity, string uniqueName);
 
 		/// This is called after ALL entities have been built.
-		/// You can use this to link targetname fields/etc.
 		/// The MonoBehaviour may safely destroy itself without destroying the GameObject.
 		public void EntityPostProcess(IKDCBSPImportContext importContext);
 	}

@@ -30,7 +30,8 @@ namespace KDCVRCBSP {
 
 			compSettings.ParseEntityOverrides(entity);
 
-			KDCBSPBrushEntityFlow.Compile(gameObject, importContext, isWorldspawn, model, uniqueName, compSettings, (collider, primaryMaterial, brush) => {
+			var assetPrefix = uniqueName + " ";
+			KDCBSPBrushEntityFlow.Compile(gameObject, importContext, isWorldspawn, model, assetPrefix, compSettings, (collider, primaryMaterial, brush) => {
 				EntityBrushApplyColliderSettings(importContext, collider, primaryMaterial, brush);
 			});
 		}

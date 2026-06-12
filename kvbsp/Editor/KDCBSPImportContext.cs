@@ -20,6 +20,7 @@ namespace KDCVRCBSP {
 		public Dictionary<String, KDCBSPAbstractMaterialConfig> materialCache = new();
 		public Dictionary<String, GameObject> entityCache = new();
 		public KDCBSPBrushEntitySettings worldspawnCompilation;
+		public Dictionary<String, List<IKDCBSPEntity>> targetnames = new();
 
 		public ECLBSPFile BSP => bsp;
 		public float WorldScale => workspace.WorldScale;
@@ -82,5 +83,29 @@ namespace KDCVRCBSP {
 				assetImportContext.DependsOnArtifact(path);
 			return (T) AssetDatabase.LoadAssetAtPath(path, typeof(T));
 		}
+
+		public int AttachTargetname(string targetname, IKDCBSPEntity entity) {
+			List<IKDCBSPEntity> list = null;
+			if (!targetnames.TryGetValue(targetname, out list)) {
+				list = new();
+				targetnames[targetname] = list;
+			}
+			list.Add(entity);
+			return list.Count - 1;
+		}
+
+		public IKDCBSPEntity FindByTargetname(string targetname) {
+			if (targetnames.TryGetValue(targetname, out var list))
+				if (list.Count > 0)
+					return list[0];
+			return null;
+		}
+
+		public IReadOnlyList<IKDCBSPEntity> FindAllByTargetname(string targetname) {
+			if (targetnames.TryGetValue(targetname, out var list))
+				return list;
+			return Array.Empty<IKDCBSPEntity>();
+		}
+
 	}
 }
