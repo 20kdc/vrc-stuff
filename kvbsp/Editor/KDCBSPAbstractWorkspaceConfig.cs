@@ -58,12 +58,6 @@ namespace KDCVRCBSP {
 				if (baseDir == null) {
 					Debug.LogError("No base dir for workspace being setup!");
 				} else {
-					string vfsDir = Path.Join(baseDir, "baseq3");
-					try {
-						Directory.CreateDirectory(FileUtil.GetPhysicalPath(vfsDir));
-					} catch (Exception ex) {
-						Debug.LogException(ex);
-					}
 					try {
 						var encoding = new UTF8Encoding(false);
 						FindEverything(out var materials);
@@ -83,7 +77,8 @@ namespace KDCVRCBSP {
 						}
 						files["scripts/kvbspGen.shader"] = encoding.GetBytes(shaderFile);
 						files["scripts/shaderlist.txt"] = encoding.GetBytes("kvbspGen\n");
-						KDCBSPUtilities.UpdatePAKFile(FileUtil.GetPhysicalPath(vfsDir), KDCBSPPK3Writer.MakePK3(files));
+						var baseDirPhys = FileUtil.GetPhysicalPath(baseDir);
+						KDCBSPUtilities.UpdateVFS(baseDirPhys, files);
 					} catch (Exception ex) {
 						Debug.LogException(ex);
 					}

@@ -1,9 +1,10 @@
 using System;
 using System.IO;
+using System.IO.Compression;
+using System.Text;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering;
-using VRC.SDKBase;
 using KDCVRCBSP.ECL;
 
 namespace KDCVRCBSP {
@@ -67,22 +68,19 @@ namespace KDCVRCBSP {
 #endif
 		}
 
-		/// Unwraps a mesh for lightmapping.
-		public static void LightmapUnwrap(Mesh mesh, KDCBSPBrushEntitySettings compSettings) {
-#if UNITY_EDITOR
-			UnityEditor.UnwrapParam.SetDefaults(out UnityEditor.UnwrapParam lightmapSettings);
-			lightmapSettings.packMargin = compSettings.lightmapPackMargin;
-			UnityEditor.Unwrapping.GenerateSecondaryUVSet(mesh, lightmapSettings);
-#endif
-		}
-
 		/// So a problem is that TrenchBroom will hold a PAK file open for as long as it wants and expects it not to change.
 		/// If you change it anyway, bad things happen.
 		/// This is not to mention the Windows file exclusion issues this risks.
 		/// So in order to prevent this, we write the next PAK file into a new file, and try to delete other files.
 		/// We also name our PAK file by time to control precedence.
-		public static void UpdatePAKFile(string basePhysicalPath, byte[] content) {
-			foreach (string victim in Directory.GetFiles(basePhysicalPath, ".cache*.pk3")) {
+		public static void UpdateVFS(string basePhysicalPath, SortedDictionary<string, byte[]> files) {
+			string vfsDir = Path.Join(basePhysicalPath, "baseq3");
+			try {
+				Directory.CreateDirectory(vfsDir);
+			} catch (Exception ex) {
+				Debug.LogException(ex);
+			}
+			foreach (string victim in Directory.GetFiles(vfsDir, ".cache*.pk3")) {
 				try {
 					File.Delete(victim);
 				} catch (Exception ex) {
@@ -91,7 +89,18 @@ namespace KDCVRCBSP {
 			}
 			string tsPadded = Convert.ToString(DateTimeOffset.UtcNow.ToUnixTimeSeconds(), 16).PadLeft(16, '0');
 			string newFileName = ".cache" + tsPadded + ".pk3";
-			File.WriteAllBytes(Path.Join(basePhysicalPath, newFileName), content);
+			// pk3 is a fancy term for zip
+			var memStream = new MemoryStream();
+			var zip = new ZipArchive(memStream, ZipArchiveMode.Create, true, new UTF8Encoding(false));
+			foreach (var (key, value) in files) {
+				var entry = zip.CreateEntry(key);
+				using (Stream stream = entry.Open()) {
+					stream.Write(value, 0, value.Length);
+				}
+			}
+			zip.Dispose();
+			var content = memStream.ToArray();
+			File.WriteAllBytes(Path.Join(vfsDir, newFileName), content);
 		}
 
 		public static int LayerMaskToLayer(LayerMask lm) {
@@ -120,18 +129,20 @@ namespace KDCVRCBSP {
 			size = Vector3.Max(maxT, minT) - Vector3.Min(maxT, minT);
 		}
 
-		public static Mesh ImportECLMesh(ECLMesh mesh, Vector2 uvMul, float worldScale) {
+		public static Mesh ImportECLMeshCore(ECLMesh mesh, bool visual, Vector2 uvMul, float worldScale, bool forceIndex32) {
 			var vertices = new Vector3[mesh.vertices.Count];
-			var normals = new Vector3[mesh.vertices.Count];
-			var uvs = new Vector2[mesh.vertices.Count];
+			var normals = visual ? new Vector3[mesh.vertices.Count] : null;
+			var uvs = visual ? new Vector2[mesh.vertices.Count] : null;
 			var indices = new int[mesh.triangles.Count * 3];
 
 			for (int i = 0; i < mesh.vertices.Count; i++) {
 				var v = mesh.vertices[i];
 				// [TRANSFORM] hand-inline just in case
 				vertices[i] = new Vector3((float) v.position.x, (float) v.position.z, (float) v.position.y) / worldScale;
-				normals[i] = new Vector3((float) v.normal.x, (float) v.normal.z, (float) v.normal.y);
-				uvs[i] = new Vector2((float) v.uv.x, (float) v.uv.y) * uvMul;
+				if (visual) {
+					normals[i] = new Vector3((float) v.normal.x, (float) v.normal.z, (float) v.normal.y);
+					uvs[i] = new Vector2((float) v.uv.x, (float) v.uv.y) * uvMul;
+				}
 			}
 
 			for (int j = 0; j < mesh.triangles.Count; j++) {
@@ -142,10 +153,51 @@ namespace KDCVRCBSP {
 				indices[b + 2] = tri.Item3;
 			}
 
-			Mesh res = new Mesh { vertices = vertices, normals = normals, uv = uvs, triangles = indices };
-			// res.RecalculateNormals();
-			res.RecalculateTangents();
+			Mesh res = new Mesh();
+
+			// don't want to accidentally hit primitive restart
+			if (forceIndex32 || indices.Length >= 65535) {
+				res.indexFormat = IndexFormat.UInt32;
+			} else {
+				res.indexFormat = IndexFormat.UInt16;
+			}
+
+			res.vertices = vertices;
+			if (visual) {
+				res.normals = normals;
+				res.uv = uvs;
+			}
+
+			res.triangles = indices;
+
+			if (!visual)
+				res.RecalculateNormals();
+			else
+				res.RecalculateTangents();
 			res.Optimize();
+			return res;
+		}
+
+		public static Mesh ImportECLMeshCollision(ECLMesh mesh, float worldScale) {
+			return ImportECLMeshCore(mesh, false, Vector2.one, worldScale, false);
+		}
+
+		public static Mesh ImportECLMeshVisual(ECLMesh mesh, Vector2 uvMul, float worldScale, KDCBSPBrushEntitySettings lightmapSettings) {
+			Mesh res = ImportECLMeshCore(mesh, true, uvMul, worldScale, false);
+#if UNITY_EDITOR
+			// Unwrapping is costly, so we should only do it if this is a visual mesh and the lightmap scale is set.
+			if (lightmapSettings.lightmapScale > 0) {
+				UnityEditor.UnwrapParam.SetDefaults(out UnityEditor.UnwrapParam unwrapParam);
+				unwrapParam.packMargin = lightmapSettings.lightmapPackMargin;
+				// try twice with upgrade on fail
+				if (!UnityEditor.Unwrapping.GenerateSecondaryUVSet(res, unwrapParam)) {
+					if (res.indexFormat != IndexFormat.UInt32) {
+						res = ImportECLMeshCore(mesh, true, uvMul, worldScale, true);
+						UnityEditor.Unwrapping.GenerateSecondaryUVSet(res, unwrapParam);
+					}
+				}
+			}
+#endif
 			return res;
 		}
 

@@ -3,7 +3,6 @@ using System.IO;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering;
-using VRC.SDKBase;
 using KDCVRCBSP.ECL;
 
 namespace KDCVRCBSP {
@@ -11,7 +10,7 @@ namespace KDCVRCBSP {
 	 * This is a MonoBehaviour put on the root of an entity prefab.
 	 * Multiple of these may be added. They are applied in GetComponents order.
 	 */
-	public abstract class KDCBSPEntityParameterizer : MonoBehaviour, IEditorOnly {
+	public abstract class KDCBSPEntityParameterizer : MonoBehaviour, VRC.SDKBase.IEditorOnly {
 		/// This is called first.
 		/// Note the 'ref' on the entity. This can be used to tweak settings that can't really be easily tweaked from elsewhere, like static flags.
 		/// If you are going to call DestroyImmediate on your GameObject, CALL IT HERE!

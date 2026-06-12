@@ -161,15 +161,16 @@ namespace KDCVRCBSP {
 			if (visleavesToOcclusionMtl != null && model.viewLeaves.Count > 0) {
 				var occlusionGeometry = ECLOccy.IntoOcclusionGeometry(model, compSettings.visleavesToOcclusionWallGap * worldScale, compSettings.visleavesToOcclusionMapMargin * worldScale, KDCBSPUtilities.DistanceEpsilon, KDCBSPUtilities.InitialWindingSize, false);
 
-				List<KDCBSPTriangle> occlusionMesh = new();
+				List<(Vector3d, IReadOnlyList<Vector3d>)> occlusionMesh = new();
 
 				foreach (var occy in occlusionGeometry)
-					KDCBSPTriangle.ConvexToTriangles(occy, occlusionMesh, importContext.WorldScale);
+					foreach (var occyFace in occy.faces)
+						occlusionMesh.Add((occyFace.plane.normal, occyFace.winding));
 
 				GameObject convexGO = new GameObject("occlusion");
 				convexGO.transform.parent = entGO.transform;
 
-				Mesh mesh = KDCBSPTriangle.TrianglesToMesh(occlusionMesh, Vector2.one);
+				Mesh mesh = KDCBSPUtilities.ImportECLMeshCollision(ECLMesh.ToCollisionMesh(occlusionMesh), worldScale);
 				importContext.AddObjectToAsset(assetPrefix + "occlusion", mesh);
 
 				var meshFilter = convexGO.GetComponent<MeshFilter>();
@@ -221,15 +222,13 @@ namespace KDCVRCBSP {
 					if (layer == -1)
 						continue;
 
-					List<KDCBSPTriangle> convexMesh = new();
-
-					KDCBSPTriangle.BrushToTriangles(b, convexMesh, importContext.WorldScale);
+					ECLMesh eclMesh = ECLMesh.ToCollisionMesh(b, KDCBSPUtilities.DistanceEpsilon, KDCBSPUtilities.InitialWindingSize);
 
 					GameObject convexGO = new GameObject(convexName);
 					convexGO.transform.parent = collisionGO.transform;
 					convexGO.layer = layer;
 
-					Mesh mesh = KDCBSPTriangle.TrianglesToMesh(convexMesh, Vector2.one);
+					Mesh mesh = KDCBSPUtilities.ImportECLMeshCollision(eclMesh, worldScale);
 					importContext.AddObjectToAsset(assetPrefix + convexName, mesh);
 					var collider = convexGO.AddComponent(typeof(MeshCollider)) as MeshCollider;
 					collider.convex = true;
@@ -240,24 +239,22 @@ namespace KDCVRCBSP {
 				collisionGO.transform.parent = entGO.transform;
 				collisionGO.transform.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
 			} else if (compSettings.collision == CollisionMode.ConcaveRoot) {
-				List<KDCBSPTriangle> concave = new();
+				List<ECLMesh> concaveParts = new();
 				foreach (var renderable in model.renderables) {
 					var assignment = importContext.LookupMaterial(renderable.tex);
 					if (assignment != null)
 						if (!assignment.collisionEnable)
 							continue;
-					var renderableMesh = renderable.Build();
-					foreach (var tri in renderableMesh.triangles)
-						concave.Add(KDCBSPTriangle.FromECLTri((renderableMesh.vertices[tri.Item1], renderableMesh.vertices[tri.Item2], renderableMesh.vertices[tri.Item3]), worldScale));
+					concaveParts.Add(renderable.Build());
 				}
-				Mesh mesh = KDCBSPTriangle.TrianglesToMesh(concave, Vector2.one);
+				Mesh mesh = KDCBSPUtilities.ImportECLMeshCollision(ECLMesh.Concatenate(concaveParts), worldScale);
 				importContext.AddObjectToAsset(assetPrefix + "concave", mesh);
 				var collider = entGO.AddComponent(typeof(MeshCollider)) as MeshCollider;
 				collider.convex = false;
 				collider.sharedMesh = mesh;
 				compSettings.ApplyColliderSettings(collider);
 			} else if (compSettings.collision == CollisionMode.SingleConvexRoot) {
-				List<KDCBSPTriangle> convexMesh = new();
+				List<(Vector3d, IReadOnlyList<Vector3d>)> convexFaces = new();
 				var idx = 0;
 				// Note the attempt to find a 'true' primary material.
 				// The hope is that this works decently well, but no promises.
@@ -285,12 +282,14 @@ namespace KDCVRCBSP {
 					if (layerMask == 0)
 						continue;
 
-					KDCBSPTriangle.BrushToTriangles(b, convexMesh, importContext.WorldScale);
+					var convex = Convex3d<bool>.FromPlanes(b.ToPlanes(), false, KDCBSPUtilities.DistanceEpsilon, KDCBSPUtilities.InitialWindingSize);
+					foreach (var face in convex.faces)
+						convexFaces.Add((face.plane.normal, face.winding));
 				}
 
 				var collisionMaterial = bFullPrimary != null ? bFullPrimary.collisionMaterial.asset : null;
 
-				Mesh mesh = KDCBSPTriangle.TrianglesToMesh(convexMesh, Vector2.one);
+				Mesh mesh = KDCBSPUtilities.ImportECLMeshCollision(ECLMesh.ToCollisionMesh(convexFaces), worldScale);
 				importContext.AddObjectToAsset(assetPrefix + "convex", mesh);
 				var collider = entGO.AddComponent(typeof(MeshCollider)) as MeshCollider;
 				collider.convex = true;

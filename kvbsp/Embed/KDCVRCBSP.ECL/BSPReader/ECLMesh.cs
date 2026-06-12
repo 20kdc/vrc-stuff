@@ -12,6 +12,77 @@ namespace KDCVRCBSP.ECL {
 			this.triangles = triangles;
 		}
 
+		/// Attempts to create a collision mesh from a brush.
+		public static ECLMesh ToCollisionMesh(ECLBSPFile.Brush brush, double distanceEpsilon, double initialWindingSize) {
+			return ToCollisionMesh(brush.ToPlanes(), distanceEpsilon, initialWindingSize);
+		}
+
+		/// Attempts to create a collision mesh from a brush's planes.
+		public static ECLMesh ToCollisionMesh(Plane3d[] planes, double distanceEpsilon, double initialWindingSize) {
+			return ToCollisionMesh(Convex3d<bool>.FromPlanes(planes, false, distanceEpsilon, initialWindingSize));
+		}
+
+		/// Creates a collision mesh from a Convex3d.
+		public static ECLMesh ToCollisionMesh<D>(Convex3d<D> convex) {
+			List<(Vector3d, IReadOnlyList<Vector3d>)> faces = new();
+			foreach (var face in convex.faces)
+				faces.Add((face.plane.normal, face.winding));
+			return ToCollisionMesh(faces);
+		}
+
+		/// Creates a collision mesh from normals and windings.
+		public static ECLMesh ToCollisionMesh(IReadOnlyList<(Vector3d, IReadOnlyList<Vector3d>)> faces) {
+			int totalVertices = 0;
+			int totalTriangles = 0;
+			foreach (var (normal, winding) in faces) {
+				if (winding.Count < 3)
+					continue;
+				totalVertices += winding.Count;
+				totalTriangles += winding.Count - 2;
+			}
+			Vertex[] allVertices = new Vertex[totalVertices];
+			(int, int, int)[] allTriangles = new (int, int, int)[totalTriangles];
+			int vertexBase = 0;
+			int triangleBase = 0;
+			foreach (var (normal, winding) in faces) {
+				for (int i = 0; i < winding.Count; i++)
+					allVertices[vertexBase + i] = new Vertex {
+						position = winding[i],
+						normal = normal,
+						colourR = 255,
+						colourG = 255,
+						colourB = 255,
+						colourA = 255
+					};
+				for (int i = 0; i < winding.Count - 2; i++)
+					allTriangles[triangleBase++] = (vertexBase, vertexBase + i + 1, vertexBase + i + 2);
+				vertexBase += winding.Count;
+			}
+			return new ECLMesh(allVertices, allTriangles);
+		}
+
+		/// Merges all meshes. Useful for collision.
+		public static ECLMesh Concatenate(IReadOnlyList<ECLMesh> sources) {
+			int totalVertices = 0;
+			int totalTriangles = 0;
+			foreach (var mesh in sources) {
+				totalVertices += mesh.vertices.Count;
+				totalTriangles += mesh.triangles.Count;
+			}
+			Vertex[] allVertices = new Vertex[totalVertices];
+			(int, int, int)[] allTriangles = new (int, int, int)[totalTriangles];
+			int vertexBase = 0;
+			int triangleBase = 0;
+			foreach (var mesh in sources) {
+				for (int i = 0; i < mesh.vertices.Count; i++)
+					allVertices[vertexBase + i] = mesh.vertices[i];
+				foreach (var tri in mesh.triangles)
+					allTriangles[triangleBase++] = (tri.Item1 + vertexBase, tri.Item2 + vertexBase, tri.Item3 + vertexBase);
+				vertexBase += mesh.vertices.Count;
+			}
+			return new ECLMesh(allVertices, allTriangles);
+		}
+
 		public struct Vertex {
 			public Vector3d position;
 			public Vector3d normal;

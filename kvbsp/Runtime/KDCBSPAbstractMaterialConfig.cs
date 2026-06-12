@@ -117,11 +117,7 @@ namespace KDCVRCBSP {
 					uvMul = Vector2.one;
 				}
 
-				Mesh mesh = KDCBSPUtilities.ImportECLMesh(data, uvMul, ctx.WorldScale);
-
-				// Unwrapping is costly, so we should only do it if the lightmap scale is set.
-				if (brushEntitySettings.lightmapScale > 0)
-					KDCBSPUtilities.LightmapUnwrap(mesh, brushEntitySettings);
+				Mesh mesh = KDCBSPUtilities.ImportECLMeshVisual(data, uvMul, ctx.WorldScale, brushEntitySettings);
 
 				ctx.AddObjectToAsset(meshAssetName, mesh);
 
