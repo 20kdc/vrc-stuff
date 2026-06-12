@@ -28,10 +28,17 @@ namespace KDCVRCBSP.ECL {
 				// qbism
 				return ECLQ2Loader.Load(bsp, true);
 			} else if (bsp[0] == (byte) 'I' && kwBSP && (version == 46 || version == 47)) {
-				return ECLQ3Loader.Load(bsp);
+				return ECLQ3Loader.Load(bsp, false);
 				// throw new Exception("Quake 3 BSP not yet supported");
+			} else if (bsp[0] == (byte) 'R' && kwBSP && (version == 1)) {
+				// Raven
+				return ECLQ3Loader.Load(bsp, true);
+			} else if (bsp[0] == (byte) 'F' && kwBSP && (version == 1)) {
+				// qfusion (Warfork)
+				// qfusion says this is Raven format but with different lightmap size.
+				return ECLQ3Loader.Load(bsp, true);
 			} else {
-				throw new Exception("Doesn't look like a supported BSP file (Quake 2 (includes qbism format). Quake 1 & GoldSrc supported with caveats, Quake 3 / Quake Live)");
+				throw new Exception("Doesn't look like a supported BSP file. Supported: Q1/HL (w/caveats), Q2[+qbism], Q3[+live/+raven/+qfusion]");
 			}
 		}
 

@@ -11,7 +11,7 @@ namespace KDCVRCBSP.ECL {
 		public const int CONTENTS_PLAYERCLIP = 0x00010000;
 		// disabled for now
 		public const int CONTENTS_noclip  = 0x00000000;
-		public static ECLBSPFile Load(byte[] bspRaw) {
+		public static ECLBSPFile Load(byte[] bspRaw, bool raven) {
 			var bsp = new ECLLoadCom.LumpTable {
 				file = new(bspRaw),
 				lumpHeaderEntrySize = 8,
@@ -34,7 +34,6 @@ namespace KDCVRCBSP.ECL {
 			var lumpFaces = bsp[13];
 
 			Plane3d[] planes = ECLLoadCom.HandlePlanesLump(lumpPlanes, true);
-			Vector3d[] vertexes = ECLLoadCom.HandleVertexLump(lumpVertexes);
 
 			var encoding = new UTF8Encoding(false);
 
@@ -69,21 +68,44 @@ namespace KDCVRCBSP.ECL {
 			// This is done in an inner function to ensure these are duplicated.
 			// This reduces the chance of issues when translation occurs.
 			void AddFaceToModel(ECLBSPFile.Model model, int area, int face, Dictionary<int, Dictionary<string, ECLBSPFile.ModelTriMesh>> areaTable) {
-				var pos = lumpFaces.GetStruct(face, 104);
+				int faceStructSize;
+				if (!raven) {
+					faceStructSize = 104;
+				} else {
+					faceStructSize = 148;
+				}
+				var pos = lumpFaces.GetStruct(face, faceStructSize);
 				(string texture, _) = GetTexInfoOrFallback(pos.GetS32(0));
 				int type = pos.GetS32(8);
 				int firstVertex = pos.GetS32(12);
 				int numVertices = pos.GetS32(16);
 				int firstMeshvert = pos.GetS32(20);
 				int numMeshverts = pos.GetS32(24);
-				int patchW = pos.GetS32(96);
-				int patchH = pos.GetS32(100);
+				// luckily, we don't need anything in the middle of the 'lighting zone'
+				int patchW = pos.GetS32(faceStructSize - 8);
+				int patchH = pos.GetS32(faceStructSize - 4);
 				var meshvertsPos = lumpMeshverts.Subview(firstMeshvert * 4, numMeshverts * 4);
 
 				// NOT a winding.
 				ECLMesh.Vertex[] vertices = new ECLMesh.Vertex[numVertices];
 				for (int i = 0; i < numVertices; i++) {
-					var vertexPos = lumpVertexes.GetStruct(firstVertex + i, 44);
+					// dvertex_t/rdvertex_t in qfusion
+					// the big deal here is lightstyles are back in Raven format
+					// due to this, various data is available for each vertex!
+					int vtxStructSize;
+					int colourCount;
+					if (!raven) {
+						vtxStructSize = 44;
+						colourCount = 1;
+					} else {
+						vtxStructSize = 80;
+						colourCount = 4;
+					}
+					var vertexPos = lumpVertexes.GetStruct(firstVertex + i, vtxStructSize);
+					// colours are the last element
+					int colourBase = vtxStructSize - (colourCount * 4);
+					// normal is always immediately before the first colour
+					int normalBase = colourBase - (4 * 3);
 					vertices[i] = new ECLMesh.Vertex {
 						position = (
 							vertexPos.GetF32(0),
@@ -96,14 +118,14 @@ namespace KDCVRCBSP.ECL {
 							vertexPos.GetF32(16)
 						),
 						normal = (
-							vertexPos.GetF32(28),
-							vertexPos.GetF32(32),
-							vertexPos.GetF32(36)
+							vertexPos.GetF32(normalBase),
+							vertexPos.GetF32(normalBase + 4),
+							vertexPos.GetF32(normalBase + 8)
 						),
-						colourR = vertexPos[40],
-						colourG = vertexPos[41],
-						colourB = vertexPos[42],
-						colourA = vertexPos[43]
+						colourR = vertexPos[colourBase],
+						colourG = vertexPos[colourBase + 1],
+						colourB = vertexPos[colourBase + 2],
+						colourA = vertexPos[colourBase + 3]
 					};
 				}
 
@@ -143,7 +165,9 @@ namespace KDCVRCBSP.ECL {
 				(_, int contents) = GetTexInfoOrFallback(pos.GetS32(8));
 				ECLBSPFile.BrushSide[] brushSides = new ECLBSPFile.BrushSide[numSides];
 				for (int j = 0; j < numSides; j++) {
-					var sidePos = lumpBrushSides.GetStruct(j + firstSide, 8);
+					// dbrushside_t / rdbrushside_t in qfusion qfiles
+					// raven adds 'surfacenum' to the end
+					var sidePos = lumpBrushSides.GetStruct(j + firstSide, raven ? 12 : 8);
 					Plane3d plane = planes[sidePos.GetS32(0)];
 					(string texInfo, _) = GetTexInfoOrFallback(sidePos.GetS32(4));
 					brushSides[j] = new ECLBSPFile.BrushSide {

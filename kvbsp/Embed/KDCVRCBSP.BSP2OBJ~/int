@@ -14,5 +14,6 @@ tryfile ../../../kvassets/Assets/mapTest/q3test.bsp dump_q3
 # 🟪 : Atelier makes heavy use of curvature, making it a useful testing ground for Bezier evaluation.
 # Xonotic is readily available for comparison of geometry.
 tryfile /media/era3-sync/external/reference-data/xonotic-atelier.bsp dump_xo
+tryfile /media/era3-sync/external/reference-data/warfork-pressure.bsp dump_qf
 tryfile ~/.steam/steam/steamapps/common/Half-Life/valve/maps/crossfire.bsp dump_hl
 tryfile /media/fusion/kdcworkaround/SteamLibrary/steamapps/common/Half-Life/valve/maps/crossfire.bsp dump_hl
