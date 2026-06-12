@@ -5,6 +5,34 @@ using UnityEngine;
 using UnityEngine.Rendering;
 using KDCVRCBSP.ECL;
 
+// BasisVR compat
+// This is Unity being extremely dumb
+#if UNITY_2
+using PhysicsMaterial = UnityEngine.PhysicMaterial;
+#elif UNITY_3
+using PhysicsMaterial = UnityEngine.PhysicMaterial;
+#elif UNITY_4
+using PhysicsMaterial = UnityEngine.PhysicMaterial;
+#elif UNITY_5
+using PhysicsMaterial = UnityEngine.PhysicMaterial;
+#elif UNITY_2017
+using PhysicsMaterial = UnityEngine.PhysicMaterial;
+#elif UNITY_2018
+using PhysicsMaterial = UnityEngine.PhysicMaterial;
+#elif UNITY_2019
+using PhysicsMaterial = UnityEngine.PhysicMaterial;
+#elif UNITY_2020
+using PhysicsMaterial = UnityEngine.PhysicMaterial;
+#elif UNITY_2020
+using PhysicsMaterial = UnityEngine.PhysicMaterial;
+#elif UNITY_2021
+using PhysicsMaterial = UnityEngine.PhysicMaterial;
+#elif UNITY_2022
+using PhysicsMaterial = UnityEngine.PhysicMaterial;
+#elif UNITY_2023
+using PhysicsMaterial = UnityEngine.PhysicMaterial;
+#endif
+
 namespace KDCVRCBSP {
 	/**
 	 * KDCBSPAbstractMaterialConfig defines things materials care about.
@@ -22,10 +50,9 @@ namespace KDCVRCBSP {
 
 		/// Setup in KDCBSPImporter.CreateEntity
 		/// Sets the physics material.
-		/// By the way, this has to be changed to PhysicsMaterial when Unity updates. For some reason.
 		[Tooltip("Sets the physics material. This only works on convexes if it wins priority, and never works on concave root.")]
 		[SerializeField]
-		public LazyLoadReference<PhysicMaterial> collisionMaterial;
+		public LazyLoadReference<PhysicsMaterial> collisionMaterial;
 
 		/// Builds a material's 'visual'. This is a GameObject, which is returned.
 		/// If the importer wishes to override static flags, that's done after BuildVisualObject.
