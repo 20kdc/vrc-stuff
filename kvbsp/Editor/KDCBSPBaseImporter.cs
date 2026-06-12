@@ -31,7 +31,8 @@ namespace KDCVRCBSP {
 
 			KDCBSPImportContext importContext = new KDCBSPImportContext {
 				importer = this,
-				assetImportContext = ctx
+				assetImportContext = ctx,
+				worldspawnCompilation = worldspawnCompilation
 			};
 
 			var myWorkspace = importContext.DependsOnArtifact<KDCBSPAbstractWorkspaceConfig>(workspace);
@@ -42,7 +43,7 @@ namespace KDCVRCBSP {
 
 			importContext.bsp = CompileToIntermediate(importContext, assetPath);
 
-			GameObject mapGO = KDCBSPImportFlow.BuildMap(importContext, worldspawnCompilation);
+			GameObject mapGO = KDCBSPImportFlow.BuildMap(importContext);
 
 			ctx.AddObjectToAsset("main obj", mapGO);
 			ctx.SetMainObject(mapGO);

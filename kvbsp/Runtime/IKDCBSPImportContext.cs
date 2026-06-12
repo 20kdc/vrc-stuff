@@ -20,6 +20,11 @@ namespace KDCVRCBSP {
 			get;
 		}
 
+		/// Worldspawn's compile settings (from the importer settings)
+		public KDCBSPBrushEntitySettings WorldspawnCompilation {
+			get;
+		}
+
 		/// Looks up a material, returning the material config.
 		public KDCBSPAbstractMaterialConfig LookupMaterial(string material);
 

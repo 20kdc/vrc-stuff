@@ -4,7 +4,7 @@ namespace KDCVRCBSP {
 	/**
 	 * This entity parameterizer is intended as a good 'middle ground' descriptor to avoid duplicating logic.
 	 */
-	public class KDCBSPEntityDescriptor : KDCBSPEntityParameterizer {
+	public class KDCBSPEntityDescriptor : KDCBSPEntity {
 		[Tooltip("If enabled, then brush entity compilation will use the given brush entity settings rather than worldspawn's.")]
 		[SerializeField]
 		public bool useBrushEntitySettings;

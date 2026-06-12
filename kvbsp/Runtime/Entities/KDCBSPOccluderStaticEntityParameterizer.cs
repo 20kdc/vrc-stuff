@@ -10,7 +10,7 @@ namespace KDCVRCBSP {
 	/**
 	 * Entity parameterizer for func_occluder.
 	 */
-	public class KDCBSPOccluderStaticEntityParameterizer : KDCBSPEntityParameterizer {
+	public class KDCBSPOccluderStaticEntityParameterizer : KDCBSPEntity {
 		public override KDCBSPBrushEntitySettings EntityGetBrushSettings(bool isWorldspawn, KDCBSPBrushEntitySettings prev) {
 			return new KDCBSPBrushEntitySettings {
 				visuals = true,

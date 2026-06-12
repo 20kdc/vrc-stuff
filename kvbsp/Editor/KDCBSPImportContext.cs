@@ -19,9 +19,11 @@ namespace KDCVRCBSP {
 		public AssetImportContext assetImportContext;
 		public Dictionary<String, KDCBSPAbstractMaterialConfig> materialCache = new();
 		public Dictionary<String, GameObject> entityCache = new();
+		public KDCBSPBrushEntitySettings worldspawnCompilation;
 
 		public ECLBSPFile BSP => bsp;
 		public float WorldScale => workspace.WorldScale;
+		public KDCBSPBrushEntitySettings WorldspawnCompilation => worldspawnCompilation;
 
 		public KDCBSPAbstractMaterialConfig LookupMaterial(string material) {
 			if (materialCache.ContainsKey(material))

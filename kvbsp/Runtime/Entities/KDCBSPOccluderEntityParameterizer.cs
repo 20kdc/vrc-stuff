@@ -9,12 +9,13 @@ namespace KDCVRCBSP {
 	/**
 	 * Entity parameterizer for func_occluder.
 	 */
-	public class KDCBSPOccluderEntityParameterizer : KDCBSPEntityParameterizer {
-		public override void EntityParameterize(IKDCBSPImportContext ctx, ECLBSPFile.Entity entity, string uniqueName) {
+	public class KDCBSPOccluderEntityParameterizer : KDCBSPEntity {
+		public override void EntityCompile(IKDCBSPImportContext importContext, ECLBSPFile.Entity entity, string uniqueName) {
+			// don't bother calling base
 			bool open = entity.GetBool("open", false);
 			var portal = GetComponent<OcclusionPortal>();
 			portal.open = open;
-			KDCBSPUtilities.GetEntityBox(entity, ctx.WorldScale, out Vector3 centre, out Vector3 size);
+			KDCBSPUtilities.GetEntityBox(entity, importContext.WorldScale, out Vector3 centre, out Vector3 size);
 #if UNITY_EDITOR
 			// this is so stupid!
 			using (var so = new UnityEditor.SerializedObject(portal)) {
