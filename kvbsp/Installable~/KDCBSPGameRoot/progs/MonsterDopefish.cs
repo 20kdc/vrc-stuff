@@ -41,5 +41,13 @@ public class MonsterDopefish : UdonSharpBehaviour
 		// This function runs after all EntityCompile functions run.
 		// There may be some reason you need to do something here.
 	}
+
+	// This property and the attributes function control FGD/ENT generation for map editors.
+
+	public bool EntityFGDSolid => false;
+
+	public void EntityFGDAttributes(KDCBSPEntityDescriptor descriptor) {
+
+	}
 #endif
 }
