@@ -128,16 +128,21 @@ namespace KDCVRCBSP {
 		private void Finder(SortedDictionary<string, string> target, string[] exts, string implicitBase, string explicitBase) {
 			string implicitBasePhysical = FileUtil.GetPhysicalPath(implicitBase);
 			List<string> listFiles = new();
-			foreach (string s in Directory.EnumerateFileSystemEntries(implicitBasePhysical)) {
-				string fileName = Path.GetFileName(s);
-				string fullPath = Path.Join(implicitBase, fileName);
-				if (Directory.Exists(fullPath)) {
-					// Note the manual path join for the explicit base.
-					// The explicit base is a Q2 material name, and should always be written exactly as [dir/]file; no leading slash or ending extension.
-					Finder(target, exts, fullPath, explicitBase + fileName + "/");
-				} else {
-					listFiles.Add(fileName);
+			try {
+				foreach (string s in Directory.EnumerateFileSystemEntries(implicitBasePhysical)) {
+					string fileName = Path.GetFileName(s);
+					string fullPath = Path.Join(implicitBase, fileName);
+					if (Directory.Exists(fullPath)) {
+						// Note the manual path join for the explicit base.
+						// The explicit base is a Q2 material name, and should always be written exactly as [dir/]file; no leading slash or ending extension.
+						Finder(target, exts, fullPath, explicitBase + fileName + "/");
+					} else {
+						listFiles.Add(fileName);
+					}
 				}
+			} catch (Exception ex) {
+				// this just means it can't be enumerated
+				_ = ex;
 			}
 			// Need to ensure that earlier (higher-priority) extensions override later ones.
 			for (int i = exts.Length - 1; i >= 0; i--) {
@@ -172,6 +177,34 @@ namespace KDCVRCBSP {
 						continue;
 					materials[key] = (path, fbc);
 				}
+			}
+		}
+
+		public override void FindEntities(SortedDictionary<string, GameObject> entities) {
+			string implicitBase = FullEntitiesBase;
+			if (implicitBase == null)
+				return;
+			SortedDictionary<string, string> tmp = new();
+
+			string implicitBasePhysical = FileUtil.GetPhysicalPath(implicitBase);
+			try {
+				foreach (string s in Directory.EnumerateFileSystemEntries(implicitBasePhysical)) {
+					string fileName = Path.GetFileName(s);
+					string fullPath = Path.Join(implicitBase, fileName);
+					if (!Directory.Exists(fullPath)) {
+						if (fileName.EndsWith(".prefab")) {
+							string noExt = fileName.Substring(0, fileName.Length - 7);
+
+							GameObject fbc = (GameObject) AssetDatabase.LoadAssetAtPath(fullPath, typeof(GameObject));
+							if (fbc == null)
+								continue;
+							entities[noExt] = fbc;
+						}
+					}
+				}
+			} catch (Exception ex) {
+				// this just means it can't be enumerated
+				_ = ex;
 			}
 		}
 	}

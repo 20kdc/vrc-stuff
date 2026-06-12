@@ -40,7 +40,7 @@ namespace KDCVRCBSP {
 
 			if (debug = EditorGUILayout.Foldout(debug, "Debug")) {
 				if (GUILayout.Button("Debug material search")) {
-					((KDCBSPAbstractWorkspaceConfig) target).FindEverything(out var materials);
+					((KDCBSPAbstractWorkspaceConfig) target).FindEverything(out var materials, out var entities);
 					foreach (var (key, value) in materials) {
 						Debug.Log((key, value.Item1));
 					}

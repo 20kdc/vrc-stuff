@@ -47,7 +47,9 @@ public class MonsterDopefish : UdonSharpBehaviour
 	public bool EntityFGDSolid => false;
 
 	public void EntityFGDAttributes(KDCBSPEntityDescriptor descriptor) {
-
+		// Adding keys here can show them in your map editor.
+		descriptor.TargetKey("friend", "").Desc("Another monster_dopefish to give the fish a friend.");
+		descriptor.StringKey("message", "").Desc("Something for the fish to say on Start()!");
 	}
 #endif
 }

@@ -50,7 +50,7 @@ namespace KDCVRCBSP {
 		public bool EntityFGDSolid => entityFGDSolid;
 
 		public void EntityFGDAttributes(KDCBSPEntityDescriptor descriptor) {
-
+			KDCBSPBrushEntitySettings.DescribeEntityOverrides(descriptor);
 		}
 	}
 }

@@ -105,6 +105,20 @@ namespace KDCVRCBSP {
 			ParseFlagMod("_kdcbsp_reflection_probe_static", ref reflectionProbeStatic);
 		}
 
+		public static void DescribeEntityOverrides(KDCBSPEntityDescriptor descriptor) {
+			descriptor.StringKey("_kdcbsp_lightmap_pack_margin", "");
+			descriptor.StringKey("_kdcbsp_lightmap_scale", "");
+			descriptor.StringKey("_kdcbsp_visuals", "");
+			descriptor.StringKey("_kdcbsp_collision", "");
+			descriptor.StringKey("_kdcbsp_collision_trigger", "");
+			descriptor.StringKey("_kdcbsp_contribute_gi", "");
+			descriptor.StringKey("_kdcbsp_lightmaps", "");
+			descriptor.StringKey("_kdcbsp_occluder_static", "");
+			descriptor.StringKey("_kdcbsp_occludee_static", "");
+			descriptor.StringKey("_kdcbsp_batching_static", "");
+			descriptor.StringKey("_kdcbsp_reflection_probe_static", "");
+		}
+
 		/// Handler at KDCBSPBrushEntityFlow.Compile
 		public StaticEditorFlags ModifyStaticEditorFlags(StaticEditorFlags visStaticFlags) {
 			void ModSEF(ref StaticEditorFlags sef, FlagMod mod, StaticEditorFlags v) {

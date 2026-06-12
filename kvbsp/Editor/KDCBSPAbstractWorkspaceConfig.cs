@@ -37,14 +37,17 @@ namespace KDCVRCBSP {
 		/// Contributes (overwriting) to a map from material names to their material paths and material configs.
 		/// The idea is to get a full materials index as part of TrenchBroom material setup.
 		public abstract void FindMaterials(SortedDictionary<string, (string, KDCBSPAbstractMaterialConfig)> materials);
+		public abstract void FindEntities(SortedDictionary<string, GameObject> entities);
 
 		/// General 'find everything' function, called upon by SetupBaseQ2 among others.
-		public virtual void FindEverything(out SortedDictionary<string, (string, KDCBSPAbstractMaterialConfig)> materials) {
+		public virtual void FindEverything(out SortedDictionary<string, (string, KDCBSPAbstractMaterialConfig)> materials, out SortedDictionary<string, GameObject> entities) {
 			var lst = PrepareSearchOrder(new KDCBSPNonImportAssetContext());
 			lst.Reverse();
 			materials = new();
+			entities = new();
 			foreach (var elm in lst) {
 				elm.FindMaterials(materials);
+				elm.FindEntities(entities);
 			}
 		}
 
@@ -60,7 +63,7 @@ namespace KDCVRCBSP {
 				} else {
 					try {
 						var encoding = new UTF8Encoding(false);
-						FindEverything(out var materials);
+						FindEverything(out var materials, out var entities);
 						SortedDictionary<string, byte[]> files = new();
 						string shaderFile = "";
 						foreach (var (key, value) in materials) {
@@ -78,7 +81,10 @@ namespace KDCVRCBSP {
 						files["scripts/kvbspGen.shader"] = encoding.GetBytes(shaderFile);
 						files["scripts/shaderlist.txt"] = encoding.GetBytes("kvbspGen\n");
 						var baseDirPhys = FileUtil.GetPhysicalPath(baseDir);
-						KDCBSPUtilities.UpdateVFS(baseDirPhys, files);
+
+						KDCBSPEntityDescriptor.ExtractAll(entities, out var fgdText, out var entText);
+
+						KDCBSPUtilities.UpdateVFS(baseDirPhys, files, fgdText, entText);
 					} catch (Exception ex) {
 						Debug.LogException(ex);
 					}

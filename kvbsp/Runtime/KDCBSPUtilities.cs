@@ -73,7 +73,7 @@ namespace KDCVRCBSP {
 		/// This is not to mention the Windows file exclusion issues this risks.
 		/// So in order to prevent this, we write the next PAK file into a new file, and try to delete other files.
 		/// We also name our PAK file by time to control precedence.
-		public static void UpdateVFS(string basePhysicalPath, SortedDictionary<string, byte[]> files) {
+		public static void UpdateVFS(string basePhysicalPath, SortedDictionary<string, byte[]> files, string fgdFile, string entFile) {
 			string vfsDir = Path.Join(basePhysicalPath, "baseq3");
 			try {
 				Directory.CreateDirectory(vfsDir);
@@ -101,6 +101,8 @@ namespace KDCVRCBSP {
 			zip.Dispose();
 			var content = memStream.ToArray();
 			File.WriteAllBytes(Path.Join(vfsDir, newFileName), content);
+			File.WriteAllText(Path.Join(vfsDir, "kvtoolstb.fgd"), fgdFile);
+			File.WriteAllText(Path.Join(vfsDir, "kvtoolstb.ent"), entFile);
 		}
 
 		public static int LayerMaskToLayer(LayerMask lm) {
