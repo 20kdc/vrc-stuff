@@ -4,7 +4,6 @@ using System.Collections.Generic;
 
 namespace KDCVRCBSP.ECL {
 	/// Loads a Quake 3 BSP file.
-	/// TODO EVERYTHING, THIS IS COPY/PASTE OF THE Q2 LOADER FOR NOW TODO
 	/// This handles the binary format details, skipping over parts of the format irrelevant to this use.
 	public static class ECLQ3Loader {
 		public const int CONTENTS_SOLID      = 0x00000001;
