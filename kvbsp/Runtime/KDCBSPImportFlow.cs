@@ -13,7 +13,7 @@ namespace KDCVRCBSP {
 		public static GameObject BuildMap(IKDCBSPImportContext importContext) {
 			var data = importContext.BSP;
 
-			List<KDCBSPAbstractEntity> postProcessThese = new();
+			List<IKDCBSPEntity> postProcessThese = new();
 
 			GameObject mapGO = CreateEntity(importContext, data.worldspawn, "worldspawn", "worldspawn ", null, postProcessThese);
 			if (mapGO == null)
@@ -36,10 +36,8 @@ namespace KDCVRCBSP {
 			}
 
 			// entity tree is complete, postprocess/link
-			foreach (var c in postProcessThese) {
+			foreach (var c in postProcessThese)
 				c.EntityPostProcess(importContext);
-				UnityEngine.Object.DestroyImmediate((UnityEngine.Object) c);
-			}
 			return mapGO;
 		}
 
@@ -73,16 +71,16 @@ namespace KDCVRCBSP {
 		}
 
 		/// Creates and returns an entity.
-		public static GameObject CreateEntity(IKDCBSPImportContext importContext, ECLBSPFile.Entity entity, string classname, string uniqueName, GameObject parent, List<KDCBSPAbstractEntity> postProcessThese) {
+		public static GameObject CreateEntity(IKDCBSPImportContext importContext, ECLBSPFile.Entity entity, string classname, string uniqueName, GameObject parent, List<IKDCBSPEntity> postProcessThese) {
 			var entGO = InstantiateEntity(importContext, entity, classname, uniqueName, parent);
 
 			// Find the entity parameterizer.
-			KDCBSPAbstractEntity entityDef = null;
+			IKDCBSPEntity entityDef = null;
 			{
-				var entityDefArray = entGO.GetComponents<KDCBSPAbstractEntity>();
+				var entityDefArray = entGO.GetComponents<IKDCBSPEntity>();
 				if (entityDefArray.Length > 0) {
 					if (entityDefArray.Length > 1)
-						Debug.LogWarning("More than one KDCBSPAbstractEntity component found in " + classname + ". The first will be picked.");
+						Debug.LogWarning("More than one IKDCBSPEntity component found in " + classname + ". The first will be picked.");
 					entityDef = entityDefArray[0];
 				}
 				// add default entity component

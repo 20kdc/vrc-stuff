@@ -14,18 +14,8 @@ namespace KDCVRCBSP {
 	public static class KDCBSPBrushEntityFlow {
 		private const bool Profiling = false;
 
-		public static void Compile(GameObject entGO, KDCBSPEntity entityDef, IKDCBSPImportContext importContext, ECLBSPFile.Entity entity, string assetPrefix) {
-			bool isWorldspawn = entity == importContext.BSP.worldspawn;
+		public static void Compile(GameObject entGO, IKDCBSPImportContext importContext, bool isWorldspawn, ECLBSPFile.Model model, string assetPrefix, KDCBSPBrushEntitySettings compSettings, Func<ECLBSPFile.Brush, LayerMask> mapLayers) {
 			var worldScale = importContext.WorldScale;
-
-			KDCBSPBrushEntitySettings compSettings = (KDCBSPBrushEntitySettings) importContext.WorldspawnCompilation.Clone();
-
-			compSettings = entityDef.EntityGetBrushSettings(isWorldspawn, compSettings);
-
-			if (compSettings == null || entity.model == null)
-				return;
-
-			compSettings.ParseEntityOverrides(entity);
 
 			// Figure out what static flags we want.
 			StaticEditorFlags visStaticFlags = KDCBSPUtilities.GetStaticEditorFlags(entGO);
@@ -41,8 +31,6 @@ namespace KDCVRCBSP {
 			ModSEF(ref visStaticFlags, compSettings.occludeeStatic, StaticEditorFlags.OccludeeStatic);
 			ModSEF(ref visStaticFlags, compSettings.batchingStatic, StaticEditorFlags.BatchingStatic);
 			ModSEF(ref visStaticFlags, compSettings.reflectionProbeStatic, StaticEditorFlags.ReflectionProbeStatic);
-
-			var model = entity.model;
 
 			bool profileThis = Profiling && isWorldspawn;
 			System.Diagnostics.Stopwatch stopwatch = profileThis ? new() : null;
@@ -90,46 +78,6 @@ namespace KDCVRCBSP {
 				stopwatch.Reset();
 			}
 
-			var visleavesToOcclusionMtl = compSettings.visleavesToOcclusion.asset;
-			if (visleavesToOcclusionMtl != null && model.viewLeaves.Count > 0) {
-				var occlusionGeometry = ECLOccy.IntoOcclusionGeometry(model, compSettings.visleavesToOcclusionWallGap * worldScale, compSettings.visleavesToOcclusionMapMargin * worldScale, KDCBSPUtilities.DistanceEpsilon, KDCBSPUtilities.InitialWindingSize, false);
-
-				List<(Vector3d, IReadOnlyList<Vector3d>)> occlusionMesh = new();
-
-				foreach (var occy in occlusionGeometry)
-					foreach (var occyFace in occy.faces)
-						occlusionMesh.Add((occyFace.plane.normal, occyFace.winding));
-
-				GameObject convexGO = new GameObject("occlusion");
-				convexGO.transform.parent = entGO.transform;
-
-				Mesh mesh = KDCBSPUtilities.ImportECLMeshCollision(ECLMesh.ToCollisionMesh(occlusionMesh), worldScale);
-				importContext.AddObjectToAsset(assetPrefix + "occlusion", mesh);
-
-				var meshFilter = convexGO.GetComponent<MeshFilter>();
-				if (meshFilter == null)
-					meshFilter = convexGO.AddComponent<MeshFilter>();
-
-				var meshRender = convexGO.GetComponent<MeshRenderer>();
-				if (meshRender == null)
-					meshRender = convexGO.AddComponent<MeshRenderer>();
-
-				var materialsList = new List<Material>();
-				materialsList.Add(visleavesToOcclusionMtl);
-				meshRender.SetSharedMaterials(materialsList);
-
-				// mesh.isReadable = false;
-				mesh.UploadMeshData(true);
-				meshFilter.mesh = mesh;
-
-				meshRender.receiveShadows = false;
-				meshRender.shadowCastingMode = ShadowCastingMode.Off;
-				meshRender.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off;
-				meshRender.reflectionProbeUsage = UnityEngine.Rendering.ReflectionProbeUsage.Off;
-				convexGO.tag = "EditorOnly";
-				KDCBSPUtilities.SetStaticEditorFlags(convexGO, StaticEditorFlags.OccluderStatic | StaticEditorFlags.BatchingStatic);
-			}
-
 			if (stopwatch != null)
 				stopwatch.Start();
 
@@ -149,7 +97,7 @@ namespace KDCVRCBSP {
 						continue;
 
 					// figures out contents and such
-					LayerMask layerMask = BrushContentsLayerMaskParameterized(entityDef, (LayerMask) (1 << entGO.layer), b);
+					LayerMask layerMask = mapLayers(b);
 
 					int layer = KDCBSPUtilities.LayerMaskToLayer(layerMask);
 					if (layer == -1)
@@ -210,7 +158,7 @@ namespace KDCVRCBSP {
 					}
 
 					// figures out contents and such
-					LayerMask layerMask = BrushContentsLayerMaskParameterized(entityDef, (LayerMask) (1 << entGO.layer), b);
+					LayerMask layerMask = mapLayers(b);
 
 					if (layerMask == 0)
 						continue;
@@ -236,6 +184,56 @@ namespace KDCVRCBSP {
 				Debug.Log($"KVBSP PROFILING, COLLISION {stopwatch.Elapsed}");
 				stopwatch.Reset();
 			}
+
+			// Occlusion is essentially an entirely separate thing (thankfully).
+			var visleavesToOcclusionMtl = compSettings.visleavesToOcclusion.asset;
+			if (visleavesToOcclusionMtl != null && model.viewLeaves.Count > 0)
+				CompileOcclusionGeometry(importContext, entGO, model, visleavesToOcclusionMtl, compSettings.visleavesToOcclusionWallGap, compSettings.visleavesToOcclusionMapMargin, assetPrefix);
+		}
+
+		public static void CompileOcclusionGeometry(IKDCBSPImportContext importContext, GameObject entGO, ECLBSPFile.Model model, Material visleavesToOcclusionMtl, double visleavesToOcclusionWallGap, double visleavesToOcclusionMapMargin, string assetPrefix) {
+
+			if (model.viewLeaves.Count == 0)
+				return;
+
+			var worldScale = importContext.WorldScale;
+
+			var occlusionGeometry = ECLOccy.IntoOcclusionGeometry(model, visleavesToOcclusionWallGap * worldScale, visleavesToOcclusionMapMargin * worldScale, KDCBSPUtilities.DistanceEpsilon, KDCBSPUtilities.InitialWindingSize, false);
+
+			List<(Vector3d, IReadOnlyList<Vector3d>)> occlusionMesh = new();
+
+			foreach (var occy in occlusionGeometry)
+				foreach (var occyFace in occy.faces)
+					occlusionMesh.Add((occyFace.plane.normal, occyFace.winding));
+
+			GameObject convexGO = new GameObject("occlusion");
+			convexGO.transform.parent = entGO.transform;
+
+			Mesh mesh = KDCBSPUtilities.ImportECLMeshCollision(ECLMesh.ToCollisionMesh(occlusionMesh), worldScale);
+			importContext.AddObjectToAsset(assetPrefix + "occlusion", mesh);
+
+			var meshFilter = convexGO.GetComponent<MeshFilter>();
+			if (meshFilter == null)
+				meshFilter = convexGO.AddComponent<MeshFilter>();
+
+			var meshRender = convexGO.GetComponent<MeshRenderer>();
+			if (meshRender == null)
+				meshRender = convexGO.AddComponent<MeshRenderer>();
+
+			var materialsList = new List<Material>();
+			materialsList.Add(visleavesToOcclusionMtl);
+			meshRender.SetSharedMaterials(materialsList);
+
+			// mesh.isReadable = false;
+			mesh.UploadMeshData(true);
+			meshFilter.mesh = mesh;
+
+			meshRender.receiveShadows = false;
+			meshRender.shadowCastingMode = ShadowCastingMode.Off;
+			meshRender.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off;
+			meshRender.reflectionProbeUsage = UnityEngine.Rendering.ReflectionProbeUsage.Off;
+			convexGO.tag = "EditorOnly";
+			KDCBSPUtilities.SetStaticEditorFlags(convexGO, StaticEditorFlags.OccluderStatic | StaticEditorFlags.BatchingStatic);
 		}
 
 		public static void SetupBrushRenderer(KDCBSPBrushEntitySettings compSettings, KDCBSPAbstractMaterialConfig materialDetails, MeshRenderer meshRenderer) {
@@ -250,12 +248,6 @@ namespace KDCVRCBSP {
 			} else {
 				meshRenderer.scaleInLightmap = res;
 			}
-		}
-
-		public static LayerMask BrushContentsLayerMaskParameterized(KDCBSPEntity entityDef, LayerMask entityLayer, ECLBSPFile.Brush brush) {
-			LayerMask layerMask = brush.illusionary ? 0 : entityLayer;
-			layerMask = entityDef.EntityConvexBrushLayer(entityLayer, layerMask, brush);
-			return layerMask;
 		}
 
 		public static (KDCBSPAbstractMaterialConfig, float) FindPrimarySide(IKDCBSPImportContext importContext, ECLBSPFile.Brush brush) {
