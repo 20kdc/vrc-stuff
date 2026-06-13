@@ -13,28 +13,72 @@ namespace KDCVRCBSP {
 	/// 2. auto-origin
 	/// 3. targetname
 	public class KDCBSPEntityDescriptor {
+		public string classname = "";
 		public bool isSolid = false;
 
 		public static void ExtractAll(SortedDictionary<string, GameObject> entities, out string fgdText, out string entText) {
 			fgdText = "";
 			entText = "<?xml version=\"1.0\"?>\n<classes>\n";
 
+			List<KDCBSPEntityDescriptor> fgdDescriptors = new();
+			List<KDCBSPEntityDescriptor> entDescriptors = new();
+
+			// add common between q2/q3
+			{
+				KDCBSPEntityDescriptor desc;
+				desc = new();
+				desc.classname = "func_group";
+				desc.description = "See ericw-tools docs";
+				desc.isSolid = true;
+				entDescriptors.Add(desc);
+				fgdDescriptors.Add(desc);
+			}
+			// add q2 only(?)
+			{
+				KDCBSPEntityDescriptor desc;
+				desc = new();
+				desc.classname = "func_detail";
+				desc.description = "See ericw-tools docs";
+				desc.isSolid = true;
+				fgdDescriptors.Add(desc);
+				desc = new();
+				desc.classname = "func_detail_illusionary";
+				desc.description = "See ericw-tools docs. SET _mirrorinside 0 EXPLICITLY!!!";
+				desc.isSolid = true;
+				fgdDescriptors.Add(desc);
+				desc = new();
+				desc.classname = "func_detail_wall";
+				desc.description = "See ericw-tools docs";
+				desc.isSolid = true;
+				fgdDescriptors.Add(desc);
+				desc = new();
+				desc.classname = "func_detail_fence";
+				desc.description = "See ericw-tools docs";
+				desc.isSolid = true;
+				fgdDescriptors.Add(desc);
+			}
+
 			foreach (var (key, value) in entities) {
-				var desc = KDCBSPEntityDescriptor.ExtractFrom(value);
+				var desc = KDCBSPEntityDescriptor.ExtractFrom(key, value);
 				if (desc != null) {
-					fgdText += "\n" + desc.RenderFGD(key) + "\n";
-					entText += "\n" + desc.RenderENT(key) + "\n";
+					fgdDescriptors.Add(desc);
+					entDescriptors.Add(desc);
 				}
 			}
+
+			foreach (var desc in fgdDescriptors)
+				fgdText += "\n" + desc.RenderFGD() + "\n";
+			foreach (var desc in entDescriptors)
+				entText += "\n" + desc.RenderENT() + "\n";
 
 			entText += "</classes>\n";
 		}
 
-		public static KDCBSPEntityDescriptor ExtractFrom(GameObject go) {
+		public static KDCBSPEntityDescriptor ExtractFrom(string classname, GameObject go) {
 			var ent = go.GetComponent<IKDCBSPEntity>();
 			if (ent != null) {
 				KDCBSPEntityDescriptor desc = new();
-				desc.isSolid = ent.EntityFGDSolid;
+				desc.classname = classname;
 				ent.EntityFGDAttributes(desc);
 				return desc;
 			} else {
@@ -44,7 +88,7 @@ namespace KDCVRCBSP {
 
 		// -- Renderer --
 
-		public string RenderFGD(string classname) {
+		public string RenderFGD() {
 			string total = isSolid ? "@SolidClass " : "@PointClass ";
 			if (hasBox)
 				total += $"size({box.min.x} {box.min.y} {box.min.z}, {box.max.x} {box.max.y} {box.max.z}) ";
@@ -68,7 +112,7 @@ namespace KDCVRCBSP {
 			return total;
 		}
 
-		public string RenderENT(string classname) {
+		public string RenderENT() {
 			string total = isSolid ? $"<group name=\"{classname}\" " : $"<point name=\"{classname}\" ";
 			if (hasBox)
 				total += $"box=\"{box.min.x} {box.min.y} {box.min.z} {box.max.x} {box.max.y} {box.max.z}\" ";
@@ -97,6 +141,7 @@ namespace KDCVRCBSP {
 		public AABB3d box;
 
 		public void Box(double minX, double minY, double minZ, double maxX, double maxY, double maxZ) {
+			hasBox = true;
 			box = new AABB3d(new Vector3d(minX, minY, minZ), new Vector3d(maxX, maxY, maxZ));
 		}
 
@@ -146,6 +191,7 @@ namespace KDCVRCBSP {
 
 		public AttrValFloat FloatKey(string key, string def) => Key(key, def, new AttrValFloat());
 		public AttrValInteger IntegerKey(string key, string def) => Key(key, def, new AttrValInteger());
+		public AttrValBool BoolKey(string key, string def) => Key(key, def, new AttrValBool());
 		public AttrValString StringKey(string key, string def) => Key(key, def, new AttrValString());
 		public AttrValTarget TargetKey(string key, string def) => Key(key, def, new AttrValTarget());
 		public AttrValVector3d Vector3dKey(string key, string def) => Key(key, def, new AttrValVector3d());
@@ -192,6 +238,14 @@ namespace KDCVRCBSP {
 		public class AttrValInteger : AttrVal {
 			public override string FGDTypeName => "integer";
 			public override string ENTTypeName => "integer";
+			public override string RenderFGD(string key) => $"{key}({FGDTypeName}) : \"{description}\" : {defValue}";
+		}
+
+		public class AttrValBool : AttrVal {
+			// there is probably a Right Way to do this, but... API first, worry later
+			public override string FGDTypeName => "integer";
+			public override string ENTTypeName => "integer";
+			public override string RenderFGD(string key) => $"{key}({FGDTypeName}) : \"{description}\" : {defValue}";
 		}
 
 		public class AttrValString : AttrVal {
@@ -210,14 +264,14 @@ namespace KDCVRCBSP {
 		}
 
 		public class AttrValChoices : AttrVal {
-			public override string FGDTypeName => "string";
+			public override string FGDTypeName => "choices";
 			public override string ENTTypeName => "string";
 
 			public string fgdChoices, entChoices;
 
 			public override string ENTDescriptionSuffix => entChoices;
 
-			public override string RenderFGD(string key) => $"{base.RenderFGD(key)} = [ {fgdChoices} ]";
+			public override string RenderFGD(string key) => $"{base.RenderFGD(key)}\n\t = [ {fgdChoices} ]";
 
 			public AttrValChoices Choice(string key, string name) {
 				fgdChoices += $" \"{key}\" : \"{name}\" ";

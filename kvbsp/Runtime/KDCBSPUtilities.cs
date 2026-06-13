@@ -1,6 +1,5 @@
 using System;
 using System.IO;
-using System.IO.Compression;
 using System.Text;
 using System.Collections.Generic;
 using UnityEngine;
@@ -87,20 +86,21 @@ namespace KDCVRCBSP {
 					Debug.LogException(ex);
 				}
 			}
-			string tsPadded = Convert.ToString(DateTimeOffset.UtcNow.ToUnixTimeSeconds(), 16).PadLeft(16, '0');
-			string newFileName = ".cache" + tsPadded + ".pk3";
-			// pk3 is a fancy term for zip
-			var memStream = new MemoryStream();
-			var zip = new ZipArchive(memStream, ZipArchiveMode.Create, true, new UTF8Encoding(false));
-			foreach (var (key, value) in files) {
-				var entry = zip.CreateEntry(key);
-				using (Stream stream = entry.Open()) {
-					stream.Write(value, 0, value.Length);
+			foreach (string victim in Directory.GetFiles(vfsDir, ".cache*.pak")) {
+				try {
+					File.Delete(victim);
+				} catch (Exception ex) {
+					Debug.LogException(ex);
 				}
 			}
-			zip.Dispose();
-			var content = memStream.ToArray();
-			File.WriteAllBytes(Path.Join(vfsDir, newFileName), content);
+			string tsPadded = Convert.ToString(DateTimeOffset.UtcNow.ToUnixTimeSeconds(), 16).PadLeft(16, '0');
+			string newFileNamePK3 = ".cache" + tsPadded + ".pk3";
+			string newFileNamePAK = ".cache" + tsPadded + ".pak";
+
+			File.WriteAllBytes(Path.Join(vfsDir, newFileNamePK3), KDCBSPPAKWriter.MakePK3(files));
+			// but we need PAK for ericw-tools :(
+			File.WriteAllBytes(Path.Join(vfsDir, newFileNamePAK), KDCBSPPAKWriter.MakePAK(files));
+
 			File.WriteAllText(Path.Join(vfsDir, "kvtoolstb.fgd"), fgdFile);
 			File.WriteAllText(Path.Join(vfsDir, "kvtoolstb.ent"), entFile);
 		}

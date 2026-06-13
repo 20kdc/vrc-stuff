@@ -16,9 +16,9 @@ namespace KDCVRCBSP {
 		, VRC.SDKBase.IEditorOnly
 #endif
 	{
-		[Tooltip("If this entity type is a brush entity. This controls FGD generation.")]
+		[Tooltip("Details used for the FGD variant of this asset.")]
 		[SerializeField]
-		public bool entityFGDSolid;
+		public KDCBSPEntityHeader fgdDetails = new();
 
 		public virtual void EntityCompile(IKDCBSPImportContext importContext, ECLBSPFile.Entity entity, string uniqueName) {
 			KDCBSPBrushEntityFlow.CompileDefault(gameObject, importContext, entity, uniqueName, EntityGetBrushSettings, EntityBrushApplyColliderSettings);
@@ -47,10 +47,10 @@ namespace KDCVRCBSP {
 			UnityEngine.Object.DestroyImmediate(this);
 		}
 
-		public bool EntityFGDSolid => entityFGDSolid;
-
 		public void EntityFGDAttributes(KDCBSPEntityDescriptor descriptor) {
-			KDCBSPBrushEntitySettings.DescribeEntityOverrides(descriptor);
+			fgdDetails.CopyTo(descriptor);
+			if (descriptor.isSolid)
+				KDCBSPBrushEntitySettings.DescribeEntityOverrides(descriptor);
 		}
 	}
 }

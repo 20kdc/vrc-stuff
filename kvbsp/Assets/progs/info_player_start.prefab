@@ -44,3 +44,15 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5bd2088bc43a87965a4fe7ceb7fd3a39, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  fgdDetails:
+    hasBox: 1
+    boxMin: {x: -24, y: -24, z: -16}
+    boxMax: {x: 24, y: 24, z: 112}
+    hasColour: 1
+    colour:
+      serializedVersion: 2
+      rgba: 4278255360
+    model: 
+    isBrushEntity: 0
+    description: Dummy entity, automatically deleted. Acts as a measuring stick for
+      players and a 'place players are known to be' for leak detection etc.

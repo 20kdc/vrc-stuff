@@ -14,7 +14,6 @@ namespace KDCVRCBSP {
 	 * UdonSharp integration in particular 'prefers' these not to be editor-only.
 	 */
 	public interface IKDCBSPEntity {
-
 		/// Entity compile.
 		/// If the behaviour goes missing (becomes '== null' according to Unity), it is assumed that compilation of this entity has been denied.
 		/// See KDCBSPDelmeEntity for what that looks like.
@@ -24,12 +23,6 @@ namespace KDCVRCBSP {
 		/// This is called after ALL entities have been built.
 		/// The MonoBehaviour may safely destroy itself without destroying the GameObject.
 		public void EntityPostProcess(IKDCBSPImportContext importContext);
-
-		/// If this entity would self-describe as a brush entity.
-		/// This controls/will control FGD generation.
-		public bool EntityFGDSolid {
-			get;
-		}
 
 		/// This is run on the prefab during workspace build.
 		public void EntityFGDAttributes(KDCBSPEntityDescriptor descriptor);

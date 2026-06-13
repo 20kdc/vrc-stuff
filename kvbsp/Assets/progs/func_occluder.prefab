@@ -55,4 +55,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9466b28040cbe611ca449e3274d63d97, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  entityFGDSolid: 1
+  fgdDetails:
+    hasBox: 0
+    boxMin: {x: -16, y: -16, z: -16}
+    boxMax: {x: 16, y: 16, z: 16}
+    hasColour: 0
+    colour:
+      serializedVersion: 2
+      rgba: 4294967295
+    model: 
+    isBrushEntity: 1
+    description: Dynamic occluder using its AABB and OcclusionPortal.

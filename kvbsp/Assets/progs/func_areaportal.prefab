@@ -44,4 +44,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5bd2088bc43a87965a4fe7ceb7fd3a39, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  entityFGDSolid: 1
+  fgdDetails:
+    hasBox: 0
+    boxMin: {x: 0, y: 0, z: 0}
+    boxMax: {x: 0, y: 0, z: 0}
+    hasColour: 0
+    colour:
+      serializedVersion: 2
+      rgba: 0
+    model: 
+    isBrushEntity: 1
+    description: Quake 2 areaportals may(?) need this entity. (Quake 3 does not.)

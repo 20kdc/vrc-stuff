@@ -21,6 +21,9 @@ public class MonsterDopefish : UdonSharpBehaviour
 	}
 
 #if !COMPILER_UDONSHARP
+	/// Used for the FGD (map editor details).
+	public KDCBSPEntityHeader fgdDetails = new();
+
 	public void EntityCompile(IKDCBSPImportContext importContext, ECLBSPFile.Entity entity, string uniqueName) {
 		// Beware: UdonSharp parameterizable entities won't compile brush entities by default!
 		// If you need to implement that functionality, look at KDCBSPEntity.cs for reference.
@@ -42,11 +45,9 @@ public class MonsterDopefish : UdonSharpBehaviour
 		// There may be some reason you need to do something here.
 	}
 
-	// This property and the attributes function control FGD/ENT generation for map editors.
-
-	public bool EntityFGDSolid => false;
-
+	/// Controls FGD/ENT generation for map editors.
 	public void EntityFGDAttributes(KDCBSPEntityDescriptor descriptor) {
+		fgdDetails.CopyTo(descriptor);
 		// Adding keys here can show them in your map editor.
 		descriptor.TargetKey("friend", "").Desc("Another monster_dopefish to give the fish a friend.");
 		descriptor.StringKey("message", "").Desc("Something for the fish to say on Start()!");

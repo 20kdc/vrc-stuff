@@ -106,17 +106,23 @@ namespace KDCVRCBSP {
 		}
 
 		public static void DescribeEntityOverrides(KDCBSPEntityDescriptor descriptor) {
-			descriptor.StringKey("_kdcbsp_lightmap_pack_margin", "");
-			descriptor.StringKey("_kdcbsp_lightmap_scale", "");
-			descriptor.StringKey("_kdcbsp_visuals", "");
-			descriptor.StringKey("_kdcbsp_collision", "");
-			descriptor.StringKey("_kdcbsp_collision_trigger", "");
-			descriptor.StringKey("_kdcbsp_contribute_gi", "");
-			descriptor.StringKey("_kdcbsp_lightmaps", "");
-			descriptor.StringKey("_kdcbsp_occluder_static", "");
-			descriptor.StringKey("_kdcbsp_occludee_static", "");
-			descriptor.StringKey("_kdcbsp_batching_static", "");
-			descriptor.StringKey("_kdcbsp_reflection_probe_static", "");
+			descriptor.FloatKey("_kdcbsp_lightmap_pack_margin", "0.01").Desc("Controls the lightmap pack margin.");
+			descriptor.FloatKey("_kdcbsp_lightmap_scale", "1").Desc("Controls the lightmap scale. If <= 0, lightmaps will not be generated.");
+			descriptor.BoolKey("_kdcbsp_visuals", "1").Desc("If 0, this brush won't be visible (but may still collide).");
+			var collisionModeChoices = descriptor.ChoicesKey("_kdcbsp_collision", "").Choice("", "Unset/Workspace");
+			foreach (var val in Enum.GetValues(typeof(CollisionMode))) {
+				collisionModeChoices.Choice("" + val, "" + val);
+			}
+			void FlagModKey(string name, string description) {
+				descriptor.ChoicesKey(name, "-1").Choice("-1", "From Prefab").Choice("0", "Off").Choice("1", "On").Desc(description);
+			}
+			FlagModKey("_kdcbsp_collision_trigger", "Overrides the collider Is Trigger flag.");
+			FlagModKey("_kdcbsp_contribute_gi", "Overrides static flag.");
+			FlagModKey("_kdcbsp_lightmaps", "Overrides ReceiveGI.");
+			FlagModKey("_kdcbsp_occluder_static", "Overrides static flag.");
+			FlagModKey("_kdcbsp_occludee_static", "Overrides static flag.");
+			FlagModKey("_kdcbsp_batching_static", "Overrides static flag.");
+			FlagModKey("_kdcbsp_reflection_probe_static", "Overrides static flag.");
 		}
 
 		/// Handler at KDCBSPBrushEntityFlow.Compile

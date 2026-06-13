@@ -106,4 +106,15 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e813990e1ee94b15bb69f9086d342fd4, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  entityFGDSolid: 1
+  fgdDetails:
+    hasBox: 0
+    boxMin: {x: -16, y: -16, z: -16}
+    boxMax: {x: 16, y: 16, z: 16}
+    hasColour: 0
+    colour:
+      serializedVersion: 2
+      rgba: 4294967295
+    model: 
+    isBrushEntity: 1
+    description: Generic pickup. This will likely be moved to GameRoot in a future
+      release for VRC-specific options.

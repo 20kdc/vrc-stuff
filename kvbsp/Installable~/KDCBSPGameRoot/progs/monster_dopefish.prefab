@@ -316,6 +316,18 @@ MonoBehaviour:
   _udonSharpBackingUdonBehaviour: {fileID: 1391639486489794237}
   text: 
   friend: {fileID: 0}
+  fgdDetails:
+    hasBox: 0
+    boxMin: {x: 0, y: 0, z: 0}
+    boxMax: {x: 0, y: 0, z: 0}
+    hasColour: 1
+    colour:
+      serializedVersion: 2
+      rgba: 1406216
+    model: 
+    isBrushEntity: 0
+    description: The dopefish is a cute creature that started its life at Id Software,
+      and then promptly spread to conquer the known universe.
 --- !u!114 &1391639486489794237
 MonoBehaviour:
   m_ObjectHideFlags: 0

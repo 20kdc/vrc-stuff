@@ -44,4 +44,15 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 487e5cbee75f4a61d9449cf1ca118eab, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  entityFGDSolid: 1
+  fgdDetails:
+    hasBox: 0
+    boxMin: {x: -16, y: -16, z: -16}
+    boxMax: {x: 16, y: 16, z: 16}
+    hasColour: 0
+    colour:
+      serializedVersion: 2
+      rgba: 4294967295
+    model: 
+    isBrushEntity: 1
+    description: Static occluder. Overrides the brush entity settings with a set
+      of fixed, static-occluder-friendly settings. Use with common/occluder.

@@ -44,4 +44,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4a80753c3ecf23ccc89e2a771ce34907, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  entityFGDSolid: 1
+  fgdDetails:
+    hasBox: 0
+    boxMin: {x: -16, y: -16, z: -16}
+    boxMax: {x: 16, y: 16, z: 16}
+    hasColour: 0
+    colour:
+      serializedVersion: 2
+      rgba: 4294967295
+    model: 
+    isBrushEntity: 1
+    description: The world and everything in it
