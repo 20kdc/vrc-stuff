@@ -36,7 +36,7 @@ namespace KDCVRCBSP {
 				((KDCBSPAbstractWorkspaceConfig) target).SetupVFS();
 			}
 			GUILayout.Label("Run this on your game root workspace when editing materials and entities.", EditorStyles.wordWrappedLabel);
-			GUILayout.Label("TrenchBroom may need to be restarted.", EditorStyles.wordWrappedLabel);
+			GUILayout.Label("Your map editor may need to be restarted.", EditorStyles.wordWrappedLabel);
 
 			if (debug = EditorGUILayout.Foldout(debug, "Debug")) {
 				if (GUILayout.Button("Debug material search")) {

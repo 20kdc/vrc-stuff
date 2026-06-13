@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<project version="2.0">
+	<var name="q3map2">"[RadiantPath]q3map2.[ExecutableType]" -v -connect [MonitorAddress] -game quakelive -fs_basepath "[EnginePath]" -fs_game baseq3</var>
+	<build name="Compile to BSP">
+		<command>[q3map2] -meta "[MapFile]"</command>
+	</build>
+</project>

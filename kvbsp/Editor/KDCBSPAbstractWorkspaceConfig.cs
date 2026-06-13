@@ -96,7 +96,14 @@ namespace KDCVRCBSP {
 						try {
 							File.WriteAllText(KDCBSPSetupCore.PathTrenchBroomFGD, fgdText);
 						} catch (Exception ex2) {
-							Debug.LogException(ex2);
+							_ = ex2;
+							// Debug.LogException(ex2);
+						}
+						try {
+							File.WriteAllText(KDCBSPSetupCore.PathRadiantFGD, fgdText);
+						} catch (Exception ex2) {
+							_ = ex2;
+							// Debug.LogException(ex2);
 						}
 					} catch (Exception ex) {
 						Debug.LogException(ex);

@@ -65,6 +65,24 @@ namespace KDCVRCBSP {
 			}
 		}
 
+		public static string PathRadiant {
+			get {
+				if (EditorPrefs.HasKey("KDCBSP_Radiant")) {
+					return EditorPrefs.GetString("KDCBSP_Radiant");
+				} else {
+					// unknown
+					return "";
+				}
+			}
+			set {
+				if (value == null) {
+					EditorPrefs.DeleteKey("KDCBSP_Radiant");
+				} else {
+					EditorPrefs.SetString("KDCBSP_Radiant", value);
+				}
+			}
+		}
+
 		public static string IssueTrenchBroomConfig {
 			get {
 				string trenchBroomConfig = PathTrenchBroomConfig;
@@ -77,10 +95,26 @@ namespace KDCVRCBSP {
 			}
 		}
 
+		public static string IssueRadiant {
+			get {
+				string radiant = PathRadiant;
+				if (!Directory.Exists(radiant)) {
+					return "The directory doesn't exist.";
+				} else if (!Directory.Exists(Path.Join(radiant, "gamepacks"))) {
+					return "The gamepacks directory doesn't exist. Wrong directory?";
+				} else if (!Directory.Exists(Path.Join(radiant, "gamepacks/games"))) {
+					return "The gamepacks directory is missing a games directory.\nIf you're manually creating these, be aware NetRadiant-custom only loads from the directory it comes with (i.e. the one that should already have all the other gamepacks in it).";
+				}
+				// if someone goes to the trouble of making a fake gamepacks directory then assume that they're doing this on purpose or the universe built a better idiot
+				return null;
+			}
+		}
+
 		public static string PathTrenchBroomCompilationProfiles => Path.Join(PathTrenchBroomConfig, "games/KVToolsTB/CompilationProfiles.cfg");
 
 		/// used for convenience hax
 		public static string PathTrenchBroomFGD => Path.Join(PathTrenchBroomConfig, "games/KVToolsTB/kvtoolstb_generated.fgd");
+		public static string PathRadiantFGD => Path.Join(PathRadiant, "gamepacks/kvtools.game/baseq3/kvtools_generated.fgd");
 
 		public static void RunTrenchBroomSetup() {
 			string trenchBroomConfig = PathTrenchBroomConfig;
@@ -109,6 +143,27 @@ namespace KDCVRCBSP {
 				}
 			} catch (Exception ex) {
 				Debug.LogException(ex);
+			}
+		}
+
+		public static void RunRadiantSetup() {
+			string radiant = PathRadiant;
+			string gamepacksPath = Path.Join(radiant, "gamepacks");
+			try {
+				Directory.CreateDirectory(Path.Join(gamepacksPath, "kvtools.game"));
+			} catch (Exception ex) {
+				Debug.LogException(ex);
+			}
+			try {
+				Directory.CreateDirectory(Path.Join(gamepacksPath, "kvtools.game/baseq3"));
+			} catch (Exception ex) {
+				Debug.LogException(ex);
+			}
+			string[] trivial = {"games/kvtools.game", "kvtools.game/default_build_menu.xml", "kvtools.game/game.xlink"};
+			foreach (string v in trivial) {
+				string fileFrom = FileUtil.GetPhysicalPath(KDCBSPUtilities.KVBSP_BASE + "Installable~/radiant/" + v);
+				string fileTo = Path.Join(gamepacksPath, v);
+				File.WriteAllText(fileTo, File.ReadAllText(fileFrom), new System.Text.UTF8Encoding(false));
 			}
 		}
 	}
