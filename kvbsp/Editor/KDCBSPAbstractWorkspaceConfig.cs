@@ -80,11 +80,24 @@ namespace KDCVRCBSP {
 						}
 						files["scripts/kvbspGen.shader"] = encoding.GetBytes(shaderFile);
 						files["scripts/shaderlist.txt"] = encoding.GetBytes("kvbspGen\n");
-						var baseDirPhys = FileUtil.GetPhysicalPath(baseDir);
 
 						KDCBSPEntityDescriptor.ExtractAll(entities, out var fgdText, out var entText);
 
-						KDCBSPUtilities.UpdateVFS(baseDirPhys, files, fgdText, entText);
+						// update VFS
+						try {
+							var baseDirPhys = FileUtil.GetPhysicalPath(baseDir);
+							KDCBSPUtilities.UpdateVFS(baseDirPhys, files, fgdText, entText);
+						} catch (Exception ex2) {
+							Debug.LogException(ex2);
+						}
+
+						// TrenchBroom default FGD overwrite
+						// this is horrible but it works so well...
+						try {
+							File.WriteAllText(KDCBSPSetupCore.PathTrenchBroomFGD, fgdText);
+						} catch (Exception ex2) {
+							Debug.LogException(ex2);
+						}
 					} catch (Exception ex) {
 						Debug.LogException(ex);
 					}

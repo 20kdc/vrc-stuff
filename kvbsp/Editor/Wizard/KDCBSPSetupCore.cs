@@ -79,6 +79,9 @@ namespace KDCVRCBSP {
 
 		public static string PathTrenchBroomCompilationProfiles => Path.Join(PathTrenchBroomConfig, "games/KVToolsTB/CompilationProfiles.cfg");
 
+		/// used for convenience hax
+		public static string PathTrenchBroomFGD => Path.Join(PathTrenchBroomConfig, "games/KVToolsTB/kvtoolstb_generated.fgd");
+
 		public static void RunTrenchBroomSetup() {
 			string trenchBroomConfig = PathTrenchBroomConfig;
 			try {
@@ -96,7 +99,7 @@ namespace KDCVRCBSP {
 
 			try {
 				Directory.CreateDirectory(gamePath);
-				string[] trivial = {"CompilationProfiles.cfg", "GameConfig.cfg", "kvtoolstb.fgd"};
+				string[] trivial = {"CompilationProfiles.cfg", "GameConfig.cfg", "template.map"};
 				foreach (string v in trivial) {
 					string fileFrom = FileUtil.GetPhysicalPath(KDCBSPUtilities.KVBSP_BASE + "Installable~/KVToolsTB/" + v);
 					string fileTo = Path.Join(gamePath, v);
