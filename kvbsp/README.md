@@ -2,31 +2,69 @@
 
 This Quake 1/2/3/GoldSrc BSP importer allows creating static world geometry with, i.e. TrenchBroom and a more recent `ericw-tools` (such as one of the 2.0.0 alpha releases from <https://github.com/ericwa/ericw-tools/releases>).
 
+## Quickstart
+
 The basic idea is that:
 
-1. Install the package and look at `Setup.asset` in Unity, **which automates the following:**
-	1. Install `TrenchBroom~/KVToolsTB` to inside TrenchBroom's user directory (Linux: `$HOME/.TrenchBroom/games/KVToolsTB`)
-	2. Adjust `CompilationProfiles.cfg` to point at ericw-tools QBSP.
-	3. Copy `TrenchBroom~/KDCBSPGameRoot` to `Assets/` of your Unity project.
-		* Note that your game root may _actually_ be anywhere; KDCBSP intentionally does not care about this.
-			* It's usually easiest to include everything in your Unity project in a single workspace. This prevents needing to switch the TrenchBroom game root.
-			* `Assets/KDCBSPGameRoot/DefaultWorkspaceConfig.asset` is the hardcoded default workspace config if no workspace is otherwise set.
-2. Add materials to the `KDCBSPGameRoot/materials` directory to add materials in Unity.
-	* Be sure to press the "Update Quake VFS" button on your workspace when you change materials!
-		* This does some setup so that TrenchBroom can see your materials. You may need to restart TrenchBroom.
-	* More precise configuration can be added by creating KDCBSP material config files of the same name.
-	* If a material's 'icon' can't be generated, KDCBSP may give a 'no icon' image to TrenchBroom. The 'icon' is the image used in TrenchBroom as the texture.
-		* In this case, you may want to add a PNG file (named the same as the material) to override the material's TrenchBroom icon.
+1. Install the package and look at `Setup.asset` in Unity.
+	* You can choose TrenchBroom or NetRadiant-custom. The setup will add the necessary configuration.
+2. Add Unity materials to the `KDCBSPGameRoot/materials` directory.
+	* Be sure to press the "Update Quake VFS" button on your workspace when you change materials! This does some setup so that your map editor can see your materials, so you may need to restart it.
 3. Add prefabs to the `KDCBSPGameRoot/progs` directory to add new entity types.
-	* You can add `KDCBSPEntityDescriptor` to set default brush entity parameters (i.e. lightmapped, static, etc).
-	* You can write `KDCBSPEntityParameterizer`s to make them more configurable.
-4. BSP files (compiled using the relevant button in TrenchBroom) are imported as prefabs.
+	* You can implement editor-only behaviours (subclass `KDCBSPEntity`) or Udon behaviours (implement `IKDCBSPEntity` and use conditional compilation) which get to customize the import.
+4. BSP files (compiled using the relevant button in the map editor) are imported as prefabs, which you can then use in your VRChat worlds.
 	* There are plenty of options for customizing the import depending on the situation.
+	* Due to fundamental differences in format and capabilities, lightmapping and occlusion is not imported; `light` and `vis` are unused. The prefabs are compatible with Unity's lightmapper.
 
-As a key note, lightmapping and occlusion is not imported; `light` and `vis` are unused.
-	* The binary-grid nature of TrenchBroom may assist in aligning everything well to make Unity occlusion play nice. Alternatively, use occlusion portals. Or both.
+## Workspaces
 
-The ideal is that a Unity material can, at the press of a few buttons ('Generate Material PAK'?), simply _appear_ in TrenchBroom, ready for selection.
+KDCBSP is based around _workspaces,_ which act kind of vaguely similar to Source GameInfo files.
+
+Workspaces set:
+
+* The world scale (how much to divide Quake units by to get Unity units)
+* Directory names for material configs and entity prefabs
+* Other workspaces to find other materials and entities in, and fallback materials/entities if all else fails.
+
+There's a default workspace at `Assets/KDCBSPGameRoot`, but you can have specific BSP files use specific workspaces.
+
+There are two workflows you can use here:
+
+1. Use workspaces to isolate individual sub-projects. If you use a one-Unity-project-per-VRChat-project approach, you get this 'by default'.
+2. Have the game root workspace + one workspace per participating Unity package (added to the game root as parents), keep material and entity type names unique between packages whenever possible. This prevents needing to switch game roots when switching between packages in the same Unity project, and is the workflow used for kvbsp development.
+
+Finally, there is an implicit parent workspace at `Packages/t20kdc.vrc-bsp/Assets/builtinWorkspace.asset` which is always loaded; this is used for things that are relatively integral to kvbsp itself and definitely need to be updated with it.
+
+## Materials
+
+kvbsp's handling of materials is intended to be flexible.
+
+There are two built-in kinds of kvbsp material.
+
+* 'Standard' kvbsp materials. These are streamlined for 'main' materials which don't need BSP compiler customization. They still customize rendering and _maybe_ physics.
+* 'Tool' materials. These are streamlined for 'tool' materials, which are _always nodraw at import time,_ though it may sometimes be of use to convince the BSP compiler they are actually drawn for other uses, such as concave collision.
+
+While you generally shouldn't make tool materials, both kinds of material config can be created via the 'create asset menu'. Alternatively, if a Unity material file exists (`.mat`) without a corresponding kvbsp metadata asset (`.asset`), kvbsp will automatically internally create a standard kvbsp material to wrap it (the file won't be saved).
+
+The 'Create Quake VFS' button has to expose all of these materials in a form acceptable to the map editor but also correctly scaled (called the 'icon' in kvbsp). This involves the creation of Quake 3 shader files and potentially image resizing. 
+
+If it can't figure that out, it may give a 'no icon' image to the map editor. In this case, or if it gets something wrong, you may want to add a PNG file (named the same as the material) to override the icon.
+
+Given the input texture name `dev/32` and the default config, it looks at:
+
+1. `KDCBSPGameRoot/materials/dev/32.asset` (for KDCBSP texture config)
+2. `KDCBSPGameRoot/materials/dev/32.mat` (for Unity material; this is ignored if a texture config is found)
+3. `Packages/t20kdc.vrc-bsp/Assets/textures/dev/32.asset`
+4. `Packages/t20kdc.vrc-bsp/Assets/textures/dev/32.mat`
+
+If a KDCBSP material is found and the Unity material is None, triangles will not be created.
+
+This is one of the two useful ways to use `common/sky` (the other being a skybox material, perhaps with a custom shader with emission).
+
+Notably, next to the found material, KDCBSP will also search for:
+
+* `32.png`: The 'icon'.
+* `32.wal_json`: Metadata for ericw-tools; decently safe to omit _unless_ the material is special to the BSP compiler. In modern kvbsp, this _usually_ means it should be a tool texture instead, unless the texture is transparent. (_**DEPRECATED.**_ This co-file will be replaced with an explicit enum in a few commits, possibly by the time you're reading this. Tool textures can still manually override, as can subclasses and so on...)
 
 ## Map Editing Tip: 'Leaks', `common/noclip`, and separation between maps
 
@@ -55,47 +93,9 @@ This makes it the ideal glue between `.map` files or between `.map` and modelled
 
 Technically, it carries `SOLID | CURRENT_0` contents flags (`CURRENT_0` is used as a marker by the importer to mean 'not actually solid'), and `NODRAW` face flags.
 
-## Workspaces
-
-KDCBSP is based around _workspaces,_ which act kind of vaguely similar to Source GameInfo files. (You'll find KDCBSP makes a lot of nods to Source and Quake. I personally consider Source to be the last truly _great_ engine. Despite it being arc-welded to the MFC abomination known as Hammer, and its single-core design, it was responsible for games that were well-optimized _even when re-rendering the scene several times over._ Unity has nearly all of Source's problems and more without any of the benefits, and the engines that followed focused on copying Unity.)
-
-There's a default workspace at `Assets/KDCBSPGameRoot`, but you can have specific BSP files use specific workspaces, which is important for developing worlds as packages.
-
-Workspaces set:
-
-* The world scale (how much to divide Quake units by to get Unity units)
-* Directory names for material configs and entity prefabs
-* Other workspaces to find other materials and entities in, and fallback materials/entities if all else fails.
-
-There is an implicit parent workspace at `Packages/t20kdc.vrc-bsp/Assets/builtinWorkspace.asset` which is always loaded.
-
-This is used for things which are likely to _need_ updates, because there's no safe way to update `KDCBSPGameRoot`.
-
-## Materials
-
-KDCBSP finds materials relative to the paths of each included (i.e. accounting for parents/etc.) KDCBSP workspace file.
-
-Given the input texture name `dev/32` and the default config, it looks at:
-
-1. `KDCBSPGameRoot/materials/dev/32.asset` (for KDCBSP texture config)
-2. `KDCBSPGameRoot/materials/dev/32.mat` (for Unity material; this is ignored if a texture config is found)
-3. `Packages/t20kdc.vrc-bsp/Assets/textures/dev/32.asset`
-4. `Packages/t20kdc.vrc-bsp/Assets/textures/dev/32.mat`
-
-If a KDCBSP material is found and the Unity material is None, triangles will not be created.
-
-This is one of the two useful ways to use `common/sky` (the other being a skybox material, perhaps with a custom shader with emission).
-
-Notably, KDCBSP will also search for:
-
-* `32.png`: TrenchBroom's version of the texture; KDCBSP calls this the 'icon'.
-* `32.wal_json`: Metadata for ericw-tools; decently safe to omit _unless_ the material is special to the BSP compiler.
-
 ## Special Materials
 
 KDCBSP has a number of special materials under the `common/` prefix.
-
-The meanings are primarily assigned using `ericw-tools` metadata `.wal_json` files.
 
 * If looking for `skip` / `caulk`: These are Q1 and Q3 names of `common/nodraw`.
 * `common/areaportal`: Areaportals are not presently used. This is included for completeness. Ideas have been thrown around of splitting meshes by this.
@@ -117,23 +117,26 @@ The meanings are primarily assigned using `ericw-tools` metadata `.wal_json` fil
 
 KDCBSP's entity handling is _complicated,_ particularly for brush entities.
 
-This is because it has to split responsibility between providing settings to the map (via entity properties), providing them to the material (via the material config), and providing them to the entity itself (via entity parameterizers).
+This is because it has to split responsibility between providing settings to the map (via entity properties), providing them to the material (via the material config), and providing them to the entity itself (via the entity implementation).
 
-Things are much simpler for regular (non-brush) entities, which are almost entirely defined by their entity prefab.
+The root of an entity prefab may have a component which implements `IKDCBSPEntity`. This component defines how the entity is to be compiled (after having been instantiated from the prefab).
 
-The root of an entity prefab may have a number of `KDCBSPEntityParameterizer`-derived behaviours, which are used to 'parameterize' (i.e. setup) the entity.
+How this works out in practice depends on what you are trying to do:
+
+* Entity component with solely import-time code: Extend `KDCBSPEntity`. This will default to compiling brushes for you and can be customized by overriding methods.
+* Point entity Udon behaviour: Implement `IKDCBSPEntity`, gated behind `#if !COMPILER_UDONSHARP` as interface implementations are not allowed in UdonSharp.
+* Brush entity Udon behaviour: Copy `KDCBSPEntity`'s code into your `IKDCBSPEntity` implementation and modify to taste.
+
+The following are built-in and apply to all entities.
 
 * The `targetname`, if provided, names the entity.
 * The `origin` key is used to place the entity.
-* (The `angles` and `angle` keys are not supported right now.)
-
-Brush entities are _much_ more complicated.
-
-1. If `_kdcbsp_autoorigin` is `1`, then during the initial load, the entity is internally adjusted to set its origin to the centre of the bounding box of its brush model.
-	* This is a pretty hacky thing and issues should be expected, since this requires the brush model to be offset again during mesh generation to fix up the chaos this causes.
-2. The entity parameterizers get the opportunity to arbitrarily modify the `KDCBSPBrushEntitySettings` to their liking, alongside other chaos like changing brush convex layers
+* (The `angles` and `angle` keys are not supported right now, but they would rotate the entity.)
+* If `_kdcbsp_autoorigin` is `1` and a brush model exists, the entity is internally adjusted to set its origin to the centre of the bounding box of its brush model.
+	* This is pretty hacky, but should be reliable.
+* The entity component gets the opportunity to arbitrarily modify the `KDCBSPBrushEntitySettings` to its liking, alongside other chaos like changing brush convex layers.
 	* In practice, this is to ensure that the entity is being rendered in accordance with how the entity will actually act during gameplay.
-3. There are a number of entity properties defined in `KDCBSPBrushEntitySettings`. These override anything the entity parameterizers set, which allows for fine control by mappers.
+* There are a number of entity properties defined in `KDCBSPBrushEntitySettings`. These usually override anything the entity component sets, which allows for fine control by mappers.
 	* These aren't listed here, for now; they are already listed in the FGD.
 
 It's also worth mentioning BSP-compiler-internal brush entities. See <https://ericw-tools.readthedocs.io/en/latest/qbsp.html#compiler-internal-bmodels>.
@@ -145,24 +148,12 @@ KDCBSP uses a lot of abstract classes. This is because I feel you will inevitabl
 
 In particular:
 
-* Entities can be parameterized however they choose by extending `KDCBSPEntityParameterizer`.
+* After instantiation, entities can be compiled mostly however they choose using a component implementing `IKDCBSPEntity`.
 * It is possible to override the visual mesh generation on a material-by-material basis by extending `KDCBSPAbstractMaterialConfig`. This may be useful if you're doing something fancy/weird with specially marked materials.
 * Extending `KDCBSPAbstractWorkspaceConfig` allows you to define custom search logic (perhaps for texture auto-import).
 
 ## Occluder Geometry Generation
 
-Look, IDK what to tell you. It generates `EditorOnly` meshes which are marked as static occluders. It generates these away from the walls using basically the same principle Quake used for clipnodes in reverse so that Unity doesn't inevitably bug out because the occluder cells are too big or something.
+Occluder geometry generation is a mechanism to automate the creation of _good_ occlusion geometry, which doesn't cause unexpected glitches when too close to a wall. This geometry is intentionally conservative about occlusion, focusing more on correctness than on how much it can cull.
 
-## Quake Live/Quake 3 BSP support
-
-This is useful if you like the bezier patches feature these BSP versions add.
-
-The generated data directory is called `baseq3` in order to support the 'Quake Live' configuration of Radiant-series editors, which enables the necessary PNG file support.
-
-Work to figure out how to deal with various details of coordinate transforms and weird filenames and such is 'ongoing'.
-
-It also looks like the Quake 3 map compiler maps UVs to the 0-1 range all by itself and the toolset requires `textures/` to appear at the start of everything which we then have to remove.
-
-Leaves (for occy) are not yet supported.
-
-This is an ongoing project.
+It generates `EditorOnly` meshes which are marked as static occluders. It generates these away from the walls using basically the same principle Quake used for clipnodes in reverse so that Unity doesn't inevitably bug out because the occluder cells are too big or something.
