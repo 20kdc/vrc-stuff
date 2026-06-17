@@ -57,6 +57,18 @@
 					"license": "Unlicense",
 					"zipSHA256": "58a7a10e6b58ce95a60df240d334571cb507132d495ece6c7d8d8738a840fd18",
 					"url": "https://raw.githubusercontent.com/20kdc/vrc-stuff/refs/heads/main/vpm/t20kdc.vrc-bsp-0.3.0.zip"
+				},
+				"0.4.0": {
+					"name": "t20kdc.vrc-bsp",
+					"displayName": "t20kdc BSP Importer",
+					"version": "0.4.0",
+					"author": {
+						"name": "t20kdc"
+					},
+					"description": "Using BSP compilers to build VRChat worlds.",
+					"license": "Unlicense",
+					"zipSHA256": "bc0f3596781d2093943d9e5b5baa47af3a9a4751e6bef80341132a07b3306f1d",
+					"url": "https://raw.githubusercontent.com/20kdc/vrc-stuff/refs/heads/main/vpm/t20kdc.vrc-bsp-0.4.0.zip"
 				}
 			}
 		},
