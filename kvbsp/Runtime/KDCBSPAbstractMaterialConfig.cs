@@ -78,7 +78,7 @@ namespace KDCVRCBSP {
 			pakFiles["textures/" + materialPath + ".png"] = tex.EncodeToPNG();
 			var walJSON = PAKGetWALJSON(materialPath, discoveryPath);
 			if (walJSON != null)
-				pakFiles["textures/" + materialPath + ".wal_json"] = walJSON;
+				pakFiles["textures/" + materialPath + ".wal_json"] = new System.Text.UTF8Encoding(false).GetBytes(walJSON);
 		}
 
 		public string PAKGetTrenchBroomTextureOverridePath(string discoveryPath) {
@@ -100,11 +100,12 @@ namespace KDCVRCBSP {
 
 		/// Gets the .wal_json file contents.
 		/// If null, no such file is made.
-		public virtual byte[] PAKGetWALJSON(string materialPath, string discoveryPath) {
-			string hypothesis = Path.Join(Path.GetDirectoryName(discoveryPath), Path.GetFileNameWithoutExtension(discoveryPath) + ".wal_json");
-			return KDCBSPUtilities.ReadLPBytesOrNull(hypothesis);
+		public virtual string PAKGetWALJSON(string materialPath, string discoveryPath) {
+			return null;
 		}
 
+		/// Gets the Quake 3 shader contents.
+		/// The base implementation is usually useful.
 		public virtual string PAKGetQ3Shader(string materialPath, string discoveryPath) {
 			if (materialPath.Contains(" "))
 				return "";

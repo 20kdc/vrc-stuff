@@ -41,7 +41,8 @@ kvbsp's handling of materials is intended to be flexible.
 
 There are two built-in kinds of kvbsp material.
 
-* 'Standard' kvbsp materials. These are streamlined for 'main' materials which don't need BSP compiler customization. They still customize rendering and _maybe_ physics.
+* 'Standard' kvbsp materials. These are streamlined for 'main' materials which don't need explicit BSP compiler customization, just reasonably straightforward Unity things.
+	* There are preset 'compile modes' (presently just normal and transparent) to adjust how the BSP compiler behaves with the material.
 * 'Tool' materials. These are streamlined for 'tool' materials, which are _always nodraw at import time,_ though it may sometimes be of use to convince the BSP compiler they are actually drawn for other uses, such as concave collision.
 
 While you generally shouldn't make tool materials, both kinds of material config can be created via the 'create asset menu'. Alternatively, if a Unity material file exists (`.mat`) without a corresponding kvbsp metadata asset (`.asset`), kvbsp will automatically internally create a standard kvbsp material to wrap it (the file won't be saved).
@@ -61,10 +62,7 @@ If a KDCBSP material is found and the Unity material is None, triangles will not
 
 This is one of the two useful ways to use `common/sky` (the other being a skybox material, perhaps with a custom shader with emission).
 
-Notably, next to the found material, KDCBSP will also search for:
-
-* `32.png`: The 'icon'.
-* `32.wal_json`: Metadata for ericw-tools; decently safe to omit _unless_ the material is special to the BSP compiler. In modern kvbsp, this _usually_ means it should be a tool texture instead, unless the texture is transparent. (_**DEPRECATED.**_ This co-file will be replaced with an explicit enum in a few commits, possibly by the time you're reading this. Tool textures can still manually override, as can subclasses and so on...)
+Notably, next to the found material, KDCBSP will also search for `32.png` (the 'icon override' as mentioned earlier).
 
 ## Map Editing Tip: 'Leaks', `common/noclip`, and separation between maps
 

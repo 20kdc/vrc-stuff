@@ -27,8 +27,8 @@ namespace KDCVRCBSP {
 			return 100 + normal.y;
 		}
 
-		public override byte[] PAKGetWALJSON(string materialPath, string discoveryPath) {
-			return new UTF8Encoding(false).GetBytes(ericwToolsWALJson);
+		public override string PAKGetWALJSON(string materialPath, string discoveryPath) {
+			return ericwToolsWALJson;
 		}
 
 		public override string PAKGetQ3Shader(string materialPath, string discoveryPath) {

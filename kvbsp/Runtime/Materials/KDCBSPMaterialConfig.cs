@@ -40,6 +40,10 @@ namespace KDCVRCBSP {
 		[SerializeField]
 		public bool optForceDisableReflectionProbes = false;
 
+		[Tooltip("Controls the created .wal_json and such.")]
+		[SerializeField]
+		public BSPCompileMode bspCompileMode = BSPCompileMode.Normal;
+
 		private Vector2 UVSizeFromMaterial(Material m) {
 			Vector2 s = size;
 			if (s == Vector2.zero && m != null) {
@@ -82,6 +86,27 @@ namespace KDCVRCBSP {
 				}
 			}
 			return base.PAKGetTrenchBroomTextureSimple(materialPath, discoveryPath);
+		}
+
+		/// Gets the .wal_json file contents.
+		/// If null, no such file is made.
+		public override string PAKGetWALJSON(string materialPath, string discoveryPath) {
+			if (bspCompileMode == BSPCompileMode.Transparent)
+				return "{\"contents\": [\"WINDOW\"], \"flags\": [\"ALPHATEST\"]}";
+			return null;
+		}
+
+		/// Gets the Quake 3 shader contents.
+		/// The base implementation is usually useful.
+		public override string PAKGetQ3Shader(string materialPath, string discoveryPath) {
+			if (bspCompileMode == BSPCompileMode.Transparent)
+				return "surfaceparm trans\n" + base.PAKGetQ3Shader(materialPath, discoveryPath);
+			return base.PAKGetQ3Shader(materialPath, discoveryPath);
+		}
+
+		public enum BSPCompileMode : int {
+			Normal = 0,
+			Transparent = 1
 		}
 	}
 }
