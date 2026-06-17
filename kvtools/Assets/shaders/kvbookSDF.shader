@@ -5,6 +5,7 @@
 Shader "z 20kdc kvtools/kvbook SDF" {
 	Properties {
 		[NoScaleOffset] _MainTex("SDF Texture", 2D) = "white" {}
+		[Toggle] _WebFixup ("Web Fixup (Invert V)", int) = 0
 		[Toggle] _InversionSupport ("Inversion Support", int) = 0
 		_Inversion("Inversion", Range(0, 1)) = 0.0
 		_Bias("SDF Bias (default 0.5)", float) = 0.5
@@ -33,6 +34,7 @@ Shader "z 20kdc kvtools/kvbook SDF" {
 
 			#pragma shader_feature _ALPHAINRED_ON
 			#pragma shader_feature _TRUECOLOUR_ON
+			#pragma shader_feature _WEBFIXUP_ON
 			#pragma shader_feature _INVERSIONSUPPORT_ON
 
 			#pragma vertex vert
@@ -71,7 +73,11 @@ Shader "z 20kdc kvtools/kvbook SDF" {
 				UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
 				o.vertex = UnityObjectToClipPos(v.vertex);
 				o.colour = v.colour;
+#if _WEBFIXUP_ON
+				o.texcoord0 = float2(v.texcoord0.x, 1.0 - v.texcoord0.y);
+#else
 				o.texcoord0 = v.texcoord0;
+#endif
 				return o;
 			}
 

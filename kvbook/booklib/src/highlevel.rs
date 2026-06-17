@@ -151,7 +151,8 @@ pub fn atlas_pages(
 
 /// 'Web format' exporter.
 /// The format here is pretty simple:
-/// We always create a 2048x2048-sized image (first return), and a debug book.bytes (second return).
+/// We always create a 2048x2048-sized image (first return), raw pixels for VRC string downloader (second return), and a debug book.bytes (second return).
+/// (Really, this is a bit messy and has to do with attempts at different transportation methods in the reader development)
 /// We store book data starting at the top-left. The bytes, in pixel order, are the exact bytes of the .bytes datafile.
 /// The atlas we build is shifted down so that the bottom-most image nearly touches the bottom of the atlas (with a pixel for border).
 pub fn atlas_web(
@@ -159,7 +160,7 @@ pub fn atlas_web(
     sdf_shapes: &[AtlasableShape],
     pages: &[DBPage],
     progress: &dyn Progress,
-) -> Result<(Vec<u8>, Vec<u8>), String> {
+) -> Result<(Vec<u8>, Vec<u8>, Vec<u8>), String> {
     let mut pages_atlased: Vec<(u8, DBPage)> = Vec::new();
     let mut curr_atlas = AtlasBuilder::new(V2(2048, 8), sdf_shapes.len());
     curr_atlas.planner.web_mode = true;
@@ -230,7 +231,8 @@ pub fn atlas_web(
     assert_eq!(raw_data.len(), 2048 * 2048 * 4);
     // Install book data
     raw_data[0..book_data.len()].copy_from_slice(&book_data);
+    let raw_data_vec = raw_data.to_vec();
     // Turn into PNG
     let png_data = raster_png(&rendered_atlas);
-    Ok((png_data, book_data))
+    Ok((png_data, raw_data_vec, book_data))
 }

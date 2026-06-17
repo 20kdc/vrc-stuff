@@ -6,7 +6,7 @@ use std::sync::Mutex;
 static STAGE_CURRENT: Mutex<&'static str> = Mutex::new("");
 
 pub struct ProgressImpl {
-    pub quiet: bool
+    pub quiet: bool,
 }
 
 impl booklib::progress::Progress for ProgressImpl {

@@ -2,6 +2,7 @@ mod fileout;
 mod progress;
 mod render_svg;
 
+use base64::Engine;
 use booklib::atlas_builder::*;
 use booklib::docmodel::*;
 use booklib::highlevel;
@@ -373,7 +374,7 @@ fn main() {
         }
     }
     // -- options locked in --
-    let progress = ProgressImpl {quiet};
+    let progress = ProgressImpl { quiet };
     // end current volume
     inputs.push(InputNote::EndVolume(current_volume));
 
@@ -493,7 +494,8 @@ fn main() {
         let res = highlevel::atlas_web(metadata_override, &sdf_shapes, &pages, &progress)
             .expect("web should succeed");
         outdir.write("atlas.0.png", res.0);
-        outdir.write("book.bytes", res.1);
+        outdir.write("webbook.bytes", res.1);
+        outdir.write("book.bytes", res.2);
     } else {
         // -- Atlasing --
         progress.stage("atlasing...");
