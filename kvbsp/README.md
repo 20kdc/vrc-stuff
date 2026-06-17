@@ -1,3 +1,5 @@
+<!-- THIS FILE IS AUTOMATICALLY COPIED TO site/mdbook/src/bsp.md FROM kvbsp/README.md -->
+
 # Quake BSP Import
 
 This Quake 1/2/3/GoldSrc BSP importer allows creating static world geometry with, i.e. TrenchBroom and a more recent `ericw-tools` (such as one of the 2.0.0 alpha releases from <https://github.com/ericwa/ericw-tools/releases>).

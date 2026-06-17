@@ -2,6 +2,9 @@
 
 rm -rf out
 
+# bsp fixup
+cp ../kvbsp/README.md mdbook/src/bsp.md
+
 # mdbook runs first, creating the 'base structure'
 cd mdbook
 mdbook build
