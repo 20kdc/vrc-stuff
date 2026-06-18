@@ -33,14 +33,7 @@ impl UdonAnnotatedRawProgram {
     }
     pub fn to_udonjson(&self) -> Result<JsonValue, String> {
         // see udonprogram_emit_odin
-        let stage1_file = {
-            let mut builder = OdinASTBuilder::default();
-            let val = OdinSTSerializable::serialize(&self.program, &mut builder);
-            builder.file.root.push(OdinASTEntry::uval(val));
-            builder.file
-        };
-
-        let udon_binary = OdinEntry::write_all_to_bytes(&stage1_file.to_entry_vec());
+        let udon_binary = self.program.serialize_bytes();
 
         let mut gz_encoder =
             flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
@@ -116,15 +109,7 @@ impl UdonAnnotatedRawProgram {
             .map_err(|v| format!("{:?}", v))?;
         let udon_binary = gz_decoder.finish().map_err(|v| format!("{:?}", v))?;
 
-        let entries =
-            OdinEntry::read_all_from_slice(&udon_binary).map_err(|v| format!("{:?}", v))?;
-
-        let file = OdinASTFile::from_entries(entries);
-        let root_val = file
-            .get_root_value()
-            .ok_or_else(|| format!("udonjson serialized program has no root value"))?;
-
-        let program: UdonRawProgram = OdinSTDeserializable::deserialize(&file.refs, root_val)?;
+        let program: UdonRawProgram = OdinSTDeserializable::deserialize_bytes(&udon_binary)?;
 
         let mut finale: Self = Self::from_unannotated(program);
 

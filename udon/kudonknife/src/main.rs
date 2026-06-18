@@ -141,15 +141,8 @@ impl Format {
             }
             Self::Coredump => {
                 let odin_data = get_filebin("coredump input", args)?;
-                let entries = OdinEntry::read_all_from_slice(&odin_data)
-                    .map_err(|err| format!("{:?}", err))?;
-                let file = kudonodin::OdinASTFile::from_entries(entries);
-                let root_val = file
-                    .get_root_value()
-                    .expect("file should have a single root");
                 let core_dump: kudonast::UdonCoreDump =
-                    OdinSTDeserializable::deserialize(&file.refs, root_val)
-                        .expect("must deserialize");
+                    OdinSTDeserializable::deserialize_bytes(&odin_data)?;
                 // update coredump state
                 // this allows the disassembly to act as a coherent read of most VM state
                 // (which is the only reason you'd do this)

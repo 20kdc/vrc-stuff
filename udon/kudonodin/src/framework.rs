@@ -13,6 +13,16 @@ pub trait OdinSTDeserializable: Sized {
     fn deserialize_insert(insert: &OdinASTInsert) -> Result<Self, String> {
         Self::deserialize(&insert.refs, &insert.root)
     }
+
+    /// Convenience function, do not override. Deserializes from a byte array.
+    fn deserialize_bytes(bytes: &[u8]) -> Result<Self, String> {
+        let entries = OdinEntry::read_all_from_slice(bytes).map_err(|err| format!("{:?}", err))?;
+        let file = OdinASTFile::from_entries(entries);
+        let root_val = file
+            .get_root_value()
+            .ok_or_else(|| "no root value".to_string())?;
+        OdinSTDeserializable::deserialize(&file.refs, root_val)
+    }
 }
 
 /// Serializable.
@@ -20,6 +30,14 @@ pub trait OdinSTDeserializable: Sized {
 /// OdinSerializer serializes in a depth-first manner.
 pub trait OdinSTSerializable {
     fn serialize(&self, builder: &mut OdinASTBuilder) -> OdinASTValue;
+
+    /// Convenience function, do not override. Serializes to a byte array.
+    fn serialize_bytes(&self) -> Vec<u8> {
+        let mut builder = OdinASTBuilder::default();
+        let val = self.serialize(&mut builder);
+        builder.file.root.push(OdinASTEntry::uval(val));
+        OdinEntry::write_all_to_bytes(&builder.file.to_entry_vec())
+    }
 }
 
 /// Implements [OdinSTDeserializable] for reference types.

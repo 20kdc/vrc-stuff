@@ -4,14 +4,8 @@ fn main() {
     let filename = args.next().expect("filename arg must be passed");
     assert!(args.next().is_none());
     let res = std::fs::read(filename).expect("file must be readable");
-    let entries = kudonodin::OdinEntry::read_all_from_slice(&res).expect("decode must succeed");
-    let file = kudonodin::OdinASTFile::from_entries(entries);
-    let root_val = file
-        .get_root_value()
-        .expect("file should have a single root");
     let core_dump: kudonast::UdonCoreDump =
-        kudonodin::OdinSTDeserializable::deserialize(&file.refs, root_val)
-            .expect("must deserialize");
+        kudonodin::OdinSTDeserializable::deserialize_bytes(&res).expect("must deserialize");
     let pcfg = ron::ser::PrettyConfig::new().indentor("\t");
     println!(
         "{}",
