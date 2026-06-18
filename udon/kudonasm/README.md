@@ -1,7 +1,5 @@
 # `kudonasm`: Udon Assembly, No Not That One
 
-**This is mostly TODO right now, so you can think of it as a wishlist.**
-
 `kudonasm`'s purpose is to implement an embeddable (inline-friendly) Udon assembler with a few tricks the original doesn't know.
 
 The goals are:
@@ -192,14 +190,14 @@ Notably, this occurs **at the specific point in assembly this directive is used.
 To explain why this is necessary, the following wouldn't work:
 
 ```
-Var(Routine, public, string("example"))
+var(Routine, public, string("example"))
 public(Routine)
 ```
 
 But the following would:
 
 ```
-Var(Routine_data, public, string("example"))
+var(Routine_data, public, string("example"))
 public(Routine_code)
 rename_sym(Routine_data, "Routine")
 rename_sym(Routine_code, "Routine")

@@ -25,11 +25,6 @@ sync (message, none)
 // there is a default equate "_" with value 0
 equ (addition_a, I(123))
 equ (addition_b, ADD(addition_a, I(456)))
-
-// equ_str (symbol, affinity, value)
-// the affinity can be data/extern/char/error to control how strings are interpreted
-// equ alone uses 'error' affinity
-// operands of opcodes use 'data' except for jump/jump_if_false=error, and extern=extern
 equ (other_message, C(string("Hello, world!")))
 equ (ext_log, EXT("UnityEngineDebug.__Log__SystemObject__SystemVoid"))
 // code labels use the access as their opening keyword, except 'internal' can also be '_'

@@ -1,5 +1,6 @@
 use super::*;
 use json::JsonValue;
+use kudoninfo::udontype_syncmap;
 use serde::{Deserialize, Serialize};
 use std::io::Write;
 
@@ -40,10 +41,9 @@ impl UdonAnnotatedRawProgram {
         };
 
         let udon_binary = OdinEntry::write_all_to_bytes(&stage1_file.to_entry_vec());
-        let final_binary = Vec::new();
 
         let mut gz_encoder =
-            flate2::write::GzEncoder::new(final_binary, flate2::Compression::default());
+            flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
         gz_encoder
             .write_all(&udon_binary)
             .map_err(|v| format!("{:?}", v))?;
@@ -100,10 +100,66 @@ impl UdonAnnotatedRawProgram {
         outer_object["MonoBehaviour"] = monobehaviour;
         Ok(outer_object)
     }
-    pub fn from_udonjson(_json: &JsonValue) -> Result<Self, String> {
-        Err(format!(
-            "JSON to UdonAnnotatedRawProgram is not yet implemented."
-        ))
+    pub fn from_udonjson(json: &JsonValue) -> Result<Self, String> {
+        let json = &json["MonoBehaviour"];
+
+        let mut encoded: Vec<u8> = Vec::new();
+        for byte in json["serializedProgramCompressedBytes"].members() {
+            if let Some(b) = byte.as_u8() {
+                encoded.push(b);
+            }
+        }
+
+        let mut gz_decoder = flate2::write::GzDecoder::new(Vec::new());
+        gz_decoder
+            .write_all(&encoded)
+            .map_err(|v| format!("{:?}", v))?;
+        let udon_binary = gz_decoder.finish().map_err(|v| format!("{:?}", v))?;
+
+        let entries =
+            OdinEntry::read_all_from_slice(&udon_binary).map_err(|v| format!("{:?}", v))?;
+
+        let file = OdinASTFile::from_entries(entries);
+        let root_val = file
+            .get_root_value()
+            .ok_or_else(|| format!("udonjson serialized program has no root value"))?;
+
+        let program: UdonRawProgram = OdinSTDeserializable::deserialize(&file.refs, root_val)?;
+
+        let mut finale: Self = Self::from_unannotated(program);
+
+        for ueo in json["programUnityEngineObjects"].members() {
+            let guid = ueo["guid"].as_str().unwrap_or("").to_string();
+            let file_id = ueo["fileID"].as_i64().unwrap_or(0);
+            finale.unity_obj.push(UdonUnityObject::Ref(guid, file_id));
+        }
+
+        let syncmap = udontype_syncmap();
+
+        for nce in json["networkCallingEntrypointMetadata"].members() {
+            let mut ncd = UdonNetworkCallMetadata {
+                name: nce["_name"].as_str().unwrap_or("").to_string(),
+                max_events_per_second: nce["_maxEventsPerSecond"].as_i32().unwrap_or(0),
+                parameters: Vec::new(),
+            };
+
+            for p in nce["_parameter"].members() {
+                let name = p["_name"].as_str().unwrap_or("");
+                let sync_type = p["_type"].as_i32().unwrap_or(-1);
+                let udon_type: UdonTypeRef =
+                    UdonTypeRef::C(syncmap.get(&sync_type).ok_or_else(|| {
+                        format!(
+                            "network {} parameter {} is synctype {} which does not exist",
+                            ncd.name, name, sync_type
+                        )
+                    })?);
+                ncd.parameters.push((name.to_string(), udon_type));
+            }
+
+            finale.network_call_metadata.push(ncd);
+        }
+
+        Ok(finale)
     }
 }
 

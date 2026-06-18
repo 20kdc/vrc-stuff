@@ -81,6 +81,7 @@ kudonknife-checks:
 	cargo run --bin kudonknife coredump kudonast/src/exampleError.odin.bin odinron /media/ramdisk/exampleError.ron
 	cargo run --bin kudonknife coredump kudonast/src/exampleError.odin.bin uasm /media/ramdisk/exampleError.uasm
 	cargo run --bin kudonknife odinbin kudonast/src/docExample.odin.bin uasm /media/ramdisk/docExample.uasm
+	cargo run --bin kudonknife udonjson ../kvassets/Assets/science.udonjson uasm /media/ramdisk/science.uasm
 
 # -- CLEAN --
 

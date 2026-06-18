@@ -67,6 +67,7 @@ impl std::fmt::Debug for UdonType {
 
 static UDONTYPE_MAP: OnceLock<BTreeMap<String, UdonType>> = OnceLock::new();
 static UDONTYPE_ODINMAP: OnceLock<BTreeMap<String, &'static UdonType>> = OnceLock::new();
+static UDONTYPE_SYNCMAP: OnceLock<BTreeMap<i32, &'static UdonType>> = OnceLock::new();
 static UDONTYPE_MAXLEN: OnceLock<usize> = OnceLock::new();
 
 /// Gets an [UdonType] [BTreeMap].
@@ -123,6 +124,21 @@ pub fn udontype_odinmap() -> &'static BTreeMap<String, &'static UdonType> {
         let basemap = udontype_map();
         for v in basemap {
             hm.insert(v.1.odin_name.to_string(), v.1);
+        }
+        hm
+    })
+}
+
+/// Gets an [UdonType] [BTreeMap].
+/// This maps the synctype to the corresponding [UdonType].
+pub fn udontype_syncmap() -> &'static BTreeMap<i32, &'static UdonType> {
+    UDONTYPE_SYNCMAP.get_or_init(|| {
+        let mut hm: BTreeMap<i32, &'static UdonType> = BTreeMap::new();
+        let basemap = udontype_map();
+        for v in basemap {
+            if let Some(st) = v.1.sync_type {
+                hm.insert(st, v.1);
+            }
         }
         hm
     })

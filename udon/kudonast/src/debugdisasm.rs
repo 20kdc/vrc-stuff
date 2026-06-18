@@ -128,6 +128,7 @@ pub fn udonannotatedrawprogram_disassemble(raw_program: &UdonAnnotatedRawProgram
         }
     }
     program.data.truncate(valid_heap_index_count);
+    program.min_heap_capacity = Some(raw_program.program.heap.0.len() as u32);
     // code symbols
     let mut exported_code: BTreeSet<String> = Default::default();
     for v in &raw_program.program.entry_points.exported_symbols {
