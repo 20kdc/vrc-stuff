@@ -2,7 +2,7 @@ use crate::{UdonDBEntry, UdonDBRef, udondbentry_impl, udondbref_getters};
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 use std::collections::BTreeMap;
-use std::sync::OnceLock;
+use std::sync::{Arc, OnceLock};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum UdonTypeKind {
@@ -66,6 +66,7 @@ impl std::fmt::Debug for UdonType {
 }
 
 static UDONTYPE_MAP: OnceLock<BTreeMap<String, UdonType>> = OnceLock::new();
+static UDONTYPE_ODINMAP: OnceLock<BTreeMap<String, &'static UdonType>> = OnceLock::new();
 static UDONTYPE_MAXLEN: OnceLock<usize> = OnceLock::new();
 
 /// Gets an [UdonType] [BTreeMap].
@@ -114,6 +115,19 @@ pub fn udontype_map() -> &'static BTreeMap<String, UdonType> {
     })
 }
 
+/// Gets an [UdonType] [BTreeMap].
+/// This maps the Odin type name to the corresponding [UdonType].
+pub fn udontype_odinmap() -> &'static BTreeMap<String, &'static UdonType> {
+    UDONTYPE_ODINMAP.get_or_init(|| {
+        let mut hm: BTreeMap<String, &'static UdonType> = BTreeMap::new();
+        let basemap = udontype_map();
+        for v in basemap {
+            hm.insert(v.1.odin_name.to_string(), v.1);
+        }
+        hm
+    })
+}
+
 /// Maximum type name length.
 pub fn udontype_maxlen() -> usize {
     *UDONTYPE_MAXLEN.get_or_init(|| {
@@ -133,4 +147,21 @@ macro_rules! udontyperef {
     ($id:ident) => {
         (kudoninfo::udontyperef_get(stringify!($id)).unwrap())
     };
+}
+
+/// Attempts to always create a valid UdonType. Infers from Odin if required.
+/// The inference will hopefully be improved over time; currently it gives an invalid Udon type name.
+pub fn udontyperef_from_odin(ty: &str) -> UdonTypeRef {
+    if let Some(ty) = udontype_odinmap().get(ty) {
+        UdonTypeRef::C(ty)
+    } else {
+        // no valid type here, so fake it
+        UdonTypeRef::R(Arc::new(UdonType {
+            sync_type: None,
+            kind: UdonTypeKind::Object,
+            enum_values: None,
+            name: Cow::Owned(ty.to_string()),
+            odin_name: Cow::Owned(ty.to_string()),
+        }))
+    }
 }

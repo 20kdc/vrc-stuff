@@ -435,6 +435,11 @@ pub use uasm_writer::*;
 mod emit_uasm;
 pub use emit_uasm::*;
 
+// debug disassembler
+
+mod debugdisasm;
+pub use debugdisasm::*;
+
 // tests
 
 #[cfg(test)]

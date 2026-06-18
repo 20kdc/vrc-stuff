@@ -1,6 +1,31 @@
 use crate::*;
 use crate::{UdonRawSymbol, UdonRawSymbolTable};
 
+/// This thing as something serializable.
+pub struct UdonGameObjectComponentHeapReference(pub String);
+impl OdinSTSerializableRefType for UdonGameObjectComponentHeapReference {
+    fn serialize(&self, builder: &mut OdinASTBuilder) -> OdinASTStruct {
+        let this_replacement = udontyperef!(VRCUdonCommonUdonGameObjectComponentHeapReference);
+        let rt = builder.runtime_type(&self.0);
+        OdinASTStruct(
+            Some(this_replacement.odin_name.to_string()),
+            vec![OdinASTEntry::uval(OdinASTValue::InternalRef(rt))],
+        )
+    }
+}
+impl OdinSTDeserializableRefType for UdonGameObjectComponentHeapReference {
+    fn deserialize(src: &OdinASTRefMap, val: &OdinASTStruct) -> Result<Self, String> {
+        let this_replacement = udontyperef!(VRCUdonCommonUdonGameObjectComponentHeapReference);
+        let res = val.unwrap_fixed_type(&this_replacement.odin_name, 1)?;
+        if let OdinASTEntry::Value(_, val) = &res[0] {
+            let runtime_type: OdinSTRuntimeType = OdinSTDeserializable::deserialize(src, val)?;
+            Ok(Self(runtime_type.0))
+        } else {
+            Err("entry is weird".to_string())
+        }
+    }
+}
+
 /// Translates UdonHeapValue to OdinASTValue.
 pub fn udonheapval_emit_odin(
     val: &UdonHeapSlot,
@@ -35,24 +60,17 @@ pub fn udonheapval_emit_odin(
             "System.Type, mscorlib".to_string(),
             OdinASTInsert::build(|builder| OdinSTRuntimeType(ty.clone()).serialize(builder)),
         )),
-        UdonHeapValue::This => {
-            let this_replacement = udontyperef!(VRCUdonCommonUdonGameObjectComponentHeapReference);
-            Ok((
-                this_replacement.odin_name.to_string(),
-                OdinASTInsert::build(|builder| {
-                    let ref_id = builder.alloc_refid();
-                    let rt = builder.runtime_type(&val.0.odin_name);
-                    builder.file.refs.insert(
-                        ref_id,
-                        OdinASTStruct(
-                            Some(this_replacement.odin_name.to_string()),
-                            vec![OdinASTEntry::uval(OdinASTValue::InternalRef(rt))],
-                        ),
-                    );
-                    OdinASTValue::InternalRef(ref_id)
-                }),
-            ))
-        }
+        UdonHeapValue::This => Ok((
+            udontyperef!(VRCUdonCommonUdonGameObjectComponentHeapReference)
+                .odin_name
+                .to_string(),
+            OdinASTInsert::build(|builder| {
+                OdinSTSerializable::serialize(
+                    &UdonGameObjectComponentHeapReference(val.0.odin_name.to_string()),
+                    builder,
+                )
+            }),
+        )),
         UdonHeapValue::OdinASTInsert(insert) => {
             let mut subbuilder = OdinASTBuilder::default();
             let incres = subbuilder

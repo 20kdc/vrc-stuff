@@ -27,9 +27,7 @@ impl Intermediate {
     fn into_program(self) -> Result<kudonast::UdonProgram, String> {
         match self {
             Self::UdonProgram(udonprogram) => Ok(udonprogram),
-            Self::UdonRawProgram(_res) => {
-                Err(format!("can't convert raw program to regular program yet"))
-            }
+            Self::UdonRawProgram(res) => Ok(udonannotatedrawprogram_disassemble(&res)),
         }
     }
     fn into_raw_program(self) -> Result<kudonast::UdonAnnotatedRawProgram, String> {
@@ -174,7 +172,7 @@ impl Format {
     fn output(&self, args: &mut std::env::Args, src: Intermediate) -> Result<(), String> {
         match self {
             Self::KU2 => {
-                // would be nice, but no
+                return Err(format!("ku2 can't be output"));
             }
             Self::OdinAST { binary } => {
                 let rawprogram = src.into_raw_program()?;
@@ -206,14 +204,17 @@ impl Format {
             Self::UdonAssembly => {
                 let program = src.into_program()?;
                 let uasm_writer = UASMWriter::default();
-                udonprogram_emit_uasm(&program, &uasm_writer)?;
+                let issues = udonprogram_emit_uasm(&program, &uasm_writer);
+                if let Err(err) = issues {
+                    println!("{}", err);
+                }
                 get_fileout("odinast output", args, uasm_writer.to_string())?;
             }
             Self::Coredump => {
-                // doesn't make sense
+                return Err(format!("coredumps can't be output"));
             }
         }
-        return Err(format!("format {:?} does not support output", self));
+        Ok(())
     }
 }
 

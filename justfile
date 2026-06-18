@@ -76,6 +76,12 @@ datamine2json:
 kvbook-cargo-about:
 	cd kvbook/drawbook ; cargo about generate about.hbs > about.html
 
+[working-directory: 'udon']
+kudonknife-checks:
+	cargo run --bin kudonknife coredump kudonast/src/exampleError.odin.bin odinron /media/ramdisk/exampleError.ron
+	cargo run --bin kudonknife coredump kudonast/src/exampleError.odin.bin uasm /media/ramdisk/exampleError.uasm
+	cargo run --bin kudonknife odinbin kudonast/src/docExample.odin.bin uasm /media/ramdisk/docExample.uasm
+
 # -- CLEAN --
 
 clean:

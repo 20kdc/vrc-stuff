@@ -36,9 +36,13 @@ impl From<OdinASTStruct> for OdinASTValue {
 impl OdinASTValue {
     /// Remaps internal and external references.
     /// If an unexpected internal reference appears, the source ID is returned. (The structure will be left half-transformed.)
-    /// Also adds a fixed number to external indexed references.
+    /// Also allows adjusting external indexed references.
     /// If the internal reference map is missing, then those are not remapped and errors are impossile.
-    pub fn remap_refs(&mut self, map: Option<&HashMap<i32, i32>>, extbump: i32) -> Result<(), i32> {
+    pub fn remap_refs(
+        &mut self,
+        map: Option<&HashMap<i32, i32>>,
+        extbump: &mut Option<&mut dyn FnMut(i32) -> i32>,
+    ) -> Result<(), i32> {
         match self {
             OdinASTValue::InternalRef(v) => {
                 if let Some(map) = map {
@@ -53,7 +57,9 @@ impl OdinASTValue {
                 }
             }
             OdinASTValue::ExternalRefIdx(idx) => {
-                *idx += extbump;
+                if let Some(extbump) = extbump {
+                    *idx = extbump(*idx);
+                }
                 Ok(())
             }
             OdinASTValue::Struct(content) => {
@@ -407,7 +413,11 @@ impl OdinASTEntry {
     /// Remaps all internal references.
     /// If an unexpected internal reference appears, the source ID is returned. (The structure will be left half-transformed.)
     /// Also bumps external indexed references.
-    pub fn remap_refs(&mut self, map: Option<&HashMap<i32, i32>>, extbump: i32) -> Result<(), i32> {
+    pub fn remap_refs(
+        &mut self,
+        map: Option<&HashMap<i32, i32>>,
+        extbump: &mut Option<&mut dyn FnMut(i32) -> i32>,
+    ) -> Result<(), i32> {
         match self {
             Self::Value(_, content) => content.remap_refs(map, extbump),
             Self::PrimitiveArray(_) => Ok(()),
@@ -527,7 +537,7 @@ impl OdinASTFile {
         let mut new_refs = OdinASTRefMap::new();
         while let Some(mut res) = self.refs.pop_first() {
             for v in &mut res.1.1 {
-                v.remap_refs(Some(&remap), 0)?;
+                v.remap_refs(Some(&remap), &mut None)?;
             }
             new_refs.insert(
                 *remap
@@ -537,7 +547,7 @@ impl OdinASTFile {
             );
         }
         for v in &mut self.root {
-            v.remap_refs(Some(&remap), 0)?;
+            v.remap_refs(Some(&remap), &mut None)?;
         }
         Ok((
             Self {
@@ -635,7 +645,7 @@ impl OdinASTInsert {
             root: vec![],
         })?;
         let mut root = self.root;
-        root.remap_refs(Some(&f.1), 0)?;
+        root.remap_refs(Some(&f.1), &mut None)?;
         Ok((
             Self {
                 refs: f.0.refs,
@@ -736,7 +746,7 @@ impl OdinASTBuilder {
         }
         while let Some(mut res) = refmap.pop_first() {
             for v in &mut res.1.1 {
-                v.remap_refs(Some(&remap), extid_base)?;
+                v.remap_refs(Some(&remap), &mut Some(&mut |extid| extid + extid_base))?;
             }
             self.file.refs.insert(
                 *remap
@@ -756,7 +766,7 @@ impl OdinASTBuilder {
     ) -> Result<(Vec<OdinASTEntry>, HashMap<i32, i32>), i32> {
         let remap: HashMap<i32, i32> = self.include_refs(file.refs, extid_base)?;
         for v in &mut file.root {
-            v.remap_refs(Some(&remap), extid_base)?;
+            v.remap_refs(Some(&remap), &mut Some(&mut |extid| extid + extid_base))?;
         }
         Ok((file.root, remap))
     }
@@ -768,7 +778,8 @@ impl OdinASTBuilder {
         extid_base: i32,
     ) -> Result<(OdinASTValue, HashMap<i32, i32>), i32> {
         let remap: HashMap<i32, i32> = self.include_refs(file.refs, extid_base)?;
-        file.root.remap_refs(Some(&remap), extid_base)?;
+        file.root
+            .remap_refs(Some(&remap), &mut Some(&mut |extid| extid + extid_base))?;
         Ok((file.root, remap))
     }
 }
