@@ -3,7 +3,6 @@ for (var key in UDON_API["types"])
 	if (key.length > window.UDONTYPE_MAXLEN)
 		window.UDONTYPE_MAXLEN = key.length;
 
-
 /// Parses the ID of an extern.
 /// @param {string} src
 function udonExternIDParse(src) {
@@ -166,4 +165,33 @@ function udonExternType(eName) {
 		}
 	}
 	return null;
+}
+
+function udonTypeBreakdown(ty) {
+	var odinName = ty["odin_name"];
+	var assemblySplit = odinName.lastIndexOf(",");
+	var netType = odinName;
+	var assembly = "";
+	if (assemblySplit != -1) {
+		netType = odinName.substring(0, assemblySplit).trim();
+		assembly = odinName.substring(assemblySplit + 1).trim();
+	}
+	var netTypeGenSplit = netType.indexOf("`");
+	var netTypeNoGenerics = netType;
+	if (netTypeGenSplit != -1) {
+		netTypeNoGenerics = netType.substring(0, netTypeGenSplit);
+	}
+	var shortName = netTypeNoGenerics;
+	var netTypeNoGenericsDot = netTypeNoGenerics.lastIndexOf(".");
+	if (netTypeNoGenericsDot != -1) {
+		shortName = netTypeNoGenerics.substring(netTypeNoGenericsDot + 1);
+	}
+	return {
+		udonType: ty["name"],
+		odinName,
+		netType,
+		netTypeNoGenerics,
+		shortName,
+		assembly
+	};
 }

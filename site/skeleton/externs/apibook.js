@@ -1,74 +1,66 @@
 window.bookInitialized = false;
 
-function bFindDoc(tName) {
-	if (tName.endsWith("Array")) {
-		return "https://learn.microsoft.com/en-us/dotnet/api/system.array?view=netframework-4.8.1";
-	}
-	if (tName.startsWith("VRCEconomy"))
-		return "https://creators.vrchat.com/economy/sdk/udon-documentation";
-	if (tName == "VRCSDK3ComponentsVRCOpenMenu")
-		return "https://creators.vrchat.com/economy/sdk/udon-documentation";
-	if (tName.startsWith("VRC"))
-		return "https://udonsharp.docs.vrchat.com/vrchat-api/";
-	return null;
-/*
-	fn unity_package_handler(what: &UdonType, pid: &str) -> String {
-		let mut adjustment = what.unqualified().to_string();
-		adjustment = adjustment.replace("[]", "");
-		adjustment = adjustment.replace("+", ".");
-		format!(
-			"https://docs.unity3d.com/Packages/{}/api/{}.html",
-			pid, adjustment
-		)
+function bFindDocPackage(breakdown, pid) {
+	var adj = breakdown.netTypeNoGenerics;
+	return "https://docs.unity3d.com/Packages/" + pid + "/api/" + adj + ".html";
+}
+
+function bFindDoc(ty) {
+	var breakdown = udonTypeBreakdown(ty);
+
+	// too early and `CinemachineICinemachineTargetGroup` fails
+	// too late and it's moved to 'Unity' namespace
+	if (breakdown.assembly == "Cinemachine")
+		return bFindDocPackage(breakdown, "com.unity.cinemachine@2.10");
+
+	if (breakdown.assembly == "Unity.AI.Navigation")
+		return bFindDocPackage(breakdown, "com.unity.ai.navigation@1.1");
+
+	if (breakdown.assembly == "Unity.TextMeshPro")
+		return bFindDocPackage(breakdown, "com.unity.ugui@2.0");
+
+	if (breakdown.assembly == "Unity.Postprocessing.Runtime")
+		return bFindDocPackage(breakdown, "com.unity.postprocessing@2.0");
+
+	if (breakdown.udonType.endsWith("Array"))
+		return "https://learn.microsoft.com/en-us/dotnet/api/system.array?view=netstandard-2.1";
+
+	if (breakdown.udonType == "VRCEconomyStore")
+		return "https://creators.vrchat.com/economy/sdk/udon-documentation/#methods";
+
+	if (breakdown.udonType == "VRCSDK3ComponentsVRCOpenMenu")
+		return "https://creators.vrchat.com/economy/sdk/udon-documentation/#vrcopenmenuopenavatarlisting";
+
+	if (breakdown.udonType.startsWith("VRCEconomy"))
+		return "https://creators.vrchat.com/economy/sdk/udon-documentation/#" + breakdown.shortName.toLowerCase();
+
+	if (breakdown.assembly.startsWith("VRC")) {
+		var almostReady = breakdown.shortName.toLowerCase().replaceAll("[]", "");
+		var almostReadyPlusIdx = almostReady.lastIndexOf("+");
+		if (almostReadyPlusIdx != -1)
+			almostReady = almostReady.substring(almostReadyPlusIdx + 1);
+		return "https://udonsharp.docs.vrchat.com/vrchat-api/#" + almostReady;
 	}
 
-	fn find_documentation_for(what: &UdonType) -> String {
-		let asm = what.assembly();
-		if asm.eq("Cinemachine") {
-			unity_package_handler(what, "com.unity.cinemachine@2.3")
-		} else if asm.eq("Unity.AI.Navigation") {
-			unity_package_handler(what, "com.unity.ai.navigation@1.1")
-		} else if asm.eq("Unity.TextMeshPro") {
-			unity_package_handler(what, "com.unity.ugui@2.0")
-		} else if asm.eq("Unity.Postprocessing.Runtime") {
-			unity_package_handler(what, "com.unity.postprocessing@2.0")
-		} else if asm.eq("VRCEconomy") || what.name.as_str().eq("VRCSDK3ComponentsVRCOpenMenu") {
-			"https://creators.vrchat.com/economy/sdk/udon-documentation".to_string()
-		} else if asm.starts_with("VRC") {
-			let mut name = what.short_name().to_ascii_lowercase().replace("[]", "");
-			if let Some(ptr) = name.find("+") {
-				name = name[ptr + 1..].to_string();
-			}
-			format!("https://udonsharp.docs.vrchat.com/vrchat-api/#{}", name)
-		} else if asm.starts_with("Unity") {
-			let mut adjustment = what.unqualified().to_string();
-			adjustment = adjustment
-				.strip_prefix("UnityEngine.")
-				.unwrap_or(adjustment.as_str())
-				.to_string();
-			adjustment = adjustment.replace("+", ".");
-			adjustment = adjustment.replace("[]", "");
-			format!(
-				"https://docs.unity3d.com/2022.3/Documentation/ScriptReference/{}.html",
-				adjustment
-			)
-		} else if asm.eq("mscorlib") || asm.eq("Collections") || asm.eq("System") {
-			if what.kind == UdonTypeKind::Array {
-				// wrong version, but close enough
-				"https://learn.microsoft.com/en-us/dotnet/api/system.array?view=net-10.0".to_string()
-			} else {
-				let mut adjustment = what.unqualified().to_lowercase();
-				adjustment = adjustment.replace("+", ".");
-				format!(
-					"https://learn.microsoft.com/en-us/dotnet/api/{}?view=net-10.0",
-					adjustment
-				)
-			}
-		} else {
-			"UNKNOWN".to_string()
-		}
+	if (breakdown.assembly.startsWith("Unity")) {
+		var almostReady = breakdown.netTypeNoGenerics;
+		if (almostReady.startsWith("UnityEngine."))
+			almostReady = almostReady.substring(12);
+		almostReady = almostReady.replaceAll("+", ".");
+		almostReady = almostReady.replaceAll("[]", "");
+		return "https://docs.unity3d.com/2022.3/Documentation/ScriptReference/" + almostReady + ".html";
 	}
-*/
+
+	if (breakdown.assembly == "mscorlib" || breakdown.assembly == "System") {
+		var adjustment = breakdown.netTypeNoGenerics.toLowerCase();
+		adjustment = adjustment.replaceAll("+", ".");
+		// 'fix' generics
+		var genericFixPos = breakdown.netType.indexOf("`");
+		if (genericFixPos != -1)
+			adjustment += "-" + breakdown.netType.substring(genericFixPos + 1, genericFixPos + 2);
+		return "https://learn.microsoft.com/en-us/dotnet/api/" + adjustment + "?view=netstandard-2.1";
+	}
+	return null;
 }
 
 function BCopyable(text, href) {
@@ -105,7 +97,7 @@ function BType(tName) {
 				baseList.push(", ");
 			baseList.push(h("a", {href: "#type:" + baseTy}, h("code", baseTy)));
 		}
-		var doc = bFindDoc(tName);
+		var doc = bFindDoc(ty);
 		res.push(h("div", {id: "typeHeader", className: "typeIntro"}, [
 			h("h2", "Type ", BCopyable(tName)),
 			h("p", "Kind: ", h("code", ty["kind"])),
