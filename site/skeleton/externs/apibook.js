@@ -63,6 +63,12 @@ function bFindDoc(ty) {
 	return null;
 }
 
+function doScroll(id) {
+	var obj = document.getElementById(id);
+	if (obj && obj.scrollIntoView)
+		obj.scrollIntoView();
+}
+
 function BCopyable(text, href) {
 	return h(
 		"span",
@@ -75,6 +81,12 @@ function BCopyable(text, href) {
 
 function BTypeList() {
 	var list = h("ul");
+	list.appendChild(h("li",
+		h("a",
+			{href: "#events"},
+			"event list"
+		)
+	));
 	for (var key in UDON_API["types"]) {
 		list.appendChild(h("li",
 			BCopyable(key, "#type:" + key)
@@ -112,7 +124,7 @@ function BType(tName) {
 		]));
 		if (ty["enum_values"]) {
 			res.push(h("h2", "Enum Values"));
-			for (let key in ty["enum_values"]) {
+			for (var key in ty["enum_values"]) {
 				res.push(h("p", h("code", key + " = " + ty["enum_values"][key])));
 			}
 		}
@@ -150,6 +162,28 @@ function BType(tName) {
 	}
 }
 
+function BEvent(tName) {
+	var ty = UDON_API["events"][tName];
+	if (ty) {
+		var extRes = [];
+		extRes.push(h("h3", {id: "event:" + tName}, BCopyable(tName, "#event:" + tName)));
+		var extParams = [];
+		for (var i = 0; i < ty["parameters"].length; i++) {
+			var p = ty["parameters"][i];
+			extParams.push(h("li",
+				BCopyable(p[0] + ": %" + p[1], "#type:" + p[1])
+			));
+		}
+		extRes.push(h("ul"), extParams);
+		return h("div", {className: "genericIntro"}, extRes);
+	} else {
+		return [
+			h("h2", "Oopsie!"),
+			h("p", "The event you're looking for (", h("code", tName), ") ", h("i", "doesn't exist!"))
+		];
+	}
+}
+
 function bNav(hash) {
 	console.log("navigate: " + hash);
 
@@ -162,7 +196,7 @@ function bNav(hash) {
 	if (hash.startsWith("#type:")) {
 		var tName = hash.substring(6);
 		hAppend(elmView, BType(tName));
-		document.getElementById("typeHeader").scrollIntoView();
+		doScroll("typeHeader");
 	} else if (hash.startsWith("#extern:")) {
 		var eName = hash.substring(8);
 		var tName = udonExternType(eName);
@@ -172,7 +206,7 @@ function bNav(hash) {
 			hAppend(elmView, h("p", "unknown extern, sorry!"));
 		}
 		// very hacky :3
-		document.getElementById(hash.substring(1)).scrollIntoView();
+		doScroll(hash.substring(1));
 	} else if (hash.startsWith("#search:")) {
 		var searchText = hash.substring(8).toLowerCase();
 		var list = h("ul");
@@ -194,7 +228,7 @@ function bNav(hash) {
 				}
 			}
 		}
-		for (let i = 0; i < externs.length; i++) {
+		for (var i = 0; i < externs.length; i++) {
 			var ext = externs[i];
 			list.appendChild(h("li",
 				h("a",
@@ -208,6 +242,17 @@ function bNav(hash) {
 			h("h1", "Search Results"),
 			list
 		]);
+	} else if (hash == "#events" || hash.startsWith("#event:")) {
+		hAppend(elmView, [
+			h("h1", "Events")
+		]);
+		for (var key in UDON_API["events"]) {
+			// ???
+			if (key.startsWith("_custom"))
+				continue;
+			hAppend(elmView, BEvent(key));
+		}
+		doScroll(hash.substring(1));
 	} else {
 		hAppend(elmView, BTypeList());
 	}
@@ -241,7 +286,9 @@ function searchBoxChanged() {
 		clearTimeout(searchBoxCurrentTimeout);
 	searchBoxCurrentTimeout = setTimeout(function () {
 		var text = document.getElementById("searchBox").value;
-		if (text.length >= 4)
+		if (text.length >= 4) {
 			location.hash = "#search:" + text;
+		} else if (text.length == 0)
+			location.hash = "#";
 	}, 250);
 }
