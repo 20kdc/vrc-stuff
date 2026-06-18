@@ -7,3 +7,8 @@ authors.workspace = true
 license.workspace = true
 
 [dependencies]
+kudonast = { path = "../kudonast" }
+kudonasm = { path = "../kudonasm" }
+kudonodin = { path = "../kudonodin" }
+ron = "0.12.0"
+json = "0.12.4"

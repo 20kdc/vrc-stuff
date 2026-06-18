@@ -419,6 +419,11 @@ pub use odin_synctab::*;
 mod odin_coredump;
 pub use odin_coredump::*;
 
+// udonjson exchange
+
+mod annotated_raw_program;
+pub use annotated_raw_program::*;
+
 // main emitter modules
 
 mod emit_odin;

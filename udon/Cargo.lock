@@ -109,6 +109,13 @@ dependencies = [
 [[package]]
 name = "kudonknife"
 version = "0.1.0"
+dependencies = [
+ "json",
+ "kudonasm",
+ "kudonast",
+ "kudonodin",
+ "ron",
+]
 
 [[package]]
 name = "kudonodin"

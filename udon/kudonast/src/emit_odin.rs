@@ -1,7 +1,5 @@
 use crate::*;
 use crate::{UdonRawSymbol, UdonRawSymbolTable};
-use json::JsonValue;
-use std::io::Write;
 
 /// Translates UdonHeapValue to OdinASTValue.
 pub fn udonheapval_emit_odin(
@@ -180,78 +178,12 @@ pub fn udonprogram_emit_udonrawprogram(
 pub fn udonprogram_emit_odin(
     program: &UdonProgram,
 ) -> Result<(OdinASTFile, Vec<UdonUnityObject>), String> {
-    let mut builder = OdinASTBuilder::default();
     let mut unity_obj = Vec::new();
-
     let rawprogram = udonprogram_emit_udonrawprogram(program, &mut unity_obj)?;
 
+    let mut builder = OdinASTBuilder::default();
     let val = OdinSTSerializable::serialize(&rawprogram, &mut builder);
     builder.file.root.push(OdinASTEntry::uval(val));
 
     Ok((builder.file, unity_obj))
-}
-
-/// Links [UdonProgram] into .udonjson JSON (ready-to-use).
-pub fn udonprogram_emit_udonjson(program: &UdonProgram) -> Result<JsonValue, String> {
-    let (stage1_file, unityobjs) = udonprogram_emit_odin(program)?;
-    let udon_binary = OdinEntry::write_all_to_bytes(&stage1_file.to_entry_vec());
-    let final_binary = Vec::new();
-
-    let mut gz_encoder =
-        flate2::write::GzEncoder::new(final_binary, flate2::Compression::default());
-    gz_encoder
-        .write_all(&udon_binary)
-        .map_err(|v| format!("{:?}", v))?;
-    let encoded = gz_encoder.finish().map_err(|v| format!("{:?}", v))?;
-
-    let serialized_program_compressed_bytes =
-        JsonValue::Array(encoded.iter().map(|v| (*v as f64).into()).collect());
-
-    let program_unity_engine_objects = JsonValue::Array(
-        unityobjs
-            .iter()
-            .map(|v| match v {
-                UdonUnityObject::Ref(guid, file_id) => {
-                    let mut res = JsonValue::new_object();
-                    res["guid"] = guid.clone().into();
-                    res["fileID"] = (*file_id as f64).into();
-                    res
-                }
-            })
-            .collect(),
-    );
-
-    let mut network_calling_entrypoint_metadata = Vec::new();
-    for v in &program.network_call_metadata {
-        let mut res = JsonValue::new_object();
-        res["_name"] = v.name.clone().into();
-        let mut parameters_arr = Vec::new();
-        for p in &v.parameters {
-            let mut res = JsonValue::new_object();
-            res["_name"] = p.0.clone().into();
-            res["_type"] =
-                p.1.sync_type
-                    .ok_or_else(|| {
-                        format!(
-                            "Network RPC {} parameter {} has no sync type",
-                            &v.name, &p.0
-                        )
-                    })?
-                    .into();
-            parameters_arr.push(res);
-        }
-        res["_parameters"] = JsonValue::Array(parameters_arr);
-        res["_maxEventsPerSecond"] = v.max_events_per_second.into();
-        network_calling_entrypoint_metadata.push(res);
-    }
-
-    let mut monobehaviour = JsonValue::new_object();
-    monobehaviour["serializedProgramCompressedBytes"] = serialized_program_compressed_bytes;
-    monobehaviour["programUnityEngineObjects"] = program_unity_engine_objects;
-    monobehaviour["networkCallingEntrypointMetadata"] =
-        JsonValue::Array(network_calling_entrypoint_metadata);
-
-    let mut outer_object = JsonValue::new_object();
-    outer_object["MonoBehaviour"] = monobehaviour;
-    Ok(outer_object)
 }
