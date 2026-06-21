@@ -44,7 +44,7 @@ pub fn kip32_export(ts: TokenStream, item: TokenStream) -> TokenStream {
 pub fn kip32_internal_udontypes(_ts: TokenStream) -> TokenStream {
     let mut res = TokenStream::new();
     for v in kudon_apijson::type_names() {
-        let info = kudon_apijson::type_by_name(&v).unwrap();
+        // let info = kudon_apijson::type_by_name(&v).unwrap();
         let derive_ts: TokenStream = "#[derive(Clone, Copy)]".parse().unwrap();
         res.extend(derive_ts);
         res.extend([
@@ -60,7 +60,7 @@ pub fn kip32_internal_udontypes(_ts: TokenStream) -> TokenStream {
             TokenTree::Ident(Ident::new_raw(&v, Span::call_site())),
             TokenTree::Group(Group::new(proc_macro::Delimiter::Brace, TokenStream::new())),
         ]);
-        for base in kudon_apijson::type_bases_and_self(&v, info) {
+        for base in kudon_apijson::type_bases(&v, true).unwrap() {
             res.extend([
                 TokenTree::Ident(Ident::new("impl", Span::call_site())),
                 TokenTree::Ident(Ident::new("UdonCastable", Span::call_site())),

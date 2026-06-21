@@ -53,6 +53,7 @@ fn build_comment(comment: &str) -> String {
 pub fn udonprogram_emit_uasm(
     program: &UdonProgram,
     uasm_writer: &UASMWriter,
+    debug: bool,
 ) -> Result<(), String> {
     let translate_ctx = UASMTranslateCtx(uasm_writer, RefCell::new(Vec::new()));
 
@@ -203,13 +204,18 @@ pub fn udonprogram_emit_uasm(
                 "null".to_string()
             }
         };
+        let possible_debug_suffix = if debug {
+            format!(" # PA@0x{:08x}", k)
+        } else {
+            "".to_string()
+        };
         uasm_writer.declare_heap(
             &rmp.name,
             &type_slot.name,
             &value,
             rmp.mode == UdonAccess::Public,
             // this is rather useful for debugging by tracing back parameter addresses
-            &format!(" # PA@0x{:08x}", k),
+            &possible_debug_suffix,
         );
     }
 
@@ -272,7 +278,9 @@ pub fn udonprogram_emit_uasm(
                 }
             }
             // debug
-            info.push_str(&format!(" # PC@{}", codeptr_udonspace));
+            if debug {
+                info.push_str(&format!(" # PC@{}", codeptr_udonspace));
+            }
             uasm_writer.code(info);
         } else {
             translate_ctx.err_code(format!("Invalid opcode {}", opc));

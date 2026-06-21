@@ -12,6 +12,10 @@ fn help() -> ! {
     println!("  odinron FILE");
     println!("  odinbin FILE");
     println!("  uasm FILE (output only)");
+    println!("  uasm_strict FILE (output only)");
+    // 'nedebug' was considered. webcomics and otters that point you at them are the root of all questionable spelling choices
+    println!("  uasm_strict_nodebug FILE (output only)");
+    println!("  uasm_nodebug FILE (output only)");
     println!("  coredump FILE (input only)");
     std::process::exit(0)
 }
@@ -75,7 +79,7 @@ enum Format {
     KU2,
     UdonJson,
     OdinAST { binary: bool },
-    UdonAssembly,
+    UdonAssembly { strict: bool, nodebug: bool },
     Coredump,
 }
 
@@ -90,7 +94,25 @@ impl Format {
         } else if a.eq_ignore_ascii_case("odinbin") {
             Ok(Self::OdinAST { binary: true })
         } else if a.eq_ignore_ascii_case("uasm") {
-            Ok(Self::UdonAssembly)
+            Ok(Self::UdonAssembly {
+                strict: false,
+                nodebug: false,
+            })
+        } else if a.eq_ignore_ascii_case("uasm_strict") {
+            Ok(Self::UdonAssembly {
+                strict: true,
+                nodebug: false,
+            })
+        } else if a.eq_ignore_ascii_case("uasm_strict_nodebug") {
+            Ok(Self::UdonAssembly {
+                strict: true,
+                nodebug: true,
+            })
+        } else if a.eq_ignore_ascii_case("uasm_nodebug") {
+            Ok(Self::UdonAssembly {
+                strict: false,
+                nodebug: true,
+            })
         } else if a.eq_ignore_ascii_case("coredump") {
             Ok(Self::Coredump)
         } else {
@@ -136,7 +158,10 @@ impl Format {
                     UdonAnnotatedRawProgram::from_udonjson(&udonjson_val)?,
                 ));
             }
-            Self::UdonAssembly => {
+            Self::UdonAssembly {
+                strict: _,
+                nodebug: _,
+            } => {
                 // we can't parse this
             }
             Self::Coredump => {
@@ -194,12 +219,16 @@ impl Format {
                 let udonjson = src.into_raw_program()?.to_udonjson()?;
                 get_fileout("odinast output", args, udonjson.dump())?;
             }
-            Self::UdonAssembly => {
+            Self::UdonAssembly { strict, nodebug } => {
                 let program = src.into_program()?;
                 let uasm_writer = UASMWriter::default();
-                let issues = udonprogram_emit_uasm(&program, &uasm_writer);
-                if let Err(err) = issues {
-                    println!("{}", err);
+                if *strict {
+                    udonprogram_emit_uasm(&program, &uasm_writer, !nodebug)?;
+                } else {
+                    let issues = udonprogram_emit_uasm(&program, &uasm_writer, !nodebug);
+                    if let Err(err) = issues {
+                        println!("{}", err);
+                    }
                 }
                 get_fileout("odinast output", args, uasm_writer.to_string())?;
             }

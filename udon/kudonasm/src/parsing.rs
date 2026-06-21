@@ -89,6 +89,7 @@ pub enum KU2Operand {
     ChainOp(KU2ChainOp, Box<KU2Operand>, Box<KU2Operand>),
     Ext(String),
     Ord(char),
+    Arg(usize),
 }
 
 struct KU2ChainOpVisitor(KU2ChainOp);
@@ -141,6 +142,8 @@ impl<'de> Visitor<'de> for KU2ExprVisitor {
             Ok(KU2Operand::Ord(v.1.newtype_variant()?))
         } else if v.0.0.eq("SYM") {
             Ok(KU2Operand::Sym(v.1.newtype_variant()?))
+        } else if v.0.0.eq("ARG") {
+            Ok(KU2Operand::Arg(v.1.newtype_variant()?))
         } else {
             v.1.unit_variant()?;
             Ok(KU2Operand::Sym(v.0))
@@ -154,7 +157,7 @@ impl<'de> Deserialize<'de> for KU2Operand {
     {
         deserializer.deserialize_enum(
             "KU2Operand",
-            &["C", "I", "ADD", "SUB", "MUL", "EXT", "SYM"],
+            &["C", "I", "ADD", "SUB", "MUL", "EXT", "SYM", "ARG"],
             KU2ExprVisitor,
         )
     }
@@ -264,6 +267,8 @@ pub enum KU2Instruction {
     Package(String, Vec<String>),
     #[serde(rename = "package_end")]
     PackageEnd,
+    #[serde(rename = "i")]
+    Invoke(String, Vec<KU2Operand>),
     #[serde(rename = "code_comment")]
     CodeComment(String),
     #[serde(rename = "data_comment")]
@@ -283,10 +288,16 @@ pub enum KU2Instruction {
     // equate
     #[serde(rename = "equ")]
     EquateInt(KU2Symbol, KU2Operand),
+    #[serde(rename = "equ_up")]
+    EquateUp(KU2Symbol, KU2Operand),
     #[serde(rename = "local")]
     Local(KU2Symbol),
     #[serde(rename = "undef")]
     Undef(KU2Symbol),
+    #[serde(rename = "block_push")]
+    BlockPush,
+    #[serde(rename = "block_pop")]
+    BlockPop,
     // instructions
     #[serde(rename = "nop")]
     NOP,
@@ -334,7 +345,7 @@ fn ku2instruction_parse_test() {
 }
 
 /// Parsing. This focuses on implementing line by line reading on top of RON by essentially fudging the JavaScript semicolon trick.
-/// In the error case, performance gets worse and worse for longer bodies, so, er. don't commit errors I guess.'
+/// In the error case, performance gets worse and worse for longer bodies, so, er. don't commit errors I guess.
 pub fn kudonasm_parse(src: &str) -> Result<Vec<(usize, KU2Instruction)>, ron::error::SpannedError> {
     let mut instructions = Vec::new();
     let mut line_number_offset: usize = 0;

@@ -52,13 +52,14 @@ fn asm_syscall(asm: &Wrapper, img: &Sci32Image, name: &str, istr_jump: u32) {
         }
     }
     // -- all from now on use snippet_equates
-    let snippet_equates = Some(vec![
-        (format!("_syscall_return"), jmp),
-        (
-            format!("_syscall_return_indirect"),
-            UdonInt::I(istr_jump as i64),
-        ),
-    ]);
+    let mut snippet_equates: KU2CallBuilder = KU2CallBuilder::default();
+    snippet_equates
+        .equates
+        .push((format!("_syscall_return"), jmp));
+    snippet_equates.equates.push((
+        format!("_syscall_return_indirect"),
+        UdonInt::I(istr_jump as i64),
+    ));
     if let Some(sfx) = name.strip_prefix("builtin_asm:") {
         // We simply accept that we'll have to abort on a misparse here.
         // This ought to be extremely unlikely, though, as the prefixes and presence in the metadata guarantees some level of error checking.
@@ -69,7 +70,7 @@ fn asm_syscall(asm: &Wrapper, img: &Sci32Image, name: &str, istr_jump: u32) {
             .map(|v| (format!("builtin_asm:{}", v.0), v.1))
             .collect();
         asm.ku2()
-            .snippet_invoke_anonymous(&mut asm.asm(), &parsed, snippet_equates)
+            .snippet_invoke_anonymous(&mut asm.asm(), &parsed, Some(snippet_equates))
             .expect("builtin_asm should assemble");
         return;
     }
@@ -78,7 +79,7 @@ fn asm_syscall(asm: &Wrapper, img: &Sci32Image, name: &str, istr_jump: u32) {
     let package_exists = asm.ku2().packages.contains_key(&syscall_package);
     if package_exists {
         asm.ku2()
-            .snippet_invoke(&mut asm.asm(), &syscall_package, snippet_equates)
+            .snippet_invoke(&mut asm.asm(), &syscall_package, Some(snippet_equates))
             .expect("syscall should assemble");
     } else {
         // don't mention which, just in case it breaks UASM writer
@@ -238,9 +239,10 @@ fn main() -> Result<()> {
     // We then jump here and it's all AOK.
     let abort_vec = 0x7FFFFFFE;
     if udonjson_opt {
-        asm.ku2().equates.insert(
-            "_vmext_initdata_to_initdata_dec".to_string(),
+        asm.ku2().equate_stack.write(
+            "_vmext_initdata_to_initdata_dec",
             UdonInt::Sym(asm.u8array_clone.clone()),
+            false,
         );
         let mut data = img.initialized_bytes();
         if omit_data {
@@ -263,9 +265,10 @@ fn main() -> Result<()> {
             BASE64_STANDARD.encode(&img.initialized_bytes())
         };
         // Allows for possible fastpath
-        asm.ku2().equates.insert(
-            "_vmext_initdata_to_initdata_dec".to_string(),
+        asm.ku2().equate_stack.write(
+            "_vmext_initdata_to_initdata_dec",
             UdonInt::Sym(asm.base64_decode.clone()),
+            false,
         );
         asm.declare_heap(
             &"_vm_initdata",
@@ -282,19 +285,17 @@ fn main() -> Result<()> {
 
     let highbit = asm.ensure_i32(0x80000000u32 as i32);
 
-    asm.ku2()
-        .equates
-        .insert("_vm_equ_initsp".to_string(), UdonInt::I(initial_sp as i64));
-    asm.ku2()
-        .equates
-        .insert("_vm_equ_initgp".to_string(), UdonInt::I(initial_gp as i64));
-    asm.ku2()
-        .equates
-        .insert("_vm_equ_abort".to_string(), UdonInt::I(abort_vec as i64));
-    asm.ku2().equates.insert(
-        "_vm_equ_image_bytes".to_string(),
-        UdonInt::I((img.data.len() * 4) as i64),
-    );
+    {
+        let equ = &mut asm.ku2().equate_stack;
+        equ.write("_vm_equ_initsp", UdonInt::I(initial_sp as i64), false);
+        equ.write("_vm_equ_initgp", UdonInt::I(initial_gp as i64), false);
+        equ.write("_vm_equ_abort", UdonInt::I(abort_vec as i64), false);
+        equ.write(
+            "_vm_equ_image_bytes",
+            UdonInt::I((img.data.len() * 4) as i64),
+            false,
+        );
+    }
     for i in 0..32 {
         let authentic = REGISTERS_W[i];
         asm.declare_heap_i(
@@ -370,13 +371,11 @@ fn main() -> Result<()> {
                 .snippet_invoke(
                     &mut asm.asm(),
                     "builtin_thunk",
-                    Some(vec![
-                        (format!("_thunk_address"), UdonInt::I(sym.st_addr as i64)),
-                        (
-                            format!("_thunk_jump"),
-                            resolve_jump(&asm, &img, sym.st_addr as u32),
-                        ),
-                    ]),
+                    Some(
+                        KU2CallBuilder::default()
+                            .with("_thunk_address", UdonInt::I(sym.st_addr as i64))
+                            .with("_thunk_jump", resolve_jump(&asm, &img, sym.st_addr as u32)),
+                    ),
                 )
                 .expect("builtin_thunk should assemble");
         }
@@ -907,7 +906,7 @@ fn main() -> Result<()> {
     } else {
         let uasm_writer = UASMWriter::default();
 
-        let res = udonprogram_emit_uasm(&asm.asm.borrow(), &uasm_writer);
+        let res = udonprogram_emit_uasm(&asm.asm.borrow(), &uasm_writer, true);
         if emit_check {
             res.expect("emit of UASM should work");
         } else if let Err(err) = res {

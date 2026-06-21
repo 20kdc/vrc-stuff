@@ -47,9 +47,15 @@ To be clear, this is something of a bodged compromise to allow a single statemen
 
 ## Symbols / Equates
 
-`kudonasm` has two 'symbol' sets (the symbols written to the Udon symbol table don't really count): Internal symbols and equates.
+`kudonasm` has two 'symbol' sets (the symbols written to the Udon symbol table don't really count): Internal symbols and the equate stack.
 
 Internal symbols are resolved during the emit/link process, while equates are resolved on-use (thus are assembly-time variables).
+
+The equate stack is a set of layered dictionaries. The equate stack may be manipulated directly with the `block_push` and `block_pop` macroinstructions.
+
+The 'top of stack' equate dictionary is what's used; dictionaries below are not referenced. Each dictionary starts as a copy of the parent.
+
+A key note is that it is _possible_ but not _default_ to write into inherited equates rather than overriding only at the current and deeper levels. This can be done with `equ_up`.
 
 Equates 'override' internal symbols; if an equate is missing at the time of use, the internal symbol is assumed.
 
@@ -59,21 +65,20 @@ To be specific, whenever a symbol (unquoted identifier such as `example` that is
 	* If an internal symbol is required, the equate must resolve exactly to an internal symbol, which is then used.
 	* Otherwise, if an `UdonInt` is required, the equate is returned as the result.
 
-By default, the equate `_` exists, resolving to the integer 0.
-
 ## Operands
 
 Operands are the core value of `kudonasm`. They conceptually resolve to 64-bit signed integers.
 
 Operands have the following forms:
 
-* `symbol`: Symbol (short form). Note that the other forms prevent you from using their names as symbols.
-* `SYM(symbol)`: Symbol.
+* `symbol`: Symbol and/or equate (short form). Note that the other forms prevent you from using their names as symbols.
+* `SYM(symbol)`: Symbol and/or equate.
 * `C(value)`: Constant. See `var()` below for what `value` can be.
 	* If the value is a string or an integer _resolvable at the time this line is assembled,_ the constant is shared between uses.
 * `I(value)`: **Raw** constant integer.
 	* Be wary of this. `push(I(0))` would push the index of the first heap slot, _which is almost never what you want._
-	* It's best used, say, _inside_ a constant.
+	* It's best used, say, _inside_ a constant (perhaps in macros)
+* `ARG(value)`: Macro argument (as provided by i.e. the `i` macroinstruction)
 * `ADD(o1, o2)` / `SUB(o1, o2)` / `MUL(o1, o2)`: Performs maths. Keep in mind the same caveats as `I` -- you usually won't want to do this.
 * `EXT(extern)`: Extern. These are allocated from a special pool since the Udon runtime overwrites them with their delegates as an optimization.
 * `ORD(char)`: Character code, i.e. `ORD('A')`
@@ -218,7 +223,7 @@ And would generate the intended effect in the Udon symbol table.
 
 ## Meta
 
-### `package("name", ["dep", "dep"])` / `package_end`
+### `package("name", ["dep", ...])` / `package_end`
 
 This 'cuts up' a set of assembly files into different segments.
 
@@ -239,6 +244,10 @@ package("snippet", ["example"])
 
 // instance-specific code here...
 ```
+
+### `i(macroname, [arg, ...])`
+
+Invokes a snippet. The snippet is invoked as if surrounded by `block_push` and `block_pop`. The macro argument registers are set.
 
 ### `code_comment(text)` / `data_comment(text)`
 
@@ -263,22 +272,34 @@ eof
 
 ## Equate Pseudoinstructions
 
-### `equ(sym, operand)`
+### `equ(sym, operand)` / `equ_up(sym, operand)`
 
 Sets an equate. An existing equate will be overridden.
 
 Since this manipulates equates, the symbol is not 're-evaluated'.
+
+The operand, however, is evaluated immediately; all equates mentioned must exist for correct resolution (but symbols don't need to).
 
 ```
 equ(message, C(string("Hello, world!")))
 equ(_ecall_ext_char2str, EXT("SystemConvert.__ToString__SystemChar__SystemString"))
 ```
 
+`equ_up` is similar, but the writes are applied to the actual inherited equate rather than creating a new local equate.
+
+```
+equ(counter, I(1))
+block_push
+equ_up(counter, ADD(counter, I(1)))
+block_pop
+// counter = 2
+```
+
 ### `local(sym)`
 
-Defines an equate between a symbol and a unique name.
+Defines an equate between a symbol and a unique name (as if by `equ`, so does not escape the current block).
 
-Pairs well with `undef(sym)`.
+Pairs well with `undef(sym)`, `block_push`, and `block_pop`.
 
 ```
 local(sym)
@@ -286,10 +307,14 @@ local(sym)
 
 ### `undef(sym)`
 
-Undefines an equate.
+Undefines an equate. Will do nothing if not already defined.
 
 Pairs well with `local(sym)`.
 
 ```
 undef(sym)
 ```
+
+### `block_push` / `block_pop`
+
+`block_push`

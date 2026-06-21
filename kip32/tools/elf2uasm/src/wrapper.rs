@@ -22,7 +22,7 @@ macro_rules! udon_ext {
                 let mut ku2 = KU2Context::default();
                 $(
                     let $id = asm.ensure_string($value, true);
-                    ku2.equates.insert(format!("_vmext_{}", stringify!($id)), UdonInt::Sym($id.clone()));
+                    ku2.equate_stack.write(&format!("_vmext_{}", stringify!($id)), UdonInt::Sym($id.clone()), false);
                 )*
                 Wrapper {
                     ku2: RefCell::new(ku2),

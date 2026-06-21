@@ -13,6 +13,9 @@ use std::collections::{BTreeMap, BTreeSet};
 mod parsing;
 pub use parsing::*;
 
+mod equate_stack;
+pub use equate_stack::*;
+
 /// Represents a loaded package/snippet.
 #[derive(Clone, Debug)]
 pub struct KU2Package {
@@ -21,9 +24,24 @@ pub struct KU2Package {
     pub contents: Vec<(String, KU2Instruction)>,
 }
 
-#[derive(Clone, Debug)]
+/// Builder for snippet invocations.
+#[derive(Clone, Debug, Default)]
+pub struct KU2CallBuilder {
+    pub equates: Vec<(String, UdonInt)>,
+    pub macro_args: Vec<UdonInt>,
+}
+
+impl KU2CallBuilder {
+    pub fn with(mut self, s: &str, v: UdonInt) -> Self {
+        self.equates.push((s.to_string(), v));
+        self
+    }
+}
+
+#[derive(Clone)]
 pub struct KU2Context {
-    pub equates: BTreeMap<String, UdonInt>,
+    /// The equate stack.
+    pub equate_stack: KU2EquateStack,
     /// Packages that have actually been installed.
     pub installed_packages: BTreeSet<String>,
     /// Packages.
@@ -37,9 +55,8 @@ pub struct KU2Context {
 
 impl Default for KU2Context {
     fn default() -> Self {
-        let equates = BTreeMap::new();
         Self {
-            equates,
+            equate_stack: Default::default(),
             installed_packages: Default::default(),
             packages: Default::default(),
             editing_package: None,
@@ -50,8 +67,8 @@ impl Default for KU2Context {
 impl KU2Context {
     /// Handles equate symbol remap.
     pub fn ku2sym_to_udon(&self, v: &KU2Symbol) -> Result<String, String> {
-        if let Some(equ) = self.equates.get(&v.0) {
-            if let UdonInt::Sym(sym) = equ {
+        if let Some(equ) = self.equate_stack.get(&v.0) {
+            if let UdonInt::Sym(sym) = &*equ {
                 Ok(sym.clone())
             } else {
                 Err(format!(
@@ -249,7 +266,7 @@ impl KU2Context {
     ) -> Result<UdonInt, String> {
         match v {
             KU2Operand::Sym(sym) => {
-                if let Some(equ) = self.equates.get(&sym.0) {
+                if let Some(equ) = self.equate_stack.get(&sym.0) {
                     // Existing equate
                     Ok(equ.clone())
                 } else {
@@ -272,6 +289,13 @@ impl KU2Context {
             )),
             KU2Operand::Ext(ext) => Ok(UdonInt::Sym(file.ensure_string(ext, true))),
             KU2Operand::Ord(ord) => Ok(UdonInt::I(*ord as i64)),
+            KU2Operand::Arg(arg) => {
+                if let Some(equ) = self.equate_stack.top().macro_args.get(*arg) {
+                    Ok(equ.clone())
+                } else {
+                    Err(format!("Macro arg {} did not exist", arg))
+                }
+            }
         }
     }
 
@@ -466,6 +490,13 @@ impl KU2Context {
             KU2Instruction::PackageEnd => {
                 unreachable!();
             }
+            KU2Instruction::Invoke(name, params) => {
+                let mut call_builder = KU2CallBuilder::default();
+                for v in params {
+                    call_builder.macro_args.push(self.operand_udonint(file, v)?);
+                }
+                self.snippet_invoke(file, &name, Some(call_builder))
+            }
             KU2Instruction::CodeComment(comm) => {
                 UdonProgram::add_comment(&mut file.code_comments, file.code.len(), comm);
                 Ok(())
@@ -511,18 +542,28 @@ impl KU2Context {
             // -- equate --
             KU2Instruction::EquateInt(sym, operand) => {
                 let value = self.operand_udonint(file, operand)?;
-                self.equates.insert(sym.0.clone(), value);
+                self.equate_stack.write(&sym.0, value, false);
+                Ok(())
+            }
+            KU2Instruction::EquateUp(sym, operand) => {
+                let value = self.operand_udonint(file, operand)?;
+                self.equate_stack.write(&sym.0, value, true);
                 Ok(())
             }
             KU2Instruction::Local(sym) => {
-                self.equates
-                    .insert(sym.0.clone(), UdonInt::Sym(file.gensym(&sym.0)));
+                self.equate_stack
+                    .write(&sym.0, UdonInt::Sym(file.gensym(&sym.0)), false);
                 Ok(())
             }
             KU2Instruction::Undef(sym) => {
-                self.equates.remove(&sym.0);
+                self.equate_stack.undef(&sym.0);
                 Ok(())
             }
+            KU2Instruction::BlockPush => {
+                self.equate_stack.push();
+                Ok(())
+            }
+            KU2Instruction::BlockPop => self.equate_stack.pop(),
             // -- instructions --
             KU2Instruction::NOP => self.assemble_op(file, &kudoninfo::opcodes::NOP, &[]),
             KU2Instruction::Push(o1) => self.assemble_op(file, &kudoninfo::opcodes::PUSH, &[o1]),
@@ -678,14 +719,17 @@ impl KU2Context {
         &mut self,
         file: &mut UdonProgram,
         pkg_content: &[(String, KU2Instruction)],
-        snippet_equates: Option<Vec<(String, UdonInt)>>,
+        frame: Option<KU2CallBuilder>,
     ) -> Result<(), String> {
-        let backup = if let Some(params) = snippet_equates {
-            let r = Some(self.equates.clone());
-            for v in params {
-                self.equates.insert(v.0, v.1);
+        let backup = if let Some(frame) = frame {
+            let target = self.equate_stack.push();
+            for v in frame.equates {
+                target
+                    .map
+                    .insert(v.0.clone(), std::rc::Rc::new(std::cell::RefCell::new(v.1)));
             }
-            r
+            target.macro_args = frame.macro_args;
+            Some(self.equate_stack.len())
         } else {
             None
         };
@@ -697,9 +741,14 @@ impl KU2Context {
                 break;
             }
         }
-        // restore equates on completion
-        if let Some(backup) = backup {
-            self.equates = backup;
+        // restore equates on completion if possible
+        if let Some(expected_len) = backup {
+            if self.equate_stack.len() != expected_len && !res.is_ok() {
+                res = Err(format!("equate stack mismatch"));
+            }
+            while self.equate_stack.len() >= expected_len {
+                _ = self.equate_stack.pop();
+            }
         }
         res
     }
@@ -710,12 +759,11 @@ impl KU2Context {
         &mut self,
         file: &mut UdonProgram,
         pkg_name: &str,
-        snippet_equates: Option<Vec<(String, UdonInt)>>,
+        frame: Option<KU2CallBuilder>,
     ) -> Result<(), String> {
         if let Some(pkg) = self.packages.remove_entry(pkg_name) {
             let mut res = Ok(());
-            if let Err(err) = self.snippet_invoke_anonymous(file, &pkg.1.contents, snippet_equates)
-            {
+            if let Err(err) = self.snippet_invoke_anonymous(file, &pkg.1.contents, frame) {
                 res = Err(format!("package {}: {}", pkg_name, err));
             }
             self.packages.insert(pkg.0, pkg.1);
