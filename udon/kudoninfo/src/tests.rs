@@ -33,3 +33,18 @@ pub fn test_extern_attributes() {
             .method_static
     );
 }
+
+#[test]
+pub fn test_extern_lookup() {
+    let map = crate::udonexternlookup_map();
+    let map_vc = map.get("CinemachineCinemachineVirtualCamera").unwrap();
+    let map_vc_eq = map_vc.get("GetComponentOwner").unwrap();
+    if map_vc_eq.len() != 1
+        || map_vc_eq[0]
+            .name
+            .ne("CinemachineCinemachineVirtualCamera.__GetComponentOwner__UnityEngineTransform")
+    {
+        let res: Vec<String> = map_vc_eq.iter().map(|v| v.name.to_string()).collect();
+        panic!("Lookup test resolved wrong: {:?}", res);
+    }
+}

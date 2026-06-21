@@ -10,9 +10,13 @@ use std::sync::OnceLock;
 /// Used to parse out data from the Udon extern ID itself.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct UdonExternIDParse {
+    // 'UnityEngineMeshFilter'
     pub wrapper_name: Cow<'static, str>,
+    // 'get_mesh'
     pub method_name: Cow<'static, str>,
+    // (y'know, types)
     pub parameters: Cow<'static, [Cow<'static, str>]>,
+    // UnityEngineMesh
     pub return_type: Cow<'static, str>,
 }
 
@@ -138,8 +142,8 @@ pub type UdonExternRef = UdonDBRef<UdonExtern>;
 
 static UDONEXTERN_MAP: OnceLock<BTreeMap<String, UdonExtern>> = OnceLock::new();
 
-/// Gets an [UdonType] [BTreeMap].
-/// This maps the Udon type name to the corresponding [UdonType].
+/// Gets an [UdonExtern] [BTreeMap].
+/// This maps the Udon extern name to the corresponding [UdonExtern].
 pub fn udonextern_map() -> &'static BTreeMap<String, UdonExtern> {
     UDONEXTERN_MAP.get_or_init(|| {
         let mut hm: BTreeMap<String, UdonExtern> = BTreeMap::new();

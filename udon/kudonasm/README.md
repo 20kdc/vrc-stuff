@@ -119,9 +119,20 @@ There are also 'macroinstructions':
 * `stop`: No operands, shorthand for `jump(0xFFFFFFFC)`, jumping to the conventional stop address.
 * `copy_static(src, dst)`: Shorthand for `push(src)`, `push(dst)`, `copy`
 	* Example: `copy_static(C(uint(1234)), some_uint)`
+	* There's also the reverse-order alias `set(dst, src)`.
+* `jfalse(bool, jump)`: Shorthand for `push(bool)`, `jump_if_false(jump)`
 * `ext(id, [param...])`: Shorthand for `push(param)` on each parameter, followed by `extern(id)`.
 	* `id` used to be locked to being an equate due to legacy reasons. It now isn't.
 	* An example might be: `ext(EXT("UnityEngineTransform.__GetComponent__SystemType__UnityEngineComponent"), [transform, C(type("VRCUdonCommonInterfacesIUdonEventReceiver")), behaviour])`
+* `exi(this, method, [param...])`: 'Extern Instance'. Special 'UdonSharp-like' shorthand.
+	* Attempts to resolve `method` based on the types of the heap indexes of `this` and parameters.
+	* The KU2 assembler contains an internal extern database which is used for this purpose; if your extern is not in that database, you can't use it.
+	* `EXT()` is automatically used; `method` must be a string literal, such as `get_mesh`.
+	* If the extern is generic, `<T>` must be appended to the string literal. C# method lookup and shadowing is emulated for maximum compatibility.
+	* Will error if ambiguous.
+	* Example: `exi(meshFilter, "set_mesh", [_null])`
+* `exop(method, [param...])`: 'Extern Operator'. Special 'UdonSharp-like' shorthand.
+	* This is meant to support most `op_` functions. It searches for static methods of any parameter's type with the given parameters (including return value).
 
 ## Declarations
 

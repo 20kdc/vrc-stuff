@@ -311,8 +311,16 @@ pub enum KU2Instruction {
     Stop,
     #[serde(rename = "copy_static")]
     CopyStatic(KU2Operand, KU2Operand),
+    #[serde(rename = "set")]
+    CopyStaticAlt(KU2Operand, KU2Operand),
+    #[serde(rename = "jfalse")]
+    JumpIfFalseStatic(KU2Operand, KU2Operand),
     #[serde(rename = "ext")]
     Ext(KU2Operand, Vec<KU2Operand>),
+    #[serde(rename = "exi")]
+    ExternInstance(KU2Operand, String, Vec<KU2Operand>),
+    #[serde(rename = "exop")]
+    ExternOperator(String, Vec<KU2Operand>),
 }
 
 #[cfg(test)]

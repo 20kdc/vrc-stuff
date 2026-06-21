@@ -16,6 +16,9 @@ pub use types::*;
 mod externs;
 pub use externs::*;
 
+mod extlookup;
+pub use extlookup::*;
+
 include!(concat!(env!("OUT_DIR"), "/generated.rs"));
 
 /// Looks up a value from a sparse table.

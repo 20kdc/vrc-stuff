@@ -40,18 +40,16 @@ pub fn type_by_name(ty: &str) -> Option<&'static json::JsonValue> {
 
 /// Gets contents of the base types field.
 /// Notably, the bases field is already recursive, but does not include self.
-pub fn type_bases(val: &json::JsonValue) -> Vec<&str> {
-    let mut vec = Vec::new();
+/// `and_self` adds that.
+pub fn type_bases<'lt>(ty: &'lt str, and_self: bool) -> Option<Vec<&'lt str>> {
+    let val = type_by_name(ty)?;
+    let mut res = Vec::new();
     for v in val["bases"].members() {
-        vec.push(v.as_str().unwrap());
+        res.push(v.as_str().unwrap());
     }
-    vec
-}
-
-/// Gets recursive bases.
-pub fn type_bases_and_self<'lt>(ty: &'lt str, val: &'lt json::JsonValue) -> Vec<&'lt str> {
-    let mut res = type_bases(val);
     assert!(!res.contains(&ty));
-    res.push(ty);
-    res
+    if and_self {
+        res.push(ty);
+    }
+    Some(res)
 }

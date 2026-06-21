@@ -4,7 +4,9 @@ use kudonast::{
     UdonAccess, UdonHeapSlot, UdonHeapValue, UdonInt, UdonProgram, UdonSymbol,
     odininttype_to_udontype,
 };
-use kudoninfo::{UdonOpcode, UdonTypeRef, udontyperef};
+use kudoninfo::{
+    UdonOpcode, UdonTypeRef, udonexternlookup_exi, udonexternlookup_exop, udontyperef,
+};
 use kudonodin::{OdinIntType, OdinPrimitive};
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -272,6 +274,23 @@ impl KU2Context {
             KU2Operand::Ord(ord) => Ok(UdonInt::I(*ord as i64)),
         }
     }
+
+    /// Attempts to map an UdonInt to an UdonType.
+    pub fn udonint_udontype<'f>(
+        file: &'f UdonProgram,
+        ui: &UdonInt,
+    ) -> Result<&'f UdonTypeRef, String> {
+        let resolved = ui.resolve(&file.internal_syms)?;
+        if resolved < 0 || (resolved as usize) >= file.data.len() {
+            Err(format!(
+                "Parameter {:?} resolved to invalid heap index {}; no type available.",
+                ui, resolved
+            ))
+        } else {
+            Ok(&file.data[resolved as usize].0)
+        }
+    }
+
     pub fn assemble_op(
         &mut self,
         file: &mut UdonProgram,
@@ -527,16 +546,91 @@ impl KU2Context {
                 file.code.push(UdonInt::I(0xFFFFFFFC));
                 Ok(())
             }
-            KU2Instruction::CopyStatic(a, b) => {
-                self.assemble_op(file, &kudoninfo::opcodes::PUSH, &[a])?;
-                self.assemble_op(file, &kudoninfo::opcodes::PUSH, &[b])?;
+            KU2Instruction::CopyStatic(src, dst) => {
+                self.assemble_op(file, &kudoninfo::opcodes::PUSH, &[src])?;
+                self.assemble_op(file, &kudoninfo::opcodes::PUSH, &[dst])?;
                 self.assemble_op(file, &kudoninfo::opcodes::COPY, &[])
+            }
+            KU2Instruction::CopyStaticAlt(dst, src) => {
+                self.assemble_op(file, &kudoninfo::opcodes::PUSH, &[src])?;
+                self.assemble_op(file, &kudoninfo::opcodes::PUSH, &[dst])?;
+                self.assemble_op(file, &kudoninfo::opcodes::COPY, &[])
+            }
+            KU2Instruction::JumpIfFalseStatic(bl, jt) => {
+                self.assemble_op(file, &kudoninfo::opcodes::PUSH, &[bl])?;
+                self.assemble_op(file, &kudoninfo::opcodes::JUMP_IF_FALSE, &[jt])
             }
             KU2Instruction::Ext(operand, params) => {
                 for param in params {
                     self.assemble_op(file, &kudoninfo::opcodes::PUSH, &[param])?;
                 }
                 self.assemble_op(file, &kudoninfo::opcodes::EXTERN, &[&operand])
+            }
+            KU2Instruction::ExternInstance(this, extname, params) => {
+                // In concept, the code generation of this is much the same as Ext.
+                // The fundamental difference arises in extern resolution, which is substantially different.
+                let this_resolved = self.operand_udonint(file, this)?;
+                let this_type_resolved: String = Self::udonint_udontype(file, &this_resolved)?
+                    .name
+                    .to_string();
+                let mut params_resolved: Vec<UdonInt> = Vec::new();
+                let mut params_types_resolved: Vec<String> = Vec::new();
+                for p in params {
+                    let ui = self.operand_udonint(file, p)?;
+                    let ty = Self::udonint_udontype(file, &ui)?.name.to_string();
+                    params_resolved.push(ui);
+                    params_types_resolved.push(ty);
+                }
+                let resolved =
+                    udonexternlookup_exi(&this_type_resolved, extname, &params_types_resolved);
+                if resolved.len() == 0 {
+                    return Err(format!(
+                        "{}.{} {:?} did not resolve",
+                        this_type_resolved, extname, params_types_resolved
+                    ));
+                } else if resolved.len() > 1 {
+                    return Err(format!(
+                        "{}.{} {:?} was ambiguous",
+                        this_type_resolved, extname, params_types_resolved
+                    ));
+                }
+                self.assemble_op(file, &kudoninfo::opcodes::PUSH, &[this])?;
+                for param in params {
+                    self.assemble_op(file, &kudoninfo::opcodes::PUSH, &[param])?;
+                }
+                file.code.push(UdonInt::Op(&kudoninfo::opcodes::EXTERN));
+                let tmp = UdonInt::Sym(file.ensure_string(&resolved[0].name, true));
+                file.code.push(tmp);
+                Ok(())
+            }
+            KU2Instruction::ExternOperator(extname, params) => {
+                let mut params_resolved: Vec<UdonInt> = Vec::new();
+                let mut params_types_resolved: Vec<String> = Vec::new();
+                for p in params {
+                    let ui = self.operand_udonint(file, p)?;
+                    let ty = Self::udonint_udontype(file, &ui)?.name.to_string();
+                    params_resolved.push(ui);
+                    params_types_resolved.push(ty);
+                }
+                let resolved = udonexternlookup_exop(extname, &params_types_resolved);
+                if resolved.len() == 0 {
+                    return Err(format!(
+                        "{} {:?} did not resolve",
+                        extname, params_types_resolved
+                    ));
+                } else if resolved.len() > 1 {
+                    return Err(format!(
+                        "{} {:?} was ambiguous",
+                        extname, params_types_resolved
+                    ));
+                }
+                for param in params {
+                    self.assemble_op(file, &kudoninfo::opcodes::PUSH, &[param])?;
+                }
+                file.code.push(UdonInt::Op(&kudoninfo::opcodes::EXTERN));
+                let tmp = UdonInt::Sym(file.ensure_string(&resolved[0].name, true));
+                file.code.push(tmp);
+                Ok(())
             }
         }
     }
