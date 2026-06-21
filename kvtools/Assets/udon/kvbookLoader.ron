@@ -1,0 +1,475 @@
+data_comment("kvbook loader")
+data_comment("Udon Assembly ; this contains a lot of Unity manipulation and some *nasty* hot loops")
+data_comment("to use, insert the .bytes TextAsset into 'bytesTextAsset', or byte array into 'bytes', set `page`, then call `_LoadPage`")
+data_comment("you can free up memory by strategically calling `_ClearPage` (to free memory) and `_LoadPage` (to rebuild)")
+data_comment("(implementing this on enable/disable automatically was considered, but I've decided to let it be the decision of the host prefab)")
+data_comment("beware: Untrusted content can cause Udon freezes and generation of extremely large meshes. You have been warned.")
+
+var(_null, null("SystemObject"))
+
+data_comment("supported version range")
+var(_f_versionMin, int(0x0100))
+var(_f_versionMax, int(0x01FF))
+
+data_comment("placements")
+// this is the size of the fixed header.
+// that is, it is expected to be the position of the first atlas lump offset.
+var(_f_fileHeadSize, int(0x0018))
+
+data_comment("public")
+
+var_public(page, int(-1))
+var_public(meshFilter, this("UnityEngineMeshFilter"))
+var_public(meshRenderer, this("UnityEngineMeshRenderer"))
+var_public(atlasMaterials, null("UnityEngineMaterialArray"))
+var_public(bytesTextAsset, null("UnityEngineTextAsset"))
+
+data_comment("if bytesTextAsset != null, this only *temporarily* stores the bytes")
+data_comment("otherwise it always stores the bytes")
+var_public(bytes, null("SystemByteArray"))
+
+data_comment("public out")
+
+var_public(infoPageCount, int(0))
+var_public(infoAtlasCount, int(0))
+var_public(infoFileVersion, int(0))
+var_public(infoPageWidth, float(0.0))
+var_public(infoPageHeight, float(0.0))
+var_public(infoPageSpriteCount, int(0))
+var_public(infoPageVertexCount, int(0))
+var_public(infoPageIndexCount, int(0))
+var_public(infoMetadata, string("{}"))
+
+data_comment("file offsets")
+
+var(_ofsPalette, int(0))
+var(_ofsMetadata, int(0))
+var(_lenMetadata, int(0))
+var(_ofsPage, int(0))
+var(_endPage, int(0))
+var(_ofsAtlas, int(0))
+var(_ofsShape, int(0))
+var(_ofsCol, int(0))
+
+// worth noting, this generator uses Z as 'X' and X as 'Y' to reduce complexity
+
+data_comment("erasable")
+
+var(_mesh, null("UnityEngineMesh"))
+var(_material, null("UnityEngineMaterial"))
+var(_vertices, null("UnityEngineVector3Array"))
+var(_triangles, null("SystemInt32Array"))
+var(_colors32, null("UnityEngineColor32Array"))
+var(_uv, null("UnityEngineVector2Array"))
+
+data_comment("struct sprite")
+
+var(_sprCol, null("SystemUInt16"))
+
+data_comment("struct shape")
+
+var(_shpUTLX, null("SystemUInt16"))
+var(_shpUTLY, null("SystemUInt16"))
+var(_shpUBRX, null("SystemUInt16"))
+var(_shpUBRY, null("SystemUInt16"))
+var(_shpSizeX, float(0.0))
+var(_shpSizeY, float(0.0))
+
+data_comment("colour decoding")
+
+var(_col_r, null("SystemByte"))
+var(_col_g, null("SystemByte"))
+var(_col_b, null("SystemByte"))
+var(_col_a, null("SystemByte"))
+var(_col, null("UnityEngineColor"))
+var(_col32, null("UnityEngineColor32"))
+
+data_comment("position calculation")
+
+var(_pclTLX, float(0.0))
+var(_pclTLY, float(0.0))
+var(_pclBRX, float(0.0))
+var(_pclBRY, float(0.0))
+
+data_comment("uv calculation")
+
+var(_uvTLX, float(0.0))
+var(_uvTLY, float(0.0))
+var(_uvBRX, float(0.0))
+var(_uvBRY, float(0.0))
+
+data_comment("vertex muxing")
+
+var(_vtxV0, null("UnityEngineVector3"))
+var(_vtxT0, null("UnityEngineVector2"))
+
+var(_vtxV1, null("UnityEngineVector3"))
+var(_vtxT1, null("UnityEngineVector2"))
+
+var(_vtxV2, null("UnityEngineVector3"))
+var(_vtxT2, null("UnityEngineVector2"))
+
+var(_vtxV3, null("UnityEngineVector3"))
+var(_vtxT3, null("UnityEngineVector2"))
+
+data_comment("indices")
+
+var(_vi0, int(0))
+var(_vi1, int(0))
+var(_vi2, int(0))
+var(_vi3, int(0))
+
+var(_iptr, int(0))
+
+data_comment("temporaries")
+
+var(_byte, null("SystemByte"))
+var(_bool, null("SystemBoolean"))
+var(_i32, int(0))
+var(_u16, null("SystemUInt16"))
+var(_i16, null("SystemInt16"))
+var(_utf8, null("SystemTextEncoding"))
+
+// equates
+
+equ(IsValid, EXT("VRCSDKBaseUtilities.__IsValid__SystemObject__SystemBoolean"))
+equ(ReadU8, EXT("SystemByteArray.__Get__SystemInt32__SystemByte"))
+equ(ReadI32, EXT("SystemBitConverter.__ToInt32__SystemByteArray_SystemInt32__SystemInt32"))
+equ(ReadF32, EXT("SystemBitConverter.__ToSingle__SystemByteArray_SystemInt32__SystemSingle"))
+equ(ReadU16, EXT("SystemBitConverter.__ToUInt16__SystemByteArray_SystemInt32__SystemUInt16"))
+equ(ReadI16, EXT("SystemBitConverter.__ToInt16__SystemByteArray_SystemInt32__SystemInt16"))
+equ(ConvU8I32, EXT("SystemConvert.__ToInt32__SystemByte__SystemInt32"))
+equ(ConvU16I32, EXT("SystemConvert.__ToInt32__SystemUInt16__SystemInt32"))
+equ(Vector2, EXT("UnityEngineVector2.__ctor__SystemSingle_SystemSingle__UnityEngineVector2"))
+equ(Vector3, EXT("UnityEngineVector3.__ctor__SystemSingle_SystemSingle_SystemSingle__UnityEngineVector3"))
+
+// macros
+
+// [addr, target] writes to variable of your choosing
+package("nom_i32", [])
+	ext(ReadI32, [bytes, ARG(0), ARG(1)])
+	exop("op_Addition", [ARG(0), C(int(4)), ARG(0)])
+package_end
+
+// [addr, target] writes to variable of your choosing
+package("nom_f32", [])
+	ext(ReadF32, [bytes, ARG(0), ARG(1)])
+	exop("op_Addition", [ARG(0), C(int(4)), ARG(0)])
+package_end
+
+// [addr] writes to _u16
+package("nom_u16", [])
+	ext(ReadU16, [bytes, ARG(0), _u16])
+	exop("op_Addition", [ARG(0), C(int(2)), ARG(0)])
+package_end
+
+// [addr] writes to _i16
+package("nom_i16", [])
+	ext(ReadI16, [bytes, ARG(0), _i16])
+	exop("op_Addition", [ARG(0), C(int(2)), ARG(0)])
+package_end
+
+// [addr] writes to _byte
+package("nom_u8", [])
+	ext(ReadU8, [bytes, ARG(0), _byte])
+	exop("op_Addition", [ARG(0), C(int(1)), ARG(0)])
+package_end
+
+// [addr, pageWH, target]
+package("nom_i16_pageCoord", [])
+	i("nom_i16", [ARG(0)])
+	ext(EXT("SystemConvert.__ToSingle__SystemInt16__SystemSingle"), [_i16, ARG(2)])
+	// divide by fixed divisor
+	exop("op_Division", [ARG(2), C(float(32767)), ARG(2)])
+	// multiply by page w/h
+	exop("op_Multiplication", [ARG(2), ARG(1), ARG(2)])
+package_end
+
+// [addr, target]
+package("nom_u16_uv", [])
+	i("nom_u16", [ARG(0)])
+	ext(EXT("SystemConvert.__ToSingle__SystemUInt16__SystemSingle"), [_u16, ARG(1)])
+	exop("op_Division", [ARG(1), C(float(65535)), ARG(1)])
+package_end
+
+// -- The Code --
+
+code_comment("these functions have been setup to Do The Right Thing (tm)")
+
+public(_start)
+	jump(_LoadPage)
+
+code_comment("Clears the rendered page and releases associated resources.")
+public(_ClearPage)
+	exi(meshFilter, "set_mesh", [_null])
+
+// _cleanErasable is the 'tail' of functions which need to let go of the big arrays to prevent memory leaks.
+_(_cleanErasable)
+	// if bytesTextAsset isn't valid, don't set bytes to null
+	ext(IsValid, [bytesTextAsset, _bool])
+	jfalse(_bool, _cleanErasableNotTextAsset)
+
+	set(bytes, _null)
+
+_(_cleanErasableNotTextAsset)
+
+	set(_mesh, _null)
+	set(_material, _null)
+	set(_vertices, _null)
+	set(_triangles, _null)
+	set(_colors32, _null)
+	set(_uv, _null)
+
+	stop // that's all!
+
+public(_LoadPage)
+
+	// byte array setup
+	// if bytesTextAsset is valid, we load from there and then clear bytes once we're done.
+	// however, someone might be loading book contents dynamically.
+	// in *THAT* case, we don't do bytesTextAsset-related things.
+
+	ext(IsValid, [bytesTextAsset, _bool])
+	jfalse(_bool, _loadPageNotTextAsset)
+
+	// set up bytes, which lets us read the file.
+	// notably, we don't want bytes to be in Udon Heap longer than necessary, as this causes terrible memory use risks if we're instantiated.
+	// if it's not from a text asset though, then we don't really have a choice.
+	exi(bytesTextAsset, "get_bytes", [bytes])
+
+_(_loadPageNotTextAsset)
+
+	// bytes might not be valid (say, if we haven't been initialized yet!)
+	ext(IsValid, [bytes, _bool])
+	jfalse(_bool, _ClearPage)
+
+	// also do this if the length is < _f_fileHeadSize (no header)
+	exi(bytes, "get_Length", [_i32])
+	exop("op_GreaterThanOrEqual", [_i32, _f_fileHeadSize, _bool])
+	jfalse(_bool, _ClearPage)
+
+	// read all fixed header fields we care about
+	ext(ReadI32, [bytes, C(int(0)), infoAtlasCount])
+	ext(ReadI32, [bytes, C(int(4)), infoPageCount])
+	ext(ReadI32, [bytes, C(int(8)), _ofsMetadata])
+	ext(ReadI32, [bytes, C(int(12)), _lenMetadata])
+	ext(ReadI32, [bytes, C(int(16)), _ofsPalette])
+
+	// separate version number from atlas count
+	exop("op_RightShift", [infoAtlasCount, C(int(16)), infoFileVersion])
+	exop("op_LogicalAnd", [infoAtlasCount, C(int(0xFFFF)), infoAtlasCount])
+
+	// validate version number; must be >= _f_versionMin, <= _f_versionMax
+	exop("op_GreaterThanOrEqual", [infoFileVersion, _f_versionMin, _bool])
+	jfalse(_bool, _ClearPage)
+	exop("op_LessThanOrEqual", [infoFileVersion, _f_versionMax, _bool])
+	jfalse(_bool, _ClearPage)
+
+	// get metadata; note we do this even if the page number is invalid
+	ext(EXT("SystemTextEncoding.__get_UTF8__SystemTextEncoding"), [_utf8])
+	exi(_utf8, "GetString", [bytes, _ofsMetadata, _lenMetadata, infoMetadata])
+
+	// validate page number
+	exop("op_GreaterThanOrEqual", [page, C(int(0)), _bool])
+	jfalse(_bool, _ClearPage)
+	exop("op_LessThan", [page, infoPageCount, _bool])
+	jfalse(_bool, _ClearPage)
+
+	// find page lump
+	// we calculate the lump number relative to after the fixed header is over
+	exop("op_Addition", [page, infoAtlasCount, _ofsPage])
+	exop("op_Multiplication", [_ofsPage, C(int(8)), _ofsPage])
+	exop("op_Addition", [_ofsPage, _f_fileHeadSize, _ofsPage])
+	exop("op_Addition", [_ofsPage, C(int(4)), _endPage])
+	// _ofsPage now points to the page's lump offset field and _endPage to length
+	ext(ReadI32, [bytes, _ofsPage, _ofsPage])
+	ext(ReadI32, [bytes, _endPage, _endPage])
+	exop("op_Addition", [_endPage, _ofsPage, _endPage])
+	// and now _ofsPage and _endPage are correct
+
+	// find atlas lump
+	i("nom_u8", [_ofsPage])
+	ext(ConvU8I32, [_byte, _ofsAtlas])
+	// _ofsAtlas = Mathf.Clamp(_ofsAtlas, 0, atlasMaterials.Length - 1)
+	exi(atlasMaterials, "get_Length", [_i32])
+	exop("op_Subtraction", [_i32, C(int(1)), _i32])
+	ext(EXT("UnityEngineMathf.__Clamp__SystemInt32_SystemInt32_SystemInt32__SystemInt32"), [_ofsAtlas, C(int(0)), _i32, _ofsAtlas])
+
+	// anything we want to do with the atlas number, we've gotta do now...
+	exi(atlasMaterials, "Get", [_ofsAtlas, _material])
+
+	// lookup atlas lump
+	exop("op_Multiplication", [_ofsAtlas, C(int(8)), _ofsAtlas])
+	exop("op_Addition", [_ofsAtlas, _f_fileHeadSize, _ofsAtlas])
+	ext(ReadI32, [bytes, _ofsAtlas, _ofsAtlas])
+
+	// page width/height/sprite count
+	i("nom_f32", [_ofsPage, infoPageWidth])
+	i("nom_f32", [_ofsPage, infoPageHeight])
+	exop("op_Subtraction", [_endPage, _ofsPage, infoPageSpriteCount])
+	// from bytes into sprites
+	exop("op_Division", [infoPageSpriteCount, C(int(8)), infoPageSpriteCount])
+	// derive vertex/index count
+	exop("op_Multiplication", [infoPageSpriteCount, C(int(4)), infoPageVertexCount])
+	exop("op_Multiplication", [infoPageSpriteCount, C(int(6)), infoPageIndexCount])
+
+	// create arrays
+	ext(EXT("UnityEngineVector3Array.__ctor__SystemInt32__UnityEngineVector3Array"), [infoPageVertexCount, _vertices])
+	ext(EXT("UnityEngineVector2Array.__ctor__SystemInt32__UnityEngineVector2Array"), [infoPageVertexCount, _uv])
+	ext(EXT("UnityEngineColor32Array.__ctor__SystemInt32__UnityEngineColor32Array"), [infoPageVertexCount, _colors32])
+	ext(EXT("SystemInt32Array.__ctor__SystemInt32__SystemInt32Array"), [infoPageIndexCount, _triangles])
+
+	// setup sprite main loop variables
+	set(_vi0, C(int(0)))
+	set(_iptr, C(int(0)))
+
+	// sprite main loop {
+
+_(_genGeomLoop)
+
+	exop("op_Inequality", [_ofsPage, _endPage, _bool])
+	jfalse(_bool, _genGeomDone)
+
+	// sprite read-in
+
+		// shape
+		i("nom_u16", [_ofsPage])
+		ext(ConvU16I32, [_u16, _ofsShape])
+		// tlx/tly: ** SIGNED ** (as opposed to unsigned like shape/col)
+		i("nom_i16_pageCoord", [_ofsPage, infoPageWidth, _pclTLX])
+		i("nom_i16_pageCoord", [_ofsPage, infoPageHeight, _pclTLY])
+		// colour
+		i("nom_u16", [_ofsPage])
+		ext(ConvU16I32, [_u16, _ofsCol])
+
+_(_genGeomLoopFindShape) // debug
+
+	// find shape
+
+		exop("op_Multiplication", [_ofsShape, C(int(16)), _ofsShape])
+		exop("op_Addition", [_ofsShape, _ofsAtlas, _ofsShape])
+
+_(_genGeomLoopShapeReadIn) // debug
+
+	// shape read-in
+
+		// UVs
+		i("nom_u16_uv", [_ofsShape, _uvTLX])
+		i("nom_u16_uv", [_ofsShape, _uvTLY])
+		i("nom_u16_uv", [_ofsShape, _uvBRX])
+		i("nom_u16_uv", [_ofsShape, _uvBRY])
+		// size
+		i("nom_f32", [_ofsShape, _shpSizeX])
+		i("nom_f32", [_ofsShape, _shpSizeY])
+
+_(_genGeomLoopShapeColourDecoding) // debug
+
+	// colour decoding
+
+		exop("op_LeftShift", [_ofsCol, C(int(2)), _ofsCol])
+		exop("op_Addition", [_ofsPalette, _ofsCol, _ofsCol])
+		ext(ReadU8, [bytes, _ofsCol, _col_r])
+		exop("op_Addition", [_ofsCol, C(int(1)), _ofsCol])
+		ext(ReadU8, [bytes, _ofsCol, _col_g])
+		exop("op_Addition", [_ofsCol, C(int(1)), _ofsCol])
+		ext(ReadU8, [bytes, _ofsCol, _col_b])
+		exop("op_Addition", [_ofsCol, C(int(1)), _ofsCol])
+		ext(ReadU8, [bytes, _ofsCol, _col_a])
+		ext(EXT("UnityEngineColor32.__ctor__SystemByte_SystemByte_SystemByte_SystemByte__UnityEngineColor32"), [_col_r, _col_g, _col_b, _col_a, _col32])
+		exop("op_Implicit", [_col32, _col])
+		exi(_col, "get_linear", [_col])
+		exop("op_Implicit", [_col, _col32])
+
+_(_genGeomLoopShapeFindVertexIndices) // debug
+
+	// find vertex indices
+	// these are also used to *write* the vertices, so indices should be figured out first.
+
+		exop("op_Addition", [_vi0, C(int(1)), _vi1])
+		exop("op_Addition", [_vi0, C(int(2)), _vi2])
+		exop("op_Addition", [_vi0, C(int(3)), _vi3])
+
+_(_genGeomLoopShapeWriteIndices) // debug
+
+	// write indices
+
+		exi(_triangles, "Set", [_iptr, _vi2])
+		exop("op_Addition", [_iptr, C(int(1)), _iptr])
+		exi(_triangles, "Set", [_iptr, _vi1])
+		exop("op_Addition", [_iptr, C(int(1)), _iptr])
+		exi(_triangles, "Set", [_iptr, _vi3])
+		exop("op_Addition", [_iptr, C(int(1)), _iptr])
+		exi(_triangles, "Set", [_iptr, _vi0])
+		exop("op_Addition", [_iptr, C(int(1)), _iptr])
+		exi(_triangles, "Set", [_iptr, _vi1])
+		exop("op_Addition", [_iptr, C(int(1)), _iptr])
+		exi(_triangles, "Set", [_iptr, _vi2])
+		exop("op_Addition", [_iptr, C(int(1)), _iptr])
+
+_(_genGeomLoopShapeAddSpriteSize) // debug
+
+	// add sprite size to create pclBR
+
+		exop("op_Addition", [_pclTLX, _shpSizeX, _pclBRX])
+		exop("op_Addition", [_pclTLY, _shpSizeY, _pclBRY])
+
+_(_genGeomLoopShapeMuxing) // debug
+
+	// muxing
+
+		// remember, X->Z, Y->X
+		ext(Vector3, [_pclBRY, C(float(0)), _pclBRX, _vtxV0])
+		ext(Vector3, [_pclBRY, C(float(0)), _pclTLX, _vtxV1])
+		ext(Vector3, [_pclTLY, C(float(0)), _pclBRX, _vtxV2])
+		ext(Vector3, [_pclTLY, C(float(0)), _pclTLX, _vtxV3])
+
+		ext(Vector2, [_uvBRX, _uvBRY, _vtxT0])
+		ext(Vector2, [_uvTLX, _uvBRY, _vtxT1])
+		ext(Vector2, [_uvBRX, _uvTLY, _vtxT2])
+		ext(Vector2, [_uvTLX, _uvTLY, _vtxT3])
+
+_(_genGeomLoopShapeWriteVertices) // debug
+
+	// write vertices
+
+		exi(_vertices, "Set", [_vi0, _vtxV0])
+		exi(_vertices, "Set", [_vi1, _vtxV1])
+		exi(_vertices, "Set", [_vi2, _vtxV2])
+		exi(_vertices, "Set", [_vi3, _vtxV3])
+
+		exi(_uv, "Set", [_vi0, _vtxT0])
+		exi(_uv, "Set", [_vi1, _vtxT1])
+		exi(_uv, "Set", [_vi2, _vtxT2])
+		exi(_uv, "Set", [_vi3, _vtxT3])
+
+		exi(_colors32, "Set", [_vi0, _col32])
+		exi(_colors32, "Set", [_vi1, _col32])
+		exi(_colors32, "Set", [_vi2, _col32])
+		exi(_colors32, "Set", [_vi3, _col32])
+
+		// advance _vi0
+		exop("op_Addition", [_vi0, C(int(4)), _vi0])
+
+	// }
+
+	jump(_genGeomLoop)
+
+_(_genGeomDone)
+
+	// create, assign, and setup the mesh
+
+	ext(EXT("UnityEngineMesh.__ctor____UnityEngineMesh"), [_mesh])
+	exi(_mesh, "set_vertices", [_vertices])
+	exi(_mesh, "set_uv", [_uv])
+	exi(_mesh, "set_colors32", [_colors32])
+	exi(_mesh, "set_triangles", [_triangles])
+	exi(_mesh, "RecalculateNormals", [])
+	exop("op_Equality", [C(int(0)), C(int(0)), _bool])
+	exi(_mesh, "UploadMeshData", [_bool])
+	exi(meshFilter, "set_sharedMesh", [_mesh])
+	exi(meshRenderer, "set_sharedMaterial", [_material])
+
+	// clean up temporaries and leave
+	jump(_cleanErasable)
+
+eof

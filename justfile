@@ -1,4 +1,4 @@
-build: udon kip32 site
+build: udon kvtools-fixup kip32 site
 
 # -- KIP32 --
 
@@ -64,7 +64,7 @@ udon:
 
 # -- SPECIALIZED --
 
-[working-directory: 'kip32']
+[working-directory: 'kip32/tools']
 kip32-idec:
 	cargo fmt
 	KIP32_TEST_EXHAUSTIVE=1 cargo test -- --show-output
@@ -78,10 +78,18 @@ kvbook-cargo-about:
 
 [working-directory: 'udon']
 kudonknife-checks:
+	# obvious tests
 	cargo run --bin kudonknife coredump kudonast/src/exampleError.odin.bin odinron /media/ramdisk/exampleError.ron
 	cargo run --bin kudonknife coredump kudonast/src/exampleError.odin.bin uasm /media/ramdisk/exampleError.uasm
 	cargo run --bin kudonknife odinbin kudonast/src/docExample.odin.bin uasm /media/ramdisk/docExample.uasm
 	cargo run --bin kudonknife udonjson ../kvassets/Assets/science.udonjson uasm /media/ramdisk/science.uasm
+
+[working-directory: 'udon/kudonknife']
+kudonknife-install:
+	cargo install --path .
+
+kvtools-fixup:
+	cargo run --manifest-path udon/kudonknife/Cargo.toml ku2 kvtools/Assets/udon/kvbookLoader.ron uasm_strict_nodebug kvtools/Assets/udon/kvbookLoader.uasm
 
 # -- CLEAN --
 

@@ -1,191 +1,94 @@
-# kvbook loader
-# written in Udon Assembly because this contains a lot of Unity manipulation and some *nasty* hot loops
-# to use, insert the .bytes TextAsset into 'bytesTextAsset', or byte array into 'bytes', set `page`, then call `_LoadPage`
-# you can free up memory by strategically calling `_ClearPage` (to free memory) and `_LoadPage` (to rebuild)
-# (implementing this on enable/disable automatically was considered, but I've decided to let it be the decision of the host prefab)
-# beware: Untrusted content can cause Udon freezes and generation of extremely large meshes. You have been warned.
-
 .data_start
 
-	# -- constants --
-
-	_c_0: %SystemInt32, 0
-	_c_1: %SystemInt32, 1
-	_c_2: %SystemInt32, 2
-	_c_3: %SystemInt32, 3
-	_c_4: %SystemInt32, 4
-	_c_5: %SystemInt32, 5
-	_c_6: %SystemInt32, 6
-	_c_8: %SystemInt32, 8
-	_c_11: %SystemInt32, 11
-	_c_16: %SystemInt32, 16
-	_c_31: %SystemInt32, 31
-	_c_63: %SystemInt32, 63
-	_c_256: %SystemInt32, 256
-	_c_65535: %SystemInt32, 65535
-
-	_cf_0: %SystemSingle, 0.0
-	_cf_1: %SystemSingle, 1.0
-	_cf_31: %SystemSingle, 31.0
-	_cf_63: %SystemSingle, 63.0
-	_cf_32767: %SystemSingle, 32767.0
-	_cf_65535: %SystemSingle, 65535.0
-
-	_null: %SystemObject,null
-
-	# -- format constants --
-
+	# kvbook loader
+	# Udon Assembly ; this contains a lot of Unity manipulation and some *nasty* hot loops
+	# to use, insert the .bytes TextAsset into 'bytesTextAsset', or byte array into 'bytes', set `page`, then call `_LoadPage`
+	# you can free up memory by strategically calling `_ClearPage` (to free memory) and `_LoadPage` (to rebuild)
+	# (implementing this on enable/disable automatically was considered, but I've decided to let it be the decision of the host prefab)
+	# beware: Untrusted content can cause Udon freezes and generation of extremely large meshes. You have been warned.
+	_null: %SystemObject, null
 	# supported version range
-
-	_f_versionMin: %SystemInt32, 0x0100
-	_f_versionMax: %SystemInt32, 0x01FF
-
+	_f_versionMin: %SystemInt32, 0x00000100
+	_f_versionMax: %SystemInt32, 0x000001ff
 	# placements
-
-	# file head size; this includes both the formal header and the metadata/palette lumps
-	_f_fileHeadSize: %SystemInt32, 0x0018
-	# this
-	_f_fileHeadMetaOfs: %SystemInt32, 0x0008
-	_f_fileHeadMetaLen: %SystemInt32, 0x000C
-	# palette offset offset
-	_f_fileHeadPalOfs: %SystemInt32, 0x0010
-
-	# -- public --
-
+	_f_fileHeadSize: %SystemInt32, 0x00000018
+	# public
 	.export page
-	page: %SystemInt32, -1
-
+	page: %SystemInt32, 0xffffffff
 	.export meshFilter
 	meshFilter: %UnityEngineMeshFilter, this
-
 	.export meshRenderer
 	meshRenderer: %UnityEngineMeshRenderer, this
-
 	.export atlasMaterials
 	atlasMaterials: %UnityEngineMaterialArray, null
-
 	.export bytesTextAsset
 	bytesTextAsset: %UnityEngineTextAsset, null
-
 	# if bytesTextAsset != null, this only *temporarily* stores the bytes
 	# otherwise it always stores the bytes
 	.export bytes
 	bytes: %SystemByteArray, null
-
-	# -- public out --
-
+	# public out
 	.export infoPageCount
-	infoPageCount: %SystemInt32, 0
-
+	infoPageCount: %SystemInt32, 0x00000000
 	.export infoAtlasCount
-	infoAtlasCount: %SystemInt32, 0
-
+	infoAtlasCount: %SystemInt32, 0x00000000
 	.export infoFileVersion
-	infoFileVersion: %SystemInt32, 0
-
+	infoFileVersion: %SystemInt32, 0x00000000
 	.export infoPageWidth
-	infoPageWidth: %SystemSingle, 0.0
-
+	infoPageWidth: %SystemSingle, 0
 	.export infoPageHeight
-	infoPageHeight: %SystemSingle, 0.0
-
+	infoPageHeight: %SystemSingle, 0
 	.export infoPageSpriteCount
-	infoPageSpriteCount: %SystemInt32, 0
-
+	infoPageSpriteCount: %SystemInt32, 0x00000000
 	.export infoPageVertexCount
-	infoPageVertexCount: %SystemInt32, 0
-
+	infoPageVertexCount: %SystemInt32, 0x00000000
 	.export infoPageIndexCount
-	infoPageIndexCount: %SystemInt32, 0
-
+	infoPageIndexCount: %SystemInt32, 0x00000000
 	.export infoMetadata
 	infoMetadata: %SystemString, "{}"
-
-	# -- file offsets --
-
-	# .export _ofsPalette
-	# .export _ofsMetadata
-	# .export _ofsPage
-	# .export _endPage
-	# .export _ofsAtlas
-
-	_ofsPalette: %SystemInt32, 0
-	_ofsMetadata: %SystemInt32, 0
-	_lenMetadata: %SystemInt32, 0
-	_ofsPage: %SystemInt32, 0
-	_endPage: %SystemInt32, 0
-	_ofsAtlas: %SystemInt32, 0
-
-	_ofsShape: %SystemInt32, 0
-
-	# worth noting, this generator uses Z as 'X' and X as 'Y' to reduce complexity
-
-	# -- erase-me --
-
+	# file offsets
+	_ofsPalette: %SystemInt32, 0x00000000
+	_ofsMetadata: %SystemInt32, 0x00000000
+	_lenMetadata: %SystemInt32, 0x00000000
+	_ofsPage: %SystemInt32, 0x00000000
+	_endPage: %SystemInt32, 0x00000000
+	_ofsAtlas: %SystemInt32, 0x00000000
+	_ofsShape: %SystemInt32, 0x00000000
+	_ofsCol: %SystemInt32, 0x00000000
+	# erasable
 	_mesh: %UnityEngineMesh, null
 	_material: %UnityEngineMaterial, null
-
 	_vertices: %UnityEngineVector3Array, null
 	_triangles: %SystemInt32Array, null
 	_colors32: %UnityEngineColor32Array, null
 	_uv: %UnityEngineVector2Array, null
-	_uv2: %UnityEngineVector2Array, null
-
-	# -- struct sprite --
-
-	# .export _sprShape
-	# .export _sprTLX
-	# .export _sprTLY
-	# .export _sprCol
-
-	_sprShape: %SystemUInt16, null
-	_sprTLX: %SystemInt16, null
-	_sprTLY: %SystemInt16, null
+	# struct sprite
 	_sprCol: %SystemUInt16, null
-
-	# -- struct shape --
-
-	# .export _shpUTLX
-	# .export _shpUTLY
-	# .export _shpUBRX
-	# .export _shpUBRY
-	# .export _shpSizeX
-	# .export _shpSizeY
-
+	# struct shape
 	_shpUTLX: %SystemUInt16, null
 	_shpUTLY: %SystemUInt16, null
 	_shpUBRX: %SystemUInt16, null
 	_shpUBRY: %SystemUInt16, null
-	_shpSizeX: %SystemSingle, 0.0
-	_shpSizeY: %SystemSingle, 0.0
-
-	# -- colour decoding --
-
-	_colOfs: %SystemInt32, 0
-
+	_shpSizeX: %SystemSingle, 0
+	_shpSizeY: %SystemSingle, 0
+	# colour decoding
 	_col_r: %SystemByte, null
 	_col_g: %SystemByte, null
 	_col_b: %SystemByte, null
 	_col_a: %SystemByte, null
 	_col: %UnityEngineColor, null
 	_col32: %UnityEngineColor32, null
-
-	# -- position calculation --
-
-	_pclTLX: %SystemSingle, 0.0
-	_pclTLY: %SystemSingle, 0.0
-	_pclBRX: %SystemSingle, 0.0
-	_pclBRY: %SystemSingle, 0.0
-
-	# -- uv calculation --
-
-	_uvTLX: %SystemSingle, 0.0
-	_uvTLY: %SystemSingle, 0.0
-	_uvBRX: %SystemSingle, 0.0
-	_uvBRY: %SystemSingle, 0.0
-
-	# -- vertex muxing --
-
+	# position calculation
+	_pclTLX: %SystemSingle, 0
+	_pclTLY: %SystemSingle, 0
+	_pclBRX: %SystemSingle, 0
+	_pclBRY: %SystemSingle, 0
+	# uv calculation
+	_uvTLX: %SystemSingle, 0
+	_uvTLY: %SystemSingle, 0
+	_uvBRX: %SystemSingle, 0
+	_uvBRY: %SystemSingle, 0
+	# vertex muxing
 	_vtxV0: %UnityEngineVector3, null
 	_vtxT0: %UnityEngineVector2, null
 	_vtxV1: %UnityEngineVector3, null
@@ -194,960 +97,760 @@
 	_vtxT2: %UnityEngineVector2, null
 	_vtxV3: %UnityEngineVector3, null
 	_vtxT3: %UnityEngineVector2, null
-
-	_vtxUV2: %UnityEngineVector2, null
-
-	# -- indices --
-
-	_vi0: %SystemInt32, 0
-	_vi1: %SystemInt32, 0
-	_vi2: %SystemInt32, 0
-	_vi3: %SystemInt32, 0
-
-	_iptr: %SystemInt32, 0
-
-	# -- temporaries --
-
+	# indices
+	_vi0: %SystemInt32, 0x00000000
+	_vi1: %SystemInt32, 0x00000000
+	_vi2: %SystemInt32, 0x00000000
+	_vi3: %SystemInt32, 0x00000000
+	_iptr: %SystemInt32, 0x00000000
+	# temporaries
 	_byte: %SystemByte, null
 	_bool: %SystemBoolean, null
-	_i32: %SystemInt32, 0
+	_i32: %SystemInt32, 0x00000000
+	_u16: %SystemUInt16, null
+	_i16: %SystemInt16, null
 	_utf8: %SystemTextEncoding, null
+	_extern__VRCSDKBaseUtilities_dot___IsValid__SystemObject__SystemBoolean: %SystemString, "VRCSDKBaseUtilities.__IsValid__SystemObject__SystemBoolean"
+	_extern__SystemByteArray_dot___Get__SystemInt32__SystemByte: %SystemString, "SystemByteArray.__Get__SystemInt32__SystemByte"
+	_extern__SystemBitConverter_dot___ToInt32__SystemByteArray_SystemInt32__SystemInt32: %SystemString, "SystemBitConverter.__ToInt32__SystemByteArray_SystemInt32__SystemInt32"
+	_extern__SystemBitConverter_dot___ToSingle__SystemByteArray_SystemInt32__SystemSingle: %SystemString, "SystemBitConverter.__ToSingle__SystemByteArray_SystemInt32__SystemSingle"
+	_extern__SystemBitConverter_dot___ToUInt16__SystemByteArray_SystemInt32__SystemUInt16: %SystemString, "SystemBitConverter.__ToUInt16__SystemByteArray_SystemInt32__SystemUInt16"
+	_extern__SystemBitConverter_dot___ToInt16__SystemByteArray_SystemInt32__SystemInt16: %SystemString, "SystemBitConverter.__ToInt16__SystemByteArray_SystemInt32__SystemInt16"
+	_extern__SystemConvert_dot___ToInt32__SystemByte__SystemInt32: %SystemString, "SystemConvert.__ToInt32__SystemByte__SystemInt32"
+	_extern__SystemConvert_dot___ToInt32__SystemUInt16__SystemInt32: %SystemString, "SystemConvert.__ToInt32__SystemUInt16__SystemInt32"
+	_extern__UnityEngineVector2_dot___ctor__SystemSingle_SystemSingle__UnityEngineVector2: %SystemString, "UnityEngineVector2.__ctor__SystemSingle_SystemSingle__UnityEngineVector2"
+	_extern__UnityEngineVector3_dot___ctor__SystemSingle_SystemSingle_SystemSingle__UnityEngineVector3: %SystemString, "UnityEngineVector3.__ctor__SystemSingle_SystemSingle_SystemSingle__UnityEngineVector3"
+	_extern__UnityEngineMeshFilter_dot___set_mesh__UnityEngineMesh__SystemVoid: %SystemString, "UnityEngineMeshFilter.__set_mesh__UnityEngineMesh__SystemVoid"
+	_extern__UnityEngineTextAsset_dot___get_bytes__SystemByteArray: %SystemString, "UnityEngineTextAsset.__get_bytes__SystemByteArray"
+	_extern__SystemByteArray_dot___get_Length__SystemInt32: %SystemString, "SystemByteArray.__get_Length__SystemInt32"
+	_extern__SystemInt32_dot___op_GreaterThanOrEqual__SystemInt32_SystemInt32__SystemBoolean: %SystemString, "SystemInt32.__op_GreaterThanOrEqual__SystemInt32_SystemInt32__SystemBoolean"
+	_int__int_0: %SystemInt32, 0x00000000
+	_int__int_4: %SystemInt32, 0x00000004
+	_int__int_8: %SystemInt32, 0x00000008
+	_int__int_12: %SystemInt32, 0x0000000c
+	_int__int_16: %SystemInt32, 0x00000010
+	_extern__SystemInt32_dot___op_RightShift__SystemInt32_SystemInt32__SystemInt32: %SystemString, "SystemInt32.__op_RightShift__SystemInt32_SystemInt32__SystemInt32"
+	_int__int_65535: %SystemInt32, 0x0000ffff
+	_extern__SystemInt32_dot___op_LogicalAnd__SystemInt32_SystemInt32__SystemInt32: %SystemString, "SystemInt32.__op_LogicalAnd__SystemInt32_SystemInt32__SystemInt32"
+	_extern__SystemInt32_dot___op_LessThanOrEqual__SystemInt32_SystemInt32__SystemBoolean: %SystemString, "SystemInt32.__op_LessThanOrEqual__SystemInt32_SystemInt32__SystemBoolean"
+	_extern__SystemTextEncoding_dot___get_UTF8__SystemTextEncoding: %SystemString, "SystemTextEncoding.__get_UTF8__SystemTextEncoding"
+	_extern__SystemTextEncoding_dot___GetString__SystemByteArray_SystemInt32_SystemInt32__SystemString: %SystemString, "SystemTextEncoding.__GetString__SystemByteArray_SystemInt32_SystemInt32__SystemString"
+	_extern__SystemInt32_dot___op_LessThan__SystemInt32_SystemInt32__SystemBoolean: %SystemString, "SystemInt32.__op_LessThan__SystemInt32_SystemInt32__SystemBoolean"
+	_extern__SystemInt32_dot___op_Addition__SystemInt32_SystemInt32__SystemInt32: %SystemString, "SystemInt32.__op_Addition__SystemInt32_SystemInt32__SystemInt32"
+	_extern__SystemInt32_dot___op_Multiplication__SystemInt32_SystemInt32__SystemInt32: %SystemString, "SystemInt32.__op_Multiplication__SystemInt32_SystemInt32__SystemInt32"
+	_int__int_1: %SystemInt32, 0x00000001
+	_extern__UnityEngineMaterialArray_dot___get_Length__SystemInt32: %SystemString, "UnityEngineMaterialArray.__get_Length__SystemInt32"
+	_extern__SystemInt32_dot___op_Subtraction__SystemInt32_SystemInt32__SystemInt32: %SystemString, "SystemInt32.__op_Subtraction__SystemInt32_SystemInt32__SystemInt32"
+	_extern__UnityEngineMathf_dot___Clamp__SystemInt32_SystemInt32_SystemInt32__SystemInt32: %SystemString, "UnityEngineMathf.__Clamp__SystemInt32_SystemInt32_SystemInt32__SystemInt32"
+	_extern__UnityEngineMaterialArray_dot___Get__SystemInt32__UnityEngineMaterial: %SystemString, "UnityEngineMaterialArray.__Get__SystemInt32__UnityEngineMaterial"
+	_extern__SystemInt32_dot___op_Division__SystemInt32_SystemInt32__SystemInt32: %SystemString, "SystemInt32.__op_Division__SystemInt32_SystemInt32__SystemInt32"
+	_int__int_6: %SystemInt32, 0x00000006
+	_extern__UnityEngineVector3Array_dot___ctor__SystemInt32__UnityEngineVector3Array: %SystemString, "UnityEngineVector3Array.__ctor__SystemInt32__UnityEngineVector3Array"
+	_extern__UnityEngineVector2Array_dot___ctor__SystemInt32__UnityEngineVector2Array: %SystemString, "UnityEngineVector2Array.__ctor__SystemInt32__UnityEngineVector2Array"
+	_extern__UnityEngineColor32Array_dot___ctor__SystemInt32__UnityEngineColor32Array: %SystemString, "UnityEngineColor32Array.__ctor__SystemInt32__UnityEngineColor32Array"
+	_extern__SystemInt32Array_dot___ctor__SystemInt32__SystemInt32Array: %SystemString, "SystemInt32Array.__ctor__SystemInt32__SystemInt32Array"
+	_extern__SystemInt32_dot___op_Inequality__SystemInt32_SystemInt32__SystemBoolean: %SystemString, "SystemInt32.__op_Inequality__SystemInt32_SystemInt32__SystemBoolean"
+	_int__int_2: %SystemInt32, 0x00000002
+	_extern__SystemConvert_dot___ToSingle__SystemInt16__SystemSingle: %SystemString, "SystemConvert.__ToSingle__SystemInt16__SystemSingle"
+	# immediate operand: Float(32767.0)
+	_immediate_gensym0: %SystemSingle, 32767
+	# immediate operand: Float(32767.0)
+	_immediate_gensym1: %SystemSingle, 32767
+	_extern__SystemSingle_dot___op_Division__SystemSingle_SystemSingle__SystemSingle: %SystemString, "SystemSingle.__op_Division__SystemSingle_SystemSingle__SystemSingle"
+	_extern__SystemSingle_dot___op_Multiplication__SystemSingle_SystemSingle__SystemSingle: %SystemString, "SystemSingle.__op_Multiplication__SystemSingle_SystemSingle__SystemSingle"
+	# immediate operand: Float(32767.0)
+	_immediate_gensym2: %SystemSingle, 32767
+	# immediate operand: Float(32767.0)
+	_immediate_gensym3: %SystemSingle, 32767
+	_extern__SystemConvert_dot___ToSingle__SystemUInt16__SystemSingle: %SystemString, "SystemConvert.__ToSingle__SystemUInt16__SystemSingle"
+	# immediate operand: Float(65535.0)
+	_immediate_gensym4: %SystemSingle, 65535
+	# immediate operand: Float(65535.0)
+	_immediate_gensym5: %SystemSingle, 65535
+	# immediate operand: Float(65535.0)
+	_immediate_gensym6: %SystemSingle, 65535
+	# immediate operand: Float(65535.0)
+	_immediate_gensym7: %SystemSingle, 65535
+	# immediate operand: Float(65535.0)
+	_immediate_gensym8: %SystemSingle, 65535
+	# immediate operand: Float(65535.0)
+	_immediate_gensym9: %SystemSingle, 65535
+	# immediate operand: Float(65535.0)
+	_immediate_gensym10: %SystemSingle, 65535
+	# immediate operand: Float(65535.0)
+	_immediate_gensym11: %SystemSingle, 65535
+	_extern__SystemInt32_dot___op_LeftShift__SystemInt32_SystemInt32__SystemInt32: %SystemString, "SystemInt32.__op_LeftShift__SystemInt32_SystemInt32__SystemInt32"
+	_extern__UnityEngineColor32_dot___ctor__SystemByte_SystemByte_SystemByte_SystemByte__UnityEngineColor32: %SystemString, "UnityEngineColor32.__ctor__SystemByte_SystemByte_SystemByte_SystemByte__UnityEngineColor32"
+	_extern__UnityEngineColor32_dot___op_Implicit__UnityEngineColor32__UnityEngineColor: %SystemString, "UnityEngineColor32.__op_Implicit__UnityEngineColor32__UnityEngineColor"
+	_extern__UnityEngineColor_dot___get_linear__UnityEngineColor: %SystemString, "UnityEngineColor.__get_linear__UnityEngineColor"
+	_extern__UnityEngineColor32_dot___op_Implicit__UnityEngineColor__UnityEngineColor32: %SystemString, "UnityEngineColor32.__op_Implicit__UnityEngineColor__UnityEngineColor32"
+	_int__int_3: %SystemInt32, 0x00000003
+	_extern__SystemInt32Array_dot___Set__SystemInt32_SystemInt32__SystemVoid: %SystemString, "SystemInt32Array.__Set__SystemInt32_SystemInt32__SystemVoid"
+	_extern__SystemSingle_dot___op_Addition__SystemSingle_SystemSingle__SystemSingle: %SystemString, "SystemSingle.__op_Addition__SystemSingle_SystemSingle__SystemSingle"
+	# immediate operand: Float(0.0)
+	_immediate_gensym12: %SystemSingle, 0
+	# immediate operand: Float(0.0)
+	_immediate_gensym13: %SystemSingle, 0
+	# immediate operand: Float(0.0)
+	_immediate_gensym14: %SystemSingle, 0
+	# immediate operand: Float(0.0)
+	_immediate_gensym15: %SystemSingle, 0
+	_extern__UnityEngineVector3Array_dot___Set__SystemInt32_UnityEngineVector3__SystemVoid: %SystemString, "UnityEngineVector3Array.__Set__SystemInt32_UnityEngineVector3__SystemVoid"
+	_extern__UnityEngineVector2Array_dot___Set__SystemInt32_UnityEngineVector2__SystemVoid: %SystemString, "UnityEngineVector2Array.__Set__SystemInt32_UnityEngineVector2__SystemVoid"
+	_extern__UnityEngineColor32Array_dot___Set__SystemInt32_UnityEngineColor32__SystemVoid: %SystemString, "UnityEngineColor32Array.__Set__SystemInt32_UnityEngineColor32__SystemVoid"
+	_extern__UnityEngineMesh_dot___ctor____UnityEngineMesh: %SystemString, "UnityEngineMesh.__ctor____UnityEngineMesh"
+	_extern__UnityEngineMesh_dot___set_vertices__UnityEngineVector3Array__SystemVoid: %SystemString, "UnityEngineMesh.__set_vertices__UnityEngineVector3Array__SystemVoid"
+	_extern__UnityEngineMesh_dot___set_uv__UnityEngineVector2Array__SystemVoid: %SystemString, "UnityEngineMesh.__set_uv__UnityEngineVector2Array__SystemVoid"
+	_extern__UnityEngineMesh_dot___set_colors32__UnityEngineColor32Array__SystemVoid: %SystemString, "UnityEngineMesh.__set_colors32__UnityEngineColor32Array__SystemVoid"
+	_extern__UnityEngineMesh_dot___set_triangles__SystemInt32Array__SystemVoid: %SystemString, "UnityEngineMesh.__set_triangles__SystemInt32Array__SystemVoid"
+	_extern__UnityEngineMesh_dot___RecalculateNormals__SystemVoid: %SystemString, "UnityEngineMesh.__RecalculateNormals__SystemVoid"
+	_extern__SystemInt32_dot___op_Equality__SystemInt32_SystemInt32__SystemBoolean: %SystemString, "SystemInt32.__op_Equality__SystemInt32_SystemInt32__SystemBoolean"
+	_extern__UnityEngineMesh_dot___UploadMeshData__SystemBoolean__SystemVoid: %SystemString, "UnityEngineMesh.__UploadMeshData__SystemBoolean__SystemVoid"
+	_extern__UnityEngineMeshFilter_dot___set_sharedMesh__UnityEngineMesh__SystemVoid: %SystemString, "UnityEngineMeshFilter.__set_sharedMesh__UnityEngineMesh__SystemVoid"
+	_extern__UnityEngineMeshRenderer_dot___set_sharedMaterial__UnityEngineMaterial__SystemVoid: %SystemString, "UnityEngineMeshRenderer.__set_sharedMaterial__UnityEngineMaterial__SystemVoid"
+
 
 .data_end
 .code_start
 
-	# these functinos have been setup to Do The Right Thing (tm).
-
+	# these functions have been setup to Do The Right Thing (tm)
 .export _start
 _start:
 	JUMP, _LoadPage
-
+	# Clears the rendered page and releases associated resources.
 .export _ClearPage
 _ClearPage:
-
-	# meshFilter.mesh = null
-		PUSH, meshFilter
-		PUSH, _null
-		EXTERN, "UnityEngineMeshFilter.__set_mesh__UnityEngineMesh__SystemVoid"
-
+	PUSH, meshFilter
+	PUSH, _null
+	EXTERN, _extern__UnityEngineMeshFilter_dot___set_mesh__UnityEngineMesh__SystemVoid
 _cleanErasable:
-
-	# if bytesTextAsset isn't valid, don't set bytes to null
-		PUSH, bytesTextAsset
-		PUSH, _bool
-		EXTERN, "VRCSDKBaseUtilities.__IsValid__SystemObject__SystemBoolean"
-		PUSH, _bool
-		JUMP_IF_FALSE, _cleanErasableNotTextAsset
-
-	# bytes = null
-		PUSH, _null
-		PUSH, bytes
-		COPY
-
+	PUSH, bytesTextAsset
+	PUSH, _bool
+	EXTERN, _extern__VRCSDKBaseUtilities_dot___IsValid__SystemObject__SystemBoolean
+	PUSH, _bool
+	JUMP_IF_FALSE, _cleanErasableNotTextAsset
+	PUSH, _null
+	PUSH, bytes
+	COPY
 _cleanErasableNotTextAsset:
-
-	# _mesh = null
-		PUSH, _null
-		PUSH, _mesh
-		COPY
-
-	# _material = null
-		PUSH, _null
-		PUSH, _material
-		COPY
-
-	# _vertices = null
-		PUSH, _null
-		PUSH, _vertices
-		COPY
-
-	# _triangles = null
-		PUSH, _null
-		PUSH, _triangles
-		COPY
-
-	# _colors32 = null
-		PUSH, _null
-		PUSH, _colors32
-		COPY
-
-	# _uv = null
-		PUSH, _null
-		PUSH, _uv
-		COPY
-
-	# _uv2 = null
-		PUSH, _null
-		PUSH, _uv2
-		COPY
-
-	# end
-		JUMP, 0xFFFFFFFC
-
+	PUSH, _null
+	PUSH, _mesh
+	COPY
+	PUSH, _null
+	PUSH, _material
+	COPY
+	PUSH, _null
+	PUSH, _vertices
+	COPY
+	PUSH, _null
+	PUSH, _triangles
+	COPY
+	PUSH, _null
+	PUSH, _colors32
+	COPY
+	PUSH, _null
+	PUSH, _uv
+	COPY
+	JUMP, 0xfffffffc
 .export _LoadPage
 _LoadPage:
-
-	# -- byte array setup --
-
-		# if bytesTextAsset is valid, we load from there and then clear bytes once we're done.
-		# however, someone might be loading book contents dynamically.
-		# in *THAT* case, we don't do bytesTextAsset-related things.
-			PUSH, bytesTextAsset
-			PUSH, _bool
-			EXTERN, "VRCSDKBaseUtilities.__IsValid__SystemObject__SystemBoolean"
-			PUSH, _bool
-			JUMP_IF_FALSE, _loadPageNotTextAsset
-
-		# set up bytes, which lets us read the file.
-		# notably, we don't want bytes to be in Udon Heap longer than necessary, as this causes terrible memory use risks if we're instantiated.
-		# if it's not from a text asset though, then we don't really have a choice.
-			PUSH, bytesTextAsset
-			PUSH, bytes
-			EXTERN, "UnityEngineTextAsset.__get_bytes__SystemByteArray"
-
-		_loadPageNotTextAsset:
-
-		# bytes might not be valid (say, if we haven't been initialized yet!)
-			PUSH, bytes
-			PUSH, _bool
-			EXTERN, "VRCSDKBaseUtilities.__IsValid__SystemObject__SystemBoolean"
-			PUSH, _bool
-			JUMP_IF_FALSE, _ClearPage
-
-		# also do this if the length is < _f_fileHeadSize (no header)
-			PUSH, bytes
-			PUSH, _i32
-			EXTERN, "SystemByteArray.__get_Length__SystemInt32"
-			PUSH, _i32
-			PUSH, _f_fileHeadSize
-			PUSH, _bool
-			EXTERN, "SystemInt32.__op_GreaterThanOrEqual__SystemInt32_SystemInt32__SystemBoolean"
-			PUSH, _bool
-			JUMP_IF_FALSE, _ClearPage
-
-		# -- setup info --
-
-		# read the atlas count and version number
-			PUSH, bytes
-			PUSH, _c_0
-			PUSH, infoAtlasCount
-			EXTERN, "SystemBitConverter.__ToInt32__SystemByteArray_SystemInt32__SystemInt32"
-
-		# extract version number
-			PUSH, infoAtlasCount
-			PUSH, _c_16
-			PUSH, infoFileVersion
-			EXTERN, "SystemInt32.__op_RightShift__SystemInt32_SystemInt32__SystemInt32"
-
-		# fix atlas count to not include version number
-			PUSH, infoAtlasCount
-			PUSH, _c_65535
-			PUSH, infoAtlasCount
-			EXTERN, "SystemInt32.__op_LogicalAnd__SystemInt32_SystemInt32__SystemInt32"
-
-		# read the page count
-			PUSH, bytes
-			PUSH, _c_4
-			PUSH, infoPageCount
-			EXTERN, "SystemBitConverter.__ToInt32__SystemByteArray_SystemInt32__SystemInt32"
-
-	# -- validate version number --
-
-		# version must be >= _f_versionMin
-			PUSH, infoFileVersion
-			PUSH, _f_versionMin
-			PUSH, _bool
-			EXTERN, "SystemInt32.__op_GreaterThanOrEqual__SystemInt32_SystemInt32__SystemBoolean"
-			PUSH, _bool
-			JUMP_IF_FALSE, _ClearPage
-
-		# version must be <= _f_versionMax
-			PUSH, infoFileVersion
-			PUSH, _f_versionMax
-			PUSH, _bool
-			EXTERN, "SystemInt32.__op_LessThanOrEqual__SystemInt32_SystemInt32__SystemBoolean"
-			PUSH, _bool
-			JUMP_IF_FALSE, _ClearPage
-
-	# -- validate page number --
-
-		# if the page is < 0, it's definitely not valid, so clear the page
-			PUSH, page
-			PUSH, _c_0
-			PUSH, _bool
-			EXTERN, "SystemInt32.__op_GreaterThanOrEqual__SystemInt32_SystemInt32__SystemBoolean"
-			PUSH, _bool
-			JUMP_IF_FALSE, _ClearPage
-
-		# if the page is >= the page count, it's not valid, so clear the page
-			PUSH, page
-			PUSH, infoPageCount
-			PUSH, _bool
-			EXTERN, "SystemInt32.__op_LessThan__SystemInt32_SystemInt32__SystemBoolean"
-			PUSH, _bool
-			JUMP_IF_FALSE, _ClearPage
-
-	# -- find page lump --
-
-		# _ofsPage = page + atlasCount
-			PUSH, page
-			PUSH, infoAtlasCount
-			PUSH, _ofsPage
-			EXTERN, "SystemInt32.__op_Addition__SystemInt32_SystemInt32__SystemInt32"
-
-		# _ofsPage *= 8
-			PUSH, _ofsPage
-			PUSH, _c_8
-			PUSH, _ofsPage
-			EXTERN, "SystemInt32.__op_Multiplication__SystemInt32_SystemInt32__SystemInt32"
-
-		# _ofsPage += _f_fileHeadSize
-			PUSH, _ofsPage
-			PUSH, _f_fileHeadSize
-			PUSH, _ofsPage
-			EXTERN, "SystemInt32.__op_Addition__SystemInt32_SystemInt32__SystemInt32"
-
-		# _ofsPage now points to the page's lump offset field
-
-		# _endPage = _ofsPage + 4
-			PUSH, _ofsPage
-			PUSH, _c_4
-			PUSH, _endPage
-			EXTERN, "SystemInt32.__op_Addition__SystemInt32_SystemInt32__SystemInt32"
-
-		# _endPage now points to the page's lump length field
-
-		# _ofsPage = *_ofsPage
-			PUSH, bytes
-			PUSH, _ofsPage
-			PUSH, _ofsPage
-			EXTERN, "SystemBitConverter.__ToInt32__SystemByteArray_SystemInt32__SystemInt32"
-
-		# _endPage = *_endPage
-			PUSH, bytes
-			PUSH, _endPage
-			PUSH, _endPage
-			EXTERN, "SystemBitConverter.__ToInt32__SystemByteArray_SystemInt32__SystemInt32"
-
-		# _endPage += _ofsPage
-			PUSH, _ofsPage
-			PUSH, _endPage
-			PUSH, _endPage
-			EXTERN, "SystemInt32.__op_Addition__SystemInt32_SystemInt32__SystemInt32"
-
-	# -- find atlas lump --
-
-		# _byte = *_ofsPage ; _ofsPage += 1
-			PUSH, bytes
-			PUSH, _ofsPage
-			PUSH, _byte
-			EXTERN, "SystemByteArray.__Get__SystemInt32__SystemByte"
-			PUSH, _ofsPage
-			PUSH, _c_1
-			PUSH, _ofsPage
-			EXTERN, "SystemInt32.__op_Addition__SystemInt32_SystemInt32__SystemInt32"
-
-		# _ofsAtlas = int32(_byte)
-			PUSH, _byte
-			PUSH, _ofsAtlas
-			EXTERN, "SystemConvert.__ToInt32__SystemByte__SystemInt32"
-
-		# _ofsAtlas = Mathf.Clamp(_ofsAtlas, 0, atlasMaterials.Length - 1)
-			PUSH, atlasMaterials
-			PUSH, _i32
-			EXTERN, "UnityEngineMaterialArray.__get_Length__SystemInt32"
-			PUSH, _i32
-			PUSH, _c_1
-			PUSH, _i32
-			EXTERN, "SystemInt32.__op_Subtraction__SystemInt32_SystemInt32__SystemInt32"
-			PUSH, _ofsAtlas
-			PUSH, _c_0
-			PUSH, _i32
-			PUSH, _ofsAtlas
-			EXTERN, "UnityEngineMathf.__Clamp__SystemInt32_SystemInt32_SystemInt32__SystemInt32"
-
-		# _material = atlasMaterials[_ofsAtlas]
-			PUSH, atlasMaterials
-			PUSH, _ofsAtlas
-			PUSH, _material
-			EXTERN, "UnityEngineMaterialArray.__Get__SystemInt32__UnityEngineMaterial"
-
-		# _ofsAtlas *= 8
-			PUSH, _ofsAtlas
-			PUSH, _c_8
-			PUSH, _ofsAtlas
-			EXTERN, "SystemInt32.__op_Multiplication__SystemInt32_SystemInt32__SystemInt32"
-
-		# _ofsAtlas += _f_fileHeadSize
-			PUSH, _ofsAtlas
-			PUSH, _f_fileHeadSize
-			PUSH, _ofsAtlas
-			EXTERN, "SystemInt32.__op_Addition__SystemInt32_SystemInt32__SystemInt32"
-
-		# _ofsAtlas = *_ofsAtlas
-			PUSH, bytes
-			PUSH, _ofsAtlas
-			PUSH, _ofsAtlas
-			EXTERN, "SystemBitConverter.__ToInt32__SystemByteArray_SystemInt32__SystemInt32"
-
-	# -- find palette --
-
-		# _ofsPalette = *_f_fileHeadPalOfs
-			PUSH, bytes
-			PUSH, _f_fileHeadPalOfs
-			PUSH, _ofsPalette
-			EXTERN, "SystemBitConverter.__ToInt32__SystemByteArray_SystemInt32__SystemInt32"
-
-	# -- get metadata --
-
-		# _ofsMetadata = *_f_fileHeadMetaOfs
-			PUSH, bytes
-			PUSH, _f_fileHeadMetaOfs
-			PUSH, _ofsMetadata
-			EXTERN, "SystemBitConverter.__ToInt32__SystemByteArray_SystemInt32__SystemInt32"
-
-		# _lenMetadata = *_f_fileHeadMetaLen
-			PUSH, bytes
-			PUSH, _f_fileHeadMetaLen
-			PUSH, _lenMetadata
-			EXTERN, "SystemBitConverter.__ToInt32__SystemByteArray_SystemInt32__SystemInt32"
-
-		# _utf8 = Encoding.UTF8
-			PUSH, _utf8
-			EXTERN, "SystemTextEncoding.__get_UTF8__SystemTextEncoding"
-
-		# infoMetadata = _utf8.GetString(bytes, _ofsMetadata, _lenMetadata)
-			PUSH, _utf8
-			PUSH, bytes
-			PUSH, _ofsMetadata
-			PUSH, _lenMetadata
-			PUSH, infoMetadata
-			EXTERN, "SystemTextEncoding.__GetString__SystemByteArray_SystemInt32_SystemInt32__SystemString"
-
-	# -- page width/height/sprite count --
-
-		# infoPageWidth = *_ofsPage ; _ofsPage += 4
-			PUSH, bytes
-			PUSH, _ofsPage
-			PUSH, infoPageWidth
-			EXTERN, "SystemBitConverter.__ToSingle__SystemByteArray_SystemInt32__SystemSingle"
-			PUSH, _ofsPage
-			PUSH, _c_4
-			PUSH, _ofsPage
-			EXTERN, "SystemInt32.__op_Addition__SystemInt32_SystemInt32__SystemInt32"
-
-		# infoPageHeight = *_ofsPage ; _ofsPage += 4
-			PUSH, bytes
-			PUSH, _ofsPage
-			PUSH, infoPageHeight
-			EXTERN, "SystemBitConverter.__ToSingle__SystemByteArray_SystemInt32__SystemSingle"
-			PUSH, _ofsPage
-			PUSH, _c_4
-			PUSH, _ofsPage
-			EXTERN, "SystemInt32.__op_Addition__SystemInt32_SystemInt32__SystemInt32"
-
-		# infoPageSpriteCount = _endPage - _ofsPage
-			PUSH, _endPage
-			PUSH, _ofsPage
-			PUSH, infoPageSpriteCount
-			EXTERN, "SystemInt32.__op_Subtraction__SystemInt32_SystemInt32__SystemInt32"
-
-		# infoPageSpriteCount /= 8
-			PUSH, infoPageSpriteCount
-			PUSH, _c_8
-			PUSH, infoPageSpriteCount
-			EXTERN, "SystemInt32.__op_Division__SystemInt32_SystemInt32__SystemInt32"
-
-		# infoPageVertexCount = infoPageSpriteCount * 4
-			PUSH, infoPageSpriteCount
-			PUSH, _c_4
-			PUSH, infoPageVertexCount
-			EXTERN, "SystemInt32.__op_Multiplication__SystemInt32_SystemInt32__SystemInt32"
-
-		# infoPageIndexCount = infoPageSpriteCount * 6
-			PUSH, infoPageSpriteCount
-			PUSH, _c_6
-			PUSH, infoPageIndexCount
-			EXTERN, "SystemInt32.__op_Multiplication__SystemInt32_SystemInt32__SystemInt32"
-
-	# -- create arrays --
-
-		# _vertices = new Vector3[infoPageVertexCount]
-			PUSH, infoPageVertexCount
-			PUSH, _vertices
-			EXTERN, "UnityEngineVector3Array.__ctor__SystemInt32__UnityEngineVector3Array"
-
-		# _uv = new Vector2[infoPageVertexCount]
-			PUSH, infoPageVertexCount
-			PUSH, _uv
-			EXTERN, "UnityEngineVector2Array.__ctor__SystemInt32__UnityEngineVector2Array"
-
-		# _uv2 = new Vector2[infoPageVertexCount]
-			PUSH, infoPageVertexCount
-			PUSH, _uv2
-			EXTERN, "UnityEngineVector2Array.__ctor__SystemInt32__UnityEngineVector2Array"
-
-		# _colors32 = new Color32[infoPageVertexCount]
-			PUSH, infoPageVertexCount
-			PUSH, _colors32
-			EXTERN, "UnityEngineColor32Array.__ctor__SystemInt32__UnityEngineColor32Array"
-
-		# _triangles = new Int32[infoPageIndexCount]
-			PUSH, infoPageIndexCount
-			PUSH, _triangles
-			EXTERN, "SystemInt32Array.__ctor__SystemInt32__SystemInt32Array"
-
-# -- setup sprite main loop variables --
-
-# _vi0 = 0 ; _iptr = 0
-	PUSH, _c_0
+	PUSH, bytesTextAsset
+	PUSH, _bool
+	EXTERN, _extern__VRCSDKBaseUtilities_dot___IsValid__SystemObject__SystemBoolean
+	PUSH, _bool
+	JUMP_IF_FALSE, _loadPageNotTextAsset
+	PUSH, bytesTextAsset
+	PUSH, bytes
+	EXTERN, _extern__UnityEngineTextAsset_dot___get_bytes__SystemByteArray
+_loadPageNotTextAsset:
+	PUSH, bytes
+	PUSH, _bool
+	EXTERN, _extern__VRCSDKBaseUtilities_dot___IsValid__SystemObject__SystemBoolean
+	PUSH, _bool
+	JUMP_IF_FALSE, _ClearPage
+	PUSH, bytes
+	PUSH, _i32
+	EXTERN, _extern__SystemByteArray_dot___get_Length__SystemInt32
+	PUSH, _i32
+	PUSH, _f_fileHeadSize
+	PUSH, _bool
+	EXTERN, _extern__SystemInt32_dot___op_GreaterThanOrEqual__SystemInt32_SystemInt32__SystemBoolean
+	PUSH, _bool
+	JUMP_IF_FALSE, _ClearPage
+	PUSH, bytes
+	PUSH, _int__int_0
+	PUSH, infoAtlasCount
+	EXTERN, _extern__SystemBitConverter_dot___ToInt32__SystemByteArray_SystemInt32__SystemInt32
+	PUSH, bytes
+	PUSH, _int__int_4
+	PUSH, infoPageCount
+	EXTERN, _extern__SystemBitConverter_dot___ToInt32__SystemByteArray_SystemInt32__SystemInt32
+	PUSH, bytes
+	PUSH, _int__int_8
+	PUSH, _ofsMetadata
+	EXTERN, _extern__SystemBitConverter_dot___ToInt32__SystemByteArray_SystemInt32__SystemInt32
+	PUSH, bytes
+	PUSH, _int__int_12
+	PUSH, _lenMetadata
+	EXTERN, _extern__SystemBitConverter_dot___ToInt32__SystemByteArray_SystemInt32__SystemInt32
+	PUSH, bytes
+	PUSH, _int__int_16
+	PUSH, _ofsPalette
+	EXTERN, _extern__SystemBitConverter_dot___ToInt32__SystemByteArray_SystemInt32__SystemInt32
+	PUSH, infoAtlasCount
+	PUSH, _int__int_16
+	PUSH, infoFileVersion
+	EXTERN, _extern__SystemInt32_dot___op_RightShift__SystemInt32_SystemInt32__SystemInt32
+	PUSH, infoAtlasCount
+	PUSH, _int__int_65535
+	PUSH, infoAtlasCount
+	EXTERN, _extern__SystemInt32_dot___op_LogicalAnd__SystemInt32_SystemInt32__SystemInt32
+	PUSH, infoFileVersion
+	PUSH, _f_versionMin
+	PUSH, _bool
+	EXTERN, _extern__SystemInt32_dot___op_GreaterThanOrEqual__SystemInt32_SystemInt32__SystemBoolean
+	PUSH, _bool
+	JUMP_IF_FALSE, _ClearPage
+	PUSH, infoFileVersion
+	PUSH, _f_versionMax
+	PUSH, _bool
+	EXTERN, _extern__SystemInt32_dot___op_LessThanOrEqual__SystemInt32_SystemInt32__SystemBoolean
+	PUSH, _bool
+	JUMP_IF_FALSE, _ClearPage
+	PUSH, _utf8
+	EXTERN, _extern__SystemTextEncoding_dot___get_UTF8__SystemTextEncoding
+	PUSH, _utf8
+	PUSH, bytes
+	PUSH, _ofsMetadata
+	PUSH, _lenMetadata
+	PUSH, infoMetadata
+	EXTERN, _extern__SystemTextEncoding_dot___GetString__SystemByteArray_SystemInt32_SystemInt32__SystemString
+	PUSH, page
+	PUSH, _int__int_0
+	PUSH, _bool
+	EXTERN, _extern__SystemInt32_dot___op_GreaterThanOrEqual__SystemInt32_SystemInt32__SystemBoolean
+	PUSH, _bool
+	JUMP_IF_FALSE, _ClearPage
+	PUSH, page
+	PUSH, infoPageCount
+	PUSH, _bool
+	EXTERN, _extern__SystemInt32_dot___op_LessThan__SystemInt32_SystemInt32__SystemBoolean
+	PUSH, _bool
+	JUMP_IF_FALSE, _ClearPage
+	PUSH, page
+	PUSH, infoAtlasCount
+	PUSH, _ofsPage
+	EXTERN, _extern__SystemInt32_dot___op_Addition__SystemInt32_SystemInt32__SystemInt32
+	PUSH, _ofsPage
+	PUSH, _int__int_8
+	PUSH, _ofsPage
+	EXTERN, _extern__SystemInt32_dot___op_Multiplication__SystemInt32_SystemInt32__SystemInt32
+	PUSH, _ofsPage
+	PUSH, _f_fileHeadSize
+	PUSH, _ofsPage
+	EXTERN, _extern__SystemInt32_dot___op_Addition__SystemInt32_SystemInt32__SystemInt32
+	PUSH, _ofsPage
+	PUSH, _int__int_4
+	PUSH, _endPage
+	EXTERN, _extern__SystemInt32_dot___op_Addition__SystemInt32_SystemInt32__SystemInt32
+	PUSH, bytes
+	PUSH, _ofsPage
+	PUSH, _ofsPage
+	EXTERN, _extern__SystemBitConverter_dot___ToInt32__SystemByteArray_SystemInt32__SystemInt32
+	PUSH, bytes
+	PUSH, _endPage
+	PUSH, _endPage
+	EXTERN, _extern__SystemBitConverter_dot___ToInt32__SystemByteArray_SystemInt32__SystemInt32
+	PUSH, _endPage
+	PUSH, _ofsPage
+	PUSH, _endPage
+	EXTERN, _extern__SystemInt32_dot___op_Addition__SystemInt32_SystemInt32__SystemInt32
+	PUSH, bytes
+	PUSH, _ofsPage
+	PUSH, _byte
+	EXTERN, _extern__SystemByteArray_dot___Get__SystemInt32__SystemByte
+	PUSH, _ofsPage
+	PUSH, _int__int_1
+	PUSH, _ofsPage
+	EXTERN, _extern__SystemInt32_dot___op_Addition__SystemInt32_SystemInt32__SystemInt32
+	PUSH, _byte
+	PUSH, _ofsAtlas
+	EXTERN, _extern__SystemConvert_dot___ToInt32__SystemByte__SystemInt32
+	PUSH, atlasMaterials
+	PUSH, _i32
+	EXTERN, _extern__UnityEngineMaterialArray_dot___get_Length__SystemInt32
+	PUSH, _i32
+	PUSH, _int__int_1
+	PUSH, _i32
+	EXTERN, _extern__SystemInt32_dot___op_Subtraction__SystemInt32_SystemInt32__SystemInt32
+	PUSH, _ofsAtlas
+	PUSH, _int__int_0
+	PUSH, _i32
+	PUSH, _ofsAtlas
+	EXTERN, _extern__UnityEngineMathf_dot___Clamp__SystemInt32_SystemInt32_SystemInt32__SystemInt32
+	PUSH, atlasMaterials
+	PUSH, _ofsAtlas
+	PUSH, _material
+	EXTERN, _extern__UnityEngineMaterialArray_dot___Get__SystemInt32__UnityEngineMaterial
+	PUSH, _ofsAtlas
+	PUSH, _int__int_8
+	PUSH, _ofsAtlas
+	EXTERN, _extern__SystemInt32_dot___op_Multiplication__SystemInt32_SystemInt32__SystemInt32
+	PUSH, _ofsAtlas
+	PUSH, _f_fileHeadSize
+	PUSH, _ofsAtlas
+	EXTERN, _extern__SystemInt32_dot___op_Addition__SystemInt32_SystemInt32__SystemInt32
+	PUSH, bytes
+	PUSH, _ofsAtlas
+	PUSH, _ofsAtlas
+	EXTERN, _extern__SystemBitConverter_dot___ToInt32__SystemByteArray_SystemInt32__SystemInt32
+	PUSH, bytes
+	PUSH, _ofsPage
+	PUSH, infoPageWidth
+	EXTERN, _extern__SystemBitConverter_dot___ToSingle__SystemByteArray_SystemInt32__SystemSingle
+	PUSH, _ofsPage
+	PUSH, _int__int_4
+	PUSH, _ofsPage
+	EXTERN, _extern__SystemInt32_dot___op_Addition__SystemInt32_SystemInt32__SystemInt32
+	PUSH, bytes
+	PUSH, _ofsPage
+	PUSH, infoPageHeight
+	EXTERN, _extern__SystemBitConverter_dot___ToSingle__SystemByteArray_SystemInt32__SystemSingle
+	PUSH, _ofsPage
+	PUSH, _int__int_4
+	PUSH, _ofsPage
+	EXTERN, _extern__SystemInt32_dot___op_Addition__SystemInt32_SystemInt32__SystemInt32
+	PUSH, _endPage
+	PUSH, _ofsPage
+	PUSH, infoPageSpriteCount
+	EXTERN, _extern__SystemInt32_dot___op_Subtraction__SystemInt32_SystemInt32__SystemInt32
+	PUSH, infoPageSpriteCount
+	PUSH, _int__int_8
+	PUSH, infoPageSpriteCount
+	EXTERN, _extern__SystemInt32_dot___op_Division__SystemInt32_SystemInt32__SystemInt32
+	PUSH, infoPageSpriteCount
+	PUSH, _int__int_4
+	PUSH, infoPageVertexCount
+	EXTERN, _extern__SystemInt32_dot___op_Multiplication__SystemInt32_SystemInt32__SystemInt32
+	PUSH, infoPageSpriteCount
+	PUSH, _int__int_6
+	PUSH, infoPageIndexCount
+	EXTERN, _extern__SystemInt32_dot___op_Multiplication__SystemInt32_SystemInt32__SystemInt32
+	PUSH, infoPageVertexCount
+	PUSH, _vertices
+	EXTERN, _extern__UnityEngineVector3Array_dot___ctor__SystemInt32__UnityEngineVector3Array
+	PUSH, infoPageVertexCount
+	PUSH, _uv
+	EXTERN, _extern__UnityEngineVector2Array_dot___ctor__SystemInt32__UnityEngineVector2Array
+	PUSH, infoPageVertexCount
+	PUSH, _colors32
+	EXTERN, _extern__UnityEngineColor32Array_dot___ctor__SystemInt32__UnityEngineColor32Array
+	PUSH, infoPageIndexCount
+	PUSH, _triangles
+	EXTERN, _extern__SystemInt32Array_dot___ctor__SystemInt32__SystemInt32Array
+	PUSH, _int__int_0
 	PUSH, _vi0
 	COPY
-	PUSH, _c_0
+	PUSH, _int__int_0
 	PUSH, _iptr
 	COPY
-
-# _vtxUV2 = Vector2(0.0, 1.0)
-	PUSH, _cf_0
-	PUSH, _cf_1
-	PUSH, _vtxUV2
-	EXTERN, "UnityEngineVector2.__ctor__SystemSingle_SystemSingle__UnityEngineVector2"
-
-# -- sprite main loop --
-# we use some special formatting here because this is going to get **DEEP**
-
 _genGeomLoop:
 	PUSH, _ofsPage
 	PUSH, _endPage
 	PUSH, _bool
-	EXTERN, "SystemInt32.__op_Inequality__SystemInt32_SystemInt32__SystemBoolean"
+	EXTERN, _extern__SystemInt32_dot___op_Inequality__SystemInt32_SystemInt32__SystemBoolean
 	PUSH, _bool
 	JUMP_IF_FALSE, _genGeomDone
-
-	# -- sprite read-in --
-
-		# _sprShape = *_ofsPage ; _ofsPage += 2
-			PUSH, bytes
-			PUSH, _ofsPage
-			PUSH, _sprShape
-			EXTERN, "SystemBitConverter.__ToUInt16__SystemByteArray_SystemInt32__SystemUInt16"
-			PUSH, _ofsPage
-			PUSH, _c_2
-			PUSH, _ofsPage
-			EXTERN, "SystemInt32.__op_Addition__SystemInt32_SystemInt32__SystemInt32"
-		# _sprTLX = *_ofsPage ; _ofsPage += 2
-		# ** SIGNED ** (as opposed to unsigned like shape/col)
-			PUSH, bytes
-			PUSH, _ofsPage
-			PUSH, _sprTLX
-			EXTERN, "SystemBitConverter.__ToInt16__SystemByteArray_SystemInt32__SystemInt16"
-			PUSH, _ofsPage
-			PUSH, _c_2
-			PUSH, _ofsPage
-			EXTERN, "SystemInt32.__op_Addition__SystemInt32_SystemInt32__SystemInt32"
-		# _sprTLY = *_ofsPage ; _ofsPage += 2
-		# ** SIGNED ** (as opposed to unsigned like shape/col)
-			PUSH, bytes
-			PUSH, _ofsPage
-			PUSH, _sprTLY
-			EXTERN, "SystemBitConverter.__ToInt16__SystemByteArray_SystemInt32__SystemInt16"
-			PUSH, _ofsPage
-			PUSH, _c_2
-			PUSH, _ofsPage
-			EXTERN, "SystemInt32.__op_Addition__SystemInt32_SystemInt32__SystemInt32"
-		# _sprCol = *_ofsPage ; _ofsPage += 2
-			PUSH, bytes
-			PUSH, _ofsPage
-			PUSH, _sprCol
-			EXTERN, "SystemBitConverter.__ToUInt16__SystemByteArray_SystemInt32__SystemUInt16"
-			PUSH, _ofsPage
-			PUSH, _c_2
-			PUSH, _ofsPage
-			EXTERN, "SystemInt32.__op_Addition__SystemInt32_SystemInt32__SystemInt32"
-
-	# -- find shape --
-
-		# _ofsShape = int32(_sprShape)
-			PUSH, _sprShape
-			PUSH, _ofsShape
-			EXTERN, "SystemConvert.__ToInt32__SystemUInt16__SystemInt32"
-		# _ofsShape *= 16
-			PUSH, _ofsShape
-			PUSH, _c_16
-			PUSH, _ofsShape
-			EXTERN, "SystemInt32.__op_Multiplication__SystemInt32_SystemInt32__SystemInt32"
-		# _ofsShape += _ofsAtlas
-			PUSH, _ofsShape
-			PUSH, _ofsAtlas
-			PUSH, _ofsShape
-			EXTERN, "SystemInt32.__op_Addition__SystemInt32_SystemInt32__SystemInt32"
-
-	# -- shape read-in --
-
-		# _shpUTLX = *_ofsShape ; _ofsShape += 2
-			PUSH, bytes
-			PUSH, _ofsShape
-			PUSH, _shpUTLX
-			EXTERN, "SystemBitConverter.__ToUInt16__SystemByteArray_SystemInt32__SystemUInt16"
-			PUSH, _ofsShape
-			PUSH, _c_2
-			PUSH, _ofsShape
-			EXTERN, "SystemInt32.__op_Addition__SystemInt32_SystemInt32__SystemInt32"
-		# _shpUTLY = *_ofsShape ; _ofsShape += 2
-			PUSH, bytes
-			PUSH, _ofsShape
-			PUSH, _shpUTLY
-			EXTERN, "SystemBitConverter.__ToUInt16__SystemByteArray_SystemInt32__SystemUInt16"
-			PUSH, _ofsShape
-			PUSH, _c_2
-			PUSH, _ofsShape
-			EXTERN, "SystemInt32.__op_Addition__SystemInt32_SystemInt32__SystemInt32"
-		# _shpUBRX = *_ofsShape ; _ofsShape += 2
-			PUSH, bytes
-			PUSH, _ofsShape
-			PUSH, _shpUBRX
-			EXTERN, "SystemBitConverter.__ToUInt16__SystemByteArray_SystemInt32__SystemUInt16"
-			PUSH, _ofsShape
-			PUSH, _c_2
-			PUSH, _ofsShape
-			EXTERN, "SystemInt32.__op_Addition__SystemInt32_SystemInt32__SystemInt32"
-		# _shpUBRY = *_ofsShape ; _ofsShape += 2
-			PUSH, bytes
-			PUSH, _ofsShape
-			PUSH, _shpUBRY
-			EXTERN, "SystemBitConverter.__ToUInt16__SystemByteArray_SystemInt32__SystemUInt16"
-			PUSH, _ofsShape
-			PUSH, _c_2
-			PUSH, _ofsShape
-			EXTERN, "SystemInt32.__op_Addition__SystemInt32_SystemInt32__SystemInt32"
-		# _shpSizeX = *_ofsShape ; _ofsShape += 4
-			PUSH, bytes
-			PUSH, _ofsShape
-			PUSH, _shpSizeX
-			EXTERN, "SystemBitConverter.__ToSingle__SystemByteArray_SystemInt32__SystemSingle"
-			PUSH, _ofsShape
-			PUSH, _c_4
-			PUSH, _ofsShape
-			EXTERN, "SystemInt32.__op_Addition__SystemInt32_SystemInt32__SystemInt32"
-		# _shpSizeY = *_ofsShape
-			PUSH, bytes
-			PUSH, _ofsShape
-			PUSH, _shpSizeY
-			EXTERN, "SystemBitConverter.__ToSingle__SystemByteArray_SystemInt32__SystemSingle"
-
-	# -- colour decoding --
-
-		# _colOfs = int32(_sprCol)
-			PUSH, _sprCol
-			PUSH, _colOfs
-			EXTERN, "SystemConvert.__ToInt32__SystemUInt16__SystemInt32"
-
-		# _colOfs = _ofsPalette + (_colOfs << 2)
-			PUSH, _colOfs
-			PUSH, _c_2
-			PUSH, _colOfs
-			EXTERN, "SystemInt32.__op_LeftShift__SystemInt32_SystemInt32__SystemInt32"
-			PUSH, _ofsPalette
-			PUSH, _colOfs
-			PUSH, _colOfs
-			EXTERN, "SystemInt32.__op_Addition__SystemInt32_SystemInt32__SystemInt32"
-
-		# _col_r = *_colOfs ; _colOfs += 1
-			PUSH, bytes
-			PUSH, _colOfs
-			PUSH, _col_r
-			EXTERN, "SystemByteArray.__Get__SystemInt32__SystemByte"
-			PUSH, _colOfs
-			PUSH, _c_1
-			PUSH, _colOfs
-			EXTERN, "SystemInt32.__op_Addition__SystemInt32_SystemInt32__SystemInt32"
-
-		# _col_g = *_colOfs ; _colOfs += 1
-			PUSH, bytes
-			PUSH, _colOfs
-			PUSH, _col_g
-			EXTERN, "SystemByteArray.__Get__SystemInt32__SystemByte"
-			PUSH, _colOfs
-			PUSH, _c_1
-			PUSH, _colOfs
-			EXTERN, "SystemInt32.__op_Addition__SystemInt32_SystemInt32__SystemInt32"
-
-		# _col_b = *_colOfs ; _colOfs += 1
-			PUSH, bytes
-			PUSH, _colOfs
-			PUSH, _col_b
-			EXTERN, "SystemByteArray.__Get__SystemInt32__SystemByte"
-			PUSH, _colOfs
-			PUSH, _c_1
-			PUSH, _colOfs
-			EXTERN, "SystemInt32.__op_Addition__SystemInt32_SystemInt32__SystemInt32"
-
-		# _col_a = *_colOfs
-			PUSH, bytes
-			PUSH, _colOfs
-			PUSH, _col_a
-			EXTERN, "SystemByteArray.__Get__SystemInt32__SystemByte"
-
-		# _col32 = Color32(_col_r, _col_g, _col_b, _col_a)
-			PUSH, _col_r
-			PUSH, _col_g
-			PUSH, _col_b
-			PUSH, _col_a
-			PUSH, _col32
-			EXTERN, "UnityEngineColor32.__ctor__SystemByte_SystemByte_SystemByte_SystemByte__UnityEngineColor32"
-
-		# _col = Color(_col32)
-			PUSH, _col32
-			PUSH, _col
-			EXTERN, "UnityEngineColor32.__op_Implicit__UnityEngineColor32__UnityEngineColor"
-
-		# _col = _col.linear
-			PUSH, _col
-			PUSH, _col
-			EXTERN, "UnityEngineColor.__get_linear__UnityEngineColor"
-
-		# _col32 = Color32(_col)
-			PUSH, _col
-			PUSH, _col32
-			EXTERN, "UnityEngineColor32.__op_Implicit__UnityEngineColor__UnityEngineColor32"
-
-	# -- find vertex indices --
-	# these are also used to *write* the vertices, so indices should be figured out first.
-
-		PUSH, _vi0
-		PUSH, _c_1
-		PUSH, _vi1
-		EXTERN, "SystemInt32.__op_Addition__SystemInt32_SystemInt32__SystemInt32"
-		PUSH, _vi0
-		PUSH, _c_2
-		PUSH, _vi2
-		EXTERN, "SystemInt32.__op_Addition__SystemInt32_SystemInt32__SystemInt32"
-		PUSH, _vi0
-		PUSH, _c_3
-		PUSH, _vi3
-		EXTERN, "SystemInt32.__op_Addition__SystemInt32_SystemInt32__SystemInt32"
-
-	# -- write indices --
-
-		# To make the array easier to see, the stack operations here do something weird.
-		PUSH, _triangles
-		PUSH, _iptr
-		PUSH, _vi2
-		#
-		PUSH, _triangles
-		PUSH, _iptr
-		PUSH, _vi1
-		#
-		PUSH, _triangles
-		PUSH, _iptr
-		PUSH, _vi0
-		#
-		PUSH, _triangles
-		PUSH, _iptr
-		PUSH, _vi3
-		#
-		PUSH, _triangles
-		PUSH, _iptr
-		PUSH, _vi1
-		#
-		PUSH, _triangles
-		PUSH, _iptr
-		PUSH, _vi2
-		# --
-		EXTERN, "SystemInt32Array.__Set__SystemInt32_SystemInt32__SystemVoid"
-			PUSH, _iptr
-			PUSH, _c_1
-			PUSH, _iptr
-			EXTERN, "SystemInt32.__op_Addition__SystemInt32_SystemInt32__SystemInt32"
-		EXTERN, "SystemInt32Array.__Set__SystemInt32_SystemInt32__SystemVoid"
-			PUSH, _iptr
-			PUSH, _c_1
-			PUSH, _iptr
-			EXTERN, "SystemInt32.__op_Addition__SystemInt32_SystemInt32__SystemInt32"
-		EXTERN, "SystemInt32Array.__Set__SystemInt32_SystemInt32__SystemVoid"
-			PUSH, _iptr
-			PUSH, _c_1
-			PUSH, _iptr
-			EXTERN, "SystemInt32.__op_Addition__SystemInt32_SystemInt32__SystemInt32"
-		EXTERN, "SystemInt32Array.__Set__SystemInt32_SystemInt32__SystemVoid"
-			PUSH, _iptr
-			PUSH, _c_1
-			PUSH, _iptr
-			EXTERN, "SystemInt32.__op_Addition__SystemInt32_SystemInt32__SystemInt32"
-		EXTERN, "SystemInt32Array.__Set__SystemInt32_SystemInt32__SystemVoid"
-			PUSH, _iptr
-			PUSH, _c_1
-			PUSH, _iptr
-			EXTERN, "SystemInt32.__op_Addition__SystemInt32_SystemInt32__SystemInt32"
-		EXTERN, "SystemInt32Array.__Set__SystemInt32_SystemInt32__SystemVoid"
-			PUSH, _iptr
-			PUSH, _c_1
-			PUSH, _iptr
-			EXTERN, "SystemInt32.__op_Addition__SystemInt32_SystemInt32__SystemInt32"
-
-	# -- position calculation --
-
-		# uint16 to float (x32767)
-			PUSH, _sprTLX
-			PUSH, _pclTLX
-				EXTERN, "SystemConvert.__ToSingle__SystemInt16__SystemSingle"
-			PUSH, _sprTLY
-			PUSH, _pclTLY
-				EXTERN, "SystemConvert.__ToSingle__SystemInt16__SystemSingle"
-
-		# divide by 32767
-			PUSH, _pclTLX
-			PUSH, _cf_32767
-			PUSH, _pclTLX
-				EXTERN, "SystemSingle.__op_Division__SystemSingle_SystemSingle__SystemSingle"
-			PUSH, _pclTLY
-			PUSH, _cf_32767
-			PUSH, _pclTLY
-				EXTERN, "SystemSingle.__op_Division__SystemSingle_SystemSingle__SystemSingle"
-
-		# multiply by page size
-			PUSH, _pclTLX
-			PUSH, infoPageWidth
-			PUSH, _pclTLX
-				EXTERN, "SystemSingle.__op_Multiplication__SystemSingle_SystemSingle__SystemSingle"
-			PUSH, _pclTLY
-			PUSH, infoPageHeight
-			PUSH, _pclTLY
-				EXTERN, "SystemSingle.__op_Multiplication__SystemSingle_SystemSingle__SystemSingle"
-
-		# add sprite size to create pclBR
-			PUSH, _pclTLX
-			PUSH, _shpSizeX
-			PUSH, _pclBRX
-				EXTERN, "SystemSingle.__op_Addition__SystemSingle_SystemSingle__SystemSingle"
-			PUSH, _pclTLY
-			PUSH, _shpSizeY
-			PUSH, _pclBRY
-				EXTERN, "SystemSingle.__op_Addition__SystemSingle_SystemSingle__SystemSingle"
-
-	# -- uv calculation --
-
-		# uint16 to float (0-65535)
-			PUSH, _shpUTLX
-			PUSH, _uvTLX
-				EXTERN, "SystemConvert.__ToSingle__SystemUInt16__SystemSingle"
-			PUSH, _shpUTLY
-			PUSH, _uvTLY
-				EXTERN, "SystemConvert.__ToSingle__SystemUInt16__SystemSingle"
-			PUSH, _shpUBRX
-			PUSH, _uvBRX
-				EXTERN, "SystemConvert.__ToSingle__SystemUInt16__SystemSingle"
-			PUSH, _shpUBRY
-			PUSH, _uvBRY
-				EXTERN, "SystemConvert.__ToSingle__SystemUInt16__SystemSingle"
-
-		# divide
-			PUSH, _uvTLX
-			PUSH, _cf_65535
-			PUSH, _uvTLX
-				EXTERN, "SystemSingle.__op_Division__SystemSingle_SystemSingle__SystemSingle"
-			PUSH, _uvTLY
-			PUSH, _cf_65535
-			PUSH, _uvTLY
-				EXTERN, "SystemSingle.__op_Division__SystemSingle_SystemSingle__SystemSingle"
-			PUSH, _uvBRX
-			PUSH, _cf_65535
-			PUSH, _uvBRX
-				EXTERN, "SystemSingle.__op_Division__SystemSingle_SystemSingle__SystemSingle"
-			PUSH, _uvBRY
-			PUSH, _cf_65535
-			PUSH, _uvBRY
-				EXTERN, "SystemSingle.__op_Division__SystemSingle_SystemSingle__SystemSingle"
-
-	# -- position muxing --
-
-		# muxing array
-		# remember, X->Z, Y->X
-		PUSH, _pclTLY
-		PUSH, _cf_0
-		PUSH, _pclTLX
-
-		PUSH, _pclTLY
-		PUSH, _cf_0
-		PUSH, _pclBRX
-
-		PUSH, _pclBRY
-		PUSH, _cf_0
-		PUSH, _pclTLX
-
-		PUSH, _pclBRY
-		PUSH, _cf_0
-		PUSH, _pclBRX
-
-		# muxing finish
-			PUSH, _vtxV0
-			EXTERN, "UnityEngineVector3.__ctor__SystemSingle_SystemSingle_SystemSingle__UnityEngineVector3"
-			PUSH, _vtxV1
-			EXTERN, "UnityEngineVector3.__ctor__SystemSingle_SystemSingle_SystemSingle__UnityEngineVector3"
-			PUSH, _vtxV2
-			EXTERN, "UnityEngineVector3.__ctor__SystemSingle_SystemSingle_SystemSingle__UnityEngineVector3"
-			PUSH, _vtxV3
-			EXTERN, "UnityEngineVector3.__ctor__SystemSingle_SystemSingle_SystemSingle__UnityEngineVector3"
-
-	# -- UV muxing --
-
-		# muxing array
-		PUSH, _uvTLX
-		PUSH, _uvTLY
-
-		PUSH, _uvBRX
-		PUSH, _uvTLY
-
-		PUSH, _uvTLX
-		PUSH, _uvBRY
-
-		PUSH, _uvBRX
-		PUSH, _uvBRY
-
-		# muxing finish
-			PUSH, _vtxT0
-			EXTERN, "UnityEngineVector2.__ctor__SystemSingle_SystemSingle__UnityEngineVector2"
-			PUSH, _vtxT1
-			EXTERN, "UnityEngineVector2.__ctor__SystemSingle_SystemSingle__UnityEngineVector2"
-			PUSH, _vtxT2
-			EXTERN, "UnityEngineVector2.__ctor__SystemSingle_SystemSingle__UnityEngineVector2"
-			PUSH, _vtxT3
-			EXTERN, "UnityEngineVector2.__ctor__SystemSingle_SystemSingle__UnityEngineVector2"
-
-	# -- write vertices --
-
-		# -- vi0 --
-		PUSH, _vertices
-		PUSH, _vi0
-		PUSH, _vtxV0
-		EXTERN, "UnityEngineVector3Array.__Set__SystemInt32_UnityEngineVector3__SystemVoid"
-		PUSH, _uv
-		PUSH, _vi0
-		PUSH, _vtxT0
-		EXTERN, "UnityEngineVector2Array.__Set__SystemInt32_UnityEngineVector2__SystemVoid"
-		PUSH, _uv2
-		PUSH, _vi0
-		PUSH, _vtxUV2
-		EXTERN, "UnityEngineVector2Array.__Set__SystemInt32_UnityEngineVector2__SystemVoid"
-		PUSH, _colors32
-		PUSH, _vi0
-		PUSH, _col32
-		EXTERN, "UnityEngineColor32Array.__Set__SystemInt32_UnityEngineColor32__SystemVoid"
-		# -- vi1 --
-		PUSH, _vertices
-		PUSH, _vi1
-		PUSH, _vtxV1
-		EXTERN, "UnityEngineVector3Array.__Set__SystemInt32_UnityEngineVector3__SystemVoid"
-		PUSH, _uv
-		PUSH, _vi1
-		PUSH, _vtxT1
-		EXTERN, "UnityEngineVector2Array.__Set__SystemInt32_UnityEngineVector2__SystemVoid"
-		PUSH, _uv2
-		PUSH, _vi1
-		PUSH, _vtxUV2
-		EXTERN, "UnityEngineVector2Array.__Set__SystemInt32_UnityEngineVector2__SystemVoid"
-		PUSH, _colors32
-		PUSH, _vi1
-		PUSH, _col32
-		EXTERN, "UnityEngineColor32Array.__Set__SystemInt32_UnityEngineColor32__SystemVoid"
-		# -- vi2 --
-		PUSH, _vertices
-		PUSH, _vi2
-		PUSH, _vtxV2
-		EXTERN, "UnityEngineVector3Array.__Set__SystemInt32_UnityEngineVector3__SystemVoid"
-		PUSH, _uv
-		PUSH, _vi2
-		PUSH, _vtxT2
-		EXTERN, "UnityEngineVector2Array.__Set__SystemInt32_UnityEngineVector2__SystemVoid"
-		PUSH, _uv2
-		PUSH, _vi2
-		PUSH, _vtxUV2
-		EXTERN, "UnityEngineVector2Array.__Set__SystemInt32_UnityEngineVector2__SystemVoid"
-		PUSH, _colors32
-		PUSH, _vi2
-		PUSH, _col32
-		EXTERN, "UnityEngineColor32Array.__Set__SystemInt32_UnityEngineColor32__SystemVoid"
-		# -- vi3 --
-		PUSH, _vertices
-		PUSH, _vi3
-		PUSH, _vtxV3
-		EXTERN, "UnityEngineVector3Array.__Set__SystemInt32_UnityEngineVector3__SystemVoid"
-		PUSH, _uv
-		PUSH, _vi3
-		PUSH, _vtxT3
-		EXTERN, "UnityEngineVector2Array.__Set__SystemInt32_UnityEngineVector2__SystemVoid"
-		PUSH, _uv2
-		PUSH, _vi3
-		PUSH, _vtxUV2
-		EXTERN, "UnityEngineVector2Array.__Set__SystemInt32_UnityEngineVector2__SystemVoid"
-		PUSH, _colors32
-		PUSH, _vi3
-		PUSH, _col32
-		EXTERN, "UnityEngineColor32Array.__Set__SystemInt32_UnityEngineColor32__SystemVoid"
-
-	# -- advance _vi0 --
-		PUSH, _vi0
-		PUSH, _c_4
-		PUSH, _vi0
-		EXTERN, "SystemInt32.__op_Addition__SystemInt32_SystemInt32__SystemInt32"
-
-JUMP, _genGeomLoop
+	PUSH, bytes
+	PUSH, _ofsPage
+	PUSH, _u16
+	EXTERN, _extern__SystemBitConverter_dot___ToUInt16__SystemByteArray_SystemInt32__SystemUInt16
+	PUSH, _ofsPage
+	PUSH, _int__int_2
+	PUSH, _ofsPage
+	EXTERN, _extern__SystemInt32_dot___op_Addition__SystemInt32_SystemInt32__SystemInt32
+	PUSH, _u16
+	PUSH, _ofsShape
+	EXTERN, _extern__SystemConvert_dot___ToInt32__SystemUInt16__SystemInt32
+	PUSH, bytes
+	PUSH, _ofsPage
+	PUSH, _i16
+	EXTERN, _extern__SystemBitConverter_dot___ToInt16__SystemByteArray_SystemInt32__SystemInt16
+	PUSH, _ofsPage
+	PUSH, _int__int_2
+	PUSH, _ofsPage
+	EXTERN, _extern__SystemInt32_dot___op_Addition__SystemInt32_SystemInt32__SystemInt32
+	PUSH, _i16
+	PUSH, _pclTLX
+	EXTERN, _extern__SystemConvert_dot___ToSingle__SystemInt16__SystemSingle
+	PUSH, _pclTLX
+	PUSH, _immediate_gensym1
+	PUSH, _pclTLX
+	EXTERN, _extern__SystemSingle_dot___op_Division__SystemSingle_SystemSingle__SystemSingle
+	PUSH, _pclTLX
+	PUSH, infoPageWidth
+	PUSH, _pclTLX
+	EXTERN, _extern__SystemSingle_dot___op_Multiplication__SystemSingle_SystemSingle__SystemSingle
+	PUSH, bytes
+	PUSH, _ofsPage
+	PUSH, _i16
+	EXTERN, _extern__SystemBitConverter_dot___ToInt16__SystemByteArray_SystemInt32__SystemInt16
+	PUSH, _ofsPage
+	PUSH, _int__int_2
+	PUSH, _ofsPage
+	EXTERN, _extern__SystemInt32_dot___op_Addition__SystemInt32_SystemInt32__SystemInt32
+	PUSH, _i16
+	PUSH, _pclTLY
+	EXTERN, _extern__SystemConvert_dot___ToSingle__SystemInt16__SystemSingle
+	PUSH, _pclTLY
+	PUSH, _immediate_gensym3
+	PUSH, _pclTLY
+	EXTERN, _extern__SystemSingle_dot___op_Division__SystemSingle_SystemSingle__SystemSingle
+	PUSH, _pclTLY
+	PUSH, infoPageHeight
+	PUSH, _pclTLY
+	EXTERN, _extern__SystemSingle_dot___op_Multiplication__SystemSingle_SystemSingle__SystemSingle
+	PUSH, bytes
+	PUSH, _ofsPage
+	PUSH, _u16
+	EXTERN, _extern__SystemBitConverter_dot___ToUInt16__SystemByteArray_SystemInt32__SystemUInt16
+	PUSH, _ofsPage
+	PUSH, _int__int_2
+	PUSH, _ofsPage
+	EXTERN, _extern__SystemInt32_dot___op_Addition__SystemInt32_SystemInt32__SystemInt32
+	PUSH, _u16
+	PUSH, _ofsCol
+	EXTERN, _extern__SystemConvert_dot___ToInt32__SystemUInt16__SystemInt32
+_genGeomLoopFindShape:
+	PUSH, _ofsShape
+	PUSH, _int__int_16
+	PUSH, _ofsShape
+	EXTERN, _extern__SystemInt32_dot___op_Multiplication__SystemInt32_SystemInt32__SystemInt32
+	PUSH, _ofsShape
+	PUSH, _ofsAtlas
+	PUSH, _ofsShape
+	EXTERN, _extern__SystemInt32_dot___op_Addition__SystemInt32_SystemInt32__SystemInt32
+_genGeomLoopShapeReadIn:
+	PUSH, bytes
+	PUSH, _ofsShape
+	PUSH, _u16
+	EXTERN, _extern__SystemBitConverter_dot___ToUInt16__SystemByteArray_SystemInt32__SystemUInt16
+	PUSH, _ofsShape
+	PUSH, _int__int_2
+	PUSH, _ofsShape
+	EXTERN, _extern__SystemInt32_dot___op_Addition__SystemInt32_SystemInt32__SystemInt32
+	PUSH, _u16
+	PUSH, _uvTLX
+	EXTERN, _extern__SystemConvert_dot___ToSingle__SystemUInt16__SystemSingle
+	PUSH, _uvTLX
+	PUSH, _immediate_gensym5
+	PUSH, _uvTLX
+	EXTERN, _extern__SystemSingle_dot___op_Division__SystemSingle_SystemSingle__SystemSingle
+	PUSH, bytes
+	PUSH, _ofsShape
+	PUSH, _u16
+	EXTERN, _extern__SystemBitConverter_dot___ToUInt16__SystemByteArray_SystemInt32__SystemUInt16
+	PUSH, _ofsShape
+	PUSH, _int__int_2
+	PUSH, _ofsShape
+	EXTERN, _extern__SystemInt32_dot___op_Addition__SystemInt32_SystemInt32__SystemInt32
+	PUSH, _u16
+	PUSH, _uvTLY
+	EXTERN, _extern__SystemConvert_dot___ToSingle__SystemUInt16__SystemSingle
+	PUSH, _uvTLY
+	PUSH, _immediate_gensym7
+	PUSH, _uvTLY
+	EXTERN, _extern__SystemSingle_dot___op_Division__SystemSingle_SystemSingle__SystemSingle
+	PUSH, bytes
+	PUSH, _ofsShape
+	PUSH, _u16
+	EXTERN, _extern__SystemBitConverter_dot___ToUInt16__SystemByteArray_SystemInt32__SystemUInt16
+	PUSH, _ofsShape
+	PUSH, _int__int_2
+	PUSH, _ofsShape
+	EXTERN, _extern__SystemInt32_dot___op_Addition__SystemInt32_SystemInt32__SystemInt32
+	PUSH, _u16
+	PUSH, _uvBRX
+	EXTERN, _extern__SystemConvert_dot___ToSingle__SystemUInt16__SystemSingle
+	PUSH, _uvBRX
+	PUSH, _immediate_gensym9
+	PUSH, _uvBRX
+	EXTERN, _extern__SystemSingle_dot___op_Division__SystemSingle_SystemSingle__SystemSingle
+	PUSH, bytes
+	PUSH, _ofsShape
+	PUSH, _u16
+	EXTERN, _extern__SystemBitConverter_dot___ToUInt16__SystemByteArray_SystemInt32__SystemUInt16
+	PUSH, _ofsShape
+	PUSH, _int__int_2
+	PUSH, _ofsShape
+	EXTERN, _extern__SystemInt32_dot___op_Addition__SystemInt32_SystemInt32__SystemInt32
+	PUSH, _u16
+	PUSH, _uvBRY
+	EXTERN, _extern__SystemConvert_dot___ToSingle__SystemUInt16__SystemSingle
+	PUSH, _uvBRY
+	PUSH, _immediate_gensym11
+	PUSH, _uvBRY
+	EXTERN, _extern__SystemSingle_dot___op_Division__SystemSingle_SystemSingle__SystemSingle
+	PUSH, bytes
+	PUSH, _ofsShape
+	PUSH, _shpSizeX
+	EXTERN, _extern__SystemBitConverter_dot___ToSingle__SystemByteArray_SystemInt32__SystemSingle
+	PUSH, _ofsShape
+	PUSH, _int__int_4
+	PUSH, _ofsShape
+	EXTERN, _extern__SystemInt32_dot___op_Addition__SystemInt32_SystemInt32__SystemInt32
+	PUSH, bytes
+	PUSH, _ofsShape
+	PUSH, _shpSizeY
+	EXTERN, _extern__SystemBitConverter_dot___ToSingle__SystemByteArray_SystemInt32__SystemSingle
+	PUSH, _ofsShape
+	PUSH, _int__int_4
+	PUSH, _ofsShape
+	EXTERN, _extern__SystemInt32_dot___op_Addition__SystemInt32_SystemInt32__SystemInt32
+_genGeomLoopShapeColourDecoding:
+	PUSH, _ofsCol
+	PUSH, _int__int_2
+	PUSH, _ofsCol
+	EXTERN, _extern__SystemInt32_dot___op_LeftShift__SystemInt32_SystemInt32__SystemInt32
+	PUSH, _ofsPalette
+	PUSH, _ofsCol
+	PUSH, _ofsCol
+	EXTERN, _extern__SystemInt32_dot___op_Addition__SystemInt32_SystemInt32__SystemInt32
+	PUSH, bytes
+	PUSH, _ofsCol
+	PUSH, _col_r
+	EXTERN, _extern__SystemByteArray_dot___Get__SystemInt32__SystemByte
+	PUSH, _ofsCol
+	PUSH, _int__int_1
+	PUSH, _ofsCol
+	EXTERN, _extern__SystemInt32_dot___op_Addition__SystemInt32_SystemInt32__SystemInt32
+	PUSH, bytes
+	PUSH, _ofsCol
+	PUSH, _col_g
+	EXTERN, _extern__SystemByteArray_dot___Get__SystemInt32__SystemByte
+	PUSH, _ofsCol
+	PUSH, _int__int_1
+	PUSH, _ofsCol
+	EXTERN, _extern__SystemInt32_dot___op_Addition__SystemInt32_SystemInt32__SystemInt32
+	PUSH, bytes
+	PUSH, _ofsCol
+	PUSH, _col_b
+	EXTERN, _extern__SystemByteArray_dot___Get__SystemInt32__SystemByte
+	PUSH, _ofsCol
+	PUSH, _int__int_1
+	PUSH, _ofsCol
+	EXTERN, _extern__SystemInt32_dot___op_Addition__SystemInt32_SystemInt32__SystemInt32
+	PUSH, bytes
+	PUSH, _ofsCol
+	PUSH, _col_a
+	EXTERN, _extern__SystemByteArray_dot___Get__SystemInt32__SystemByte
+	PUSH, _col_r
+	PUSH, _col_g
+	PUSH, _col_b
+	PUSH, _col_a
+	PUSH, _col32
+	EXTERN, _extern__UnityEngineColor32_dot___ctor__SystemByte_SystemByte_SystemByte_SystemByte__UnityEngineColor32
+	PUSH, _col32
+	PUSH, _col
+	EXTERN, _extern__UnityEngineColor32_dot___op_Implicit__UnityEngineColor32__UnityEngineColor
+	PUSH, _col
+	PUSH, _col
+	EXTERN, _extern__UnityEngineColor_dot___get_linear__UnityEngineColor
+	PUSH, _col
+	PUSH, _col32
+	EXTERN, _extern__UnityEngineColor32_dot___op_Implicit__UnityEngineColor__UnityEngineColor32
+_genGeomLoopShapeFindVertexIndices:
+	PUSH, _vi0
+	PUSH, _int__int_1
+	PUSH, _vi1
+	EXTERN, _extern__SystemInt32_dot___op_Addition__SystemInt32_SystemInt32__SystemInt32
+	PUSH, _vi0
+	PUSH, _int__int_2
+	PUSH, _vi2
+	EXTERN, _extern__SystemInt32_dot___op_Addition__SystemInt32_SystemInt32__SystemInt32
+	PUSH, _vi0
+	PUSH, _int__int_3
+	PUSH, _vi3
+	EXTERN, _extern__SystemInt32_dot___op_Addition__SystemInt32_SystemInt32__SystemInt32
+_genGeomLoopShapeWriteIndices:
+	PUSH, _triangles
+	PUSH, _iptr
+	PUSH, _vi2
+	EXTERN, _extern__SystemInt32Array_dot___Set__SystemInt32_SystemInt32__SystemVoid
+	PUSH, _iptr
+	PUSH, _int__int_1
+	PUSH, _iptr
+	EXTERN, _extern__SystemInt32_dot___op_Addition__SystemInt32_SystemInt32__SystemInt32
+	PUSH, _triangles
+	PUSH, _iptr
+	PUSH, _vi1
+	EXTERN, _extern__SystemInt32Array_dot___Set__SystemInt32_SystemInt32__SystemVoid
+	PUSH, _iptr
+	PUSH, _int__int_1
+	PUSH, _iptr
+	EXTERN, _extern__SystemInt32_dot___op_Addition__SystemInt32_SystemInt32__SystemInt32
+	PUSH, _triangles
+	PUSH, _iptr
+	PUSH, _vi3
+	EXTERN, _extern__SystemInt32Array_dot___Set__SystemInt32_SystemInt32__SystemVoid
+	PUSH, _iptr
+	PUSH, _int__int_1
+	PUSH, _iptr
+	EXTERN, _extern__SystemInt32_dot___op_Addition__SystemInt32_SystemInt32__SystemInt32
+	PUSH, _triangles
+	PUSH, _iptr
+	PUSH, _vi0
+	EXTERN, _extern__SystemInt32Array_dot___Set__SystemInt32_SystemInt32__SystemVoid
+	PUSH, _iptr
+	PUSH, _int__int_1
+	PUSH, _iptr
+	EXTERN, _extern__SystemInt32_dot___op_Addition__SystemInt32_SystemInt32__SystemInt32
+	PUSH, _triangles
+	PUSH, _iptr
+	PUSH, _vi1
+	EXTERN, _extern__SystemInt32Array_dot___Set__SystemInt32_SystemInt32__SystemVoid
+	PUSH, _iptr
+	PUSH, _int__int_1
+	PUSH, _iptr
+	EXTERN, _extern__SystemInt32_dot___op_Addition__SystemInt32_SystemInt32__SystemInt32
+	PUSH, _triangles
+	PUSH, _iptr
+	PUSH, _vi2
+	EXTERN, _extern__SystemInt32Array_dot___Set__SystemInt32_SystemInt32__SystemVoid
+	PUSH, _iptr
+	PUSH, _int__int_1
+	PUSH, _iptr
+	EXTERN, _extern__SystemInt32_dot___op_Addition__SystemInt32_SystemInt32__SystemInt32
+_genGeomLoopShapeAddSpriteSize:
+	PUSH, _pclTLX
+	PUSH, _shpSizeX
+	PUSH, _pclBRX
+	EXTERN, _extern__SystemSingle_dot___op_Addition__SystemSingle_SystemSingle__SystemSingle
+	PUSH, _pclTLY
+	PUSH, _shpSizeY
+	PUSH, _pclBRY
+	EXTERN, _extern__SystemSingle_dot___op_Addition__SystemSingle_SystemSingle__SystemSingle
+_genGeomLoopShapeMuxing:
+	PUSH, _pclBRY
+	PUSH, _immediate_gensym12
+	PUSH, _pclBRX
+	PUSH, _vtxV0
+	EXTERN, _extern__UnityEngineVector3_dot___ctor__SystemSingle_SystemSingle_SystemSingle__UnityEngineVector3
+	PUSH, _pclBRY
+	PUSH, _immediate_gensym13
+	PUSH, _pclTLX
+	PUSH, _vtxV1
+	EXTERN, _extern__UnityEngineVector3_dot___ctor__SystemSingle_SystemSingle_SystemSingle__UnityEngineVector3
+	PUSH, _pclTLY
+	PUSH, _immediate_gensym14
+	PUSH, _pclBRX
+	PUSH, _vtxV2
+	EXTERN, _extern__UnityEngineVector3_dot___ctor__SystemSingle_SystemSingle_SystemSingle__UnityEngineVector3
+	PUSH, _pclTLY
+	PUSH, _immediate_gensym15
+	PUSH, _pclTLX
+	PUSH, _vtxV3
+	EXTERN, _extern__UnityEngineVector3_dot___ctor__SystemSingle_SystemSingle_SystemSingle__UnityEngineVector3
+	PUSH, _uvBRX
+	PUSH, _uvBRY
+	PUSH, _vtxT0
+	EXTERN, _extern__UnityEngineVector2_dot___ctor__SystemSingle_SystemSingle__UnityEngineVector2
+	PUSH, _uvTLX
+	PUSH, _uvBRY
+	PUSH, _vtxT1
+	EXTERN, _extern__UnityEngineVector2_dot___ctor__SystemSingle_SystemSingle__UnityEngineVector2
+	PUSH, _uvBRX
+	PUSH, _uvTLY
+	PUSH, _vtxT2
+	EXTERN, _extern__UnityEngineVector2_dot___ctor__SystemSingle_SystemSingle__UnityEngineVector2
+	PUSH, _uvTLX
+	PUSH, _uvTLY
+	PUSH, _vtxT3
+	EXTERN, _extern__UnityEngineVector2_dot___ctor__SystemSingle_SystemSingle__UnityEngineVector2
+_genGeomLoopShapeWriteVertices:
+	PUSH, _vertices
+	PUSH, _vi0
+	PUSH, _vtxV0
+	EXTERN, _extern__UnityEngineVector3Array_dot___Set__SystemInt32_UnityEngineVector3__SystemVoid
+	PUSH, _vertices
+	PUSH, _vi1
+	PUSH, _vtxV1
+	EXTERN, _extern__UnityEngineVector3Array_dot___Set__SystemInt32_UnityEngineVector3__SystemVoid
+	PUSH, _vertices
+	PUSH, _vi2
+	PUSH, _vtxV2
+	EXTERN, _extern__UnityEngineVector3Array_dot___Set__SystemInt32_UnityEngineVector3__SystemVoid
+	PUSH, _vertices
+	PUSH, _vi3
+	PUSH, _vtxV3
+	EXTERN, _extern__UnityEngineVector3Array_dot___Set__SystemInt32_UnityEngineVector3__SystemVoid
+	PUSH, _uv
+	PUSH, _vi0
+	PUSH, _vtxT0
+	EXTERN, _extern__UnityEngineVector2Array_dot___Set__SystemInt32_UnityEngineVector2__SystemVoid
+	PUSH, _uv
+	PUSH, _vi1
+	PUSH, _vtxT1
+	EXTERN, _extern__UnityEngineVector2Array_dot___Set__SystemInt32_UnityEngineVector2__SystemVoid
+	PUSH, _uv
+	PUSH, _vi2
+	PUSH, _vtxT2
+	EXTERN, _extern__UnityEngineVector2Array_dot___Set__SystemInt32_UnityEngineVector2__SystemVoid
+	PUSH, _uv
+	PUSH, _vi3
+	PUSH, _vtxT3
+	EXTERN, _extern__UnityEngineVector2Array_dot___Set__SystemInt32_UnityEngineVector2__SystemVoid
+	PUSH, _colors32
+	PUSH, _vi0
+	PUSH, _col32
+	EXTERN, _extern__UnityEngineColor32Array_dot___Set__SystemInt32_UnityEngineColor32__SystemVoid
+	PUSH, _colors32
+	PUSH, _vi1
+	PUSH, _col32
+	EXTERN, _extern__UnityEngineColor32Array_dot___Set__SystemInt32_UnityEngineColor32__SystemVoid
+	PUSH, _colors32
+	PUSH, _vi2
+	PUSH, _col32
+	EXTERN, _extern__UnityEngineColor32Array_dot___Set__SystemInt32_UnityEngineColor32__SystemVoid
+	PUSH, _colors32
+	PUSH, _vi3
+	PUSH, _col32
+	EXTERN, _extern__UnityEngineColor32Array_dot___Set__SystemInt32_UnityEngineColor32__SystemVoid
+	PUSH, _vi0
+	PUSH, _int__int_4
+	PUSH, _vi0
+	EXTERN, _extern__SystemInt32_dot___op_Addition__SystemInt32_SystemInt32__SystemInt32
+	JUMP, _genGeomLoop
 _genGeomDone:
+	PUSH, _mesh
+	EXTERN, _extern__UnityEngineMesh_dot___ctor____UnityEngineMesh
+	PUSH, _mesh
+	PUSH, _vertices
+	EXTERN, _extern__UnityEngineMesh_dot___set_vertices__UnityEngineVector3Array__SystemVoid
+	PUSH, _mesh
+	PUSH, _uv
+	EXTERN, _extern__UnityEngineMesh_dot___set_uv__UnityEngineVector2Array__SystemVoid
+	PUSH, _mesh
+	PUSH, _colors32
+	EXTERN, _extern__UnityEngineMesh_dot___set_colors32__UnityEngineColor32Array__SystemVoid
+	PUSH, _mesh
+	PUSH, _triangles
+	EXTERN, _extern__UnityEngineMesh_dot___set_triangles__SystemInt32Array__SystemVoid
+	PUSH, _mesh
+	EXTERN, _extern__UnityEngineMesh_dot___RecalculateNormals__SystemVoid
+	PUSH, _int__int_0
+	PUSH, _int__int_0
+	PUSH, _bool
+	EXTERN, _extern__SystemInt32_dot___op_Equality__SystemInt32_SystemInt32__SystemBoolean
+	PUSH, _mesh
+	PUSH, _bool
+	EXTERN, _extern__UnityEngineMesh_dot___UploadMeshData__SystemBoolean__SystemVoid
+	PUSH, meshFilter
+	PUSH, _mesh
+	EXTERN, _extern__UnityEngineMeshFilter_dot___set_sharedMesh__UnityEngineMesh__SystemVoid
+	PUSH, meshRenderer
+	PUSH, _material
+	EXTERN, _extern__UnityEngineMeshRenderer_dot___set_sharedMaterial__UnityEngineMaterial__SystemVoid
+	JUMP, _cleanErasable
 
-	# -- create, assign, and setup the mesh --
-
-		# _mesh = new Mesh()
-			PUSH, _mesh
-			EXTERN, "UnityEngineMesh.__ctor____UnityEngineMesh"
-
-		# _mesh.vertices = _vertices
-			PUSH, _mesh
-			PUSH, _vertices
-			EXTERN, "UnityEngineMesh.__set_vertices__UnityEngineVector3Array__SystemVoid"
-
-		# _mesh.uv = _uv
-			PUSH, _mesh
-			PUSH, _uv
-			EXTERN, "UnityEngineMesh.__set_uv__UnityEngineVector2Array__SystemVoid"
-
-		# _mesh.uv2 = _uv2
-			PUSH, _mesh
-			PUSH, _uv2
-			EXTERN, "UnityEngineMesh.__set_uv2__UnityEngineVector2Array__SystemVoid"
-
-		# _mesh.colors32 = _colors32
-			PUSH, _mesh
-			PUSH, _colors32
-			EXTERN, "UnityEngineMesh.__set_colors32__UnityEngineColor32Array__SystemVoid"
-
-		# _mesh.triangles = _triangles
-			PUSH, _mesh
-			PUSH, _triangles
-			EXTERN, "UnityEngineMesh.__set_triangles__SystemInt32Array__SystemVoid"
-
-		# _mesh.RecalculateNormals()
-			PUSH, _mesh
-			EXTERN, "UnityEngineMesh.__RecalculateNormals__SystemVoid"
-
-		# _mesh.UploadMeshData(true)
-			PUSH, _c_0
-			PUSH, _c_0
-			PUSH, _bool
-			EXTERN, "SystemInt32.__op_Equality__SystemInt32_SystemInt32__SystemBoolean"
-			PUSH, _mesh
-			PUSH, _bool
-			EXTERN, "UnityEngineMesh.__UploadMeshData__SystemBoolean__SystemVoid"
-
-		# meshFilter.sharedMesh = _mesh
-			PUSH, meshFilter
-			PUSH, _mesh
-			EXTERN, "UnityEngineMeshFilter.__set_sharedMesh__UnityEngineMesh__SystemVoid"
-
-		# meshRenderer.sharedMaterial = _material
-			PUSH, meshRenderer
-			PUSH, _material
-			EXTERN, "UnityEngineMeshRenderer.__set_sharedMaterial__UnityEngineMaterial__SystemVoid"
-
-	# -- clean up temporaries and leave --
-		JUMP, _cleanErasable
 .code_end
