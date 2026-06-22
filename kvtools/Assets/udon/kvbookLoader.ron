@@ -1,9 +1,23 @@
-data_comment("kvbook loader")
-data_comment("Udon Assembly ; this contains a lot of Unity manipulation and some *nasty* hot loops")
-data_comment("to use, insert the .bytes TextAsset into 'bytesTextAsset', or byte array into 'bytes', set `page`, then call `_LoadPage`")
-data_comment("you can free up memory by strategically calling `_ClearPage` (to free memory) and `_LoadPage` (to rebuild)")
+data_comment("kvbook loader v1.1")
+// Ignore this section; you're reading the KU2 form right now {
+data_comment("this is the UASM form. this is not the source form; the source is stored in the `.ron` file and compiled with kudonknife.")
+data_comment("as such, modifying this file is likely to be unnecessarily difficult.")
+// }
+data_comment("")
+data_comment("to use:")
+data_comment("1. prepare at least one kvbook SDF material in `atlasMaterials`.")
+data_comment("2. insert the .bytes TextAsset into `bytesTextAsset`, or byte array into `bytes`.")
+data_comment("   for web book download, use IVRCStringDownload.ResultBytes for this.")
+data_comment("3. if you're using static PNGs, they can either be in `atlasMaterials` already or in `atlasTextures`.")
+data_comment("   if the former, you need one material per atlas; if the latter, only have one material.")
+data_comment("   if you're using a web-format file (even if packed), call `_WebTextureUpload`, which will set `ownedTexture` for a similar effect as `atlasTextures`.")
+data_comment("4. set `page`, then call `_LoadPage`. if you just want to read metadata (file info, page size etc.), use `_LoadInfoOnly`.")
+data_comment("   if you are testing for validity, please ensure `page` is 0.")
+data_comment("")
+data_comment("you can free up memory by strategically calling `_ClearPage` (free page mesh), `_ClearAll` (page + webfmt texture if any), `_LoadPage` (rebuild)")
 data_comment("(implementing this on enable/disable automatically was considered, but I've decided to let it be the decision of the host prefab)")
-data_comment("beware: Untrusted content can cause Udon freezes and generation of extremely large meshes. You have been warned.")
+data_comment("beware: Untrusted content could cause generation of relatively large meshes. You have been warned.")
+data_comment("")
 
 var(_null, null("SystemObject"))
 
@@ -21,12 +35,27 @@ data_comment("public")
 var_public(page, int(-1))
 var_public(meshFilter, this("UnityEngineMeshFilter"))
 var_public(meshRenderer, this("UnityEngineMeshRenderer"))
+data_comment("atlasMaterials lookup is clamped to array size, same with atlasTextures.")
+data_comment("If ownedTexture OR atlasTextures contains a valid texture, the material in atlasMaterials has its texture replaced.")
 var_public(atlasMaterials, null("UnityEngineMaterialArray"))
+var_public(atlasTextures, null("UnityEngineTexture2DArray"))
 var_public(bytesTextAsset, null("UnityEngineTextAsset"))
 
 data_comment("if bytesTextAsset != null, this only *temporarily* stores the bytes")
 data_comment("otherwise it always stores the bytes")
 var_public(bytes, null("SystemByteArray"))
+
+data_comment("This is a texture assumed to be 'owned' by the loader.")
+data_comment("It can be cleared with _ClearAll. When using the web-book format, it may be initialized with _WebTextureUpload.")
+var_public(ownedTexture, null("UnityEngineTexture2D"))
+
+data_comment("Setting either of these to -16383.5 will centre that particular axis.")
+var_public(pivotX, float(0.0))
+var_public(pivotY, float(0.0))
+
+// To make this work, it's applied both to the page position scaler and also to the shape size.
+data_comment("Simple mesh-build scale value.")
+var_public(scale, float(1.0))
 
 data_comment("public out")
 
@@ -39,14 +68,24 @@ var_public(infoPageSpriteCount, int(0))
 var_public(infoPageVertexCount, int(0))
 var_public(infoPageIndexCount, int(0))
 var_public(infoMetadata, string("{}"))
+var_public(infoStatus, string(""))
+// easy way to verify nothing went wrong
+var_public(infoOK, null("SystemBoolean"))
 
 data_comment("file offsets")
+
+var(_lenBytes, int(0))
+var(_lenBytesM4, int(0))
+var(_lenBytesM8, int(0))
+var(_lenBytesM9, int(0))
+var(_lenBytesM16, int(0))
 
 var(_ofsPalette, int(0))
 var(_ofsMetadata, int(0))
 var(_lenMetadata, int(0))
 var(_ofsPage, int(0))
 var(_endPage, int(0))
+var(_idxAtlas, int(0))
 var(_ofsAtlas, int(0))
 var(_ofsShape, int(0))
 var(_ofsCol, int(0))
@@ -57,6 +96,7 @@ data_comment("erasable")
 
 var(_mesh, null("UnityEngineMesh"))
 var(_material, null("UnityEngineMaterial"))
+var(_texture, null("UnityEngineTexture2D"))
 var(_vertices, null("UnityEngineVector3Array"))
 var(_triangles, null("SystemInt32Array"))
 var(_colors32, null("UnityEngineColor32Array"))
@@ -85,6 +125,10 @@ var(_col, null("UnityEngineColor"))
 var(_col32, null("UnityEngineColor32"))
 
 data_comment("position calculation")
+
+var(_scaleDiv32767, float(0.0))
+var(_xPageCoordScaler, float(0.0))
+var(_yPageCoordScaler, float(0.0))
 
 var(_pclTLX, float(0.0))
 var(_pclTLY, float(0.0))
@@ -125,14 +169,21 @@ data_comment("temporaries")
 
 var(_byte, null("SystemByte"))
 var(_bool, null("SystemBoolean"))
+var(_bool2, null("SystemBoolean"))
 var(_i32, int(0))
 var(_u16, null("SystemUInt16"))
 var(_i16, null("SystemInt16"))
 var(_utf8, null("SystemTextEncoding"))
+var(_texFmt, null("UnityEngineTextureFormat"))
+
+data_comment("control flow flags")
+
+var(_loadFlagFullPage, null("SystemBoolean"))
 
 // equates
 
 equ(IsValid, EXT("VRCSDKBaseUtilities.__IsValid__SystemObject__SystemBoolean"))
+equ(Destroy, EXT("UnityEngineObject.__Destroy__UnityEngineObject__SystemVoid"))
 equ(ReadU8, EXT("SystemByteArray.__Get__SystemInt32__SystemByte"))
 equ(ReadI32, EXT("SystemBitConverter.__ToInt32__SystemByteArray_SystemInt32__SystemInt32"))
 equ(ReadF32, EXT("SystemBitConverter.__ToSingle__SystemByteArray_SystemInt32__SystemSingle"))
@@ -175,14 +226,14 @@ package("nom_u8", [])
 	exop("op_Addition", [ARG(0), C(int(1)), ARG(0)])
 package_end
 
-// [addr, pageWH, target]
+// [addr, target, multiplier, pivot]
 package("nom_i16_pageCoord", [])
 	i("nom_i16", [ARG(0)])
-	ext(EXT("SystemConvert.__ToSingle__SystemInt16__SystemSingle"), [_i16, ARG(2)])
-	// divide by fixed divisor
-	exop("op_Division", [ARG(2), C(float(32767)), ARG(2)])
-	// multiply by page w/h
-	exop("op_Multiplication", [ARG(2), ARG(1), ARG(2)])
+	ext(EXT("SystemConvert.__ToSingle__SystemInt16__SystemSingle"), [_i16, ARG(1)])
+	// pivot is applied in page W/H relative-space, which means it works as intended without added maths (even if the units are funny)
+	exop("op_Addition", [ARG(1), ARG(3), ARG(1)])
+	// multiply by page w/h divided by 32767 multiplied by scale (multiplier)
+	exop("op_Multiplication", [ARG(1), ARG(2), ARG(1)])
 package_end
 
 // [addr, target]
@@ -192,29 +243,121 @@ package("nom_u16_uv", [])
 	exop("op_Division", [ARG(1), C(float(65535)), ARG(1)])
 package_end
 
+// [victim]
+package("destroy_if_valid", [])
+	ext(IsValid, [ARG(0), _bool])
+	local(notValid)
+	jfalse(_bool, notValid)
+		ext(Destroy, [ARG(0)])
+	_(notValid)
+package_end
+
+// byte array setup
+// if bytesTextAsset is valid, we load from there and then clear bytes once we're done.
+// however, someone might be loading book contents dynamically.
+// in *THAT* case, we don't do bytesTextAsset-related things.
+// invoking this locks you into having to jump to _cleanErasable later.
+// []
+package("retrieve_bytes", [])
+	ext(IsValid, [bytesTextAsset, _bool])
+	local(notTextAsset)
+	jfalse(_bool, notTextAsset)
+		// set up bytes, which lets us read the file.
+		// notably, we don't want bytes to be in Udon Heap longer than necessary, as this causes terrible memory use risks if we're instantiated.
+		// if it's not from a text asset though, then we don't really have a choice.
+		exi(bytesTextAsset, "get_bytes", [bytes])
+	_(notTextAsset)
+package_end
+
+// Converts dynamic lump index into lump_t offset field position.
+// Then, if it's out of range for a lump_t, jumps to _lpBookFault to abort.
+// [idx, ofs]
+package("lookup_dynlump", [])
+	exop("op_Multiplication", [ARG(0), C(int(8)), ARG(1)])
+	exop("op_Addition", [ARG(1), _f_fileHeadSize, ARG(1)])
+	// check that there's enough room for lump_t
+	exop("op_LessThanOrEqual", [ARG(1), _lenBytesM8, _bool])
+	jfalse(_bool, _lpBookFault)
+package_end
+
+// [bool]
+package("set_true", [])
+	exop("op_Equality", [C(int(0)), C(int(0)), ARG(0)])
+package_end
+
+// [bool]
+package("set_false", [])
+	exop("op_Equality", [C(int(0)), C(int(1)), ARG(0)])
+package_end
+
 // -- The Code --
 
 code_comment("these functions have been setup to Do The Right Thing (tm)")
 
+code_comment("The default on-start behaviour is to assume you might have pre-loaded a book, and try to display it (or at least gather info) accordingly.")
 public(_start)
 	jump(_LoadPage)
 
-code_comment("Clears the rendered page and releases associated resources.")
+code_comment("If the bytes point to a sufficiently valid kvbook 'web' format image, _WebTextureUpload sets up ownedTexture.")
+public(_WebTextureUpload)
+	i("destroy_if_valid", [ownedTexture])
+	set(ownedTexture, _null)
+	i("retrieve_bytes", [])
+	// alright, is this a valid web image? (if not, go immediately to _cleanErasable)
+	exi(bytes, "get_Length", [_i32])
+	exop("op_Equality", [_i32, C(int(0x1000000)), _bool])
+	jfalse(_bool, _cleanErasable)
+		// alright, it's valid. go for it
+		// due to TextureFormat nonsense, we have to do some really stupid stuff here
+		ext(EXT("UnityEngineTexture2D.__ctor__SystemInt32_SystemInt32__UnityEngineTexture2D"), [
+			C(int(1)),
+			C(int(1)),
+			ownedTexture
+		])
+		exi(ownedTexture, "get_format", [_texFmt])
+		ext(Destroy, [ownedTexture])
+		// ext(EXT("UnityEngineDebug.__Log__SystemObject__SystemVoid"), [_i32])
+		// ext(EXT("UnityEngineDebug.__Log__SystemObject__SystemVoid"), [_texFmt])
+		i("set_false", [_bool]) // mipChain
+		ext(EXT("UnityEngineTexture2D.__ctor__SystemInt32_SystemInt32_UnityEngineTextureFormat_SystemBoolean__UnityEngineTexture2D"), [
+			C(int(2048)),
+			C(int(2048)),
+			_texFmt,
+			_bool,
+			ownedTexture
+		])
+		// alright, now actually upload the data
+		exi(ownedTexture, "LoadRawTextureData", [bytes])
+		i("set_false", [_bool]) // updateMipmaps
+		i("set_true", [_bool2]) // makeNoLongerReadable
+		exi(ownedTexture, "Apply", [_bool, _bool2])
+	// now clean up bytes (if need be) using the erasure routine
+	jump(_cleanErasable)
+
+code_comment("Frees the owned texture (if any), then proceeds to ClearPage.")
+code_comment("Keep in mind that on error, this won't work. You'll need to manually retrieve the ownedTexture and remove it.")
+public(_ClearAll)
+	i("destroy_if_valid", [ownedTexture])
+	set(ownedTexture, _null)
+
+code_comment("Clears the rendered page and releases directly associated resources.")
 public(_ClearPage)
-	exi(meshFilter, "set_mesh", [_null])
+	exi(meshFilter, "set_sharedMesh", [_null])
+
+	// Destroy owned resources.
+	i("destroy_if_valid", [_mesh])
+	set(_mesh, _null)
 
 // _cleanErasable is the 'tail' of functions which need to let go of the big arrays to prevent memory leaks.
 _(_cleanErasable)
-	// if bytesTextAsset isn't valid, don't set bytes to null
+	// if bytesTextAsset isn't valid, don't set bytes to null!
 	ext(IsValid, [bytesTextAsset, _bool])
 	jfalse(_bool, _cleanErasableNotTextAsset)
+		set(bytes, _null)
+	_(_cleanErasableNotTextAsset)
 
-	set(bytes, _null)
-
-_(_cleanErasableNotTextAsset)
-
-	set(_mesh, _null)
 	set(_material, _null)
+	set(_texture, _null)
 	set(_vertices, _null)
 	set(_triangles, _null)
 	set(_colors32, _null)
@@ -222,31 +365,44 @@ _(_cleanErasableNotTextAsset)
 
 	stop // that's all!
 
+code_comment("Loads book/page info only.")
+code_comment("This will not ClearPage.")
+public(_LoadInfoOnly)
+	i("set_false", [_loadFlagFullPage])
+	jump(_lpCommon)
+
+_(_lpBookFault)
+	// FAULT. If we're doing LoadPage, we should clear.
+	jfalse(_loadFlagFullPage, _cleanErasable)
+	jump(_ClearPage)
+
+code_comment("Loads the page for rendering.")
 public(_LoadPage)
+	i("set_true", [_loadFlagFullPage])
 
-	// byte array setup
-	// if bytesTextAsset is valid, we load from there and then clear bytes once we're done.
-	// however, someone might be loading book contents dynamically.
-	// in *THAT* case, we don't do bytesTextAsset-related things.
+_(_lpCommon)
 
-	ext(IsValid, [bytesTextAsset, _bool])
-	jfalse(_bool, _loadPageNotTextAsset)
+	i("set_false", [infoOK])
+	set(infoStatus, C(string("retrieving byte array")))
 
-	// set up bytes, which lets us read the file.
-	// notably, we don't want bytes to be in Udon Heap longer than necessary, as this causes terrible memory use risks if we're instantiated.
-	// if it's not from a text asset though, then we don't really have a choice.
-	exi(bytesTextAsset, "get_bytes", [bytes])
-
-_(_loadPageNotTextAsset)
+	i("retrieve_bytes", [])
 
 	// bytes might not be valid (say, if we haven't been initialized yet!)
 	ext(IsValid, [bytes, _bool])
-	jfalse(_bool, _ClearPage)
+	jfalse(_bool, _lpBookFault)
+
+	set(infoStatus, C(string("header validation")))
 
 	// also do this if the length is < _f_fileHeadSize (no header)
-	exi(bytes, "get_Length", [_i32])
-	exop("op_GreaterThanOrEqual", [_i32, _f_fileHeadSize, _bool])
-	jfalse(_bool, _ClearPage)
+	exi(bytes, "get_Length", [_lenBytes])
+	exop("op_GreaterThanOrEqual", [_lenBytes, _f_fileHeadSize, _bool])
+	jfalse(_bool, _lpBookFault)
+
+	// prepare adjusted versions of _lenBytes for various structures
+	exop("op_Subtraction", [_lenBytes, C(int(4)), _lenBytesM4])
+	exop("op_Subtraction", [_lenBytes, C(int(8)), _lenBytesM8])
+	exop("op_Subtraction", [_lenBytes, C(int(9)), _lenBytesM9])
+	exop("op_Subtraction", [_lenBytes, C(int(16)), _lenBytesM16])
 
 	// read all fixed header fields we care about
 	ext(ReadI32, [bytes, C(int(0)), infoAtlasCount])
@@ -259,59 +415,149 @@ _(_loadPageNotTextAsset)
 	exop("op_RightShift", [infoAtlasCount, C(int(16)), infoFileVersion])
 	exop("op_LogicalAnd", [infoAtlasCount, C(int(0xFFFF)), infoAtlasCount])
 
+	set(infoStatus, C(string("version out of range")))
+
 	// validate version number; must be >= _f_versionMin, <= _f_versionMax
 	exop("op_GreaterThanOrEqual", [infoFileVersion, _f_versionMin, _bool])
-	jfalse(_bool, _ClearPage)
+	jfalse(_bool, _lpBookFault)
 	exop("op_LessThanOrEqual", [infoFileVersion, _f_versionMax, _bool])
-	jfalse(_bool, _ClearPage)
+	jfalse(_bool, _lpBookFault)
+
+	set(infoStatus, C(string("header validation 2")))
+
+	// all of these fields CANNOT be <0
+	// (infoAtlasCount is assured by ANDing)
+	exop("op_GreaterThanOrEqual", [infoPageCount, C(int(0)), _bool])
+	jfalse(_bool, _lpBookFault)
+	exop("op_GreaterThanOrEqual", [_ofsMetadata, C(int(0)), _bool])
+	jfalse(_bool, _lpBookFault)
+	exop("op_GreaterThanOrEqual", [_lenMetadata, C(int(0)), _bool])
+	jfalse(_bool, _lpBookFault)
+	exop("op_GreaterThanOrEqual", [_ofsPalette, C(int(0)), _bool])
+	jfalse(_bool, _lpBookFault)
+
+	// if metadata runs off of the end, fault
+	exop("op_Addition", [_ofsMetadata, _lenMetadata, _i32])
+	exop("op_LessThanOrEqual", [_i32, _lenBytes, _bool])
+	jfalse(_bool, _lpBookFault)
 
 	// get metadata; note we do this even if the page number is invalid
 	ext(EXT("SystemTextEncoding.__get_UTF8__SystemTextEncoding"), [_utf8])
 	exi(_utf8, "GetString", [bytes, _ofsMetadata, _lenMetadata, infoMetadata])
 
+	set(infoStatus, C(string("page number out of range")))
+
 	// validate page number
 	exop("op_GreaterThanOrEqual", [page, C(int(0)), _bool])
-	jfalse(_bool, _ClearPage)
+	jfalse(_bool, _lpBookFault)
 	exop("op_LessThan", [page, infoPageCount, _bool])
-	jfalse(_bool, _ClearPage)
+	jfalse(_bool, _lpBookFault)
+
+	set(infoStatus, C(string("page lump error")))
 
 	// find page lump
 	// we calculate the lump number relative to after the fixed header is over
 	exop("op_Addition", [page, infoAtlasCount, _ofsPage])
-	exop("op_Multiplication", [_ofsPage, C(int(8)), _ofsPage])
-	exop("op_Addition", [_ofsPage, _f_fileHeadSize, _ofsPage])
+	// read the page lump_t
+	i("lookup_dynlump", [_ofsPage, _ofsPage])
 	exop("op_Addition", [_ofsPage, C(int(4)), _endPage])
-	// _ofsPage now points to the page's lump offset field and _endPage to length
 	ext(ReadI32, [bytes, _ofsPage, _ofsPage])
 	ext(ReadI32, [bytes, _endPage, _endPage])
+	// _ofsPage and len (stored in _endPage) cannot be <0
+	exop("op_GreaterThanOrEqual", [_ofsPage, C(int(0)), _bool])
+	jfalse(_bool, _lpBookFault)
+	exop("op_GreaterThanOrEqual", [_endPage, C(int(0)), _bool])
+	jfalse(_bool, _lpBookFault)
+	// fixup _endPage
 	exop("op_Addition", [_endPage, _ofsPage, _endPage])
 	// and now _ofsPage and _endPage are correct
 
+	// _endPage must be within bounds.
+	// This naturally guarantees that the sprite length division later returns a safe result.
+	exop("op_LessThanOrEqual", [_endPage, _lenBytes, _bool])
+	jfalse(_bool, _lpBookFault)
+
+	// We're about to read the page's header, which is 9 bytes.
+	exop("op_LessThanOrEqual", [_ofsPage, _lenBytesM9, _bool])
+	jfalse(_bool, _lpBookFault)
+
 	// find atlas lump
 	i("nom_u8", [_ofsPage])
-	ext(ConvU8I32, [_byte, _ofsAtlas])
-	// _ofsAtlas = Mathf.Clamp(_ofsAtlas, 0, atlasMaterials.Length - 1)
-	exi(atlasMaterials, "get_Length", [_i32])
-	exop("op_Subtraction", [_i32, C(int(1)), _i32])
-	ext(EXT("UnityEngineMathf.__Clamp__SystemInt32_SystemInt32_SystemInt32__SystemInt32"), [_ofsAtlas, C(int(0)), _i32, _ofsAtlas])
-
-	// anything we want to do with the atlas number, we've gotta do now...
-	exi(atlasMaterials, "Get", [_ofsAtlas, _material])
+	ext(ConvU8I32, [_byte, _idxAtlas])
 
 	// lookup atlas lump
-	exop("op_Multiplication", [_ofsAtlas, C(int(8)), _ofsAtlas])
-	exop("op_Addition", [_ofsAtlas, _f_fileHeadSize, _ofsAtlas])
+	i("lookup_dynlump", [_idxAtlas, _ofsAtlas])
 	ext(ReadI32, [bytes, _ofsAtlas, _ofsAtlas])
 
 	// page width/height/sprite count
 	i("nom_f32", [_ofsPage, infoPageWidth])
 	i("nom_f32", [_ofsPage, infoPageHeight])
+	// derive multipliers
+	exop("op_Division", [scale, C(float(32767)), _scaleDiv32767])
+	exop("op_Multiplication", [infoPageWidth, _scaleDiv32767, _xPageCoordScaler])
+	exop("op_Multiplication", [infoPageHeight, _scaleDiv32767, _yPageCoordScaler])
+
+	// derive sprite count
 	exop("op_Subtraction", [_endPage, _ofsPage, infoPageSpriteCount])
-	// from bytes into sprites
 	exop("op_Division", [infoPageSpriteCount, C(int(8)), infoPageSpriteCount])
+	// infoPageSpriteCount is verified to be in-bounds because it's derived from (checked) _endPage.
 	// derive vertex/index count
 	exop("op_Multiplication", [infoPageSpriteCount, C(int(4)), infoPageVertexCount])
 	exop("op_Multiplication", [infoPageSpriteCount, C(int(6)), infoPageIndexCount])
+
+	set(infoStatus, C(string("too many verts")))
+
+	// while in theory we could support more vertices, we don't, and this massively reduces crash risk.
+	exop("op_LessThanOrEqual", [infoPageVertexCount, C(int(65535)), _bool])
+	jfalse(_bool, _lpBookFault)
+
+	// -- _LoadInfoOnly STOPPING POINT --
+	// If we're not loading the full page, skip right to _cleanErasable.
+	set(infoStatus, C(string("OK")))
+	i("set_true", [infoOK])
+	jfalse(_loadFlagFullPage, _cleanErasable)
+	i("set_false", [infoOK])
+
+	set(infoStatus, C(string("material setup")))
+
+	// _material = atlasMaterials[Mathf.Clamp(_idxAtlas, 0, atlasMaterials.Length - 1)]
+	exi(atlasMaterials, "get_Length", [_i32])
+	exop("op_Subtraction", [_i32, C(int(1)), _i32])
+	ext(EXT("UnityEngineMathf.__Clamp__SystemInt32_SystemInt32_SystemInt32__SystemInt32"), [_idxAtlas, C(int(0)), _i32, _i32])
+	exi(atlasMaterials, "Get", [_i32, _material])
+
+	// Do material adjustment.
+	// Everything in here only works if the material is valid.
+	// If it isn't valid, we should skip this step
+	ext(IsValid, [_material, _bool])
+	jfalse(_bool, _lpEndMaterialTextureBlock)
+
+		// If we have ownedTexture, it supersedes atlasTextures
+		ext(IsValid, [ownedTexture, _bool])
+		jfalse(_bool, _lpNoOwnedTexture)
+			// definitely an owned texture that is valid, so immediately set
+			exi(_material, "set_mainTexture", [ownedTexture])
+			jump(_lpEndMaterialTextureBlock)
+		_(_lpNoOwnedTexture)
+
+		// if atlasTextures is valid, try grabbing a texture from there
+		ext(IsValid, [atlasTextures, _bool])
+		jfalse(_bool, _lpEndMaterialTextureBlock)
+
+			// _texture = atlasTextures[Mathf.Clamp(_idxAtlas, 0, atlasTextures.Length - 1)]
+			exi(atlasTextures, "get_Length", [_i32])
+			exop("op_Subtraction", [_i32, C(int(1)), _i32])
+			ext(EXT("UnityEngineMathf.__Clamp__SystemInt32_SystemInt32_SystemInt32__SystemInt32"), [_idxAtlas, C(int(0)), _i32, _i32])
+			exi(atlasTextures, "Get", [_i32, _texture])
+			// we better check if it's valid; udon assembly inspector likes to make 1-length arrays
+			ext(IsValid, [_texture, _bool])
+			jfalse(_bool, _lpEndMaterialTextureBlock)
+
+				exi(_material, "set_mainTexture", [_texture])
+
+	_(_lpEndMaterialTextureBlock)
+
+	set(infoStatus, C(string("arrays setup")))
 
 	// create arrays
 	ext(EXT("UnityEngineVector3Array.__ctor__SystemInt32__UnityEngineVector3Array"), [infoPageVertexCount, _vertices])
@@ -323,7 +569,13 @@ _(_loadPageNotTextAsset)
 	set(_vi0, C(int(0)))
 	set(_iptr, C(int(0)))
 
-	// sprite main loop {
+	set(infoStatus, C(string("sprite main loop")))
+
+	// -- FROM HERE ON IN --
+	// The page sprite array has already been bounds-checked through checking _endPage and the divisor.
+	// Out of bounds accesses can only be attempted via shape or palette indices.
+	// This is important, because this is the 'hot loop'; the jitter in framerate on page switch.
+	// So really we'd have as little nonsense here as possible, but the web usecase requires checking to be efficient in other ways.
 
 _(_genGeomLoop)
 
@@ -336,8 +588,8 @@ _(_genGeomLoop)
 		i("nom_u16", [_ofsPage])
 		ext(ConvU16I32, [_u16, _ofsShape])
 		// tlx/tly: ** SIGNED ** (as opposed to unsigned like shape/col)
-		i("nom_i16_pageCoord", [_ofsPage, infoPageWidth, _pclTLX])
-		i("nom_i16_pageCoord", [_ofsPage, infoPageHeight, _pclTLY])
+		i("nom_i16_pageCoord", [_ofsPage, _pclTLX, _xPageCoordScaler, pivotX])
+		i("nom_i16_pageCoord", [_ofsPage, _pclTLY, _yPageCoordScaler, pivotY])
 		// colour
 		i("nom_u16", [_ofsPage])
 		ext(ConvU16I32, [_u16, _ofsCol])
@@ -348,6 +600,9 @@ _(_genGeomLoopFindShape) // debug
 
 		exop("op_Multiplication", [_ofsShape, C(int(16)), _ofsShape])
 		exop("op_Addition", [_ofsShape, _ofsAtlas, _ofsShape])
+		// the shape index is guaranteed to be unsigned, so we just need to make sure it didn't fly off
+		exop("op_LessThanOrEqual", [_ofsShape, _lenBytesM16, _bool])
+		jfalse(_bool, _lpBookFault)
 
 _(_genGeomLoopShapeReadIn) // debug
 
@@ -361,6 +616,9 @@ _(_genGeomLoopShapeReadIn) // debug
 		// size
 		i("nom_f32", [_ofsShape, _shpSizeX])
 		i("nom_f32", [_ofsShape, _shpSizeY])
+		// multiply size by scale
+		exop("op_Multiplication", [_shpSizeX, scale, _shpSizeX])
+		exop("op_Multiplication", [_shpSizeY, scale, _shpSizeY])
 
 _(_genGeomLoopShapeColourDecoding) // debug
 
@@ -368,6 +626,11 @@ _(_genGeomLoopShapeColourDecoding) // debug
 
 		exop("op_LeftShift", [_ofsCol, C(int(2)), _ofsCol])
 		exop("op_Addition", [_ofsPalette, _ofsCol, _ofsCol])
+
+		// inbounds check for palette colour
+		exop("op_LessThanOrEqual", [_ofsCol, _lenBytesM4, _bool])
+		jfalse(_bool, _lpBookFault)
+
 		ext(ReadU8, [bytes, _ofsCol, _col_r])
 		exop("op_Addition", [_ofsCol, C(int(1)), _ofsCol])
 		ext(ReadU8, [bytes, _ofsCol, _col_g])
@@ -456,6 +719,8 @@ _(_genGeomLoopShapeWriteVertices) // debug
 
 _(_genGeomDone)
 
+	set(infoStatus, C(string("mesh build")))
+
 	// create, assign, and setup the mesh
 
 	ext(EXT("UnityEngineMesh.__ctor____UnityEngineMesh"), [_mesh])
@@ -468,6 +733,9 @@ _(_genGeomDone)
 	exi(_mesh, "UploadMeshData", [_bool])
 	exi(meshFilter, "set_sharedMesh", [_mesh])
 	exi(meshRenderer, "set_sharedMaterial", [_material])
+
+	i("set_true", [infoOK])
+	set(infoStatus, C(string("OK")))
 
 	// clean up temporaries and leave
 	jump(_cleanErasable)
