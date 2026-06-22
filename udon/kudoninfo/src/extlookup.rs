@@ -142,6 +142,9 @@ pub fn udonexternlookup_map()
 
 /// Searches for Udon instance method externs that match the given requirements.
 /// (This is for use in the 'exi' KU2 macroinstruction, but is generally applicable.)
+/// This will first search by name, non-static, generic arity, and parameter count.
+/// If >1 candidate remains, it then filters by parameter types.
+/// If that causes the result to become ambiguous, the original list is returned.
 pub fn udonexternlookup_exi(
     this: &str,
     method_name: &str,
@@ -165,24 +168,35 @@ pub fn udonexternlookup_exi(
                 if candidate.parameters[0].role != UdonExternParamRole::This {
                     continue;
                 }
-                let mut ok = true;
-                for (param_idx, param) in candidate.parameters.iter().enumerate() {
-                    let comparison = if param_idx == 0 {
-                        this
-                    } else {
-                        &params[param_idx - 1]
-                    };
-                    if param.dir == UdonExternParamDir::In {
-                        if !udonexternlookup_typecast(comparison, &param.udon_type.name) {
-                            ok = false;
-                            break;
-                        }
+                vec.push(*candidate);
+            }
+        }
+    }
+    if vec.len() > 1 {
+        // ambiguous - try to resolve via parameter types
+        let mut vec2 = Vec::new();
+        for candidate in &vec {
+            // to be a candidate in the first place, parameter count has to have been checked
+            let mut ok = true;
+            for (param_idx, param) in candidate.parameters.iter().enumerate() {
+                let comparison = if param_idx == 0 {
+                    this
+                } else {
+                    &params[param_idx - 1]
+                };
+                if param.dir == UdonExternParamDir::In {
+                    if !udonexternlookup_typecast(&param.udon_type.name, comparison) {
+                        ok = false;
+                        break;
                     }
                 }
-                if ok {
-                    vec.push(*candidate);
-                }
             }
+            if ok {
+                vec2.push(*candidate);
+            }
+        }
+        if vec2.len() > 0 {
+            return vec2;
         }
     }
     vec
@@ -217,12 +231,12 @@ pub fn udonexternlookup_exop(method_name: &str, params: &[String]) -> Vec<&'stat
                 for (param_idx, param) in candidate.parameters.iter().enumerate() {
                     let comparison = &params[param_idx];
                     if param.dir == UdonExternParamDir::In {
-                        if !udonexternlookup_typecast(comparison, &param.udon_type.name) {
+                        if !udonexternlookup_typecast(&param.udon_type.name, comparison) {
                             ok = false;
                             break;
                         }
                     } else {
-                        if !udonexternlookup_typecast(&param.udon_type.name, comparison) {
+                        if !udonexternlookup_typecast(comparison, &param.udon_type.name) {
                             ok = false;
                             break;
                         }

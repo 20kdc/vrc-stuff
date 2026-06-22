@@ -39,7 +39,11 @@ impl KU2EquateStack {
     /// Pushes a new frame onto the stack and returns a mutable reference.
     #[inline]
     pub fn push(&mut self) -> &mut KU2EquateLevel {
-        self.stack.push_mut(self.top().clone())
+        // Patch says: DO NOT USE push_mut here!
+        // This requires an unnecessarily new Rust.
+        // Betasite comp unhappy; could just update, but that seems mean.
+        self.stack.push(self.top().clone());
+        self.stack.last_mut().unwrap()
     }
 
     #[inline]

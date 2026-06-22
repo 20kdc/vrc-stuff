@@ -131,6 +131,8 @@ There are also 'macroinstructions':
 	* An example might be: `ext(EXT("UnityEngineTransform.__GetComponent__SystemType__UnityEngineComponent"), [transform, C(type("VRCUdonCommonInterfacesIUdonEventReceiver")), behaviour])`
 * `exi(this, method, [param...])`: 'Extern Instance'. Special 'UdonSharp-like' shorthand.
 	* Attempts to resolve `method` based on the types of the heap indexes of `this` and parameters.
+		* The parameter types are only used if the result would otherwise be ambiguous. This is because of cases like setting a property to `null`.
+		* If filtering by the parameter types turns an ambiguous result into a complete failure, the ambiguity error is given instead.
 	* The KU2 assembler contains an internal extern database which is used for this purpose; if your extern is not in that database, you can't use it.
 	* `EXT()` is automatically used; `method` must be a string literal, such as `get_mesh`.
 	* If the extern is generic, `<T>` must be appended to the string literal. C# method lookup and shadowing is emulated for maximum compatibility.

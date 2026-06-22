@@ -1,13 +1,7 @@
 //! `kudonasm` is a replacement assembly language for Udon.
 
-use kudonast::{
-    UdonAccess, UdonHeapSlot, UdonHeapValue, UdonInt, UdonProgram, UdonSymbol,
-    odininttype_to_udontype,
-};
-use kudoninfo::{
-    UdonOpcode, UdonTypeRef, udonexternlookup_exi, udonexternlookup_exop, udontyperef,
-};
-use kudonodin::{OdinIntType, OdinPrimitive};
+use kudonast::{UdonAccess, UdonHeapSlot, UdonInt, UdonProgram, UdonSymbol};
+use kudoninfo::{UdonTypeRef, udonexternlookup_exi, udonexternlookup_exop};
 use std::collections::{BTreeMap, BTreeSet};
 
 mod parsing;
@@ -16,12 +10,19 @@ pub use parsing::*;
 mod equate_stack;
 pub use equate_stack::*;
 
+mod heapconv;
+
+// molly-guarded
+pub mod decoded;
+
+use decoded::{KU2DecInstr, KU2LeafInstr};
+
 /// Represents a loaded package/snippet.
 #[derive(Clone, Debug)]
 pub struct KU2Package {
     pub name: String,
     pub deps: BTreeSet<String>,
-    pub contents: Vec<(String, KU2Instruction)>,
+    pub contents: Vec<(String, KU2DecInstr<'static>)>,
 }
 
 /// Builder for snippet invocations.
@@ -66,7 +67,7 @@ impl Default for KU2Context {
 
 impl KU2Context {
     /// Handles equate symbol remap.
-    pub fn ku2sym_to_udon(&self, v: &KU2Symbol) -> Result<String, String> {
+    fn ku2sym_to_udon(&self, v: &KU2Symbol) -> Result<String, String> {
         if let Some(equ) = self.equate_stack.get(&v.0) {
             if let UdonInt::Sym(sym) = &*equ {
                 Ok(sym.clone())
@@ -81,271 +82,23 @@ impl KU2Context {
         }
     }
 
-    /// Converts a heap slot from KU2 form to a proper heap slot.
-    pub fn conv_heap_slot(
-        &mut self,
-        file: &mut UdonProgram,
-        val: &KU2HeapSlot,
-    ) -> Result<UdonHeapSlot, String> {
-        macro_rules! pmap {
-            ($udon_type:ident, $variant:ident, $v:expr) => {
-                Ok(UdonHeapSlot(
-                    udontyperef!($udon_type),
-                    UdonHeapValue::P(OdinPrimitive::$variant($v.clone())),
-                ))
-            };
-        }
-        macro_rules! imap {
-            ($variant:ident, $v:expr) => {
-                Ok(UdonHeapSlot(
-                    kudonast::odininttype_to_udontype(OdinIntType::$variant),
-                    UdonHeapValue::I(OdinIntType::$variant, UdonInt::I($v)),
-                ))
-            };
-        }
-        macro_rules! icmap {
-            ($variant:ident, $v:expr) => {
-                Ok(UdonHeapSlot(
-                    kudonast::odininttype_to_udontype(OdinIntType::$variant),
-                    UdonHeapValue::I(OdinIntType::$variant, self.operand_udonint(file, $v)?),
-                ))
-            };
-        }
-
-        match val {
-            KU2HeapSlot::String(v) => pmap!(SystemString, String, v),
-            KU2HeapSlot::Type(v) => Ok(UdonHeapSlot(
-                udontyperef!(SystemType),
-                UdonHeapValue::RType(v.odin_name.to_string()),
-            )),
-
-            KU2HeapSlot::SByte(v) => imap!(SByte, *v),
-            KU2HeapSlot::Byte(v) => imap!(Byte, *v),
-            KU2HeapSlot::Short(v) => imap!(Short, *v),
-            KU2HeapSlot::UShort(v) => imap!(UShort, *v),
-            KU2HeapSlot::Int(v) => imap!(Int, *v),
-            KU2HeapSlot::UInt(v) => imap!(UInt, *v),
-            KU2HeapSlot::Long(v) => imap!(Long, *v),
-            KU2HeapSlot::ULong(v) => imap!(ULong, *v),
-            KU2HeapSlot::Bool(v) => imap!(Bool, *v),
-            KU2HeapSlot::Char(v) => imap!(Char, *v as i64),
-
-            KU2HeapSlot::SByteC(v) => icmap!(SByte, v),
-            KU2HeapSlot::ByteC(v) => icmap!(Byte, v),
-            KU2HeapSlot::ShortC(v) => icmap!(Short, v),
-            KU2HeapSlot::UShortC(v) => icmap!(UShort, v),
-            KU2HeapSlot::IntC(v) => icmap!(Int, v),
-            KU2HeapSlot::UIntC(v) => icmap!(UInt, v),
-            KU2HeapSlot::LongC(v) => icmap!(Long, v),
-            KU2HeapSlot::ULongC(v) => icmap!(ULong, v),
-            KU2HeapSlot::BoolC(v) => icmap!(Bool, v),
-            KU2HeapSlot::CharC(v) => icmap!(Char, v),
-
-            KU2HeapSlot::Float(v) => pmap!(SystemSingle, Float, v),
-            KU2HeapSlot::Double(v) => pmap!(SystemDouble, Double, v),
-
-            KU2HeapSlot::True => pmap!(SystemBoolean, Bool, true),
-            KU2HeapSlot::False => pmap!(SystemBoolean, Bool, false),
-
-            KU2HeapSlot::Null(ot) => Ok(UdonHeapSlot(
-                ot.clone(),
-                UdonHeapValue::P(OdinPrimitive::Null),
-            )),
-
-            KU2HeapSlot::This(ot) => Ok(UdonHeapSlot(ot.clone(), UdonHeapValue::This)),
-            KU2HeapSlot::Custom(ot, ov) => Ok(UdonHeapSlot(ot.clone(), ov.clone())),
-        }
-    }
-
-    pub fn conv_heap_const_int(
-        &mut self,
-        file: &mut UdonProgram,
-        ot: OdinIntType,
-        v: &KU2Operand,
-    ) -> Result<UdonInt, String> {
-        let val = self.operand_udonint(file, v)?;
-        if let Ok(early_resolve) = val.resolve(&file.internal_syms) {
-            Ok(UdonInt::Sym(file.ensure_iconst(ot, early_resolve)))
-        } else {
-            let sym = file.gensym("late_iconst");
-            let pos = file.data.len();
-            UdonProgram::add_comment(
-                &mut file.data_comments,
-                pos,
-                &format!("immediate operand: {:?}", val),
-            );
-            file.declare_heap(
-                &sym,
-                Some(UdonAccess::Elidable),
-                odininttype_to_udontype(ot),
-                UdonHeapValue::I(ot, val),
-            )?;
-            Ok(UdonInt::Sym(sym))
-        }
-    }
-
-    /// **Use only for operands!**
-    /// Like conv_heap_slot, but opportunistically makes use of constants.
-    pub fn conv_heap_const(
-        &mut self,
-        file: &mut UdonProgram,
-        val: &KU2HeapSlot,
-    ) -> Result<UdonInt, String> {
-        match val {
-            KU2HeapSlot::String(v) => Ok(UdonInt::Sym(file.ensure_string(&v, false))),
-
-            KU2HeapSlot::SByte(v) => {
-                self.conv_heap_const_int(file, OdinIntType::SByte, &KU2Operand::Raw(*v))
-            }
-            KU2HeapSlot::Byte(v) => {
-                self.conv_heap_const_int(file, OdinIntType::Byte, &KU2Operand::Raw(*v))
-            }
-            KU2HeapSlot::Short(v) => {
-                self.conv_heap_const_int(file, OdinIntType::Short, &KU2Operand::Raw(*v))
-            }
-            KU2HeapSlot::UShort(v) => {
-                self.conv_heap_const_int(file, OdinIntType::UShort, &KU2Operand::Raw(*v))
-            }
-            KU2HeapSlot::Int(v) => {
-                self.conv_heap_const_int(file, OdinIntType::Int, &KU2Operand::Raw(*v))
-            }
-            KU2HeapSlot::UInt(v) => {
-                self.conv_heap_const_int(file, OdinIntType::UInt, &KU2Operand::Raw(*v))
-            }
-            KU2HeapSlot::Long(v) => {
-                self.conv_heap_const_int(file, OdinIntType::Long, &KU2Operand::Raw(*v))
-            }
-            KU2HeapSlot::ULong(v) => {
-                self.conv_heap_const_int(file, OdinIntType::ULong, &KU2Operand::Raw(*v))
-            }
-            KU2HeapSlot::Bool(v) => {
-                self.conv_heap_const_int(file, OdinIntType::Bool, &KU2Operand::Raw(*v))
-            }
-            KU2HeapSlot::Char(v) => {
-                self.conv_heap_const_int(file, OdinIntType::Char, &KU2Operand::Raw(*v as i64))
-            }
-
-            KU2HeapSlot::SByteC(v) => self.conv_heap_const_int(file, OdinIntType::SByte, v),
-            KU2HeapSlot::ByteC(v) => self.conv_heap_const_int(file, OdinIntType::Byte, v),
-            KU2HeapSlot::ShortC(v) => self.conv_heap_const_int(file, OdinIntType::Short, v),
-            KU2HeapSlot::UShortC(v) => self.conv_heap_const_int(file, OdinIntType::UShort, v),
-            KU2HeapSlot::IntC(v) => self.conv_heap_const_int(file, OdinIntType::Int, v),
-            KU2HeapSlot::UIntC(v) => self.conv_heap_const_int(file, OdinIntType::UInt, v),
-            KU2HeapSlot::LongC(v) => self.conv_heap_const_int(file, OdinIntType::Long, v),
-            KU2HeapSlot::ULongC(v) => self.conv_heap_const_int(file, OdinIntType::ULong, v),
-            KU2HeapSlot::BoolC(v) => self.conv_heap_const_int(file, OdinIntType::Bool, v),
-            KU2HeapSlot::CharC(v) => self.conv_heap_const_int(file, OdinIntType::Char, v),
-
-            KU2HeapSlot::True => {
-                self.conv_heap_const_int(file, OdinIntType::Bool, &KU2Operand::Raw(1))
-            }
-            KU2HeapSlot::False => {
-                self.conv_heap_const_int(file, OdinIntType::Bool, &KU2Operand::Raw(0))
-            }
-
-            _ => {
-                let slot = self.conv_heap_slot(file, val)?;
-                let sym = file.gensym("immediate");
-                let pos = file.data.len();
-                UdonProgram::add_comment(
-                    &mut file.data_comments,
-                    pos,
-                    &format!("immediate operand: {:?}", val),
-                );
-                file.declare_heap(&sym, Some(UdonAccess::Elidable), slot.0, slot.1)?;
-                Ok(UdonInt::Sym(sym))
-            }
-        }
-    }
-
-    /// Parses an operand to [UdonInt].
-    pub fn operand_udonint(
-        &mut self,
-        file: &mut UdonProgram,
-        v: &KU2Operand,
-    ) -> Result<UdonInt, String> {
-        match v {
-            KU2Operand::Sym(sym) => {
-                if let Some(equ) = self.equate_stack.get(&sym.0) {
-                    // Existing equate
-                    Ok(equ.clone())
-                } else {
-                    Ok(UdonInt::Sym(sym.0.clone()))
-                }
-            }
-            KU2Operand::HeapConst(heap_slot) => self.conv_heap_const(file, heap_slot),
-            KU2Operand::Raw(v) => Ok(UdonInt::I(*v)),
-            KU2Operand::ChainOp(KU2ChainOp::Add, a, b) => Ok(UdonInt::Add(
-                Box::new(self.operand_udonint(file, a)?),
-                Box::new(self.operand_udonint(file, b)?),
-            )),
-            KU2Operand::ChainOp(KU2ChainOp::Sub, a, b) => Ok(UdonInt::Sub(
-                Box::new(self.operand_udonint(file, a)?),
-                Box::new(self.operand_udonint(file, b)?),
-            )),
-            KU2Operand::ChainOp(KU2ChainOp::Mul, a, b) => Ok(UdonInt::Mul(
-                Box::new(self.operand_udonint(file, a)?),
-                Box::new(self.operand_udonint(file, b)?),
-            )),
-            KU2Operand::Ext(ext) => Ok(UdonInt::Sym(file.ensure_string(ext, true))),
-            KU2Operand::Ord(ord) => Ok(UdonInt::I(*ord as i64)),
-            KU2Operand::Arg(arg) => {
-                if let Some(equ) = self.equate_stack.top().macro_args.get(*arg) {
-                    Ok(equ.clone())
-                } else {
-                    Err(format!("Macro arg {} did not exist", arg))
-                }
-            }
-        }
-    }
-
-    /// Attempts to map an UdonInt to an UdonType.
-    pub fn udonint_udontype<'f>(
-        file: &'f UdonProgram,
-        ui: &UdonInt,
-    ) -> Result<&'f UdonTypeRef, String> {
-        let resolved = ui.resolve(&file.internal_syms)?;
-        if resolved < 0 || (resolved as usize) >= file.data.len() {
-            Err(format!(
-                "Parameter {:?} resolved to invalid heap index {}; no type available.",
-                ui, resolved
-            ))
-        } else {
-            Ok(&file.data[resolved as usize].0)
-        }
-    }
-
-    pub fn assemble_op(
-        &mut self,
-        file: &mut UdonProgram,
-        opcode: &'static UdonOpcode,
-        stuff: &[&KU2Operand],
-    ) -> Result<(), String> {
-        file.code.push(kudonast::UdonInt::Op(opcode));
-        for v in stuff.iter().enumerate() {
-            let res = self.operand_udonint(file, v.1)?;
-            file.code.push(res);
-        }
-        Ok(())
-    }
-    pub fn create_label(
+    fn create_label(
         &self,
         internal_syms: &mut BTreeMap<String, i64>,
         symtab: &mut Vec<UdonSymbol>,
-        sym: &KU2Symbol,
+        sym: &(std::borrow::Cow<'_, KU2Symbol>, Option<UdonAccess>),
         ty: Option<UdonTypeRef>,
-        acc: Option<UdonAccess>,
         loc: i64,
     ) -> Result<(), String> {
-        let sym_remap = self.ku2sym_to_udon(sym)?;
+        let sym_remap = self.ku2sym_to_udon(&sym.0)?;
         if internal_syms.contains_key(&sym_remap) {
             Err(format!(
                 "internal symbol {} ({}) declared twice; to overlap code/data syms in the output, consider using rename_sym",
-                sym_remap, sym.0
+                sym_remap, sym.0.0
             ))
         } else {
             internal_syms.insert(sym_remap.clone(), loc);
-            if let Some(acc) = acc {
+            if let Some(acc) = sym.1 {
                 symtab.push(UdonSymbol {
                     name: sym_remap.clone(),
                     udon_type: ty.clone(),
@@ -357,94 +110,104 @@ impl KU2Context {
         }
     }
 
-    pub fn assemble_var(
-        &mut self,
-        file: &mut UdonProgram,
-        sym: &KU2Symbol,
-        val: &KU2HeapSlot,
-        acc: Option<UdonAccess>,
-    ) -> Result<(), String> {
-        let loc = file.data.len();
-        let uhs: UdonHeapSlot = self.conv_heap_slot(file, val)?;
-        file.data.push(uhs.clone());
-        self.create_label(
-            &mut file.internal_syms,
-            &mut file.data_syms,
-            sym,
-            Some(uhs.0),
-            acc,
-            loc as i64,
-        )
-    }
-
     /// Assembles a single instruction of code.
-    /// Notably, this function doesn't add the file/line string to the errors.
-    pub fn assemble_no_line_info(
+    /// This prefixes file/line to errors.
+    pub fn assemble_decoded(
         &mut self,
         file: &mut UdonProgram,
         loc: &str,
-        instr: &KU2Instruction,
+        instr: &KU2DecInstr,
     ) -> Result<(), String> {
-        let code_base_ptr = (file.code.len() * 4) as i64;
+        self.assemble_decoded_nopfx(file, loc, instr)
+            .map_err(|v| format!("{}: {}", loc, v))
+    }
 
-        if let KU2Instruction::Package(name, deps) = instr {
-            self.end_package();
-            let mut pkg = if let Some(pkg) = self.packages.remove(name) {
-                pkg
-            } else {
-                KU2Package {
-                    name: name.clone(),
-                    deps: BTreeSet::new(),
-                    contents: vec![],
+    pub fn assemble_decoded_nopfx(
+        &mut self,
+        file: &mut UdonProgram,
+        loc: &str,
+        instr: &KU2DecInstr,
+    ) -> Result<(), String> {
+        match instr {
+            KU2DecInstr::Package { name, deps } => {
+                self.end_package();
+                let mut pkg = if let Some(pkg) = self.packages.remove(name.as_str()) {
+                    pkg
+                } else {
+                    KU2Package {
+                        name: name.to_string(),
+                        deps: BTreeSet::new(),
+                        contents: vec![],
+                    }
+                };
+                for v in deps.iter() {
+                    pkg.deps.insert(v.clone());
                 }
-            };
-            for v in deps {
-                pkg.deps.insert(v.clone());
+                self.editing_package = Some(pkg);
+                Ok(())
             }
-            self.editing_package = Some(pkg);
-            return Ok(());
-        } else if let KU2Instruction::PackageEnd = instr {
-            self.end_package();
-            return Ok(());
-        } else if let Some(editing_package) = &mut self.editing_package {
-            // Editing a package, so append.
-            editing_package
-                .contents
-                .push((loc.to_string(), instr.clone()));
-            return Ok(());
+            KU2DecInstr::PackageEnd => {
+                self.end_package();
+                Ok(())
+            }
+            KU2DecInstr::Leaf(leaf) => {
+                if let Some(editing_package) = &mut self.editing_package {
+                    // Editing a package, so append.
+                    editing_package
+                        .contents
+                        .push((loc.to_string(), instr.ownify()));
+                    return Ok(());
+                } else {
+                    self.assemble_leaf(file, leaf)
+                }
+            }
         }
+    }
 
+    /// IMMEDIATELY assembles a leaf instruction with no regard to package insert state/etc.
+    fn assemble_leaf(
+        &mut self,
+        file: &mut UdonProgram,
+        instr: &KU2LeafInstr,
+    ) -> Result<(), String> {
         match instr {
             // -- decl --
-            KU2Instruction::VarInternal(sym, val) => self.assemble_var(file, sym, val, None),
-            KU2Instruction::VarElidable(sym, val) => {
-                self.assemble_var(file, sym, val, Some(UdonAccess::Elidable))
-            }
-            KU2Instruction::VarSymbol(sym, val) => {
-                self.assemble_var(file, sym, val, Some(UdonAccess::Symbol))
-            }
-            KU2Instruction::VarPublic(sym, val) => {
-                self.assemble_var(file, sym, val, Some(UdonAccess::Public))
-            }
-            KU2Instruction::Sync(sym, synctype) => {
-                let sym = self.ku2sym_to_udon(&sym)?;
-                let synctype: u64 = (*synctype).into();
-                file.sync_metadata.push((sym, "this".to_string(), synctype));
+            KU2LeafInstr::Var { val, label } => {
+                let loc = file.data.len();
+                let uhs: UdonHeapSlot = self.conv_heap_slot(file, val)?;
+                file.data.push(uhs.clone());
+                if let Some(label) = label {
+                    self.create_label(
+                        &mut file.internal_syms,
+                        &mut file.data_syms,
+                        label,
+                        Some(uhs.0),
+                        loc as i64,
+                    )?;
+                }
                 Ok(())
             }
-            KU2Instruction::SyncProp(sym, prop, synctype) => {
+            KU2LeafInstr::Sync {
+                sym,
+                prop,
+                synctype,
+            } => {
                 let sym = self.ku2sym_to_udon(&sym)?;
                 let synctype: u64 = (*synctype).into();
-                file.sync_metadata.push((sym, prop.clone(), synctype));
+                file.sync_metadata.push((sym, prop.to_string(), synctype));
                 Ok(())
             }
-            KU2Instruction::UpdateOrder(operand) => {
+            KU2LeafInstr::UpdateOrder(operand) => {
                 file.update_order = self.operand_udonint(file, operand)?;
                 Ok(())
             }
-            KU2Instruction::NetEvent(subr, maxeps, params) => {
+            KU2LeafInstr::NetEvent {
+                subr,
+                maxeps,
+                params,
+            } => {
                 let mut parameters = vec![];
-                for v in params {
+                for v in params.iter() {
                     parameters.push((self.ku2sym_to_udon(&v.0)?, v.1.clone()));
                 }
                 file.network_call_metadata
@@ -455,28 +218,28 @@ impl KU2Context {
                     });
                 Ok(())
             }
-            KU2Instruction::RenameSym(from, to) => {
+            KU2LeafInstr::RenameSym(from, to) => {
                 for v in &mut file.code_syms {
-                    if v.name.eq(&from.0) {
+                    if v.name.eq(from.as_str()) {
                         v.name.clone_from(to);
                     }
                 }
                 for v in &mut file.data_syms {
-                    if v.name.eq(&from.0) {
+                    if v.name.eq(from.as_str()) {
                         v.name.clone_from(to);
                     }
                 }
                 for v in &mut file.sync_metadata {
-                    if v.0.eq(&from.0) {
+                    if v.0.eq(from.as_str()) {
                         v.0.clone_from(to);
                     }
                 }
                 for v in &mut file.network_call_metadata {
-                    if v.name.eq(&from.0) {
+                    if v.name.eq(from.as_str()) {
                         v.name.clone_from(to);
                     }
                     for param in &mut v.parameters {
-                        if param.0.eq(&from.0) {
+                        if param.0.eq(from.as_str()) {
                             param.0.clone_from(to);
                         }
                     }
@@ -484,130 +247,67 @@ impl KU2Context {
                 Ok(())
             }
             // -- meta --
-            KU2Instruction::Package(_, _) => {
-                unreachable!();
-            }
-            KU2Instruction::PackageEnd => {
-                unreachable!();
-            }
-            KU2Instruction::Invoke(name, params) => {
+            KU2LeafInstr::Invoke { macr, params } => {
                 let mut call_builder = KU2CallBuilder::default();
-                for v in params {
+                for v in params.iter() {
                     call_builder.macro_args.push(self.operand_udonint(file, v)?);
                 }
-                self.snippet_invoke(file, &name, Some(call_builder))
+                self.snippet_invoke(file, &macr, Some(call_builder))
             }
-            KU2Instruction::CodeComment(comm) => {
+            KU2LeafInstr::CodeComment(comm) => {
                 UdonProgram::add_comment(&mut file.code_comments, file.code.len(), comm);
                 Ok(())
             }
-            KU2Instruction::DataComment(comm) => {
+            KU2LeafInstr::DataComment(comm) => {
                 UdonProgram::add_comment(&mut file.data_comments, file.data.len(), comm);
                 Ok(())
             }
+            KU2LeafInstr::EmptyLeaf => Ok(()),
             // -- codelabel --
-            KU2Instruction::CodeInternal(sym) => self.create_label(
+            KU2LeafInstr::CodeLabel(label) => self.create_label(
                 &mut file.internal_syms,
                 &mut file.code_syms,
-                sym,
+                label,
                 None,
-                None,
-                code_base_ptr,
+                (file.code.len() * 4) as i64,
             ),
-            KU2Instruction::CodeSymbol(sym) => self.create_label(
-                &mut file.internal_syms,
-                &mut file.code_syms,
-                sym,
-                None,
-                Some(UdonAccess::Symbol),
-                code_base_ptr,
-            ),
-            KU2Instruction::CodeElidable(sym) => self.create_label(
-                &mut file.internal_syms,
-                &mut file.code_syms,
-                sym,
-                None,
-                Some(UdonAccess::Elidable),
-                code_base_ptr,
-            ),
-            KU2Instruction::CodePublic(sym) => self.create_label(
-                &mut file.internal_syms,
-                &mut file.code_syms,
-                sym,
-                None,
-                Some(UdonAccess::Public),
-                code_base_ptr,
-            ),
-            KU2Instruction::EOF => Ok(()),
             // -- equate --
-            KU2Instruction::EquateInt(sym, operand) => {
+            KU2LeafInstr::Equate { sym, operand, up } => {
                 let value = self.operand_udonint(file, operand)?;
-                self.equate_stack.write(&sym.0, value, false);
+                self.equate_stack.write(sym, value, *up);
                 Ok(())
             }
-            KU2Instruction::EquateUp(sym, operand) => {
-                let value = self.operand_udonint(file, operand)?;
-                self.equate_stack.write(&sym.0, value, true);
-                Ok(())
-            }
-            KU2Instruction::Local(sym) => {
+            KU2LeafInstr::Local(sym) => {
                 self.equate_stack
-                    .write(&sym.0, UdonInt::Sym(file.gensym(&sym.0)), false);
+                    .write(sym, UdonInt::Sym(file.gensym(sym)), false);
                 Ok(())
             }
-            KU2Instruction::Undef(sym) => {
-                self.equate_stack.undef(&sym.0);
+            KU2LeafInstr::Undef(sym) => {
+                self.equate_stack.undef(sym);
                 Ok(())
             }
-            KU2Instruction::BlockPush => {
+            KU2LeafInstr::BlockPush => {
                 self.equate_stack.push();
                 Ok(())
             }
-            KU2Instruction::BlockPop => self.equate_stack.pop(),
+            KU2LeafInstr::BlockPop => self.equate_stack.pop(),
             // -- instructions --
-            KU2Instruction::NOP => self.assemble_op(file, &kudoninfo::opcodes::NOP, &[]),
-            KU2Instruction::Push(o1) => self.assemble_op(file, &kudoninfo::opcodes::PUSH, &[o1]),
-            KU2Instruction::Pop => self.assemble_op(file, &kudoninfo::opcodes::POP, &[]),
-            KU2Instruction::JumpIfFalse(o1) => {
-                self.assemble_op(file, &kudoninfo::opcodes::JUMP_IF_FALSE, &[o1])
-            }
-            KU2Instruction::Jump(o1) => self.assemble_op(file, &kudoninfo::opcodes::JUMP, &[o1]),
-            KU2Instruction::Extern(o1) => {
-                self.assemble_op(file, &kudoninfo::opcodes::EXTERN, &[o1])
-            }
-            KU2Instruction::Annotation(o1) => {
-                self.assemble_op(file, &kudoninfo::opcodes::ANNOTATION, &[o1])
-            }
-            KU2Instruction::JumpIndirect(o1) => {
-                self.assemble_op(file, &kudoninfo::opcodes::JUMP_INDIRECT, &[o1])
-            }
-            KU2Instruction::Copy => self.assemble_op(file, &kudoninfo::opcodes::COPY, &[]),
-            KU2Instruction::Stop => {
-                file.code.push(UdonInt::Op(&kudoninfo::opcodes::JUMP));
-                file.code.push(UdonInt::I(0xFFFFFFFC));
+            KU2LeafInstr::ISeq(seq) => {
+                for v in seq {
+                    file.code.push(kudonast::UdonInt::Op(v.0));
+                    // for opr in &v.1 {
+                    if let Some(opr) = &v.1 {
+                        let res = self.operand_udonint(file, &opr)?;
+                        file.code.push(res);
+                    }
+                }
                 Ok(())
             }
-            KU2Instruction::CopyStatic(src, dst) => {
-                self.assemble_op(file, &kudoninfo::opcodes::PUSH, &[src])?;
-                self.assemble_op(file, &kudoninfo::opcodes::PUSH, &[dst])?;
-                self.assemble_op(file, &kudoninfo::opcodes::COPY, &[])
-            }
-            KU2Instruction::CopyStaticAlt(dst, src) => {
-                self.assemble_op(file, &kudoninfo::opcodes::PUSH, &[src])?;
-                self.assemble_op(file, &kudoninfo::opcodes::PUSH, &[dst])?;
-                self.assemble_op(file, &kudoninfo::opcodes::COPY, &[])
-            }
-            KU2Instruction::JumpIfFalseStatic(bl, jt) => {
-                self.assemble_op(file, &kudoninfo::opcodes::PUSH, &[bl])?;
-                self.assemble_op(file, &kudoninfo::opcodes::JUMP_IF_FALSE, &[jt])
-            }
-            KU2Instruction::Ext(operand, params) => {
-                for param in params {
-                    self.assemble_op(file, &kudoninfo::opcodes::PUSH, &[param])?;
-                }
-                self.assemble_op(file, &kudoninfo::opcodes::EXTERN, &[&operand])
-            }
-            KU2Instruction::ExternInstance(this, extname, params) => {
+            KU2LeafInstr::ExternInstance {
+                this,
+                method,
+                params,
+            } => {
                 // In concept, the code generation of this is much the same as Ext.
                 // The fundamental difference arises in extern resolution, which is substantially different.
                 let this_resolved = self.operand_udonint(file, this)?;
@@ -616,57 +316,63 @@ impl KU2Context {
                     .to_string();
                 let mut params_resolved: Vec<UdonInt> = Vec::new();
                 let mut params_types_resolved: Vec<String> = Vec::new();
-                for p in params {
+                for p in params.iter() {
                     let ui = self.operand_udonint(file, p)?;
                     let ty = Self::udonint_udontype(file, &ui)?.name.to_string();
                     params_resolved.push(ui);
                     params_types_resolved.push(ty);
                 }
                 let resolved =
-                    udonexternlookup_exi(&this_type_resolved, extname, &params_types_resolved);
+                    udonexternlookup_exi(&this_type_resolved, method, &params_types_resolved);
                 if resolved.len() == 0 {
                     return Err(format!(
                         "{}.{} {:?} did not resolve",
-                        this_type_resolved, extname, params_types_resolved
+                        this_type_resolved, method, params_types_resolved
                     ));
                 } else if resolved.len() > 1 {
                     return Err(format!(
                         "{}.{} {:?} was ambiguous",
-                        this_type_resolved, extname, params_types_resolved
+                        this_type_resolved, method, params_types_resolved
                     ));
                 }
-                self.assemble_op(file, &kudoninfo::opcodes::PUSH, &[this])?;
-                for param in params {
-                    self.assemble_op(file, &kudoninfo::opcodes::PUSH, &[param])?;
+                file.code
+                    .push(kudonast::UdonInt::Op(&kudoninfo::opcodes::PUSH));
+                file.code.push(this_resolved);
+                for param in params_resolved {
+                    file.code
+                        .push(kudonast::UdonInt::Op(&kudoninfo::opcodes::PUSH));
+                    file.code.push(param);
                 }
                 file.code.push(UdonInt::Op(&kudoninfo::opcodes::EXTERN));
                 let tmp = UdonInt::Sym(file.ensure_string(&resolved[0].name, true));
                 file.code.push(tmp);
                 Ok(())
             }
-            KU2Instruction::ExternOperator(extname, params) => {
+            KU2LeafInstr::ExternOperator { method, params } => {
                 let mut params_resolved: Vec<UdonInt> = Vec::new();
                 let mut params_types_resolved: Vec<String> = Vec::new();
-                for p in params {
+                for p in params.iter() {
                     let ui = self.operand_udonint(file, p)?;
                     let ty = Self::udonint_udontype(file, &ui)?.name.to_string();
                     params_resolved.push(ui);
                     params_types_resolved.push(ty);
                 }
-                let resolved = udonexternlookup_exop(extname, &params_types_resolved);
+                let resolved = udonexternlookup_exop(method, &params_types_resolved);
                 if resolved.len() == 0 {
                     return Err(format!(
                         "{} {:?} did not resolve",
-                        extname, params_types_resolved
+                        method, params_types_resolved
                     ));
                 } else if resolved.len() > 1 {
                     return Err(format!(
                         "{} {:?} was ambiguous",
-                        extname, params_types_resolved
+                        method, params_types_resolved
                     ));
                 }
-                for param in params {
-                    self.assemble_op(file, &kudoninfo::opcodes::PUSH, &[param])?;
+                for param in params_resolved {
+                    file.code
+                        .push(kudonast::UdonInt::Op(&kudoninfo::opcodes::PUSH));
+                    file.code.push(param);
                 }
                 file.code.push(UdonInt::Op(&kudoninfo::opcodes::EXTERN));
                 let tmp = UdonInt::Sym(file.ensure_string(&resolved[0].name, true));
@@ -684,8 +390,7 @@ impl KU2Context {
         loc: &str,
         instr: &KU2Instruction,
     ) -> Result<(), String> {
-        self.assemble_no_line_info(file, loc, instr)
-            .map_err(|v| format!("{}: {}", loc, v))
+        self.assemble_decoded(file, loc, &KU2DecInstr::from(instr))
     }
 
     /// Ends the current package if necessary.
@@ -715,10 +420,26 @@ impl KU2Context {
 
     /// Invokes a snippet/package.
     /// Note dependencies are NOT handled here -- use [install_deps] at an appropriate time.
+    /// This is a frontend for elf2uasm etc. to use accepting non-decoded instructions.
     pub fn snippet_invoke_anonymous(
         &mut self,
         file: &mut UdonProgram,
         pkg_content: &[(String, KU2Instruction)],
+        frame: Option<KU2CallBuilder>,
+    ) -> Result<(), String> {
+        let decoded: Vec<(String, KU2DecInstr)> = pkg_content
+            .iter()
+            .map(|v| (v.0.clone(), KU2DecInstr::from(&v.1)))
+            .collect();
+        self.snippet_invoke_anonymous_decoded(file, &decoded, frame)
+    }
+
+    /// Invokes a snippet/package.
+    /// Note dependencies are NOT handled here -- use [install_deps] at an appropriate time.
+    pub fn snippet_invoke_anonymous_decoded(
+        &mut self,
+        file: &mut UdonProgram,
+        pkg_content: &[(String, KU2DecInstr)],
         frame: Option<KU2CallBuilder>,
     ) -> Result<(), String> {
         let backup = if let Some(frame) = frame {
@@ -735,7 +456,7 @@ impl KU2Context {
         };
         let mut res = Ok(());
         for line in pkg_content {
-            let res_l = self.assemble(file, &line.0, &line.1);
+            let res_l = self.assemble_decoded(file, &line.0, &line.1);
             if let Err(err) = res_l {
                 res = Err(err);
                 break;
@@ -763,7 +484,7 @@ impl KU2Context {
     ) -> Result<(), String> {
         if let Some(pkg) = self.packages.remove_entry(pkg_name) {
             let mut res = Ok(());
-            if let Err(err) = self.snippet_invoke_anonymous(file, &pkg.1.contents, frame) {
+            if let Err(err) = self.snippet_invoke_anonymous_decoded(file, &pkg.1.contents, frame) {
                 res = Err(format!("package {}: {}", pkg_name, err));
             }
             self.packages.insert(pkg.0, pkg.1);

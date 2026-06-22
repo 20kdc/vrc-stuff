@@ -47,4 +47,18 @@ pub fn test_extern_lookup() {
         let res: Vec<String> = map_vc_eq.iter().map(|v| v.name.to_string()).collect();
         panic!("Lookup test resolved wrong: {:?}", res);
     }
+    // specific case occurred in kvbookLoader
+    let exitest = crate::udonexternlookup_exi(
+        "UnityEngineMaterial",
+        "set_mainTexture",
+        &["UnityEngineTexture2D".to_string()],
+    );
+    if exitest.len() != 1
+        || exitest[0]
+            .name
+            .ne("UnityEngineMaterial.__set_mainTexture__UnityEngineTexture__SystemVoid")
+    {
+        let res: Vec<String> = exitest.iter().map(|v| v.name.to_string()).collect();
+        panic!("EXI test resolved wrong: {:?}", res);
+    }
 }
