@@ -2,7 +2,6 @@ mod fileout;
 mod progress;
 mod render_svg;
 
-use base64::Engine;
 use booklib::atlas_builder::*;
 use booklib::docmodel::*;
 use booklib::highlevel;

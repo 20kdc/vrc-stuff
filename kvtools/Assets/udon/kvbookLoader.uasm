@@ -1,17 +1,22 @@
 .data_start
 
-	# kvbook loader v1.1
+	# kvbook loader v1.1-real
 	# this is the UASM form. this is not the source form; the source is stored in the `.ron` file and compiled with kudonknife.
 	# as such, modifying this file is likely to be unnecessarily difficult.
 	# 
 	# to use:
-	# 1. prepare at least one kvbook SDF material in `atlasMaterials`.
+	# 1. `meshFilter` and `meshRenderer` must be set appropriately.
 	# 2. insert the .bytes TextAsset into `bytesTextAsset`, or byte array into `bytes`.
 	#    for web book download, use IVRCStringDownload.ResultBytes for this.
-	# 3. if you're using static PNGs, they can either be in `atlasMaterials` already or in `atlasTextures`.
-	#    if the former, you need one material per atlas; if the latter, only have one material.
-	#    if you're using a web-format file (even if packed), call `_WebTextureUpload`, which will set `ownedTexture` for a similar effect as `atlasTextures`.
-	# 4. set `page`, then call `_LoadPage`. if you just want to read metadata (file info, page size etc.), use `_LoadInfoOnly`.
+	# 3. prepare either of:
+	#    * every atlas as materials in `atlasMaterials`
+	#    * a 'template' SDF material in the `meshRenderer`'s first material slot.
+	#      (this material will be copied via non-shared material logic.)
+	# 4. if you are using the 'template' logic, then prepare either of:
+	#    * every atlas as textures in `atlasTextures`
+	#      array indices are clamped, so you can use this to pass a _non-owned_ texture
+	#    * if you're using a web-format file, call `_WebTextureUpload`, which sets up `ownedTexture`
+	# 5. set `page`, then call `_LoadPage`. if you just want to read metadata (file info, page size etc.), use `_LoadInfoOnly`.
 	#    if you are testing for validity, please ensure `page` is 0.
 	# 
 	# you can free up memory by strategically calling `_ClearPage` (free page mesh), `_ClearAll` (page + webfmt texture if any), `_LoadPage` (rebuild)
@@ -32,7 +37,7 @@
 	.export meshRenderer
 	meshRenderer: %UnityEngineMeshRenderer, this
 	# atlasMaterials lookup is clamped to array size, same with atlasTextures.
-	# If ownedTexture OR atlasTextures contains a valid texture, the material in atlasMaterials has its texture replaced.
+	# If atlasMaterials does not contain a valid material, the material in the renderer has its texture replaced using ownedTexture or atlasTextures, using non-shared material juggling.
 	.export atlasMaterials
 	atlasMaterials: %UnityEngineMaterialArray, null
 	.export atlasTextures
@@ -62,6 +67,8 @@
 	infoAtlasCount: %SystemInt32, 0x00000000
 	.export infoFileVersion
 	infoFileVersion: %SystemInt32, 0x00000000
+	.export infoPageAtlas
+	infoPageAtlas: %SystemInt32, 0x00000000
 	.export infoPageWidth
 	infoPageWidth: %SystemSingle, 0
 	.export infoPageHeight
@@ -89,7 +96,6 @@
 	_lenMetadata: %SystemInt32, 0x00000000
 	_ofsPage: %SystemInt32, 0x00000000
 	_endPage: %SystemInt32, 0x00000000
-	_idxAtlas: %SystemInt32, 0x00000000
 	_ofsAtlas: %SystemInt32, 0x00000000
 	_ofsShape: %SystemInt32, 0x00000000
 	_ofsCol: %SystemInt32, 0x00000000
@@ -210,19 +216,12 @@
 	_int__int_6: %SystemInt32, 0x00000006
 	__kudonastemituasm__144: %SystemString, "too many verts"
 	__kudonastemituasm__145: %SystemString, "OK"
-	__kudonastemituasm__146: %SystemString, "material setup"
-	_extern__UnityEngineMaterialArray_dot___get_Length__SystemInt32: %SystemString, "UnityEngineMaterialArray.__get_Length__SystemInt32"
-	_extern__UnityEngineMathf_dot___Clamp__SystemInt32_SystemInt32_SystemInt32__SystemInt32: %SystemString, "UnityEngineMathf.__Clamp__SystemInt32_SystemInt32_SystemInt32__SystemInt32"
-	_extern__UnityEngineMaterialArray_dot___Get__SystemInt32__UnityEngineMaterial: %SystemString, "UnityEngineMaterialArray.__Get__SystemInt32__UnityEngineMaterial"
-	_extern__UnityEngineMaterial_dot___set_mainTexture__UnityEngineTexture__SystemVoid: %SystemString, "UnityEngineMaterial.__set_mainTexture__UnityEngineTexture__SystemVoid"
-	_extern__UnityEngineTexture2DArray_dot___get_Length__SystemInt32: %SystemString, "UnityEngineTexture2DArray.__get_Length__SystemInt32"
-	_extern__UnityEngineTexture2DArray_dot___Get__SystemInt32__UnityEngineTexture2D: %SystemString, "UnityEngineTexture2DArray.__Get__SystemInt32__UnityEngineTexture2D"
-	__kudonastemituasm__153: %SystemString, "arrays setup"
+	__kudonastemituasm__146: %SystemString, "arrays setup"
 	_extern__UnityEngineVector3Array_dot___ctor__SystemInt32__UnityEngineVector3Array: %SystemString, "UnityEngineVector3Array.__ctor__SystemInt32__UnityEngineVector3Array"
 	_extern__UnityEngineVector2Array_dot___ctor__SystemInt32__UnityEngineVector2Array: %SystemString, "UnityEngineVector2Array.__ctor__SystemInt32__UnityEngineVector2Array"
 	_extern__UnityEngineColor32Array_dot___ctor__SystemInt32__UnityEngineColor32Array: %SystemString, "UnityEngineColor32Array.__ctor__SystemInt32__UnityEngineColor32Array"
 	_extern__SystemInt32Array_dot___ctor__SystemInt32__SystemInt32Array: %SystemString, "SystemInt32Array.__ctor__SystemInt32__SystemInt32Array"
-	__kudonastemituasm__158: %SystemString, "sprite main loop"
+	__kudonastemituasm__151: %SystemString, "sprite main loop"
 	_extern__SystemInt32_dot___op_Inequality__SystemInt32_SystemInt32__SystemBoolean: %SystemString, "SystemInt32.__op_Inequality__SystemInt32_SystemInt32__SystemBoolean"
 	_int__int_2: %SystemInt32, 0x00000002
 	_extern__SystemConvert_dot___ToSingle__SystemInt16__SystemSingle: %SystemString, "SystemConvert.__ToSingle__SystemInt16__SystemSingle"
@@ -254,7 +253,7 @@
 	_extern__UnityEngineVector3Array_dot___Set__SystemInt32_UnityEngineVector3__SystemVoid: %SystemString, "UnityEngineVector3Array.__Set__SystemInt32_UnityEngineVector3__SystemVoid"
 	_extern__UnityEngineVector2Array_dot___Set__SystemInt32_UnityEngineVector2__SystemVoid: %SystemString, "UnityEngineVector2Array.__Set__SystemInt32_UnityEngineVector2__SystemVoid"
 	_extern__UnityEngineColor32Array_dot___Set__SystemInt32_UnityEngineColor32__SystemVoid: %SystemString, "UnityEngineColor32Array.__Set__SystemInt32_UnityEngineColor32__SystemVoid"
-	__kudonastemituasm__182: %SystemString, "mesh build"
+	__kudonastemituasm__175: %SystemString, "mesh build"
 	_extern__UnityEngineMesh_dot___ctor____UnityEngineMesh: %SystemString, "UnityEngineMesh.__ctor____UnityEngineMesh"
 	_extern__UnityEngineMesh_dot___set_vertices__UnityEngineVector3Array__SystemVoid: %SystemString, "UnityEngineMesh.__set_vertices__UnityEngineVector3Array__SystemVoid"
 	_extern__UnityEngineMesh_dot___set_uv__UnityEngineVector2Array__SystemVoid: %SystemString, "UnityEngineMesh.__set_uv__UnityEngineVector2Array__SystemVoid"
@@ -262,7 +261,15 @@
 	_extern__UnityEngineMesh_dot___set_triangles__SystemInt32Array__SystemVoid: %SystemString, "UnityEngineMesh.__set_triangles__SystemInt32Array__SystemVoid"
 	_extern__UnityEngineMesh_dot___RecalculateNormals__SystemVoid: %SystemString, "UnityEngineMesh.__RecalculateNormals__SystemVoid"
 	_extern__UnityEngineMesh_dot___UploadMeshData__SystemBoolean__SystemVoid: %SystemString, "UnityEngineMesh.__UploadMeshData__SystemBoolean__SystemVoid"
+	__kudonastemituasm__183: %SystemString, "material setup"
+	_extern__UnityEngineMaterialArray_dot___get_Length__SystemInt32: %SystemString, "UnityEngineMaterialArray.__get_Length__SystemInt32"
+	_extern__UnityEngineMathf_dot___Clamp__SystemInt32_SystemInt32_SystemInt32__SystemInt32: %SystemString, "UnityEngineMathf.__Clamp__SystemInt32_SystemInt32_SystemInt32__SystemInt32"
+	_extern__UnityEngineMaterialArray_dot___Get__SystemInt32__UnityEngineMaterial: %SystemString, "UnityEngineMaterialArray.__Get__SystemInt32__UnityEngineMaterial"
 	_extern__UnityEngineMeshRenderer_dot___set_sharedMaterial__UnityEngineMaterial__SystemVoid: %SystemString, "UnityEngineMeshRenderer.__set_sharedMaterial__UnityEngineMaterial__SystemVoid"
+	_extern__UnityEngineMeshRenderer_dot___get_material__UnityEngineMaterial: %SystemString, "UnityEngineMeshRenderer.__get_material__UnityEngineMaterial"
+	_extern__UnityEngineMaterial_dot___set_mainTexture__UnityEngineTexture__SystemVoid: %SystemString, "UnityEngineMaterial.__set_mainTexture__UnityEngineTexture__SystemVoid"
+	_extern__UnityEngineTexture2DArray_dot___get_Length__SystemInt32: %SystemString, "UnityEngineTexture2DArray.__get_Length__SystemInt32"
+	_extern__UnityEngineTexture2DArray_dot___Get__SystemInt32__UnityEngineTexture2D: %SystemString, "UnityEngineTexture2DArray.__Get__SystemInt32__UnityEngineTexture2D"
 
 
 .data_end
@@ -644,9 +651,9 @@ _notTextAsset_gensym4:
 	PUSH, _ofsPage
 	EXTERN, _extern__SystemInt32_dot___op_Addition__SystemInt32_SystemInt32__SystemInt32
 	PUSH, _byte
-	PUSH, _idxAtlas
+	PUSH, infoPageAtlas
 	EXTERN, _extern__SystemConvert_dot___ToInt32__SystemByte__SystemInt32
-	PUSH, _idxAtlas
+	PUSH, infoPageAtlas
 	PUSH, _int__int_8
 	PUSH, _ofsAtlas
 	EXTERN, _extern__SystemInt32_dot___op_Multiplication__SystemInt32_SystemInt32__SystemInt32
@@ -733,70 +740,6 @@ _notTextAsset_gensym4:
 	PUSH, __kudonastemituasm__146
 	PUSH, infoStatus
 	COPY
-	PUSH, atlasMaterials
-	PUSH, _i32
-	EXTERN, _extern__UnityEngineMaterialArray_dot___get_Length__SystemInt32
-	PUSH, _i32
-	PUSH, _int__int_1
-	PUSH, _i32
-	EXTERN, _extern__SystemInt32_dot___op_Subtraction__SystemInt32_SystemInt32__SystemInt32
-	PUSH, _idxAtlas
-	PUSH, _int__int_0
-	PUSH, _i32
-	PUSH, _i32
-	EXTERN, _extern__UnityEngineMathf_dot___Clamp__SystemInt32_SystemInt32_SystemInt32__SystemInt32
-	PUSH, atlasMaterials
-	PUSH, _i32
-	PUSH, _material
-	EXTERN, _extern__UnityEngineMaterialArray_dot___Get__SystemInt32__UnityEngineMaterial
-	PUSH, _material
-	PUSH, _bool
-	EXTERN, _extern__VRCSDKBaseUtilities_dot___IsValid__SystemObject__SystemBoolean
-	PUSH, _bool
-	JUMP_IF_FALSE, _lpEndMaterialTextureBlock
-	PUSH, ownedTexture
-	PUSH, _bool
-	EXTERN, _extern__VRCSDKBaseUtilities_dot___IsValid__SystemObject__SystemBoolean
-	PUSH, _bool
-	JUMP_IF_FALSE, _lpNoOwnedTexture
-	PUSH, _material
-	PUSH, ownedTexture
-	EXTERN, _extern__UnityEngineMaterial_dot___set_mainTexture__UnityEngineTexture__SystemVoid
-	JUMP, _lpEndMaterialTextureBlock
-_lpNoOwnedTexture:
-	PUSH, atlasTextures
-	PUSH, _bool
-	EXTERN, _extern__VRCSDKBaseUtilities_dot___IsValid__SystemObject__SystemBoolean
-	PUSH, _bool
-	JUMP_IF_FALSE, _lpEndMaterialTextureBlock
-	PUSH, atlasTextures
-	PUSH, _i32
-	EXTERN, _extern__UnityEngineTexture2DArray_dot___get_Length__SystemInt32
-	PUSH, _i32
-	PUSH, _int__int_1
-	PUSH, _i32
-	EXTERN, _extern__SystemInt32_dot___op_Subtraction__SystemInt32_SystemInt32__SystemInt32
-	PUSH, _idxAtlas
-	PUSH, _int__int_0
-	PUSH, _i32
-	PUSH, _i32
-	EXTERN, _extern__UnityEngineMathf_dot___Clamp__SystemInt32_SystemInt32_SystemInt32__SystemInt32
-	PUSH, atlasTextures
-	PUSH, _i32
-	PUSH, _texture
-	EXTERN, _extern__UnityEngineTexture2DArray_dot___Get__SystemInt32__UnityEngineTexture2D
-	PUSH, _texture
-	PUSH, _bool
-	EXTERN, _extern__VRCSDKBaseUtilities_dot___IsValid__SystemObject__SystemBoolean
-	PUSH, _bool
-	JUMP_IF_FALSE, _lpEndMaterialTextureBlock
-	PUSH, _material
-	PUSH, _texture
-	EXTERN, _extern__UnityEngineMaterial_dot___set_mainTexture__UnityEngineTexture__SystemVoid
-_lpEndMaterialTextureBlock:
-	PUSH, __kudonastemituasm__153
-	PUSH, infoStatus
-	COPY
 	PUSH, infoPageVertexCount
 	PUSH, _vertices
 	EXTERN, _extern__UnityEngineVector3Array_dot___ctor__SystemInt32__UnityEngineVector3Array
@@ -815,7 +758,7 @@ _lpEndMaterialTextureBlock:
 	PUSH, _int__int_0
 	PUSH, _iptr
 	COPY
-	PUSH, __kudonastemituasm__158
+	PUSH, __kudonastemituasm__151
 	PUSH, infoStatus
 	COPY
 _genGeomLoop:
@@ -1206,7 +1149,7 @@ _genGeomLoopShapeWriteVertices:
 	EXTERN, _extern__SystemInt32_dot___op_Addition__SystemInt32_SystemInt32__SystemInt32
 	JUMP, _genGeomLoop
 _genGeomDone:
-	PUSH, __kudonastemituasm__182
+	PUSH, __kudonastemituasm__175
 	PUSH, infoStatus
 	COPY
 	PUSH, _mesh
@@ -1235,9 +1178,83 @@ _genGeomDone:
 	PUSH, meshFilter
 	PUSH, _mesh
 	EXTERN, _extern__UnityEngineMeshFilter_dot___set_sharedMesh__UnityEngineMesh__SystemVoid
+	PUSH, __kudonastemituasm__183
+	PUSH, infoStatus
+	COPY
+	PUSH, atlasMaterials
+	PUSH, _i32
+	EXTERN, _extern__UnityEngineMaterialArray_dot___get_Length__SystemInt32
+	PUSH, _i32
+	PUSH, _int__int_1
+	PUSH, _i32
+	EXTERN, _extern__SystemInt32_dot___op_Subtraction__SystemInt32_SystemInt32__SystemInt32
+	PUSH, infoPageAtlas
+	PUSH, _int__int_0
+	PUSH, _i32
+	PUSH, _i32
+	EXTERN, _extern__UnityEngineMathf_dot___Clamp__SystemInt32_SystemInt32_SystemInt32__SystemInt32
+	PUSH, atlasMaterials
+	PUSH, _i32
+	PUSH, _material
+	EXTERN, _extern__UnityEngineMaterialArray_dot___Get__SystemInt32__UnityEngineMaterial
+	PUSH, _material
+	PUSH, _bool
+	EXTERN, _extern__VRCSDKBaseUtilities_dot___IsValid__SystemObject__SystemBoolean
+	PUSH, _bool
+	JUMP_IF_FALSE, _lpMaterialTextureReplacement
 	PUSH, meshRenderer
 	PUSH, _material
 	EXTERN, _extern__UnityEngineMeshRenderer_dot___set_sharedMaterial__UnityEngineMaterial__SystemVoid
+	JUMP, _lpEndMaterialTextureBlock
+_lpMaterialTextureReplacement:
+	PUSH, meshRenderer
+	PUSH, _material
+	EXTERN, _extern__UnityEngineMeshRenderer_dot___get_material__UnityEngineMaterial
+	PUSH, _material
+	PUSH, _bool
+	EXTERN, _extern__VRCSDKBaseUtilities_dot___IsValid__SystemObject__SystemBoolean
+	PUSH, _bool
+	JUMP_IF_FALSE, _lpEndMaterialTextureBlock
+	PUSH, ownedTexture
+	PUSH, _bool
+	EXTERN, _extern__VRCSDKBaseUtilities_dot___IsValid__SystemObject__SystemBoolean
+	PUSH, _bool
+	JUMP_IF_FALSE, _lpNoOwnedTexture
+	PUSH, _material
+	PUSH, ownedTexture
+	EXTERN, _extern__UnityEngineMaterial_dot___set_mainTexture__UnityEngineTexture__SystemVoid
+	JUMP, _lpEndMaterialTextureBlock
+_lpNoOwnedTexture:
+	PUSH, atlasTextures
+	PUSH, _bool
+	EXTERN, _extern__VRCSDKBaseUtilities_dot___IsValid__SystemObject__SystemBoolean
+	PUSH, _bool
+	JUMP_IF_FALSE, _lpEndMaterialTextureBlock
+	PUSH, atlasTextures
+	PUSH, _i32
+	EXTERN, _extern__UnityEngineTexture2DArray_dot___get_Length__SystemInt32
+	PUSH, _i32
+	PUSH, _int__int_1
+	PUSH, _i32
+	EXTERN, _extern__SystemInt32_dot___op_Subtraction__SystemInt32_SystemInt32__SystemInt32
+	PUSH, infoPageAtlas
+	PUSH, _int__int_0
+	PUSH, _i32
+	PUSH, _i32
+	EXTERN, _extern__UnityEngineMathf_dot___Clamp__SystemInt32_SystemInt32_SystemInt32__SystemInt32
+	PUSH, atlasTextures
+	PUSH, _i32
+	PUSH, _texture
+	EXTERN, _extern__UnityEngineTexture2DArray_dot___Get__SystemInt32__UnityEngineTexture2D
+	PUSH, _texture
+	PUSH, _bool
+	EXTERN, _extern__VRCSDKBaseUtilities_dot___IsValid__SystemObject__SystemBoolean
+	PUSH, _bool
+	JUMP_IF_FALSE, _lpEndMaterialTextureBlock
+	PUSH, _material
+	PUSH, _texture
+	EXTERN, _extern__UnityEngineMaterial_dot___set_mainTexture__UnityEngineTexture__SystemVoid
+_lpEndMaterialTextureBlock:
 	PUSH, _int__int_0
 	PUSH, _int__int_0
 	PUSH, infoOK

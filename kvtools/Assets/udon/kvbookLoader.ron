@@ -1,17 +1,22 @@
-data_comment("kvbook loader v1.1")
+data_comment("kvbook loader v1.1-real")
 // Ignore this section; you're reading the KU2 form right now {
 data_comment("this is the UASM form. this is not the source form; the source is stored in the `.ron` file and compiled with kudonknife.")
 data_comment("as such, modifying this file is likely to be unnecessarily difficult.")
 // }
 data_comment("")
 data_comment("to use:")
-data_comment("1. prepare at least one kvbook SDF material in `atlasMaterials`.")
+data_comment("1. `meshFilter` and `meshRenderer` must be set appropriately.")
 data_comment("2. insert the .bytes TextAsset into `bytesTextAsset`, or byte array into `bytes`.")
 data_comment("   for web book download, use IVRCStringDownload.ResultBytes for this.")
-data_comment("3. if you're using static PNGs, they can either be in `atlasMaterials` already or in `atlasTextures`.")
-data_comment("   if the former, you need one material per atlas; if the latter, only have one material.")
-data_comment("   if you're using a web-format file (even if packed), call `_WebTextureUpload`, which will set `ownedTexture` for a similar effect as `atlasTextures`.")
-data_comment("4. set `page`, then call `_LoadPage`. if you just want to read metadata (file info, page size etc.), use `_LoadInfoOnly`.")
+data_comment("3. prepare either of:")
+data_comment("   * every atlas as materials in `atlasMaterials`")
+data_comment("   * a 'template' SDF material in the `meshRenderer`'s first material slot.")
+data_comment("     (this material will be copied via non-shared material logic.)")
+data_comment("4. if you are using the 'template' logic, then prepare either of:")
+data_comment("   * every atlas as textures in `atlasTextures`")
+data_comment("     array indices are clamped, so you can use this to pass a _non-owned_ texture")
+data_comment("   * if you're using a web-format file, call `_WebTextureUpload`, which sets up `ownedTexture`")
+data_comment("5. set `page`, then call `_LoadPage`. if you just want to read metadata (file info, page size etc.), use `_LoadInfoOnly`.")
 data_comment("   if you are testing for validity, please ensure `page` is 0.")
 data_comment("")
 data_comment("you can free up memory by strategically calling `_ClearPage` (free page mesh), `_ClearAll` (page + webfmt texture if any), `_LoadPage` (rebuild)")
@@ -36,7 +41,7 @@ var_public(page, int(-1))
 var_public(meshFilter, this("UnityEngineMeshFilter"))
 var_public(meshRenderer, this("UnityEngineMeshRenderer"))
 data_comment("atlasMaterials lookup is clamped to array size, same with atlasTextures.")
-data_comment("If ownedTexture OR atlasTextures contains a valid texture, the material in atlasMaterials has its texture replaced.")
+data_comment("If atlasMaterials does not contain a valid material, the material in the renderer has its texture replaced using ownedTexture or atlasTextures, using non-shared material juggling.")
 var_public(atlasMaterials, null("UnityEngineMaterialArray"))
 var_public(atlasTextures, null("UnityEngineTexture2DArray"))
 var_public(bytesTextAsset, null("UnityEngineTextAsset"))
@@ -62,6 +67,7 @@ data_comment("public out")
 var_public(infoPageCount, int(0))
 var_public(infoAtlasCount, int(0))
 var_public(infoFileVersion, int(0))
+var_public(infoPageAtlas, int(0))
 var_public(infoPageWidth, float(0.0))
 var_public(infoPageHeight, float(0.0))
 var_public(infoPageSpriteCount, int(0))
@@ -85,7 +91,6 @@ var(_ofsMetadata, int(0))
 var(_lenMetadata, int(0))
 var(_ofsPage, int(0))
 var(_endPage, int(0))
-var(_idxAtlas, int(0))
 var(_ofsAtlas, int(0))
 var(_ofsShape, int(0))
 var(_ofsCol, int(0))
@@ -483,10 +488,10 @@ _(_lpCommon)
 
 	// find atlas lump
 	i("nom_u8", [_ofsPage])
-	ext(ConvU8I32, [_byte, _idxAtlas])
+	ext(ConvU8I32, [_byte, infoPageAtlas])
 
 	// lookup atlas lump
-	i("lookup_dynlump", [_idxAtlas, _ofsAtlas])
+	i("lookup_dynlump", [infoPageAtlas, _ofsAtlas])
 	ext(ReadI32, [bytes, _ofsAtlas, _ofsAtlas])
 
 	// page width/height/sprite count
@@ -517,45 +522,6 @@ _(_lpCommon)
 	i("set_true", [infoOK])
 	jfalse(_loadFlagFullPage, _cleanErasable)
 	i("set_false", [infoOK])
-
-	set(infoStatus, C(string("material setup")))
-
-	// _material = atlasMaterials[Mathf.Clamp(_idxAtlas, 0, atlasMaterials.Length - 1)]
-	exi(atlasMaterials, "get_Length", [_i32])
-	exop("op_Subtraction", [_i32, C(int(1)), _i32])
-	ext(EXT("UnityEngineMathf.__Clamp__SystemInt32_SystemInt32_SystemInt32__SystemInt32"), [_idxAtlas, C(int(0)), _i32, _i32])
-	exi(atlasMaterials, "Get", [_i32, _material])
-
-	// Do material adjustment.
-	// Everything in here only works if the material is valid.
-	// If it isn't valid, we should skip this step
-	ext(IsValid, [_material, _bool])
-	jfalse(_bool, _lpEndMaterialTextureBlock)
-
-		// If we have ownedTexture, it supersedes atlasTextures
-		ext(IsValid, [ownedTexture, _bool])
-		jfalse(_bool, _lpNoOwnedTexture)
-			// definitely an owned texture that is valid, so immediately set
-			exi(_material, "set_mainTexture", [ownedTexture])
-			jump(_lpEndMaterialTextureBlock)
-		_(_lpNoOwnedTexture)
-
-		// if atlasTextures is valid, try grabbing a texture from there
-		ext(IsValid, [atlasTextures, _bool])
-		jfalse(_bool, _lpEndMaterialTextureBlock)
-
-			// _texture = atlasTextures[Mathf.Clamp(_idxAtlas, 0, atlasTextures.Length - 1)]
-			exi(atlasTextures, "get_Length", [_i32])
-			exop("op_Subtraction", [_i32, C(int(1)), _i32])
-			ext(EXT("UnityEngineMathf.__Clamp__SystemInt32_SystemInt32_SystemInt32__SystemInt32"), [_idxAtlas, C(int(0)), _i32, _i32])
-			exi(atlasTextures, "Get", [_i32, _texture])
-			// we better check if it's valid; udon assembly inspector likes to make 1-length arrays
-			ext(IsValid, [_texture, _bool])
-			jfalse(_bool, _lpEndMaterialTextureBlock)
-
-				exi(_material, "set_mainTexture", [_texture])
-
-	_(_lpEndMaterialTextureBlock)
 
 	set(infoStatus, C(string("arrays setup")))
 
@@ -732,7 +698,58 @@ _(_genGeomDone)
 	exop("op_Equality", [C(int(0)), C(int(0)), _bool])
 	exi(_mesh, "UploadMeshData", [_bool])
 	exi(meshFilter, "set_sharedMesh", [_mesh])
-	exi(meshRenderer, "set_sharedMaterial", [_material])
+
+	set(infoStatus, C(string("material setup")))
+
+	// So here's the deal.
+	// In the released 1st kvtools version of kvbookLoader, atlasMaterials was just a list of materials.
+	// But for a lot of various reasons it is obviously better to use a single non-shared material.
+	// So, we detect if atlasMaterials is valid. If not, we use the better approach.
+	// This compatibility is very possibly pointless as I'm the only downstream of this code right now I know of, but it's the principle of the matter.
+
+	// _material = atlasMaterials[Mathf.Clamp(infoPageAtlas, 0, atlasMaterials.Length - 1)]
+	exi(atlasMaterials, "get_Length", [_i32])
+	exop("op_Subtraction", [_i32, C(int(1)), _i32])
+	ext(EXT("UnityEngineMathf.__Clamp__SystemInt32_SystemInt32_SystemInt32__SystemInt32"), [infoPageAtlas, C(int(0)), _i32, _i32])
+	exi(atlasMaterials, "Get", [_i32, _material])
+
+	ext(IsValid, [_material, _bool])
+	jfalse(_bool, _lpMaterialTextureReplacement)
+
+		exi(meshRenderer, "set_sharedMaterial", [_material])
+		jump(_lpEndMaterialTextureBlock)
+
+	_(_lpMaterialTextureReplacement)
+
+		// We need to actually have the material we're going to patch.
+		exi(meshRenderer, "get_material", [_material])
+		ext(IsValid, [_material, _bool])
+		jfalse(_bool, _lpEndMaterialTextureBlock)
+
+		// If we have ownedTexture, it supersedes atlasTextures
+		ext(IsValid, [ownedTexture, _bool])
+		jfalse(_bool, _lpNoOwnedTexture)
+			// definitely an owned texture that is valid, so immediately set
+			exi(_material, "set_mainTexture", [ownedTexture])
+			jump(_lpEndMaterialTextureBlock)
+		_(_lpNoOwnedTexture)
+
+		// if atlasTextures is valid, try grabbing a texture from there
+		ext(IsValid, [atlasTextures, _bool])
+		jfalse(_bool, _lpEndMaterialTextureBlock)
+
+			// _texture = atlasTextures[Mathf.Clamp(infoPageAtlas, 0, atlasTextures.Length - 1)]
+			exi(atlasTextures, "get_Length", [_i32])
+			exop("op_Subtraction", [_i32, C(int(1)), _i32])
+			ext(EXT("UnityEngineMathf.__Clamp__SystemInt32_SystemInt32_SystemInt32__SystemInt32"), [infoPageAtlas, C(int(0)), _i32, _i32])
+			exi(atlasTextures, "Get", [_i32, _texture])
+			// we better check if it's valid; udon assembly inspector likes to make 1-length arrays
+			ext(IsValid, [_texture, _bool])
+			jfalse(_bool, _lpEndMaterialTextureBlock)
+
+				exi(_material, "set_mainTexture", [_texture])
+
+	_(_lpEndMaterialTextureBlock)
 
 	i("set_true", [infoOK])
 	set(infoStatus, C(string("OK")))

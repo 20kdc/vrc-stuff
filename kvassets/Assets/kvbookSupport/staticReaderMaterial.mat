@@ -7,18 +7,17 @@ Material:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: webReaderMaterial
+  m_Name: staticReaderMaterial
   m_Shader: {fileID: 4800000, guid: 75639bb2bf3c9a30493ede9e5ab25951, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords:
   - _TRUECOLOUR_ON
-  - _WEBFIXUP_ON
   m_InvalidKeywords: []
   m_LightmapFlags: 4
   m_EnableInstancingVariants: 0
   m_DoubleSidedGI: 0
-  m_CustomRenderQueue: -1
+  m_CustomRenderQueue: 3001
   stringTagMap: {}
   disabledShaderPasses: []
   m_LockedProperties: 
@@ -84,7 +83,7 @@ Material:
     - _SrcBlend: 1
     - _Truecolour: 1
     - _UVSec: 0
-    - _WebFixup: 1
+    - _WebFixup: 0
     - _ZWrite: 1
     m_Colors:
     - _Color: {r: 1, g: 1, b: 1, a: 1}

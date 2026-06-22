@@ -1,0 +1,110 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4f11136daadff0b44ac2278a314682ab, type: 3}
+  m_Name: staticReaderPower
+  m_EditorClassIdentifier: 
+  serializedUdonProgramAsset: {fileID: 11400000, guid: 76c7a0e88373c4a46873f9baf5080d2d, type: 2}
+  udonAssembly: ".data_start\n\n    \n    __instance_0: %VRCUdonUdonBehaviour, this\n   
+    __eventName_0: %SystemString, null\n    __instance_1: %UnityEngineTransform,
+    this\n    __type_0: %SystemType, null\n    __instance_2: %UnityEngineTransform,
+    this\n    __Type_0: %SystemType, null\n    __String_0: %SystemString, null\n\n.data_end\n\n.code_start\n\n   
+    .export _onPickupUseDown\n    \n    _onPickupUseDown:\n    \n        PUSH, __instance_2\n       
+    PUSH, __instance_1\n        EXTERN, \"UnityEngineTransform.__get_parent__UnityEngineTransform\"\n       
+    PUSH, __Type_0\n        PUSH, __type_0\n        COPY\n        PUSH, __instance_1\n       
+    PUSH, __type_0\n        PUSH, __instance_0\n        EXTERN, \"UnityEngineTransform.__GetComponent__SystemType__UnityEngineComponent\"\n       
+    PUSH, __String_0\n        PUSH, __eventName_0\n        COPY\n        PUSH, __instance_0\n       
+    PUSH, __eventName_0\n        EXTERN, \"VRCUdonCommonInterfacesIUdonEventReceiver.__SendCustomEvent__SystemString__SystemVoid\"\n       
+    JUMP, 0xFFFFFFFC\n    \n\n.code_end\n"
+  assemblyError: 
+  graphData:
+    name: 
+    description: 
+    nodes:
+    - fullName: UnityEngineTransform.__get_parent__UnityEngineTransform
+      uid: 8cf552b1-c1be-419e-9da2-3ce471d6b86f
+      position: {x: 235, y: -18.512897}
+      nodeUIDs:
+      - 
+      flowUIDs: []
+      nodeValues:
+      - unityObjectValue: {fileID: 0}
+        stringValue: 
+    - fullName: Type_VRCUdonCommonInterfacesIUdonEventReceiver
+      uid: 8c192dbe-a3ef-4704-8280-3311866ce9dd
+      position: {x: 212.52258, y: 74.62476}
+      nodeUIDs: []
+      flowUIDs: []
+      nodeValues: []
+    - fullName: UnityEngineTransform.__GetComponent__SystemType__UnityEngineComponent
+      uid: 8562bdaa-471e-4a16-8380-508c97d68dc1
+      position: {x: 461.28876, y: -19.000008}
+      nodeUIDs:
+      - 8cf552b1-c1be-419e-9da2-3ce471d6b86f|0
+      - 8c192dbe-a3ef-4704-8280-3311866ce9dd|0
+      flowUIDs: []
+      nodeValues:
+      - unityObjectValue: {fileID: 0}
+        stringValue: 
+      - unityObjectValue: {fileID: 0}
+        stringValue: 
+    - fullName: VRCUdonCommonInterfacesIUdonEventReceiver.__SendCustomEvent__SystemString__SystemVoid
+      uid: 2dadc883-a75c-4a41-93fd-e61eb80e63fa
+      position: {x: 683.7558, y: -150.00002}
+      nodeUIDs:
+      - 8562bdaa-471e-4a16-8380-508c97d68dc1|0
+      - 285a8c52-426a-4cea-bfe7-8d8b916a2707|0
+      flowUIDs:
+      - 
+      nodeValues:
+      - unityObjectValue: {fileID: 0}
+        stringValue: 
+      - unityObjectValue: {fileID: 0}
+        stringValue: 
+    - fullName: Const_SystemString
+      uid: 285a8c52-426a-4cea-bfe7-8d8b916a2707
+      position: {x: 684, y: -7.9999924}
+      nodeUIDs:
+      - 
+      flowUIDs: []
+      nodeValues:
+      - unityObjectValue: {fileID: 0}
+        stringValue: System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089|_PowerButton
+    - fullName: Event_OnPickupUseDown
+      uid: 696160ff-b263-4a30-9771-7e3526515c2f
+      position: {x: 429, y: -129}
+      nodeUIDs: []
+      flowUIDs:
+      - 2dadc883-a75c-4a41-93fd-e61eb80e63fa
+      nodeValues: []
+    - fullName: UnityEngineDebug.__Log__SystemObject__SystemVoid
+      uid: bdc324d4-70d8-46f7-ad66-562a2c89246d
+      position: {x: 1008.9165, y: -135}
+      nodeUIDs:
+      - 6d68c656-39bd-4261-85be-477cd170a9c8|0
+      flowUIDs: []
+      nodeValues:
+      - unityObjectValue: {fileID: 0}
+        stringValue: 
+    - fullName: Const_SystemString
+      uid: 6d68c656-39bd-4261-85be-477cd170a9c8
+      position: {x: 982.78, y: 11.615509}
+      nodeUIDs:
+      - 
+      flowUIDs: []
+      nodeValues:
+      - unityObjectValue: {fileID: 0}
+        stringValue: System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089|OnPickupUseDown
+          at power button
+    updateOrder: 0
+  graphElementData: []
+  version: 1.0.0
+  showAssembly: 0
