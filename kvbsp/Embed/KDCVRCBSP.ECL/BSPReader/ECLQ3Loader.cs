@@ -8,8 +8,6 @@ namespace KDCVRCBSP.ECL {
 	public static class ECLQ3Loader {
 		public const int CONTENTS_SOLID      = 0x00000001;
 		public const int CONTENTS_PLAYERCLIP = 0x00010000;
-		// disabled for now
-		public const int CONTENTS_noclip  = 0x00000000;
 		public static ECLBSPFile Load(byte[] bspRaw, bool raven) {
 			var bsp = new ECLLoadCom.LumpTable {
 				file = new(bspRaw),
@@ -163,12 +161,18 @@ namespace KDCVRCBSP.ECL {
 				int numSides = pos.GetS32(4);
 				(_, int contents) = GetTexInfoOrFallback(pos.GetS32(8));
 				ECLBSPFile.BrushSide[] brushSides = new ECLBSPFile.BrushSide[numSides];
+				// we fake noclip contents by probing brush sides for "common/noclip"
+				// this is very bad, but it should work
+				// preproom3 needs this for skybox reasons
+				bool hasNoclipContents = false;
 				for (int j = 0; j < numSides; j++) {
 					// dbrushside_t / rdbrushside_t in qfusion qfiles
 					// raven adds 'surfacenum' to the end
 					var sidePos = lumpBrushSides.GetStruct(j + firstSide, raven ? 12 : 8);
 					Plane3d plane = planes[sidePos.GetS32(0)];
 					(string texInfo, _) = GetTexInfoOrFallback(sidePos.GetS32(4));
+					if (texInfo == "common/noclip")
+						hasNoclipContents = true;
 					brushSides[j] = new ECLBSPFile.BrushSide {
 						plane = plane,
 						tex = texInfo,
@@ -177,7 +181,6 @@ namespace KDCVRCBSP.ECL {
 				}
 				// We use this as a 'secret handshake' to implement the 'noclip' brush.
 				// Noclip brushes are solid (so block vis), but don't create collision.
-				bool hasNoclipContents = (contents & CONTENTS_noclip) != 0;
 				bool hasClipContents = (contents & (CONTENTS_SOLID | CONTENTS_PLAYERCLIP)) != 0;
 				brushes[idx] = new ECLBSPFile.Brush {
 					illusionary = hasNoclipContents || !hasClipContents,

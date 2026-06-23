@@ -69,14 +69,6 @@ namespace KDCVRCBSP.ECL {
 			if (debugOccy)
 				Console.WriteLine(" expandLeaves took " + stp.Elapsed);
 
-			foreach (var brush in brushes) {
-				if (!brush.occyViewpoint)
-					continue;
-				var convex = IntoExpandedConvex(brush.ToPlanes());
-				if (convex != null)
-					viewConvexes.Add(convex);
-			}
-
 			// Stage 3: Find view AABB to minimize damage to Unity occlusion builder.
 			List<Convex3d<bool>> occluderGeo = new();
 			if (viewConvexes.Count == 0)
@@ -88,6 +80,16 @@ namespace KDCVRCBSP.ECL {
 					viewBounds = viewConvexes[i].bounds;
 				else
 					viewBounds = viewBounds.Join(viewConvexes[i].bounds);
+			}
+
+			// Stage 3a: After setting the view AABB, *then* accept occy-carving brushes like noclip.
+			// This ordering is important for i.e. preproom3 skybox
+			foreach (var brush in brushes) {
+				if (!brush.occyViewpoint)
+					continue;
+				var convex = IntoExpandedConvex(brush.ToPlanes());
+				if (convex != null)
+					viewConvexes.Add(convex);
 			}
 
 			// Stage 4: Start carving.

@@ -43,7 +43,7 @@ namespace KDCVRCBSP {
 				fgdDescriptors.Add(desc);
 				desc = new();
 				desc.classname = "func_detail_illusionary";
-				desc.description = "See ericw-tools docs. SET _mirrorinside 0 EXPLICITLY!!!";
+				desc.description = "See ericw-tools docs. SET _mirrorinside 0 EXPLICITLY!!! For Q3 format only, kvbsp loader emulates this; q3map2 sees this as a regular brush entity.";
 				desc.isSolid = true;
 				fgdDescriptors.Add(desc);
 				desc = new();
