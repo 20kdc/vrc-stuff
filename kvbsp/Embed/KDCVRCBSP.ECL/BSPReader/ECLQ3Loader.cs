@@ -145,9 +145,39 @@ namespace KDCVRCBSP.ECL {
 					patch.concaveCollision = true;
 					patch.grid = new ECLMesh.Vertex[patchW, patchH];
 					int vtxIdx = 0;
-					for (int j = 0; j < patchH; j++)
-						for (int i = 0; i < patchW; i++)
-							patch.grid[i, j] = vertices[vtxIdx++];
+					for (int j = 0; j < patchH; j++) {
+						for (int i = 0; i < patchW; i++) {
+							var vtx = vertices[vtxIdx++];
+							vtx.uv2 = Vector2d.Zero;
+							patch.grid[i, j] = vtx;
+						}
+					}
+					for (int j = 0; j < patchH; j++) {
+						for (int i = 0; i < patchW; i++) {
+							var here = patch.grid[i, j];
+							if (i != 0) {
+								var left = patch.grid[i - 1, j];
+								double dist = (left.position - here.position).Length;
+								here.uv2.x = left.uv2.x + dist;
+							}
+							if (j != 0) {
+								var up = patch.grid[i, j - 1];
+								double dist = (up.position - here.position).Length;
+								here.uv2.y = up.uv2.y + dist;
+							}
+							patch.grid[i, j] = here;
+						}
+					}
+					// The above algorithm is too subject to 'torsion' in complex geometry. A shame, I liked it.
+					// As it is, we use it to provide aspect-awareness to the original algorithm.
+					Vector2d lmScale = patch.grid[patchW - 1, patchH - 1].uv2;
+					for (int j = 0; j < patchH; j++) {
+						for (int i = 0; i < patchW; i++) {
+							var here = patch.grid[i, j];
+							here.uv2 = new Vector2d(i / (double) patchW, j / (double) patchH) * lmScale;
+							patch.grid[i, j] = here;
+						}
+					}
 					model.renderables.Add(patch);
 				} else {
 					// Console.WriteLine("face of unknown type " + type);

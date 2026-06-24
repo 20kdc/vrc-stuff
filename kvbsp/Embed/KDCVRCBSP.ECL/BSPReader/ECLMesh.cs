@@ -6,10 +6,13 @@ namespace KDCVRCBSP.ECL {
 	public class ECLMesh {
 		public readonly IReadOnlyList<Vertex> vertices;
 		public readonly IReadOnlyList<(int, int, int)> triangles;
+		// If UV2 is valid (and doesn't need to be generated)
+		public readonly bool uv2Valid;
 
-		public ECLMesh(IReadOnlyList<Vertex> vertices, IReadOnlyList<(int, int, int)> triangles) {
+		public ECLMesh(IReadOnlyList<Vertex> vertices, IReadOnlyList<(int, int, int)> triangles, bool uv2Valid = false) {
 			this.vertices = vertices;
 			this.triangles = triangles;
+			this.uv2Valid = uv2Valid;
 		}
 
 		/// Attempts to create a collision mesh from a brush.
@@ -87,6 +90,7 @@ namespace KDCVRCBSP.ECL {
 			public Vector3d position;
 			public Vector3d normal;
 			public Vector2d uv;
+			public Vector2d uv2;
 			// q3bsp supports this, but should we? it adds extra VRAM load.
 			// I guess have support for loading it and then just conveniently forget it during meshgen
 			public byte colourR, colourG, colourB, colourA;
@@ -119,7 +123,8 @@ namespace KDCVRCBSP.ECL {
 				return new Vertex {
 					position = (a.position * weightA) + (b.position * weightB) + (c.position * weightC),
 					normal = ((a.normal * weightA) + (b.normal * weightB) + (c.normal * weightC)).Normalized,
-					uv = (a.uv * trivialA) + (b.uv * trivialB) + (c.uv * trivialC),
+					uv = (a.uv * weightA) + (b.uv * weightB) + (c.uv * weightC),
+					uv2 = (a.uv2 * weightA) + (b.uv2 * weightB) + (c.uv2 * weightC),
 					colourR = TrivialInterpolateColourByte(a.colourR, b.colourR, c.colourR),
 					colourG = TrivialInterpolateColourByte(a.colourG, b.colourG, c.colourG),
 					colourB = TrivialInterpolateColourByte(a.colourB, b.colourB, c.colourB),

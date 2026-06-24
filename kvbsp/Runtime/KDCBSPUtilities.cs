@@ -136,6 +136,7 @@ namespace KDCVRCBSP {
 			var vertices = new Vector3[mesh.vertices.Count];
 			var normals = visual ? new Vector3[mesh.vertices.Count] : null;
 			var uvs = visual ? new Vector2[mesh.vertices.Count] : null;
+			var uv2 = (visual && mesh.uv2Valid) ? new Vector2[mesh.vertices.Count] : null;
 			var indices = new int[mesh.triangles.Count * 3];
 
 			for (int i = 0; i < mesh.vertices.Count; i++) {
@@ -146,6 +147,9 @@ namespace KDCVRCBSP {
 					normals[i] = new Vector3((float) v.normal.x, (float) v.normal.z, (float) v.normal.y);
 					// ID UVs are the opposite way around to Unity UVs, or something. IDK.
 					uvs[i] = new Vector2((float) v.uv.x, -(float) v.uv.y) * uvMul;
+					// for UV2 we do not care (this is for better patch LM support)
+					if (mesh.uv2Valid)
+						uv2[i] = new Vector2((float) v.uv2.x, (float) v.uv2.y);
 				}
 			}
 
@@ -170,6 +174,8 @@ namespace KDCVRCBSP {
 			if (visual) {
 				res.normals = normals;
 				res.uv = uvs;
+				if (mesh.uv2Valid)
+					res.uv2 = uv2;
 			}
 
 			res.triangles = indices;
@@ -190,7 +196,7 @@ namespace KDCVRCBSP {
 			Mesh res = ImportECLMeshCore(mesh, true, uvMul, worldScale, false);
 #if UNITY_EDITOR
 			// Unwrapping is costly, so we should only do it if this is a visual mesh and the lightmap scale is set.
-			if (lightmapSettings.lightmapScale > 0) {
+			if (lightmapSettings.lightmapScale > 0 && !mesh.uv2Valid) {
 				UnityEditor.UnwrapParam.SetDefaults(out UnityEditor.UnwrapParam unwrapParam);
 				unwrapParam.packMargin = lightmapSettings.lightmapPackMargin;
 				// try twice with upgrade on fail

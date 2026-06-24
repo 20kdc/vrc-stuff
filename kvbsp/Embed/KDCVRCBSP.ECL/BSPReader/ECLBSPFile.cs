@@ -250,7 +250,7 @@ namespace KDCVRCBSP.ECL {
 						));
 					}
 				}
-				return new(resolved, tris);
+				return new(resolved, tris, true);
 			}
 		}
 
