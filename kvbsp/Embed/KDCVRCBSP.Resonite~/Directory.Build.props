@@ -1,0 +1,6 @@
+<Project>
+	<PropertyGroup>
+		<BaseOutputPath>../../../netbin/bin/KDCVRCBSP.Resonite</BaseOutputPath>
+		<BaseIntermediateOutputPath>../../../netbin/bin/KDCVRCBSP.Resonite</BaseIntermediateOutputPath>
+	</PropertyGroup>
+</Project>

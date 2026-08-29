@@ -20,11 +20,11 @@ namespace KDCVRCBSP.BSP2OBJ {
 				} else if (bspFile == null)
 					bspFile = args[i];
 				else if (objFile == null)
-					bspFile = args[i];
+					objFile = args[i];
 				else
 					throw new Exception("no idea what to do with arg " + args[i]);
 			}
-			byte[] bsp = File.ReadAllBytes(args[0]);
+			byte[] bsp = File.ReadAllBytes(bspFile);
 			var file = ECLBSPFile.Load(bsp);
 			List<string> obj = new();
 			int entIdx = 0;
@@ -66,7 +66,7 @@ namespace KDCVRCBSP.BSP2OBJ {
 				}
 				entIdx++;
 			}
-			File.WriteAllLines(args[1], obj);
+			File.WriteAllLines(objFile, obj);
 		}
 		public static void Convex2Tris(Convex3d<bool> tmp, List<(ECLMesh.Vertex, ECLMesh.Vertex, ECLMesh.Vertex)> leafTris) {
 			foreach (var face in tmp.faces) {
